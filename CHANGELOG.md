@@ -8,6 +8,12 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.0.4] - 2023-09-05
+
+### Fixed
+
+- Added fix for packages that need to use transformation function `dotize`.
+
 ## [0.0.3] - 2023-09-05
 
 ### Fixed
