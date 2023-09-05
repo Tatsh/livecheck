@@ -8,7 +8,7 @@ from typing import Callable, Iterable, Iterator, Sequence, TypeVar, cast
 import re
 import xml.etree.ElementTree as etree
 
-from loguru import logger
+from loguru import logger as logger2
 import yaml
 
 __all__ = ('TextDataResponse', 'assert_not_none', 'chunks', 'dash_to_underscore', 'dotize',
@@ -29,7 +29,7 @@ def make_github_grit_commit_re(version: str) -> str:
 
 def dotize(s: str) -> str:
     ret = s.replace('-', '.').replace('_', '.')
-    logger.debug(f'dotize(): {s} -> {ret}')
+    logger2.debug(f'dotize(): {s} -> {ret}')
     return ret
 
 
