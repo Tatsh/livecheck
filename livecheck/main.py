@@ -233,7 +233,7 @@ def get_new_sha(src: str) -> str:
 @click.command()
 @click.option('-a', '--auto-update', is_flag=True)
 @click.option('-d', '--debug', is_flag=True)
-@click.option('-e', '--exclude', nargs=1000)
+@click.option('-e', '--exclude', multiple=True)
 @click.option('-W',
               '--working-dir',
               default='.',
