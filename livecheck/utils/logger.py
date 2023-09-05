@@ -1,4 +1,4 @@
-"""Utility functions."""
+"""Logging."""
 from types import FrameType
 import logging
 import sys

@@ -5,19 +5,19 @@ livecheck
 Commands
 --------
 
-.. click:: instagram_archiver.main:main
-  :prog: ia
+.. click:: livecheck.main:main
+  :prog: livecheck
   :nested: full
 
 
 Library
 -------
-.. automodule:: livecheck.name_of_module
+.. automodule:: livecheck.utils
    :members:
 
-Submodule
+Settings
 ---------
-.. automodule:: livecheck.submodule
+.. automodule:: livecheck.settings
    :members:
 
 Typing
