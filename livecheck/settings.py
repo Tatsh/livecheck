@@ -7,7 +7,8 @@ import json
 from loguru import logger
 
 import livecheck.special_cases as sc
-import livecheck.utils as utils
+
+from . import utils
 
 __all__ = ('LivecheckSettings', 'gather_settings')
 
