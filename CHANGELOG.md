@@ -8,6 +8,12 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.0.3] - 2023-09-05
+
+### Fixed
+
+- Fixed `--exclude` option.
+
 ## [0.0.1] - 2023-09-05
 
 ### Fixed
