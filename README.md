@@ -5,7 +5,7 @@ Tool for overlays to update ebuilds.
 ## Installation
 
 ```shell
-pip install livecheck
+pip install portage-livecheck
 ```
 
 ## Command line usage
