@@ -20,13 +20,15 @@ optional = true
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.5.1"
 portage = { git = "https://github.com/gentoo/portage.git" }
-portage-types = "^0.0.4"
+portage-types = "^0.0.2"
 pylint = "^2.17.5"
 pylint-quotes = "^0.2.3"
 rope = "^1.9.0"
 toml = "^0.10.2"
 types-requests = "^2.31.0.2"
 yapf = "^0.40.1"
+types-toml = "^0.10.8.7"
+types-pyyaml = "^6.0.12.11"
 
 [tool.poetry.group.docs]
 optional = true
@@ -97,6 +99,7 @@ load-plugins = [
   "pylint.extensions.set_membership",
   "pylint_quotes"
 ]
+recursive = true
 
 [tool.pylint.basic]
 class-attribute-naming-style = "snake_case"
