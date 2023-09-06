@@ -37,8 +37,5 @@ def setup_logging(debug: bool | None = False) -> None:
         setup_log_intercept_handler()
         logger.enable('')
     else:
-        logger.configure(handlers=(dict(
-            format='<level>{message}</level>',
-            level='INFO',
-            sink=sys.stderr,
-        ),))
+        logger.configure(
+            handlers=(dict(format='<level>{message}</level>', level='INFO', sink=sys.stderr),))
