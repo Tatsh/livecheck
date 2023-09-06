@@ -149,7 +149,8 @@ disable = [
   "missing-module-docstring",
   "too-many-instance-attributes",
   "unspecified-encoding",
-  "use-dict-literal"
+  "use-dict-literal",
+  "W0511"
 ]
 enable = [
   "bad-builtin",

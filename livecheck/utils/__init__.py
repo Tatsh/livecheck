@@ -2,9 +2,9 @@
 from dataclasses import dataclass
 from functools import lru_cache
 from itertools import groupby
-import operator
 from os.path import expanduser
 from typing import Callable, Iterable, Iterator, Sequence, TypeVar, cast
+import operator
 import re
 import xml.etree.ElementTree as etree
 

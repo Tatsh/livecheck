@@ -20,6 +20,7 @@ elif
 endregion
 esbenp
 esbonio
+eselect
 excinfo
 findname
 freedesktop
@@ -28,6 +29,7 @@ genindex
 getabsfile
 glabels
 hidapi
+hostnames
 htmlcov
 imgui
 implot
@@ -36,6 +38,7 @@ intelli
 isort
 jetbrains
 jssy
+justseen
 keepends
 keycodemapdb
 levelname
@@ -74,6 +77,7 @@ readlink
 rpcs
 rstcheck
 rtfd
+ryujinx
 sirit
 softfloat
 soundtouch

@@ -1,5 +1,7 @@
 # livecheck
 
+[![QA](https://github.com/Tatsh/livecheck/actions/workflows/qa.yml/badge.svg)](https://github.com/Tatsh/livecheck/actions/workflows/qa.yml)
+
 Tool for overlays to update ebuilds. Inspired by the MacPorts `port` subcommand of the same name.
 
 ## Installation
@@ -22,28 +24,30 @@ livecheck
 
 This package can do automated lookups based on commonly used hosts. Currently:
 
-* GitHub archives
-* GitHub commit hashes
-* GitHub releases
-* JetBrains products
-* PyPI
+- GitHub archives
+- GitHub commit hashes
+- GitHub releases
+- JetBrains products
+- PyPI
 
 This works as long as the version system is usable with Portage's version
 comparison function. For anything else, see [Package configuration](#package-configuration).
 
 ## Package configuration
 
-For packages that will not work with currently heuristic checking, a configuration file named `livecheck.json` can be placed in the directory alongside the ebuild.
+For packages that will not work with currently heuristic checking, a configuration file named
+`livecheck.json` can be placed in the directory alongside the ebuild.
 
 ### Configuration keys
 
-* `type` - `none`, `regex`, or `checksum`
-* `branch` - The GitHub branch name to use for commits
-* `no_auto_update` - boolean - Do not allow auto-updating of this package
-* `regex` - The regular expression to use
-* `transformation_fuction` - string - Function to use to transform the version string. Currently only `dotize` is supported. Others are for internal use.
-* `url` - URL of the document to run regular expressions against
-* `use_vercmp` - boolean - if `vercmp` from Portage should be used. Default: `true`.
+- `type` - `none`, `regex`, or `checksum`
+- `branch` - The GitHub branch name to use for commits
+- `no_auto_update` - boolean - Do not allow auto-updating of this package
+- `regex` - The regular expression to use
+- `transformation_function` - string - Function to use to transform the version string. Currently
+  only `dotize` is supported. Others are for internal use.
+- `url` - URL of the document to run regular expressions against
+- `use_vercmp` - boolean - if `vercmp` from Portage should be used. Default: `true`.
 
 ## Development use
 

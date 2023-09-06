@@ -1,4 +1,5 @@
 """Main command."""
+# pylint: disable=too-many-locals,too-many-branches,too-many-statements
 from datetime import datetime
 from functools import cmp_to_key
 from os import chdir
@@ -17,10 +18,9 @@ from requests import ConnectTimeout, ReadTimeout
 import click
 import requests
 
-from .typing import PropTuple, Response
-
 from .constants import PREFIX_RE, RSS_NS, SEMVER_RE, SUBMODULES, TAG_NAME_FUNCTIONS
 from .settings import LivecheckSettings, gather_settings
+from .typing import PropTuple, Response
 from .utils import (TextDataResponse, chunks, get_github_api_credentials, is_sha,
                     latest_jetbrains_versions, make_github_grit_commit_re, unique_justseen)
 from .utils.logger import setup_logging
@@ -28,6 +28,8 @@ from .utils.portage import (P, catpkg_catpkgsplit, find_highest_match_ebuild_pat
                             get_first_src_uri, get_highest_matches, get_highest_matches2)
 
 T = TypeVar('T')
+GIST_HOSTNAMES = set(('gist.github.com', 'gist.githubusercontent.com'))
+GITLAB_HOSTNAMES = set(('gitlab.com', 'gitlab.freedesktop.org'))
 
 
 def process_submodules(pkg_name: str, ref: str, contents: str, repo_uri: str) -> str:
@@ -156,7 +158,7 @@ def get_props(search_dir: str,
             yield (cat, pkg, ebuild_version, ebuild_version,
                    f'https://git.sr.ht/{user_repo}/log/{branch}/rss.xml',
                    r'<pubDate>([^<]+)</pubDate>', False)
-        elif parsed_uri.hostname in ('gist.github.com', 'gist.githubusercontent.com'):
+        elif parsed_uri.hostname in GIST_HOSTNAMES:
             home = P.aux_get(match, ['HOMEPAGE'], mytree=search_dir)[0]
             yield (cat, pkg, ebuild_version, ebuild_version, f'{home}/revisions',
                    r'<relative-time datetime="([0-9-]{10})', False)
@@ -176,8 +178,7 @@ def get_props(search_dir: str,
         elif parsed_uri.hostname == 'download.jetbrains.com':
             yield (cat, pkg, ebuild_version, ebuild_version,
                    'https://www.jetbrains.com/updates/updates.xml', None, True)
-        elif (parsed_uri.hostname in ('gitlab.com', 'gitlab.freedesktop.org')
-              and '/archive/' in parsed_uri.path):
+        elif (parsed_uri.hostname in GITLAB_HOSTNAMES and '/archive/' in parsed_uri.path):
             author, proj = src_uri.split('/')[3:5]
             m = re.match('^https://([^/]+)', src_uri)
             assert m is not None
@@ -307,8 +308,7 @@ def main(
                         if use_vercmp else results)[0]
             logger.debug(f're.findall() -> "{top_hash}"')
             cp = f'{cat}/{pkg}'
-            update_sha_too_source = settings.sha_sources.get(cp, None)
-            if update_sha_too_source:
+            if (update_sha_too_source := settings.sha_sources.get(cp, None)):
                 logger.debug('Package also needs a SHA update')
             if tf := settings.transformations.get(cp, None):
                 top_hash = tf(top_hash)
