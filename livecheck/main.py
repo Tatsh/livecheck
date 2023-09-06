@@ -232,12 +232,13 @@ def get_new_sha(src: str) -> str:
 
 
 @click.command()
-@click.option('-a', '--auto-update', is_flag=True)
-@click.option('-d', '--debug', is_flag=True)
-@click.option('-e', '--exclude', multiple=True)
+@click.option('-a', '--auto-update', is_flag=True, help='Rename and modify ebuilds.')
+@click.option('-d', '--debug', is_flag=True, help='Enable debug logging.')
+@click.option('-e', '--exclude', multiple=True, help='Exclude package(s) from updates.')
 @click.option('-W',
               '--working-dir',
               default='.',
+              help='Working directory. Should be a port tree root.',
               type=click.Path(file_okay=False,
                               exists=True,
                               resolve_path=True,

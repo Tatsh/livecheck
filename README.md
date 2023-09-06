@@ -1,6 +1,7 @@
 # livecheck
 
 [![QA](https://github.com/Tatsh/livecheck/actions/workflows/qa.yml/badge.svg)](https://github.com/Tatsh/livecheck/actions/workflows/qa.yml)
+[![Documentation Status](https://readthedocs.org/projects/livecheck/badge/?version=latest)](https://livecheck.readthedocs.io/en/latest/?badge=latest)
 
 Tool for overlays to update ebuilds. Inspired by the MacPorts `port` subcommand of the same name.
 
@@ -16,8 +17,15 @@ emerge livecheck
 
 ## Command line usage
 
-```shell
-livecheck
+```plain
+Usage: livecheck [OPTIONS] [PACKAGE_NAMES]...
+
+Options:
+  -a, --auto-update            Rename and modify ebuilds.
+  -d, --debug                  Enable debug logging.
+  -e, --exclude TEXT           Exclude package(s) from updates.
+  -W, --working-dir DIRECTORY  Working directory. Should be a port tree root.
+  --help                       Show this message and exit.
 ```
 
 ## Heuristic update detection
