@@ -8,6 +8,10 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Added
+
+- Added help text to CLI options.
+
 ## [0.0.4] - 2023-09-05
 
 ### Fixed
