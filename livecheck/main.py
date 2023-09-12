@@ -201,7 +201,7 @@ def get_props(search_dir: str,
             path = ('/'.join(parsed_uri.path.split('/')[1:3])
                     if parsed_uri.path.startswith('/@') else parsed_uri.path.split('/')[1])
             yield (cat, pkg, ebuild_version, ebuild_version, f'https://registry.yarnpkg.com/{path}',
-                   r'"version":"([^"]+)",?', True)
+                   r'"latest":"([^"]+)",?', True)
         else:
             home = P.aux_get(match, ['HOMEPAGE'], mytree=search_dir)[0]
             raise RuntimeError(f'Not handled: {catpkg} (non-GitHub/PyPI), homepage: {home}, '
