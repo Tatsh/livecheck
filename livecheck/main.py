@@ -29,7 +29,7 @@ from .utils.portage import (P, catpkg_catpkgsplit, find_highest_match_ebuild_pat
 
 T = TypeVar('T')
 GIST_HOSTNAMES = set(('gist.github.com', 'gist.githubusercontent.com'))
-GITLAB_HOSTNAMES = set(('gitlab.com', 'gitlab.freedesktop.org'))
+GITLAB_HOSTNAMES = set(('gitlab.com', 'gitlab.freedesktop.org', 'gitlab.gentoo.org'))
 
 
 def process_submodules(pkg_name: str, ref: str, contents: str, repo_uri: str) -> str:
