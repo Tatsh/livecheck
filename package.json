@@ -30,5 +30,5 @@
     "qa": "yarn mypy && yarn pylint && yarn check-spelling && yarn check-formatting",
     "test": "poetry run pytest"
   },
-  "version": "0.0.4"
+  "version": "0.0.5"
 }
