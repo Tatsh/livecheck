@@ -16,6 +16,7 @@ docutils
 dotize
 dynarmic
 ebuilds
+eclass
 elif
 endregion
 esbenp
@@ -62,6 +63,7 @@ numpy
 paren
 parens
 pipx
+pkgs
 pluggy
 porttree
 psvpfstools
