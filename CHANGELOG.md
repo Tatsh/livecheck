@@ -8,6 +8,18 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.0.7]
+
+### Added
+
+- Added support for packages using `yarn.eclass`. The package URI must be the first ` SRC_URI``
+(first in `YARN_PKGS`).
+- Added gitlab.gentoo.org to `GITLAB_HOSTNAMES`
+
+### Changed
+
+- Bumped dependencies
+
 ### Added
 
 - Added help text to CLI options.
