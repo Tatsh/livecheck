@@ -198,9 +198,8 @@ def get_props(search_dir: str,
                 r"href='/" + re.escape(proj) + r"/tag/\?h=([0-9][^']+)",
                 True)
         elif parsed_uri.hostname == 'registry.yarnpkg.com':
-            path = '/'.join(
-                parsed_uri.path.split('/')[1:3] if parsed_uri.path.startswith('/@') else parsed_uri.
-                path.split('/')[1])
+            path = ('/'.join(parsed_uri.path.split('/')[1:3])
+                    if parsed_uri.path.startswith('/@') else parsed_uri.path.split('/')[1])
             yield (cat, pkg, ebuild_version, ebuild_version, f'https://registry.yarnpkg.com/{path}',
                    r'"version":"([^"]+)",?', True)
         else:
