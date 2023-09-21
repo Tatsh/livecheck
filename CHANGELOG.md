@@ -8,6 +8,13 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.0.8]
+
+### Added
+
+- Added handler for `-pl[0-9]` as last number in version, for
+  [qpxtool](https://github.com/speed47/qpxtool) releases
+
 ## [0.0.7]
 
 ### Added

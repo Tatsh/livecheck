@@ -73,6 +73,7 @@ pylint
 pytest
 pythonhosted
 pyyaml
+qpxtool
 raphnet
 rdparty
 readlink

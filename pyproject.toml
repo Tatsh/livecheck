@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "portage-livecheck"
-version = "0.0.7"
+version = "0.0.8"
 authors = ["Andrew Udvare <audvare@gmail.com>"]
 description = "Tool to update ebuilds."
 license = "MIT"
@@ -117,7 +117,9 @@ good-names = [
   "j",
   "k",
   "m",
+  "mm",
   "n",
+  "pl",
   "r",
   "s",
   "tf",
