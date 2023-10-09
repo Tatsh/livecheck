@@ -21,7 +21,7 @@ optional = true
 mypy = "^1.5.1"
 portage = { git = "https://github.com/gentoo/portage.git" }
 portage-types = "^0.0.2"
-pylint = "^2.17.5"
+pylint = ">=2.17.5,<4.0.0"
 pylint-quotes = "^0.2.3"
 rope = "^1.9.0"
 toml = "^0.10.2"
