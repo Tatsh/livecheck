@@ -1,3 +1,5 @@
+*.pyc
+.ruff_cache/
 /.coverage
 /.directory
 /.pytest_cache/
@@ -7,4 +9,3 @@
 /htmlcov/
 /node_modules/
 /yarn-error.log
-*.pyc

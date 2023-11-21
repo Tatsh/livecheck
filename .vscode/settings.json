@@ -14,7 +14,6 @@
   "editor.rulers": [100],
   "editor.tabSize": 2,
   "editor.wordWrapColumn": 100,
-  "esbonio.sphinx.confDir": "docs",
   "eslint.lintTask.enable": true,
   "files.insertFinalNewline": true,
   "files.trimFinalNewlines": true,
@@ -39,9 +38,6 @@
   ],
   "python.analysis.stubPath": ".stubs",
   "python.analysis.typeCheckingMode": "strict",
-  "python.formatting.provider": "yapf",
   "python.languageServer": "Pylance",
-  "python.linting.flake8Enabled": false,
-  "python.linting.pylintEnabled": true,
   "yaml.format.printWidth": 100
 }

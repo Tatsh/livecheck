@@ -6,7 +6,7 @@ import json
 
 from loguru import logger
 
-import livecheck.special_cases as sc
+import livecheck.special.handlers as sc
 
 from . import utils
 
@@ -22,6 +22,7 @@ class LivecheckSettings:
     no_auto_update: set[str]
     sha_sources: dict[str, str]
     transformations: Mapping[str, Callable[[str], str]]
+    yarn_base_packages: dict[str, str]
 
 
 def gather_settings(search_dir: str) -> LivecheckSettings:
@@ -32,6 +33,7 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
     no_auto_update = set()
     transformations = {}
     sha_sources = {}
+    yarn_base_packages = {}
     for path in glob.glob(f'{search_dir}/**/livecheck.json', recursive=True):
         logger.debug(f'Opening {path}')
         with open(path) as f:
@@ -62,5 +64,7 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
                 transformations[catpkg] = tf
             if settings_parsed.get('sha_source', None):
                 sha_sources[catpkg] = settings_parsed['sha_source']
+            if settings_parsed.get('yarn_base_package', None):
+                yarn_base_packages[catpkg] = settings_parsed['yarn_base_package']
     return LivecheckSettings(branches, checksum_livechecks, custom_livechecks, ignored_packages,
-                             no_auto_update, sha_sources, transformations)
+                             no_auto_update, sha_sources, transformations, yarn_base_packages)

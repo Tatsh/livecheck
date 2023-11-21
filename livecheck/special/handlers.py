@@ -4,8 +4,8 @@ import xml.etree.ElementTree as etree
 from loguru import logger
 import requests
 
-from .constants import RSS_NS
-from .utils import assert_not_none
+from ..constants import RSS_NS
+from ..utils import assert_not_none
 
 
 def handle_glabels(s: str) -> str:

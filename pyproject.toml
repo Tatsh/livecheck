@@ -13,22 +13,23 @@ click = ">=8.1.3,<8.1.4 || >8.1.4"
 loguru = "^0.7.1"
 requests = "^2.31.0"
 pyyaml = "^6.0.1"
+pyxdg = "^0.28"
 
 [tool.poetry.group.dev]
 optional = true
 
 [tool.poetry.group.dev.dependencies]
+commitizen = "^3.9.0"
 mypy = "^1.5.1"
 portage = { git = "https://github.com/gentoo/portage.git" }
 portage-types = "^0.0.2"
-pylint = ">=2.17.5,<4.0.0"
-pylint-quotes = "^0.2.3"
 rope = "^1.9.0"
+ruff = "^0.1.6"
 toml = "^0.10.2"
-types-requests = "^2.31.0.2"
-yapf = "^0.40.1"
-types-toml = "^0.10.8.7"
 types-pyyaml = "^6.0.12.11"
+types-requests = "^2.31.0.2"
+types-toml = "^0.10.8.7"
+yapf = "^0.40.1"
 
 [tool.poetry.group.docs]
 optional = true
@@ -71,6 +72,7 @@ disallow_untyped_calls = true
 disallow_untyped_defs = true
 disallow_untyped_decorators = true
 disallow_subclassing_any = true
+mypy_path = "./.stubs"
 show_column_numbers = true
 show_error_codes = true
 strict_equality = true
@@ -80,106 +82,15 @@ warn_return_any = true
 warn_unreachable = true
 warn_unused_ignores = true
 
-[tool.pylint.main]
-ignore = [".git", "node_modules"]
-load-plugins = [
-  "pylint.extensions.bad_builtin",
-  "pylint.extensions.check_elif",
-  "pylint.extensions.code_style",
-  "pylint.extensions.comparison_placement",
-  "pylint.extensions.consider_refactoring_into_while_condition",
-  "pylint.extensions.consider_ternary_expression",
-  "pylint.extensions.docparams",
-  "pylint.extensions.empty_comment",
-  "pylint.extensions.eq_without_hash",
-  "pylint.extensions.for_any_all",
-  "pylint.extensions.magic_value",
-  "pylint.extensions.overlapping_exceptions",
-  "pylint.extensions.redefined_loop_name",
-  "pylint.extensions.set_membership",
-  "pylint_quotes"
-]
-recursive = true
-
-[tool.pylint.basic]
-class-attribute-naming-style = "snake_case"
-good-names = [
-  "a",
-  "b",
-  "bn",
-  "cp",
-  "dn",
-  "e",
-  "f",
-  "g",
-  "i",
-  "id",
-  "j",
-  "k",
-  "m",
-  "mm",
-  "n",
-  "pl",
-  "r",
-  "s",
-  "tf",
-  "x",
-  "y",
-  "z"
-]
-include-naming-hint = true
-inlinevar-naming-style = "snake_case"
-
-[tool.pylint.design]
-max-args = 8
-max-branches = 15
-max-locals = 30
-max-statements = 80
-
-[tool.pylint.format]
-expected-line-ending-format = "LF"
-
-[tool.pylint.logging]
-logging-format-style = "new"
-logging-modules = ["logging", "loguru"]
-
-[tool.pylint."messages control"]
-disable = [
-  "magic-value-comparison",
-  "missing-class-docstring",
-  "missing-function-docstring",
-  "missing-module-docstring",
-  "too-many-instance-attributes",
-  "unspecified-encoding",
-  "use-dict-literal",
-  "W0511"
-]
-enable = [
-  "bad-builtin",
-  "consider-refactoring-into-while-condition",
-  "consider-ternary-expression",
-  "consider-using-assignment-expr",
-  "else-if-used",
-  "empty-comment",
-  "eq-without-hash",
-  "misplaced-comparison-constant",
-  "overlapping-except",
-  "redefined-loop-name",
-  "use-set-for-membership",
-  "useless-type-doc"
-]
-
-[tool.pylint.parameter_documentation]
-default-docstring-type = "numpy"
-
-[tool.pylint.refactoring]
-max-nested-blocks = 6
-
 [tool.pytest.ini_options]
 mock_use_standalone_module = true
 
 [tool.rstcheck]
 ignore_directives = "automodule"
+
+[tool.ruff]
+exclude = [".git", ".mypy_cache", ".ruff_cache", "_build", "build", "dist", "node_modules"]
+line-length = 100
 
 [tool.yapf]
 align_closing_bracket_with_visual_indent = true
@@ -226,3 +137,6 @@ split_penalty_for_added_line_split = 30
 split_penalty_import_names = 0
 split_penalty_logical_operator = 300
 use_tabs = false
+
+[tool.yapfignore]
+ignore_patterns = ["node_modules/**"]

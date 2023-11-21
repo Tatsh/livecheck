@@ -4,5 +4,5 @@
     "code_blocks": false,
     "line_length": 100
   },
-  "no-duplicate-header": false
+  "no-duplicate-heading": false
 }

@@ -39,7 +39,7 @@ def find_highest_match_ebuild_path(cp: str, search_dir: str) -> str:
         split_b = catpkgsplit(b[1])
         assert len(split_a) == 4
         assert len(split_b) == 4
-        return vercmp(split_a[3], split_b[3]) or 0  # type: ignore[misc]
+        return vercmp(split_a[3], split_b[3]) or 0
 
     items: list[tuple[str, str]] = []
     for atom in P.match(cp):

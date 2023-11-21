@@ -1,5 +1,4 @@
 """Main command."""
-# pylint: disable=too-many-locals,too-many-branches,too-many-statements
 from datetime import datetime
 from functools import cmp_to_key
 from os import chdir
@@ -20,6 +19,7 @@ import requests
 
 from .constants import PREFIX_RE, RSS_NS, SEMVER_RE, SUBMODULES, TAG_NAME_FUNCTIONS
 from .settings import LivecheckSettings, gather_settings
+from .special.yarn import update_yarn_ebuild
 from .typing import PropTuple, Response
 from .utils import (TextDataResponse, chunks, get_github_api_credentials, is_sha,
                     latest_jetbrains_versions, make_github_grit_commit_re, unique_justseen)
@@ -371,6 +371,8 @@ def main(
                     sp.run(('mv', ebuild, new_filename), check=True)
                     with open(new_filename, 'w') as f:
                         f.write(content)
+                    if re.search(r'^inherit .* ?yarn\b', content, re.MULTILINE):
+                        update_yarn_ebuild(new_filename, settings.yarn_base_packages[cp], pkg)
                 else:
                     new_date = ''
                     if is_sha(top_hash):
