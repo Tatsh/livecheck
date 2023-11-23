@@ -17,7 +17,10 @@ from requests import ConnectTimeout, ReadTimeout
 import click
 import requests
 
-from .constants import GIST_HOSTNAMES, GITLAB_HOSTNAMES, PREFIX_RE, RSS_NS, SEMVER_RE, SUBMODULES, TAG_NAME_FUNCTIONS
+from .special.dotnet import update_dotnet_ebuild
+
+from .constants import (GIST_HOSTNAMES, GITLAB_HOSTNAMES, PREFIX_RE, RSS_NS, SEMVER_RE, SUBMODULES,
+                        TAG_NAME_FUNCTIONS)
 from .settings import LivecheckSettings, gather_settings
 from .special.golang import update_go_ebuild
 from .special.yarn import update_yarn_ebuild
@@ -26,7 +29,7 @@ from .utils import (TextDataResponse, chunks, get_github_api_credentials, is_sha
                     latest_jetbrains_versions, make_github_grit_commit_re, unique_justseen)
 from .utils.logger import setup_logging
 from .utils.portage import (P, catpkg_catpkgsplit, find_highest_match_ebuild_path,
-                            get_first_src_uri, get_highest_matches, get_highest_matches2)
+                            get_first_src_uri, get_highest_matches, get_highest_matches2, sort_by_v)
 
 T = TypeVar('T')
 
@@ -55,19 +58,6 @@ def process_submodules(pkg_name: str, ref: str, contents: str, repo_uri: str) ->
                 if (local_sha := line.split('=')[1].replace('"', '').strip()) != remote_sha:
                     contents = contents.replace(local_sha, remote_sha)
     return contents
-
-
-def sort_by_v(a: str, b: str) -> int:
-    cp_a, _cat_a, _pkg_b, version_a = catpkg_catpkgsplit(a)
-    cp_b, _cat_b, _pkg_b, version_b = catpkg_catpkgsplit(b)
-    if cp_a == cp_b:
-        if version_a == version_b:
-            return 0
-        # Sort descending. First is taken with unique_justseen
-        logger.debug(f'Found multiple ebuilds of {cp_a}. Only the highest version ebuild will be '
-                     'considered.')
-        return vercmp(version_b, version_a, silent=0) or 0
-    return cp_a < cp_b
 
 
 def get_props(search_dir: str,
@@ -374,6 +364,8 @@ def main(
                         update_yarn_ebuild(new_filename, settings.yarn_base_packages[cp], pkg)
                     elif cp in settings.go_sum_uri:
                         update_go_ebuild(new_filename, pkg, top_hash, settings.go_sum_uri[cp])
+                    elif cp in settings.dotnet_projects:
+                        update_dotnet_ebuild(new_filename, settings.dotnet_projects[cp], cp)
                 else:
                     new_date = ''
                     if is_sha(top_hash):

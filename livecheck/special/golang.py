@@ -15,7 +15,7 @@ def update_go_ebuild(ebuild: str | Path, pkg: str, version: str, go_sum_uri_temp
     r = requests.get(uri)
     r.raise_for_status()
     new_ego_sum_lines = []
-    for line in (re.sub(r' h1\:.*$', '', x.strip()) for x in r.text.splitlines()):
+    for line in (re.sub(r' h1\:.*$', '', x) for x in r.text.splitlines()):
         new_ego_sum_lines.append(f'"{line}"')
     in_ego_sum = False
     tf = tempfile.NamedTemporaryFile(mode='w',

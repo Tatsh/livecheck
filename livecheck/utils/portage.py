@@ -8,9 +8,22 @@ from portage.versions import catpkgsplit, vercmp
 import portage
 
 __all__ = ('P', 'catpkg_catpkgsplit', 'find_highest_match_ebuild_path', 'get_first_src_uri',
-           'get_highest_matches', 'get_highest_matches2')
+           'get_highest_matches', 'get_highest_matches2', 'sort_by_v')
 
 P = portage.db[portage.root]['porttree'].dbapi  # pylint: disable=no-member
+
+
+def sort_by_v(a: str, b: str) -> int:
+    cp_a, _cat_a, _pkg_b, version_a = catpkg_catpkgsplit(a)
+    cp_b, _cat_b, _pkg_b, version_b = catpkg_catpkgsplit(b)
+    if cp_a == cp_b:
+        if version_a == version_b:
+            return 0
+        # Sort descending. First is taken with unique_justseen
+        logger.debug(f'Found multiple ebuilds of {cp_a}. Only the highest version ebuild will be '
+                     'considered.')
+        return vercmp(version_b, version_a, silent=0) or 0
+    return cp_a < cp_b
 
 
 def get_highest_matches(search_dir: str) -> Iterator[str]:

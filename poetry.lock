@@ -463,6 +463,17 @@ MarkupSafe = ">=2.0"
 i18n = ["Babel (>=2.7)"]
 
 [[package]]
+name = "libarchive-c"
+version = "5.0"
+description = "Python interface to libarchive"
+optional = false
+python-versions = "*"
+files = [
+    {file = "libarchive-c-5.0.tar.gz", hash = "sha256:d673f56673d87ec740d1a328fa205cafad1d60f5daca4685594deb039d32b159"},
+    {file = "libarchive_c-5.0-py2.py3-none-any.whl", hash = "sha256:3ed7ee9b7d7d6fc200aecce63cee2084754cb6c00e946f6d007b80236e662bff"},
+]
+
+[[package]]
 name = "loguru"
 version = "0.7.2"
 description = "Python logging made (stupidly) simple"
@@ -1343,4 +1354,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<4"
-content-hash = "d911cf79d394aba1d94a6273db51fe7ab98167bdb830c9079e575bb47f6feeb6"
+content-hash = "f1e13690757d5e9f0fa8d6a72d023a846ab28c1cceb8d00b08bd39829078b41b"

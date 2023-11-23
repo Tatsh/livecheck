@@ -61,6 +61,7 @@ modindex
 mypy
 mytree
 nuanceur
+nugets
 numpy
 paren
 parens

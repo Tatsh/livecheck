@@ -2,9 +2,8 @@ from dataclasses import dataclass
 from os.path import basename, dirname
 from typing import Callable, Mapping
 import glob
+import logging
 import json
-
-from loguru import logger
 
 import livecheck.special.handlers as sc
 
@@ -12,12 +11,16 @@ from . import utils
 
 __all__ = ('LivecheckSettings', 'gather_settings')
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class LivecheckSettings:
     branches: dict[str, str]
     checksum_livechecks: set[str]
     custom_livechecks: dict[str, tuple[str, str, bool, str]]
+    dotnet_projects: dict[str, str]
+    """Dictionary of catpkg to project or solution file (base name only)."""
     go_sum_uri: dict[str, str]
     """
     Dictionary of catpkg to full URI to ``go.sum`` with ``@PV@`` used for where version gets
@@ -35,6 +38,7 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
     branches = {}
     checksum_livechecks = set()
     custom_livechecks = {}
+    dotnet_projects = {}
     golang_packages = {}
     ignored_packages = set()
     no_auto_update = set()
@@ -78,6 +82,8 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
                     yarn_packages[catpkg] = settings_parsed['yarn_packages']
             if settings_parsed.get('go_sum_uri', None):
                 golang_packages[catpkg] = settings_parsed['go_sum_uri']
-    return LivecheckSettings(branches, checksum_livechecks, custom_livechecks, golang_packages,
-                             ignored_packages, no_auto_update, sha_sources, transformations,
-                             yarn_base_packages, yarn_packages)
+            if settings_parsed.get('dotnet_project', None):
+                dotnet_projects[catpkg] = settings_parsed['dotnet_project']
+    return LivecheckSettings(branches, checksum_livechecks, custom_livechecks, dotnet_projects,
+                             golang_packages, ignored_packages, no_auto_update, sha_sources,
+                             transformations, yarn_base_packages, yarn_packages)
