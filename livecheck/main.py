@@ -17,8 +17,9 @@ from requests import ConnectTimeout, ReadTimeout
 import click
 import requests
 
-from .constants import PREFIX_RE, RSS_NS, SEMVER_RE, SUBMODULES, TAG_NAME_FUNCTIONS
+from .constants import GIST_HOSTNAMES, GITLAB_HOSTNAMES, PREFIX_RE, RSS_NS, SEMVER_RE, SUBMODULES, TAG_NAME_FUNCTIONS
 from .settings import LivecheckSettings, gather_settings
+from .special.golang import update_go_ebuild
 from .special.yarn import update_yarn_ebuild
 from .typing import PropTuple, Response
 from .utils import (TextDataResponse, chunks, get_github_api_credentials, is_sha,
@@ -28,8 +29,6 @@ from .utils.portage import (P, catpkg_catpkgsplit, find_highest_match_ebuild_pat
                             get_first_src_uri, get_highest_matches, get_highest_matches2)
 
 T = TypeVar('T')
-GIST_HOSTNAMES = set(('gist.github.com', 'gist.githubusercontent.com'))
-GITLAB_HOSTNAMES = set(('gitlab.com', 'gitlab.freedesktop.org', 'gitlab.gentoo.org'))
 
 
 def process_submodules(pkg_name: str, ref: str, contents: str, repo_uri: str) -> str:
@@ -371,8 +370,10 @@ def main(
                     sp.run(('mv', ebuild, new_filename), check=True)
                     with open(new_filename, 'w') as f:
                         f.write(content)
-                    if re.search(r'^inherit .* ?yarn\b', content, re.MULTILINE):
+                    if cp in settings.yarn_base_packages:
                         update_yarn_ebuild(new_filename, settings.yarn_base_packages[cp], pkg)
+                    elif cp in settings.go_sum_uri:
+                        update_go_ebuild(new_filename, pkg, top_hash, settings.go_sum_uri[cp])
                 else:
                     new_date = ''
                     if is_sha(top_hash):

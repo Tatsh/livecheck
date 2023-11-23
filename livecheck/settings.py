@@ -18,22 +18,30 @@ class LivecheckSettings:
     branches: dict[str, str]
     checksum_livechecks: set[str]
     custom_livechecks: dict[str, tuple[str, str, bool, str]]
+    go_sum_uri: dict[str, str]
+    """
+    Dictionary of catpkg to full URI to ``go.sum`` with ``@PV@`` used for where version gets
+    placed.
+    """
     ignored_packages: set[str]
     no_auto_update: set[str]
     sha_sources: dict[str, str]
     transformations: Mapping[str, Callable[[str], str]]
     yarn_base_packages: dict[str, str]
+    yarn_packages: dict[str, list[str]]
 
 
 def gather_settings(search_dir: str) -> LivecheckSettings:
     branches = {}
     checksum_livechecks = set()
     custom_livechecks = {}
+    golang_packages = {}
     ignored_packages = set()
     no_auto_update = set()
-    transformations = {}
     sha_sources = {}
+    transformations = {}
     yarn_base_packages = {}
+    yarn_packages = {}
     for path in glob.glob(f'{search_dir}/**/livecheck.json', recursive=True):
         logger.debug(f'Opening {path}')
         with open(path) as f:
@@ -66,5 +74,10 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
                 sha_sources[catpkg] = settings_parsed['sha_source']
             if settings_parsed.get('yarn_base_package', None):
                 yarn_base_packages[catpkg] = settings_parsed['yarn_base_package']
-    return LivecheckSettings(branches, checksum_livechecks, custom_livechecks, ignored_packages,
-                             no_auto_update, sha_sources, transformations, yarn_base_packages)
+                if settings_parsed.get('yarn_packages', None):
+                    yarn_packages[catpkg] = settings_parsed['yarn_packages']
+            if settings_parsed.get('go_sum_uri', None):
+                golang_packages[catpkg] = settings_parsed['go_sum_uri']
+    return LivecheckSettings(branches, checksum_livechecks, custom_livechecks, golang_packages,
+                             ignored_packages, no_auto_update, sha_sources, transformations,
+                             yarn_base_packages, yarn_packages)

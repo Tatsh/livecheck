@@ -33,13 +33,17 @@ def get_highest_matches2(names: Sequence[str], search_dir: str) -> Iterator[str]
                     yield m
 
 
+def get_3rd_of_4(tup: tuple[str, str] | tuple[str, str, str] | tuple[str, str, str, str]) -> str:
+    match tup:
+        case (_x, _y, z, _w):
+            return z
+        case _:
+            raise TypeError
+
+
 def find_highest_match_ebuild_path(cp: str, search_dir: str) -> str:
     def cmp(a: tuple[str, str], b: tuple[str, str]) -> int:
-        split_a = catpkgsplit(a[1])
-        split_b = catpkgsplit(b[1])
-        assert len(split_a) == 4
-        assert len(split_b) == 4
-        return vercmp(split_a[3], split_b[3]) or 0
+        return vercmp(get_3rd_of_4(catpkgsplit(a[1])), get_3rd_of_4(catpkgsplit(b[1]))) or 0
 
     items: list[tuple[str, str]] = []
     for atom in P.match(cp):

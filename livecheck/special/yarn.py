@@ -7,7 +7,8 @@ import subprocess as sp
 import tempfile
 
 from typing_extensions import NotRequired
-from xdg.BaseDirectory import save_cache_path
+
+from .utils import get_project_path
 
 CONVERSION_CODE: Final[str] = '''const fs = require('fs');
 const lockfile = require('@yarnpkg/lockfile');
@@ -23,10 +24,6 @@ class LockfilePackage(TypedDict):
 
 
 Lockfile = dict[str, LockfilePackage]
-
-
-def get_project_path(package_name: str) -> Path:
-    return Path(save_cache_path(f'livecheck/{package_name}'))
 
 
 @lru_cache
