@@ -102,6 +102,8 @@ tsschecker
 udvare
 vercmp
 virtualenv
+wiimm
+wiimms
 xbyak
 xemu
 xmatch

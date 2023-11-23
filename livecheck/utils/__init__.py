@@ -13,7 +13,7 @@ import yaml
 
 __all__ = ('TextDataResponse', 'assert_not_none', 'chunks', 'dash_to_underscore', 'dotize',
            'get_github_api_credentials', 'is_sha', 'latest_jetbrains_versions',
-           'make_github_grit_commit_re', 'prefix_v')
+           'make_github_grit_commit_re', 'make_github_grit_title_re', 'prefix_v')
 
 T = TypeVar('T')
 # From parse-package-name
@@ -25,6 +25,10 @@ RE_NON_SCOPED = r'^([^@\/]+)(?:@([^\/]+))?(\/.*)?$'
 def make_github_grit_commit_re(version: str) -> str:
     return (r'<id>tag:github.com,2008:Grit::Commit/([0-9a-f]{' + str(len(version)) +
             r'})[0-9a-f]*</id>')
+
+
+def make_github_grit_title_re() -> str:
+    return r'<title>\s+.*v([0-9][^ <]+) '
 
 
 def dotize(s: str) -> str:
