@@ -29,8 +29,8 @@ def dotnet_restore(project_or_solution: str | Path) -> Iterator[str]:
                                                    check=True,
                                                    text=True,
                                                    stdout=sp.PIPE).stdout.splitlines())
-                    if not re.search(r'^microsoft.(?:asp)?netcore.app.(?:host|ref|runtime)', x)
-                    and re.search(r'@[0-9]', x))
+                    if not re.match(r'^microsoft\.(?:asp)?netcore\.app\.(?:host|ref|runtime)', x)
+                    and not re.match(r'^runtime\.win', x) and re.search(r'@[0-9]', x))
 
 
 def update_dotnet_ebuild(ebuild: str | Path, project_or_solution: str | Path, cp: str) -> None:
