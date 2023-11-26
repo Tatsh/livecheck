@@ -1,4 +1,3 @@
-libarchive-c>=5.0
 portage @ git+https://github.com/gentoo/portage@portage-3.0.51
 sphinx-click>=4.4.0
 toml>=0.10.2

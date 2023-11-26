@@ -1,13 +1,12 @@
-from contextlib import chdir
 from functools import cmp_to_key
 from pathlib import Path
 import re
+import shutil
 import tempfile
 import subprocess as sp
 from typing import Iterator
 from urllib.parse import urlparse
 
-import libarchive
 import requests
 
 from ..utils import unique_justseen
@@ -51,8 +50,7 @@ def update_dotnet_ebuild(ebuild: str | Path, project_or_solution: str | Path, cp
                 for data in r.iter_content(chunk_size=512):
                     f.write(data)
         r.raise_for_status()
-        with chdir(td):
-            libarchive.extract_file(str(archive_out_path))
+        shutil.unpack_archive(str(archive_out_path), td)
         run = sp.run(('find', td, '-maxdepth', '2', '-name', project_or_solution.name),
                      check=True,
                      stdout=sp.PIPE,
