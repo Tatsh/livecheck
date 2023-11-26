@@ -60,6 +60,7 @@ mbedtls
 modindex
 mypy
 mytree
+netcore
 nuanceur
 nugets
 numpy
