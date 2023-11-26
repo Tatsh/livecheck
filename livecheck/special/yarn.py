@@ -3,6 +3,7 @@ from pathlib import Path
 from shutil import copyfile
 from typing import Final, Iterator, TypedDict, cast
 import json
+import re
 import subprocess as sp
 import tempfile
 
@@ -51,7 +52,8 @@ def parse_lockfile(package_name: str) -> Lockfile:
 
 
 def yarn_pkgs(package_name: str) -> Iterator[str]:
-    for key, val in parse_lockfile(package_name).items():
+    deps = parse_lockfile(package_name).items()
+    for key, val in deps:
         has_prefix_at = key.startswith('@')
         dep_name = f'{"@" if has_prefix_at else ""}{key[1 if has_prefix_at else 0:].split("@", maxsplit=1)[0]}'
         if dep_name.endswith('-cjs'):
@@ -61,7 +63,9 @@ def yarn_pkgs(package_name: str) -> Iterator[str]:
 
 def update_yarn_ebuild(ebuild: str | Path, yarn_base_package: str, pkg: str) -> None:
     project_path = get_project_path(yarn_base_package)
-    new_yarn_pkgs = yarn_pkgs(yarn_base_package)
+    package_re = re.compile(r'^' + re.escape(yarn_base_package) + r'-[0-9]+')
+    new_yarn_pkgs = sorted(yarn_pkgs(yarn_base_package),
+                           key=lambda x: -1 if re.match(package_re, x) else 0)
     ebuild = Path(ebuild)
     in_yarn_pkgs = False
     tf = tempfile.NamedTemporaryFile(mode='w',
@@ -82,14 +86,14 @@ def update_yarn_ebuild(ebuild: str | Path, yarn_base_package: str, pkg: str) -> 
                     in_yarn_pkgs = False
                     tf.write(line)
                 elif not wrote_new_packages:
-                    for pkg in new_yarn_pkgs:
-                        tf.write(f'\t{pkg}\n')
+                    for new_pkg in new_yarn_pkgs:
+                        tf.write(f'\t{new_pkg}\n')
                     wrote_new_packages = True
             else:
                 tf.write(line)
     ebuild.unlink()
     Path(tf.name).rename(ebuild).chmod(0o0644)
     for item in ('package.json', 'yarn.lock'):
-        target = ebuild.parent / 'files' / f'{pkg}-{item}'
+        target = ebuild.parent / 'files' / f'{Path(pkg).name}-{item}'
         copyfile(project_path / item, target)
         target.chmod(0o644)
