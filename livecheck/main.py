@@ -26,7 +26,8 @@ from .special.golang import update_go_ebuild
 from .special.yarn import update_yarn_ebuild
 from .typing import PropTuple, Response
 from .utils import (TextDataResponse, chunks, get_github_api_credentials, is_sha,
-                    latest_jetbrains_versions, make_github_grit_commit_re, make_github_grit_title_re, unique_justseen)
+                    latest_jetbrains_versions, make_github_grit_commit_re,
+                    make_github_grit_title_re, unique_justseen)
 from .utils.logger import setup_logging
 from .utils.portage import (P, catpkg_catpkgsplit, find_highest_match_ebuild_path,
                             get_first_src_uri, get_highest_matches, get_highest_matches2, sort_by_v)
@@ -364,7 +365,8 @@ def main(
                     with open(new_filename, 'w') as f:
                         f.write(content)
                     if cp in settings.yarn_base_packages:
-                        update_yarn_ebuild(new_filename, settings.yarn_base_packages[cp], pkg)
+                        update_yarn_ebuild(new_filename, settings.yarn_base_packages[cp], pkg,
+                                           settings.yarn_packages.get(cp))
                     elif cp in settings.go_sum_uri:
                         update_go_ebuild(new_filename, pkg, top_hash, settings.go_sum_uri[cp])
                     elif cp in settings.dotnet_projects:

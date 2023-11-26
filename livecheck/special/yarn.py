@@ -1,4 +1,3 @@
-from functools import lru_cache
 from pathlib import Path
 from shutil import copyfile
 from typing import Final, Iterator, TypedDict, cast
@@ -27,10 +26,12 @@ class LockfilePackage(TypedDict):
 Lockfile = dict[str, LockfilePackage]
 
 
-@lru_cache
-def create_project(package_name: str) -> Path:
-    path = get_project_path(package_name)
-    sp.run(('yarn', 'add', package_name), cwd=path, check=True, stdout=sp.PIPE)
+def create_project(base_package_name: str, yarn_packages: set[str] | None = None) -> Path:
+    path = get_project_path(base_package_name)
+    sp.run(('yarn', 'add', base_package_name) + tuple(yarn_packages or []),
+           cwd=path,
+           check=True,
+           stdout=sp.PIPE)
     sp.run(('yarn', 'upgrade', '--latest', '--non-interactive'),
            cwd=path,
            check=True,
@@ -38,11 +39,11 @@ def create_project(package_name: str) -> Path:
     return path
 
 
-def parse_lockfile(package_name: str) -> Lockfile:
+def parse_lockfile(project_path: Path) -> Lockfile:
     return cast(
         Lockfile,
         json.loads(
-            sp.run(('node', '-', '--', str(create_project(package_name) / 'yarn.lock')),
+            sp.run(('node', '-', '--', str(project_path / 'yarn.lock')),
                    input=CONVERSION_CODE,
                    timeout=10,
                    cwd=create_project('@yarnpkg/lockfile'),
@@ -51,8 +52,8 @@ def parse_lockfile(package_name: str) -> Lockfile:
                    text=True).stdout))
 
 
-def yarn_pkgs(package_name: str) -> Iterator[str]:
-    deps = parse_lockfile(package_name).items()
+def yarn_pkgs(project_path: Path) -> Iterator[str]:
+    deps = parse_lockfile(project_path).items()
     for key, val in deps:
         has_prefix_at = key.startswith('@')
         dep_name = f'{"@" if has_prefix_at else ""}{key[1 if has_prefix_at else 0:].split("@", maxsplit=1)[0]}'
@@ -61,11 +62,12 @@ def yarn_pkgs(package_name: str) -> Iterator[str]:
         yield f'{dep_name}-{val["version"]}'
 
 
-def update_yarn_ebuild(ebuild: str | Path, yarn_base_package: str, pkg: str) -> None:
-    project_path = get_project_path(yarn_base_package)
+def update_yarn_ebuild(ebuild: str | Path,
+                       yarn_base_package: str,
+                       pkg: str,
+                       yarn_packages: set[str] | None = None) -> None:
+    project_path = create_project(yarn_base_package, yarn_packages)
     package_re = re.compile(r'^' + re.escape(yarn_base_package) + r'-[0-9]+')
-    new_yarn_pkgs = sorted(yarn_pkgs(yarn_base_package),
-                           key=lambda x: -1 if re.match(package_re, x) else 0)
     ebuild = Path(ebuild)
     in_yarn_pkgs = False
     tf = tempfile.NamedTemporaryFile(mode='w',
@@ -86,7 +88,8 @@ def update_yarn_ebuild(ebuild: str | Path, yarn_base_package: str, pkg: str) -> 
                     in_yarn_pkgs = False
                     tf.write(line)
                 elif not wrote_new_packages:
-                    for new_pkg in new_yarn_pkgs:
+                    for new_pkg in sorted(set(yarn_pkgs(project_path)),
+                                          key=lambda x: -1 if re.match(package_re, x) else 0):
                         tf.write(f'\t{new_pkg}\n')
                     wrote_new_packages = True
             else:

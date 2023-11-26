@@ -31,7 +31,7 @@ class LivecheckSettings:
     sha_sources: dict[str, str]
     transformations: Mapping[str, Callable[[str], str]]
     yarn_base_packages: dict[str, str]
-    yarn_packages: dict[str, list[str]]
+    yarn_packages: dict[str, set[str]]
 
 
 def gather_settings(search_dir: str) -> LivecheckSettings:
@@ -79,7 +79,7 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
             if settings_parsed.get('yarn_base_package', None):
                 yarn_base_packages[catpkg] = settings_parsed['yarn_base_package']
                 if settings_parsed.get('yarn_packages', None):
-                    yarn_packages[catpkg] = settings_parsed['yarn_packages']
+                    yarn_packages[catpkg] = set(settings_parsed['yarn_packages'])
             if settings_parsed.get('go_sum_uri', None):
                 golang_packages[catpkg] = settings_parsed['go_sum_uri']
             if settings_parsed.get('dotnet_project', None):
