@@ -292,9 +292,10 @@ def main(
                 if needs_adjustment:
                     logger.debug('Adjusting RE for semantic versioning')
                 logger.debug(f'Using RE: "{regex}"')
-                results = re.findall(
-                    regex.replace(r'([^"]+)', r'(\d+\.\d+(?:\.\d+)?)')
-                    if needs_adjustment else regex, r.text)
+                regex = (regex.replace(r'([^"]+)', r'v?(\d+\.\d+(?:\.\d+)?)')
+                         if needs_adjustment else regex)
+                logger.debug(f'Version RE: {regex}')
+                results = re.findall(regex, r.text)
             logger.debug(f'Result count: {len(results)}')
             top_hash = (list(reversed(sorted(results, key=cmp_to_key(special_vercmp))))
                         if use_vercmp else results)[0]
