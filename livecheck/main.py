@@ -273,6 +273,7 @@ def main(
             continue
         try:
             r.raise_for_status()
+            cp = f'{cat}/{pkg}'
             prefixes: dict[str, str] | None = None
             if not regex:
                 if 'www.jetbrains.com/updates' in url:
@@ -287,21 +288,23 @@ def main(
                     raise NotImplementedError('Unhandled state: non-JetBrains URI, regex=None, '
                                               f'url={url}, cat={cat}, pkg={pkg}')
             else:
-                needs_adjustment = re.match(SEMVER_RE, version) and regex.startswith('archive/')
+                needs_adjustment = (re.match(SEMVER_RE, version) and regex.startswith('archive/')
+                                    and settings.semver.get(cp, True))
+                logger.debug(f'Using RE: "{regex}"')
                 # Ignore beta/alpha/etc if semantic and coming from GitHub
                 if needs_adjustment:
                     logger.debug('Adjusting RE for semantic versioning')
-                logger.debug(f'Using RE: "{regex}"')
                 regex = (regex.replace(r'([^"]+)', r'v?(\d+\.\d+(?:\.\d+)?)')
                          if needs_adjustment else regex)
-                logger.debug(f'Version RE: {regex}')
+                if needs_adjustment:
+                    logger.debug(f'Adjusted RE: {regex}')
                 results = re.findall(regex, r.text)
             logger.debug(f'Result count: {len(results)}')
             top_hash = (list(reversed(sorted(results, key=cmp_to_key(special_vercmp))))
                         if use_vercmp else results)[0]
             logger.debug(f're.findall() -> "{top_hash}"')
-            cp = f'{cat}/{pkg}'
-            if (update_sha_too_source := settings.sha_sources.get(cp, None)):
+
+            if update_sha_too_source := settings.sha_sources.get(cp, None):
                 logger.debug('Package also needs a SHA update')
             if tf := settings.transformations.get(cp, None):
                 top_hash = tf(top_hash)

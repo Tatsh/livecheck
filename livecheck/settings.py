@@ -28,6 +28,8 @@ class LivecheckSettings:
     """
     ignored_packages: set[str]
     no_auto_update: set[str]
+    semver: dict[str, bool]
+    """Disable auto-detection of semantic versioning."""
     sha_sources: dict[str, str]
     transformations: Mapping[str, Callable[[str], str]]
     yarn_base_packages: dict[str, str]
@@ -42,6 +44,7 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
     golang_packages = {}
     ignored_packages = set()
     no_auto_update = set()
+    semver: dict[str, bool] = {}
     sha_sources = {}
     transformations = {}
     yarn_base_packages = {}
@@ -52,17 +55,17 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
             dn = dirname(path)
             catpkg = f'{basename(dirname(dn))}/{basename(dn)}'
             settings_parsed = json.load(f)
-            if settings_parsed.get('type', None) == 'none':
+            if settings_parsed.get('type') == 'none':
                 ignored_packages.add(catpkg)
-            elif settings_parsed.get('type', None) == 'regex':
+            elif settings_parsed.get('type') == 'regex':
                 custom_livechecks[catpkg] = (settings_parsed['url'], settings_parsed['regex'],
                                              settings_parsed.get('use_vercmp', True),
                                              settings_parsed.get('version', None))
-            elif settings_parsed.get('type', None) == 'checksum':
+            elif settings_parsed.get('type') == 'checksum':
                 checksum_livechecks.add(catpkg)
-            if settings_parsed.get('branch', None):
+            if settings_parsed.get('branch'):
                 branches[catpkg] = settings_parsed['branch']
-            if settings_parsed.get('no_auto_update', None):
+            if 'no_auto_update' in settings_parsed:
                 no_auto_update.add(catpkg)
             if settings_parsed.get('transformation_function', None):
                 tfs = settings_parsed['transformation_function']
@@ -74,16 +77,18 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
                     except AttributeError as e:
                         raise NameError(f'Unknown transformation function: {tfs}') from e
                 transformations[catpkg] = tf
-            if settings_parsed.get('sha_source', None):
+            if settings_parsed.get('sha_source'):
                 sha_sources[catpkg] = settings_parsed['sha_source']
-            if settings_parsed.get('yarn_base_package', None):
+            if settings_parsed.get('yarn_base_package'):
                 yarn_base_packages[catpkg] = settings_parsed['yarn_base_package']
-                if settings_parsed.get('yarn_packages', None):
+                if settings_parsed.get('yarn_packages'):
                     yarn_packages[catpkg] = set(settings_parsed['yarn_packages'])
-            if settings_parsed.get('go_sum_uri', None):
+            if settings_parsed.get('go_sum_uri'):
                 golang_packages[catpkg] = settings_parsed['go_sum_uri']
-            if settings_parsed.get('dotnet_project', None):
+            if settings_parsed.get('dotnet_project'):
                 dotnet_projects[catpkg] = settings_parsed['dotnet_project']
+            if 'semver' in settings_parsed:
+                semver[catpkg] = settings_parsed['semver']
     return LivecheckSettings(branches, checksum_livechecks, custom_livechecks, dotnet_projects,
-                             golang_packages, ignored_packages, no_auto_update, sha_sources,
+                             golang_packages, ignored_packages, no_auto_update, semver, sha_sources,
                              transformations, yarn_base_packages, yarn_packages)
