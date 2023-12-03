@@ -208,7 +208,7 @@ def get_props(search_dir: str,
 
 
 def special_vercmp(x: str, y: str) -> int:
-    return -1 if (ret := vercmp(x, y)) is None else ret
+    return 1 if (ret := vercmp(x, y)) is None else ret
 
 
 class ExpectedSHALine(RuntimeError):
