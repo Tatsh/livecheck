@@ -8,8 +8,6 @@ and this project adheres to
 
 ## [Unreleased]
 
-## [0.0.9]
-
 ### Added
 
 - Add Python 3.12 to CI
@@ -20,6 +18,8 @@ and this project adheres to
 
 ### Changed
 
+- Apply transformations to all versions found in the page before doing comparisons
+- `special_vercmp`: invalid versions now return `1` (move back)
 - Code organisation
 - Switch to Ruff from Pylint
 
