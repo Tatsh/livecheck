@@ -1,7 +1,13 @@
 # livecheck
 
 [![QA](https://github.com/Tatsh/livecheck/actions/workflows/qa.yml/badge.svg)](https://github.com/Tatsh/livecheck/actions/workflows/qa.yml)
+[![Tests](https://github.com/Tatsh/livecheck/actions/workflows/tests.yml/badge.svg)](https://github.com/Tatsh/livecheck/actions/workflows/tests.yml)
+[![Coverage Status](https://coveralls.io/repos/github/Tatsh/livecheck/badge.svg?branch=master)](https://coveralls.io/github/Tatsh/livecheck?branch=master)
 [![Documentation Status](https://readthedocs.org/projects/livecheck/badge/?version=latest)](https://livecheck.readthedocs.io/en/latest/?badge=latest)
+![PyPI - Version](https://img.shields.io/pypi/v/portage-livecheck)
+![GitHub tag (with filter)](https://img.shields.io/github/v/tag/Tatsh/livecheck)
+![GitHub](https://img.shields.io/github/license/Tatsh/livecheck)
+![GitHub commits since latest release (by SemVer including pre-releases)](https://img.shields.io/github/commits-since/Tatsh/livecheck/v0.0.9/master)
 
 Tool for overlays to update ebuilds. Inspired by the MacPorts `port` subcommand of the same name.
 
