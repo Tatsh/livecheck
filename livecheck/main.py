@@ -181,15 +181,9 @@ def get_props(search_dir: str,
                    r'<title>v?([0-9][^>]+)</title', True)
         elif parsed_uri.hostname == 'cgit.libimobiledevice.org':
             proj = src_uri.split('/')[3]
-            yield (
-                cat,
-                pkg,
-                ebuild_version,
-                ebuild_version,
-                f'https://cgit.libimobiledevice.org/{proj}/',
-                # pylint: disable=invalid-string-quote
-                r"href='/" + re.escape(proj) + r"/tag/\?h=([0-9][^']+)",
-                True)
+            yield (cat, pkg, ebuild_version, ebuild_version,
+                   f'https://cgit.libimobiledevice.org/{proj}/',
+                   r"href='/" + re.escape(proj) + r"/tag/\?h=([0-9][^']+)", True)
         elif parsed_uri.hostname == 'registry.yarnpkg.com':
             path = ('/'.join(parsed_uri.path.split('/')[1:3])
                     if parsed_uri.path.startswith('/@') else parsed_uri.path.split('/')[1])
@@ -285,7 +279,6 @@ def main(
                     if pkg.startswith('idea'):
                         jb_versions = list(latest_jetbrains_versions(r.text, 'IntelliJ IDEA'))
                         results = [x['fullNumber'] for x in jb_versions]
-                        # pylint: disable=invalid-string-quote
                         prefixes = dict((z['fullNumber'], f"{z['version']}.") for z in jb_versions)
                     else:
                         raise NotImplementedError('Unhandled state: '

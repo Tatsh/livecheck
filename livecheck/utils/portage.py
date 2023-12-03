@@ -10,7 +10,7 @@ import portage
 __all__ = ('P', 'catpkg_catpkgsplit', 'find_highest_match_ebuild_path', 'get_first_src_uri',
            'get_highest_matches', 'get_highest_matches2', 'sort_by_v')
 
-P = portage.db[portage.root]['porttree'].dbapi  # pylint: disable=no-member
+P = portage.db[portage.root]['porttree'].dbapi
 
 
 def sort_by_v(a: str, b: str) -> int:
@@ -74,8 +74,7 @@ def catpkg_catpkgsplit(s: str) -> tuple[str, str, str, str]:
         case [cat, pkg, ebuild_version, _]:
             return f'{cat}/{pkg}', cat, pkg, ebuild_version
         case _:
-            print(result)
-            raise ValueError()
+            raise ValueError(result)
 
 
 def get_first_src_uri(match: str, search_dir: str | None = None) -> str:
