@@ -1,9 +1,8 @@
 from functools import cmp_to_key
-from os.path import basename, dirname
-from typing import Iterator, Sequence
-import glob
+from collections.abc import Iterator, Sequence
+import logging
+from pathlib import Path
 
-from loguru import logger
 from portage.versions import catpkgsplit, vercmp
 import portage
 
@@ -11,6 +10,7 @@ __all__ = ('P', 'catpkg_catpkgsplit', 'find_highest_match_ebuild_path', 'get_fir
            'get_highest_matches', 'get_highest_matches2', 'sort_by_v')
 
 P = portage.db[portage.root]['porttree'].dbapi
+logger = logging.getLogger(__name__)
 
 
 def sort_by_v(a: str, b: str) -> int:
@@ -20,16 +20,17 @@ def sort_by_v(a: str, b: str) -> int:
         if version_a == version_b:
             return 0
         # Sort descending. First is taken with unique_justseen
-        logger.debug(f'Found multiple ebuilds of {cp_a}. Only the highest version ebuild will be '
-                     'considered.')
+        logger.debug(
+            'Found multiple ebuilds of %s. Only the highest version ebuild will be considered.',
+            cp_a)
         return vercmp(version_b, version_a, silent=0) or 0
     return cp_a < cp_b
 
 
 def get_highest_matches(search_dir: str) -> Iterator[str]:
-    for path in glob.glob(f'{search_dir}/**/*.ebuild', recursive=True):
-        dn = dirname(path)
-        name = f'{basename(dirname(dn))}/{basename(dn)}'
+    for path in Path(search_dir).glob('**/*.ebuild'):
+        dn = path.parent
+        name = f'{dn.parent.name}/{dn.name}'
         if matches := P.xmatch('match-visible', name):
             for m in matches:
                 if P.findname2(m)[1] == search_dir:
@@ -41,7 +42,7 @@ def get_highest_matches2(names: Sequence[str], search_dir: str) -> Iterator[str]
         if matches := P.xmatch('match-visible', name):
             for m in matches:
                 candidate = P.findname2(m)[1]
-                logger.debug(f'Checking: {candidate} == {search_dir} ?')
+                logger.debug('Checking: %s == %s ?', candidate, search_dir)
                 if candidate == search_dir:
                     yield m
 

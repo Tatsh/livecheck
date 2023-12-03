@@ -7,16 +7,20 @@ import requests
 __all__ = ('update_go_ebuild',)
 
 
+class InvalidGoSumURITemplate(ValueError):
+    def __init__(self) -> None:
+        super().__init__('URI template missing @PV@')
+
+
 def update_go_ebuild(ebuild: str | Path, pkg: str, version: str, go_sum_uri_template: str) -> None:
     ebuild = Path(ebuild)
     if '@PV@' not in go_sum_uri_template:
-        raise ValueError('URI template missing @PV@')
+        raise InvalidGoSumURITemplate
     uri = go_sum_uri_template.replace('@PV@', version)
     r = requests.get(uri)
     r.raise_for_status()
-    new_ego_sum_lines = []
-    for line in (re.sub(r' h1\:.*$', '', x) for x in r.text.splitlines()):
-        new_ego_sum_lines.append(f'"{line}"')
+    new_ego_sum_lines = (f'"{line}"'
+                         for line in (re.sub(r' h1\:.*$', '', x) for x in r.text.splitlines()))
     in_ego_sum = False
     tf = tempfile.NamedTemporaryFile(mode='w',
                                      prefix=ebuild.stem,

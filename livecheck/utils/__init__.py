@@ -2,19 +2,21 @@
 from dataclasses import dataclass
 from functools import lru_cache
 from itertools import groupby
-from os.path import expanduser
-from typing import Callable, Iterable, Iterator, Sequence, TypeVar, cast
+import logging
+from pathlib import Path
+from typing import TypeVar, cast
+from collections.abc import Callable, Iterable, Iterator, Sequence
 import operator
 import re
 import xml.etree.ElementTree as etree
 
-from loguru import logger as logger2
 import yaml
 
 __all__ = ('TextDataResponse', 'assert_not_none', 'chunks', 'dash_to_underscore', 'dotize',
            'get_github_api_credentials', 'is_sha', 'latest_jetbrains_versions',
            'make_github_grit_commit_re', 'make_github_grit_title_re', 'prefix_v')
 
+logger = logging.getLogger(__name__)
 T = TypeVar('T')
 # From parse-package-name
 # https://github.com/egoist/parse-package-name/blob/main/src/index.ts
@@ -33,7 +35,7 @@ def make_github_grit_title_re() -> str:
 
 def dotize(s: str) -> str:
     ret = s.replace('-', '.').replace('_', '.')
-    logger2.debug(f'dotize(): {s} -> {ret}')
+    logger.debug('dotize(): %s -> %s', s, ret)
     return ret
 
 
@@ -46,15 +48,20 @@ def chunks(seq: Sequence[T], n: int) -> Iterator[Sequence[T]]:
         yield seq[i:i + n]
 
 
+class InvalidPackageName(ValueError):
+    def __init__(self, pkg: str):
+        super().__init__(f'Invalid package name: {pkg}')
+
+
 def parse_npm_package_name(s: str) -> tuple[str, str | None, str | None]:
     if not (m := re.match(RE_SCOPED, s) or re.match(RE_NON_SCOPED, s)):
-        raise ValueError(f'Invalid package name: {s}')
+        raise InvalidPackageName(s)
     return m[1], m[2], m[3]
 
 
-@lru_cache()
+@lru_cache
 def get_github_api_credentials() -> str:
-    with open(expanduser('~/.config/gh/hosts.yml')) as f:
+    with Path('~/.config/gh/hosts.yml').expanduser().open() as f:
         data = yaml.safe_load(f)
     return cast(str, data['github.com']['oauth_token'])
 

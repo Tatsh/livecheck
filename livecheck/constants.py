@@ -1,12 +1,13 @@
-from typing import Callable, Final, Mapping
+from typing import Final
+from collections.abc import Callable, Mapping
 
 from .utils import prefix_v
 
 __all__ = ('GIST_HOSTNAMES', 'GITLAB_HOSTNAMES', 'PREFIX_RE', 'RSS_NS', 'SEMVER_RE', 'SUBMODULES',
            'TAG_NAME_FUNCTIONS')
 
-GIST_HOSTNAMES = set(('gist.github.com', 'gist.githubusercontent.com'))
-GITLAB_HOSTNAMES = set(('gitlab.com', 'gitlab.freedesktop.org', 'gitlab.gentoo.org'))
+GIST_HOSTNAMES = {'gist.github.com', 'gist.githubusercontent.com'}
+GITLAB_HOSTNAMES = {'gitlab.com', 'gitlab.freedesktop.org', 'gitlab.gentoo.org'}
 PREFIX_RE: Final[str] = r'(^[^0-9]+)[0-9]'
 RSS_NS = {'': 'http://www.w3.org/2005/Atom'}
 SEMVER_RE: Final[str] = (r'^(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.'
@@ -69,7 +70,7 @@ SUBMODULES: Final[Mapping[str, set[str | tuple[str, str]]]] = {
         'external/stb',
         'external/unicorn',
         'external/vita-toolchain',
-        # FIXME Handle other externals in psvpfstools https://github.com/Vita3K/psvpfstools
+        # TODO Handle other externals in psvpfstools https://github.com/Vita3K/psvpfstools
     },
     'games-emulation/yuzu': {
         'externals/SDL',

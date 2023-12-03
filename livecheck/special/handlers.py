@@ -1,11 +1,13 @@
+import logging
 import re
 import xml.etree.ElementTree as etree
 
-from loguru import logger
 import requests
 
 from ..constants import RSS_NS
 from ..utils import assert_not_none
+
+logger = logging.getLogger(__name__)
 
 
 def handle_glabels(s: str) -> str:
@@ -25,7 +27,7 @@ def handle_cython_post_suffix(s: str) -> str:
 
 
 def handle_outfox(s: str) -> str:
-    x = re.split(r'-pre(?:0+)?', s, 2)
+    x = re.split(r'-pre(?:0+)?', s, maxsplit=2)
     if len(x) == 2:
         return f'{x[0]}_p{x[1]}'
     return x[0]
@@ -36,17 +38,17 @@ def handle_outfox_serenity(s: str) -> str:
 
 
 def handle_bsnes_hd(s: str) -> str:
-    logger.debug(f'handle_bsnes_hd() <- "{s}"')
+    logger.debug('handle_bsnes_hd() <- "%s"', s)
     major, minor = assert_not_none(re.match(r'^beta_(\d+)_(\d+(?:h\d+)?)', s)).groups()
     minor = re.sub(r'h\d+', '', minor)
     ret = f'{major}.{minor}_beta'
-    logger.debug(f'handle_bsnes_hd() -> "{ret}"')
+    logger.debug('handle_bsnes_hd() -> "%s"', ret)
     return ret
 
 
 def handle_pl(s: str) -> str:
-    logger.debug(f'handle_pl() < "${s}"')
+    logger.debug('handle_pl() < "%s"', s)
     major, minor, mm, pl = assert_not_none(re.match(r'^v?(\d+)\.(\d+)\.(\d+)-pl(\d+)', s)).groups()
     ret = f'{major}.{minor}.{mm}.{pl}'
-    logger.debug(f'handle_pl() -> "{ret}"')
+    logger.debug('handle_pl() -> "%s"', ret)
     return ret

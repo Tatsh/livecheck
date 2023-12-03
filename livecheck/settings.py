@@ -1,9 +1,8 @@
 from dataclasses import dataclass
-from os.path import basename, dirname
-from typing import Callable, Mapping
-import glob
+from collections.abc import Callable, Mapping
 import logging
 import json
+from pathlib import Path
 
 import livecheck.special.handlers as sc
 
@@ -20,20 +19,25 @@ class LivecheckSettings:
     checksum_livechecks: set[str]
     custom_livechecks: dict[str, tuple[str, str, bool, str]]
     dotnet_projects: dict[str, str]
-    """Dictionary of catpkg to project or solution file (base name only)."""
+    '''Dictionary of catpkg to project or solution file (base name only).'''
     go_sum_uri: dict[str, str]
-    """
+    '''
     Dictionary of catpkg to full URI to ``go.sum`` with ``@PV@`` used for where version gets
     placed.
-    """
+    '''
     ignored_packages: set[str]
     no_auto_update: set[str]
     semver: dict[str, bool]
-    """Disable auto-detection of semantic versioning."""
+    '''Disable auto-detection of semantic versioning.'''
     sha_sources: dict[str, str]
     transformations: Mapping[str, Callable[[str], str]]
     yarn_base_packages: dict[str, str]
     yarn_packages: dict[str, set[str]]
+
+
+class UnknownTransformationFunction(NameError):
+    def __init__(self, tfs: str):
+        super().__init__(f'Unknown transformation function: {tfs}')
 
 
 def gather_settings(search_dir: str) -> LivecheckSettings:
@@ -49,11 +53,11 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
     transformations = {}
     yarn_base_packages = {}
     yarn_packages = {}
-    for path in glob.glob(f'{search_dir}/**/livecheck.json', recursive=True):
-        logger.debug(f'Opening {path}')
-        with open(path) as f:
-            dn = dirname(path)
-            catpkg = f'{basename(dirname(dn))}/{basename(dn)}'
+    for path in Path(search_dir).glob('**/livecheck.json'):
+        logger.debug('Opening %s', path)
+        with path.open() as f:
+            dn = path.parent
+            catpkg = f'{dn.parent.name}/{dn.name}'
             settings_parsed = json.load(f)
             if settings_parsed.get('type') == 'none':
                 ignored_packages.add(catpkg)
@@ -75,7 +79,7 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
                     try:
                         tf = getattr(utils, tfs)
                     except AttributeError as e:
-                        raise NameError(f'Unknown transformation function: {tfs}') from e
+                        raise UnknownTransformationFunction(tfs) from e
                 transformations[catpkg] = tf
             if settings_parsed.get('sha_source'):
                 sha_sources[catpkg] = settings_parsed['sha_source']

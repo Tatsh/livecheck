@@ -1,9 +1,12 @@
 """Logging."""
-from types import FrameType
 import logging
 import sys
 
 from loguru import logger
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from types import FrameType
 
 __all__ = ('setup_logging',)
 
