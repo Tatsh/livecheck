@@ -8,7 +8,24 @@ and this project adheres to
 
 ## [Unreleased]
 
-- Added updating of `yarn.eclass`-using ebuilds
+## [0.0.9]
+
+### Added
+
+- Add Python 3.12 to CI
+- Add `semver` setting (boolean) to control if automatic detection of semantic versioning is enabled
+- Update `EGO_SUM` when updating a `go-module.eclass`-based ebuild
+- Update `NUGETS` when updating a `dotnet.eclass`-based ebuild
+- Update `YARN_PKGS` array when updating a `yarn.eclass`-based ebuild
+
+### Changed
+
+- Code organisation
+- Switch to Ruff from Pylint
+
+### Removed
+
+- Remove Python 3.10 from CI
 
 ## [0.0.8]
 
