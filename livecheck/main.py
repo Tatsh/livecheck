@@ -265,8 +265,7 @@ def do_main(*, auto_update: bool, cat: str, ebuild_version: str, parsed_uri: Par
             else:
                 raise UnhandledState(cat, pkg, url)
         else:
-            raise NotImplementedError('Unhandled state: non-JetBrains URI, regex=None, '
-                                      f'url={url}, cat={cat}, pkg={pkg}')
+            raise UnhandledState(cat, pkg, url)
     else:
         needs_adjustment = (re.match(SEMVER_RE, version) and regex.startswith('archive/')
                             and settings.semver.get(cp, True))
@@ -279,15 +278,14 @@ def do_main(*, auto_update: bool, cat: str, ebuild_version: str, parsed_uri: Par
         if needs_adjustment:
             logger.debug(f'Adjusted RE: {new_regex}')
         results = re.findall(new_regex, r.text)
+    if tf := settings.transformations.get(cp, None):
+        results = [tf(x) for x in results]
     logger.debug(f'Result count: {len(results)}')
     top_hash = (sorted(results, key=cmp_to_key(special_vercmp), reverse=True)
                 if use_vercmp else results)[0]
     logger.debug(f're.findall() -> "{top_hash}"')
-
     if update_sha_too_source := settings.sha_sources.get(cp, None):
         logger.debug('Package also needs a SHA update')
-    if tf := settings.transformations.get(cp, None):
-        top_hash = tf(top_hash)
     if cp == 'games-emulation/play':
         top_hash = top_hash.replace('-', '.')
     if prefixes:
