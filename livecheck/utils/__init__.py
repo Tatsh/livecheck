@@ -2,10 +2,10 @@
 from dataclasses import dataclass
 from functools import lru_cache
 from itertools import groupby
-import logging
 from pathlib import Path
 from typing import TypeVar, cast
 from collections.abc import Callable, Iterable, Iterator, Sequence
+import logging
 import operator
 import re
 import xml.etree.ElementTree as etree
@@ -16,7 +16,7 @@ __all__ = ('TextDataResponse', 'assert_not_none', 'chunks', 'dash_to_underscore'
            'get_github_api_credentials', 'is_sha', 'latest_jetbrains_versions',
            'make_github_grit_commit_re', 'make_github_grit_title_re', 'prefix_v')
 
-logger = logging.getLogger(__name__)
+logger2 = logging.getLogger(__name__)
 T = TypeVar('T')
 # From parse-package-name
 # https://github.com/egoist/parse-package-name/blob/main/src/index.ts
@@ -24,21 +24,25 @@ RE_SCOPED = r'^(@[^\/]+\/[^@\/]+)(?:@([^\/]+))?(\/.*)?$'
 RE_NON_SCOPED = r'^([^@\/]+)(?:@([^\/]+))?(\/.*)?$'
 
 
+@lru_cache
 def make_github_grit_commit_re(version: str) -> str:
     return (r'<id>tag:github.com,2008:Grit::Commit/([0-9a-f]{' + str(len(version)) +
             r'})[0-9a-f]*</id>')
 
 
+@lru_cache
 def make_github_grit_title_re() -> str:
     return r'<title>\s+.*v([0-9][^ <]+) '
 
 
+@lru_cache
 def dotize(s: str) -> str:
     ret = s.replace('-', '.').replace('_', '.')
-    logger.debug('dotize(): %s -> %s', s, ret)
+    logger2.debug('dotize(): %s -> %s', s, ret)
     return ret
 
 
+@lru_cache
 def is_sha(s: str) -> bool:
     return bool((len(s) == 7 or len(s) > 8) and re.match(r'^[0-9a-f]+$', s))
 
@@ -66,6 +70,7 @@ def get_github_api_credentials() -> str:
     return cast(str, data['github.com']['oauth_token'])
 
 
+@lru_cache
 def prefix_v(s: str) -> str:
     return f'v{s}'
 
