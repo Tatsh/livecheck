@@ -1,13 +1,11 @@
-from pathlib import Path
-from shutil import copyfile
-from typing import Final, TypedDict, cast
-from collections.abc import Iterator
 import json
 import re
 import subprocess as sp
 import tempfile
-
-from typing import NotRequired
+from collections.abc import Iterator
+from pathlib import Path
+from shutil import copyfile
+from typing import Final, NotRequired, TypedDict, cast
 
 from .utils import get_project_path
 

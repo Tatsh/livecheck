@@ -1,10 +1,9 @@
-"""Configuration for Pytest."""  # noqa: INP001
-from typing import NoReturn
+"""Configuration for Pytest."""
 import os
-
-from click.testing import CliRunner
+from typing import NoReturn
 
 import pytest
+from click.testing import CliRunner
 
 if os.getenv('_PYTEST_RAISE', '0') != '0':  # pragma no cover
 

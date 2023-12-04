@@ -123,8 +123,8 @@ mock_use_standalone_module = true
 
 [tool.ruff]
 cache-dir = "~/.cache/ruff"
-extend-ignore = ["C408", "PTH123", "T201", "TD002", "TD003", "TD004"]
-namespace-packages = ["hooks"]
+extend-ignore = ["C408", "PTH123", "Q000", "Q001", "Q003", "T201", "TD002", "TD003", "TD004"]
+namespace-packages = ["docs", "tests"]
 extend-select = [
   "A",
   "ASYNC",
@@ -134,9 +134,9 @@ extend-select = [
   "ERA",
   "EXE",
   "G",
+  "I",
   "INP",
   "INT",
-  "ISC001",
   "ISC003",
   "NPY",
   "PD",
@@ -224,6 +224,10 @@ unsafe-fixes = true
 inline-quotes = "single"
 multiline-quotes = "single"
 
+[tool.ruff.lint.isort]
+case-sensitive = true
+
+# from-first = true
 [tool.yapf]
 align_closing_bracket_with_visual_indent = true
 allow_multiline_dictionary_keys = false

@@ -1,38 +1,58 @@
 """Main command."""
-from datetime import UTC, datetime
-from functools import cmp_to_key
-from os import chdir
-from pathlib import Path
-from typing import TypeVar, cast
-from collections.abc import Iterator, Sequence
-from urllib.parse import ParseResult, urlparse
+import contextlib
 import hashlib
 import re
 import subprocess as sp
 import sys
 import xml.etree.ElementTree as etree
+from collections.abc import Iterator, Sequence
+from datetime import UTC, datetime
+from functools import cmp_to_key
+from os import chdir
+from pathlib import Path
+from typing import TypeVar, cast
+from urllib.parse import ParseResult, urlparse
 
+import click
+import requests
 from loguru import logger
 from portage.versions import vercmp
 from requests import ConnectTimeout, ReadTimeout
-import click
-import requests
 
-from .special.dotnet import update_dotnet_ebuild
-
-from .constants import (GIST_HOSTNAMES, GITLAB_HOSTNAMES, PREFIX_RE, RSS_NS, SEMVER_RE, SUBMODULES,
-                        TAG_NAME_FUNCTIONS)
+from .constants import (
+    GIST_HOSTNAMES,
+    GITLAB_HOSTNAMES,
+    PREFIX_RE,
+    RSS_NS,
+    SEMVER_RE,
+    SUBMODULES,
+    TAG_NAME_FUNCTIONS,
+)
 from .settings import LivecheckSettings, gather_settings
+from .special.dotnet import update_dotnet_ebuild
 from .special.golang import update_go_ebuild
 from .special.yarn import update_yarn_ebuild
 from .typing import PropTuple, Response
-from .utils import (TextDataResponse, chunks, get_github_api_credentials, is_sha,
-                    latest_jetbrains_versions, make_github_grit_commit_re,
-                    make_github_grit_title_re, unique_justseen)
+from .utils import (
+    TextDataResponse,
+    chunks,
+    get_github_api_credentials,
+    is_sha,
+    latest_jetbrains_versions,
+    make_github_grit_commit_re,
+    make_github_grit_title_re,
+    unique_justseen,
+)
 from .utils.logger import setup_logging
-from .utils.portage import (P, catpkg_catpkgsplit, find_highest_match_ebuild_path,
-                            get_first_src_uri, get_highest_matches, get_highest_matches2, sort_by_v)
-import contextlib
+from .utils.portage import (
+    P,
+    catpkg_catpkgsplit,
+    find_highest_match_ebuild_path,
+    get_first_src_uri,
+    get_highest_matches,
+    get_highest_matches2,
+    sort_by_v,
+)
 
 T = TypeVar('T')
 

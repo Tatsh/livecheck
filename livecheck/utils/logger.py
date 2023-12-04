@@ -1,9 +1,9 @@
 """Logging."""
 import logging
 import sys
+from typing import TYPE_CHECKING
 
 from loguru import logger
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from types import FrameType

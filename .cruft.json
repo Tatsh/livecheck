@@ -1,6 +1,6 @@
 {
   "checkout": null,
-  "commit": "6f39dcd01ba427d6fe6015ed4dcafbe7f51f1fa8",
+  "commit": "a1fd06c25ec529c55c2998221a9487c391ef0bdd",
   "context": {
     "cookiecutter": {
       "_template": "git@github.com:Tatsh/cookiecutter-python-project.git",

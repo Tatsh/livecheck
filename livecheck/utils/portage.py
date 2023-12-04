@@ -1,10 +1,10 @@
-from functools import cmp_to_key
-from collections.abc import Iterator, Sequence
 import logging
+from collections.abc import Iterator, Sequence
+from functools import cmp_to_key
 from pathlib import Path
 
-from portage.versions import catpkgsplit, vercmp
 import portage
+from portage.versions import catpkgsplit, vercmp
 
 __all__ = ('P', 'catpkg_catpkgsplit', 'find_highest_match_ebuild_path', 'get_first_src_uri',
            'get_highest_matches', 'get_highest_matches2', 'sort_by_v')

@@ -1,5 +1,4 @@
 """Typing helpers."""
-
 import requests
 
 from .utils import TextDataResponse

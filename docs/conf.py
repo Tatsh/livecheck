@@ -1,9 +1,9 @@
-"""See https://www.sphinx-doc.org/en/master/usage/configuration.html"""  # noqa: INP001
-from datetime import datetime, UTC
+"""See https://www.sphinx-doc.org/en/master/usage/configuration.html"""
+import sys
+from datetime import UTC, datetime
 from operator import itemgetter
 from pathlib import Path
 from typing import Final
-import sys
 
 import tomlkit
 
