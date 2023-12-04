@@ -14,7 +14,7 @@ import yaml
 
 __all__ = ('TextDataResponse', 'assert_not_none', 'chunks', 'dash_to_underscore', 'dotize',
            'get_github_api_credentials', 'is_sha', 'latest_jetbrains_versions',
-           'make_github_grit_commit_re', 'make_github_grit_title_re', 'prefix_v')
+           'make_github_grit_commit_re', 'make_github_grit_title_re', 'prefix_v', 'unique_justseen')
 
 logger2 = logging.getLogger(__name__)
 T = TypeVar('T')
@@ -88,7 +88,22 @@ def latest_jetbrains_versions(xml_content: str, product_name: str) -> Iterator[d
 
 
 def unique_justseen(iterable: Iterable[T], key: Callable[[T], T] | None = None) -> Iterator[T]:
-    """List unique elements, preserving order. Remember only the element just seen."""
+    """
+    Returns an iterator of unique elements, preserving order.
+
+    Parameters
+    ----------
+    iterable : Iterable[T]
+        Iterable.
+
+    key : Callable[[T], T] | None
+        Optional key function.
+
+    Returns
+    -------
+    Iterator[T]
+        Unique iterator of items in ``iterable``.
+    """
     return (next(x) for x in (operator.itemgetter(1)(y) for y in groupby(iterable, key)))
 
 
@@ -103,6 +118,7 @@ def dash_to_underscore(s: str) -> str:
 
 @dataclass
 class TextDataResponse:
+    """Used for data URI responses."""
     text: str
 
     def raise_for_status(self) -> None:

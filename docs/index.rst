@@ -15,6 +15,9 @@ Library
 .. automodule:: livecheck.utils
    :members:
 
+.. automodule:: livecheck.utils.portage
+   :members:
+
 Settings
 ---------
 .. automodule:: livecheck.settings

@@ -1,13 +1,20 @@
 import logging
 from collections.abc import Iterator, Sequence
-from functools import cmp_to_key
+from functools import cmp_to_key, lru_cache
 from pathlib import Path
 
 import portage
 from portage.versions import catpkgsplit, vercmp
 
-__all__ = ('P', 'catpkg_catpkgsplit', 'find_highest_match_ebuild_path', 'get_first_src_uri',
-           'get_highest_matches', 'get_highest_matches2', 'sort_by_v')
+__all__ = (
+    'P',
+    'catpkg_catpkgsplit',
+    'find_highest_match_ebuild_path',
+    'get_first_src_uri',
+    'get_highest_matches',
+    'get_highest_matches2',
+    'sort_by_v',
+)
 
 P = portage.db[portage.root]['porttree'].dbapi
 logger = logging.getLogger(__name__)
@@ -22,7 +29,8 @@ def sort_by_v(a: str, b: str) -> int:
         # Sort descending. First is taken with unique_justseen
         logger.debug(
             'Found multiple ebuilds of %s. Only the highest version ebuild will be considered.',
-            cp_a)
+            cp_a,
+        )
         return vercmp(version_b, version_a, silent=0) or 0
     return cp_a < cp_b
 
@@ -55,20 +63,50 @@ def get_3rd_of_4(tup: tuple[str, str] | tuple[str, str, str] | tuple[str, str, s
             raise TypeError
 
 
-def find_highest_match_ebuild_path(cp: str, search_dir: str) -> str:
+def find_highest_match_ebuild_path(input_atom: str, search_dir: str) -> str:
+    """
+    Given a catpkg string and search directory, finds the highest version matching ebuild file path.
+
+    Parameters
+    ----------
+    input_atom : str
+        Atom string.
+
+    search_dir : str
+        Path to search.
+
+    Returns
+    -------
+    str
+        The ebuild file path. This will raise ``IndexError`` otherwise.
+    """
     def cmp(a: tuple[str, str], b: tuple[str, str]) -> int:
         return vercmp(get_3rd_of_4(catpkgsplit(a[1])), get_3rd_of_4(catpkgsplit(b[1]))) or 0
 
     items: list[tuple[str, str]] = []
-    for atom in P.match(cp):
+    for atom in P.match(input_atom):
         ebuild_path, tree = P.findname2(atom)
         if ebuild_path and tree == search_dir:
             items.append((ebuild_path, atom))
     return sorted(items, key=cmp_to_key(cmp))[-1][0]
 
 
-def catpkg_catpkgsplit(s: str) -> tuple[str, str, str, str]:
-    result = catpkgsplit(s)
+@lru_cache
+def catpkg_catpkgsplit(atom: str) -> tuple[str, str, str, str]:
+    """
+    Split an atom string. This function always returns a four-string tuple.
+
+    Parameters
+    ----------
+    atom : str
+        String to split.
+
+    Returns
+    -------
+    tuple[str, str, str, str]
+        Tuple consisting of four strings.
+    """
+    result = catpkgsplit(atom)
     match result:
         case [cat, pkg, ebuild_version]:
             return f'{cat}/{pkg}', cat, pkg, ebuild_version
