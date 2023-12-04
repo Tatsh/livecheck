@@ -9,17 +9,9 @@
       "env": {
         "_PYTEST_RAISE": "1"
       },
+      "justMyCode": true,
       "module": "pytest",
       "name": "Run tests",
-      "request": "launch",
-      "type": "python"
-    },
-    {
-      "args": ["-W", "/home/tatsh/dev/overlay/tatsh-overlay", "-d", "games-emulation/ryujinx"],
-      "console": "integratedTerminal",
-      "justMyCode": false,
-      "module": "livecheck",
-      "name": "livecheck",
       "request": "launch",
       "type": "python"
     }

@@ -26,9 +26,12 @@ def handle_cython_post_suffix(s: str) -> str:
     return s.replace('.post', '.')
 
 
+OUTFOX_MAXSPLIT = 2
+
+
 def handle_outfox(s: str) -> str:
-    x = re.split(r'-pre(?:0+)?', s, maxsplit=2)
-    if len(x) == 2:
+    x = re.split(r'-pre(?:0+)?', s, maxsplit=OUTFOX_MAXSPLIT)
+    if len(x) == OUTFOX_MAXSPLIT:
         return f'{x[0]}_p{x[1]}'
     return x[0]
 

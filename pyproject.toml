@@ -2,15 +2,28 @@
 name = "portage-livecheck"
 version = "0.0.9"
 authors = ["Andrew Udvare <audvare@gmail.com>"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Typing :: Typed"
+]
 description = "Tool to update ebuilds."
+documentation = "https://livecheck.readthedocs.io/"
+include = ["man"]
+keywords = ["command line"]
 license = "MIT"
 packages = [{ include = "livecheck" }]
 readme = "README.md"
+repository = "https://github.com/Tatsh/livecheck"
 
 [tool.poetry.dependencies]
 python = ">=3.11,<4"
 click = ">=8.1.3,<8.1.4 || >8.1.4"
-loguru = "^0.7.1"
+loguru = "^0.7.2"
 pyxdg = "^0.28"
 pyyaml = "^6.0.1"
 requests = "^2.31.0"
@@ -19,27 +32,28 @@ requests = "^2.31.0"
 optional = true
 
 [tool.poetry.group.dev.dependencies]
-commitizen = "^3.9.0"
-mypy = "^1.5.1"
+commitizen = "^3.13.0"
+mypy = "^1.7.1"
 portage = { git = "https://github.com/gentoo/portage.git" }
 portage-types = "^0.0.2"
-rope = "^1.9.0"
+rope = "^1.11.0"
 ruff = "^0.1.6"
-toml = "^0.10.2"
 types-pyyaml = "^6.0.12.11"
-types-requests = "^2.31.0.2"
+types-requests = "^2.31.0.10"
 types-toml = "^0.10.8.7"
-yapf = "^0.40.1"
+yapf = "^0.40.2"
 
 [tool.poetry.group.docs]
 optional = true
 
 [tool.poetry.group.docs.dependencies]
+doc8 = "^1.1.1"
 docutils = "^0.20.1"
-esbonio = "^0.16.1"
-sphinx = "^7.2.5"
-sphinx-click = "^5.0.1"
-toml = "^0.10.2"
+esbonio = "^0.16.3"
+restructuredtext-lint = "^1.4.0"
+sphinx = "^7.2.6"
+sphinx-click = "^5.1.0"
+tomlkit = "^0.12.3"
 
 [tool.poetry.group.tests]
 optional = true
@@ -47,29 +61,46 @@ optional = true
 [tool.poetry.group.tests.dependencies]
 coveralls = "^3.3.1"
 mock = "^5.1.0"
-pytest = "^7.4.1"
-pytest-mock = "^3.11.1"
+pytest = "^7.4.3"
+pytest-cov = "^4.1.0"
+pytest-mock = "^3.12.0"
 requests-mock = "^1.11.0"
+
+[tool.poetry.scripts]
+livecheck = "livecheck.main:main"
 
 [build-system]
 build-backend = "poetry.core.masonry.api"
 requires = ["poetry-core"]
 
-[tool.poetry.scripts]
-livecheck = "livecheck.main:main"
-
 [tool.commitizen]
 tag_format = "v$version"
-version_files = ["README.md", "package.json"]
+version_files = ["README.md", "livecheck/__init__.py", "man/livecheck.1", "package.json"]
 version_provider = "poetry"
 
-[tool.isort]
-case_sensitive = true
-combine_as_imports = true
-from_first = true
-line_length = 100
-order_by_type = true
-use_parentheses = true
+[tool.cruft]
+skip = [
+  "./*.lock",
+  "./.*_cache",
+  "./.git/hooks/*.sample",
+  "./docs/*.rst",
+  "./tests/*/test_*.py",
+  "./tests/test_*.py",
+  ".git/COMMIT_EDITMSG",
+  ".git/HEAD",
+  ".git/config",
+  ".git/index",
+  ".git/logs/",
+  ".git/refs/",
+  ".vscode/dictionary.txt",
+  "CHANGELOG.md",
+  "LICENSE.txt",
+  "dist/",
+  "htmlcov/",
+  "livecheck/",
+  "man/",
+  "node_modules/"
+]
 
 [tool.mypy]
 disallow_incomplete_defs = true
@@ -89,9 +120,6 @@ warn_unused_ignores = true
 
 [tool.pytest.ini_options]
 mock_use_standalone_module = true
-
-[tool.rstcheck]
-ignore_directives = "automodule"
 
 [tool.ruff]
 cache-dir = "~/.cache/ruff"
@@ -195,9 +223,6 @@ unsafe-fixes = true
 [tool.ruff.flake8-quotes]
 inline-quotes = "single"
 multiline-quotes = "single"
-
-[tool.ruff.lint.pylint]
-allow-magic-value-types = ["bytes", "int", "str"]
 
 [tool.yapf]
 align_closing_bracket_with_visual_indent = true

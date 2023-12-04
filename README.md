@@ -58,6 +58,7 @@ For packages that will not work with currently heuristic checking, a configurati
 - `branch` - The GitHub branch name to use for commits
 - `no_auto_update` - boolean - Do not allow auto-updating of this package
 - `regex` - The regular expression to use
+- `semver` - When set to `false`, do not allow detection of semantic versioning
 - `transformation_function` - string - Function to use to transform the version string. Currently
   only `dotize` is supported. Others are for internal use.
 - `url` - URL of the document to run regular expressions against
@@ -65,7 +66,14 @@ For packages that will not work with currently heuristic checking, a configurati
 
 ## Development use
 
-Run `poetry install --with=dev --with=docs --with=tests` to set up a virtualenv.
+### Set up PYTHONPATH
+
+As root, set the environment variable `PYTHONPATH` to include where the `livecheck` module is
+located. Use `python -m livecheck` instead of `livecheck` to execute commands.
+
+### With a virtualenv
+
+Run `poetry install --all-extras --with=dev,docs,tests` to set up a virtualenv.
 
 Fully copy `/etc/portage` to the root of your virtualenv. Then you must fix `make.profile`. Also
 consider making changes in `repos.conf` if necessary.

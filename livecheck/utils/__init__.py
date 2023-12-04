@@ -42,9 +42,13 @@ def dotize(s: str) -> str:
     return ret
 
 
+LEN_SHA = 7
+LEN_ISO_DATE = 8
+
+
 @lru_cache
 def is_sha(s: str) -> bool:
-    return bool((len(s) == 7 or len(s) > 8) and re.match(r'^[0-9a-f]+$', s))
+    return bool((len(s) == LEN_SHA or len(s) > LEN_ISO_DATE) and re.match(r'^[0-9a-f]+$', s))
 
 
 def chunks(seq: Sequence[T], n: int) -> Iterator[Sequence[T]]:

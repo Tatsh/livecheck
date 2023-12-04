@@ -1,4 +1,4 @@
 portage @ git+https://github.com/gentoo/portage@portage-3.0.51
-sphinx-click>=4.4.0
-toml>=0.10.2
-typing-extensions==4.8.0
+sphinx-click>=5.0.1
+tomlkit>=0.12.1
+typing-extensions>=4.8.0

@@ -3,6 +3,5 @@
   "line-length": {
     "code_blocks": false,
     "line_length": 100
-  },
-  "no-duplicate-heading": false
+  }
 }

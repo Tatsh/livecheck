@@ -3,6 +3,7 @@ from typing import NoReturn
 import os
 
 from click.testing import CliRunner
+
 import pytest
 
 if os.getenv('_PYTEST_RAISE', '0') != '0':  # pragma no cover

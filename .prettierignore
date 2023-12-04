@@ -1,2 +1,6 @@
-/.mypy_cache/
-/.pytest_cache/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+/htmlcov/
+/man/
+/docs/_build/

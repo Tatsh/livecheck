@@ -9,15 +9,18 @@ catpkgsplit
 cgit
 citra
 commitizen
+cookiecutter
 cython
 dbapi
 dlmalloc
 docparams
+doctrees
 docutils
 dotize
 dynarmic
 ebuilds
 eclass
+editmsg
 eeyore
 elif
 endregion
@@ -51,6 +54,7 @@ libchdr
 libfat
 libimobiledevice
 libshared
+linters
 livecheck
 livechecks
 lodepng
@@ -79,6 +83,7 @@ pylance
 pylint
 pytest
 pythonhosted
+pythonpath
 pyxdg
 pyyaml
 qpxtool
@@ -101,6 +106,7 @@ tatsh
 testfloat
 thirdparty
 toctree
+tomlkit
 tomlplusplus
 tryfirst
 tsschecker
