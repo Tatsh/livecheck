@@ -28,10 +28,10 @@
   },
   "repository": "git@github.com:Tatsh/livecheck.git",
   "scripts": {
-    "check-formatting": "yarn prettier -c . && poetry run yapf -prd . && markdownlint-cli2 '**/*.md' '#node_modules'",
+    "check-formatting": "yarn prettier -c . && poetry run yapf -prd . && yarn markdownlint-cli2 '**/*.md' '#node_modules'",
     "check-spelling": "cspell --no-progress .",
     "clean-dict": "r=(); while IFS=$\\n read -r w; do ! rg --no-config -qi. -g '!.vscode/dictionary.txt' -m 1 \"$w\" . && r+=(\"$w\"); done < .vscode/dictionary.txt; j=$(printf \"|%s\" \"${r[@]}\"); j=\"^(${j:1})$\"; grep -Ev \"${j}\" .vscode/dictionary.txt > new && mv new .vscode/dictionary.txt",
-    "format": "yarn prettier -w . && poetry run yapf -pri . && markdownlint-cli2 --fix '**/*.md' '#node_modules'",
+    "format": "yarn prettier -w . && poetry run yapf -pri . && yarn markdownlint-cli2 --fix '**/*.md' '#node_modules'",
     "gen-manpage": "poetry run sphinx-build -T -E -b man -d docs/_build/doctrees -D language=en docs man && mv man/portage-livecheck.1 man/livecheck.1",
     "mypy": "poetry run mypy .",
     "qa": "yarn mypy && yarn ruff && yarn check-spelling && yarn check-formatting",
