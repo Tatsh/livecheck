@@ -226,8 +226,8 @@ multiline-quotes = "single"
 
 [tool.ruff.lint.isort]
 case-sensitive = true
+from-first = true
 
-# from-first = true
 [tool.yapf]
 align_closing_bracket_with_visual_indent = true
 allow_multiline_dictionary_keys = false
