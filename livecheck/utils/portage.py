@@ -1,10 +1,10 @@
-import logging
 from collections.abc import Iterator, Sequence
 from functools import cmp_to_key, lru_cache
 from pathlib import Path
+import logging
 
-import portage
 from portage.versions import catpkgsplit, vercmp
+import portage
 
 __all__ = (
     'P',

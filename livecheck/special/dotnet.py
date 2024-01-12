@@ -1,11 +1,11 @@
-import re
-import shutil
-import subprocess as sp
-import tempfile
 from collections.abc import Iterator
 from functools import cmp_to_key
 from pathlib import Path
 from urllib.parse import urlparse
+import re
+import shutil
+import subprocess as sp
+import tempfile
 
 import requests
 

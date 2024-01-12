@@ -1,14 +1,14 @@
 """Utility functions."""
-import logging
-import operator
-import re
-import xml.etree.ElementTree as etree
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from functools import lru_cache
 from itertools import groupby
 from pathlib import Path
 from typing import TypeVar, cast
+import logging
+import operator
+import re
+import xml.etree.ElementTree as etree
 
 import yaml
 

@@ -1,8 +1,8 @@
-import json
-import logging
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
+import json
+import logging
 
 import livecheck.special.handlers as sc
 

@@ -1,7 +1,7 @@
 """Logging."""
+from typing import TYPE_CHECKING
 import logging
 import sys
-from typing import TYPE_CHECKING
 
 from loguru import logger
 

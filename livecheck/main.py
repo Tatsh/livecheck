@@ -1,10 +1,4 @@
 """Main command."""
-import contextlib
-import hashlib
-import re
-import subprocess as sp
-import sys
-import xml.etree.ElementTree as etree
 from collections.abc import Iterator, Sequence
 from datetime import UTC, datetime
 from functools import cmp_to_key
@@ -12,12 +6,18 @@ from os import chdir
 from pathlib import Path
 from typing import TypeVar, cast
 from urllib.parse import ParseResult, urlparse
+import contextlib
+import hashlib
+import re
+import subprocess as sp
+import sys
+import xml.etree.ElementTree as etree
 
-import click
-import requests
 from loguru import logger
 from portage.versions import vercmp
 from requests import ConnectTimeout, ReadTimeout
+import click
+import requests
 
 from .constants import (
     GIST_HOSTNAMES,
