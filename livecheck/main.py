@@ -426,6 +426,9 @@ def main(
             logger.debug('Attempting to add authorization header')
             with contextlib.suppress(KeyError):
                 headers['Authorization'] = f'token {get_github_api_credentials()}'
+        if url.endswith('.atom'):
+            logger.debug('Adding Accept header for XML')
+            headers['Accept'] = 'application/xml'  # atom+xml does not work
         r: TextDataResponse | requests.Response  # only Mypy wants this
         try:
             r = (TextDataResponse(url[5:])
