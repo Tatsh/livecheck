@@ -1,10 +1,13 @@
 from pathlib import Path
+import logging
 import re
 import tempfile
 
 import requests
 
 __all__ = ('update_go_ebuild',)
+
+logger = logging.getLogger(__name__)
 
 
 class InvalidGoSumURITemplate(ValueError):
@@ -21,28 +24,27 @@ def update_go_ebuild(ebuild: str | Path, pkg: str, version: str, go_sum_uri_temp
     r.raise_for_status()
     new_ego_sum_lines = (f'"{line}"'
                          for line in (re.sub(r' h1\:.*$', '', x) for x in r.text.splitlines()))
-    in_ego_sum = False
     tf = tempfile.NamedTemporaryFile(mode='w',
                                      prefix=ebuild.stem,
                                      suffix=ebuild.suffix,
                                      delete=False,
                                      dir=ebuild.parent)
-    wrote_new_packages = False
+    updated = False
+    found_closing_bracket = False
     with ebuild.open('r') as f:
         for line in f.readlines():
-            if line.startswith('EGO_SUM=('):
-                tf.write(line)
-                if in_ego_sum:
-                    raise RuntimeError
-                in_ego_sum = True
-            elif in_ego_sum:
+            if line.startswith('EGO_SUM=(') and not updated:
+                logger.debug('Found EGO_SUM=( line.')
+                tf.write('EGO_SUM=(\n')
+                logger.debug('Writing new EGO_SUM content.')
+                for pkg in new_ego_sum_lines:
+                    tf.write(f'\t{pkg}\n')
+                tf.write(')\n')
+                updated = True
+            elif updated and not found_closing_bracket:
                 if line.strip() == ')':
-                    in_ego_sum = False
-                    tf.write(line)
-                elif not wrote_new_packages:
-                    for pkg in new_ego_sum_lines:
-                        tf.write(f'\t{pkg}\n')
-                    wrote_new_packages = True
+                    logger.debug('Found closing bracket for EGO_SUM.')
+                    found_closing_bracket = True
             else:
                 tf.write(line)
     ebuild.unlink()
