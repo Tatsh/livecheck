@@ -12,14 +12,19 @@ logger = logging.getLogger(__name__)
 
 class InvalidGoSumURITemplate(ValueError):
     def __init__(self) -> None:
-        super().__init__('URI template missing @PV@')
+        super().__init__('URI template missing @PV@ or @SHA@.')
 
 
 def update_go_ebuild(ebuild: str | Path, pkg: str, version: str, go_sum_uri_template: str) -> None:
     ebuild = Path(ebuild)
-    if '@PV@' not in go_sum_uri_template:
+    if '@PV@' not in go_sum_uri_template and '@SHA@' not in go_sum_uri_template:
         raise InvalidGoSumURITemplate
+    try:
+        sha = [re.match(r'^SHA="([^"]+)"', l) for l in ebuild.read_text().splitlines()][0].group(1)
+    except IndexError:
+        sha = ''
     uri = go_sum_uri_template.replace('@PV@', version)
+    uri = go_sum_uri_template.replace('@SHA@', sha)
     r = requests.get(uri)
     r.raise_for_status()
     new_ego_sum_lines = (f'"{line}"'
