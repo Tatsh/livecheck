@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "portage-livecheck"
-version = "0.0.9"
+version = "0.0.10"
 authors = ["Andrew Udvare <audvare@gmail.com>"]
 classifiers = [
   "Development Status :: 4 - Beta",
