@@ -27,6 +27,10 @@ Lockfile = dict[str, LockfilePackage]
 
 def create_project(base_package_name: str, yarn_packages: set[str] | None = None) -> Path:
     path = get_project_path(base_package_name)
+    sp.run(('yarn', 'config', 'set', 'ignore-engines', 'true'),
+           check=True,
+           cwd=path,
+           stdout=sp.PIPE)
     sp.run(('yarn', 'add', base_package_name) + tuple(yarn_packages or []),
            cwd=path,
            check=True,
