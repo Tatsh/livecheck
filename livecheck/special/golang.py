@@ -20,7 +20,9 @@ def update_go_ebuild(ebuild: str | Path, pkg: str, version: str, go_sum_uri_temp
     if '@PV@' not in go_sum_uri_template and '@SHA@' not in go_sum_uri_template:
         raise InvalidGoSumURITemplate
     try:
-        sha = [re.match(r'^SHA="([^"]+)"', l) for l in ebuild.read_text().splitlines()][0].group(1)
+        first_match = [re.match(r'^SHA="([^"]+)"', x) for x in ebuild.read_text().splitlines()][0]
+        assert first_match is not None
+        sha = first_match.group(1)
     except IndexError:
         sha = ''
     uri = go_sum_uri_template.replace('@PV@', version)

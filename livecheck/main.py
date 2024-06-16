@@ -153,7 +153,7 @@ def get_props(search_dir: str,
             filename = Path(parsed_uri.path).name
             version = re.split(r'\.(?:tar\.(?:gz|bz2)|zip)$', filename, maxsplit=2)[0]
             if (re.match(r'^[0-9a-f]{7,}$', version) and not re.match('^[0-9a-f]{8}$', version)):
-                branch = (settings.branches[catpkg] if catpkg in settings.branches else 'master')
+                branch = (settings.branches.get(catpkg, 'master'))
                 yield (cat, pkg, ebuild_version, version,
                        f'{github_homepage}/commits/{branch}.atom',
                        make_github_grit_commit_re(version), False)
@@ -171,7 +171,7 @@ def get_props(search_dir: str,
                 yield (cat, pkg, ebuild_version, ebuild_version, url, regex, True)
             elif m := re.search(r'/raw/([0-9a-f]+)/', parsed_uri.path):
                 version = m.group(1)
-                branch = (settings.branches[catpkg] if catpkg in settings.branches else 'master')
+                branch = (settings.branches.get(catpkg, 'master'))
                 yield (cat, pkg, ebuild_version, version,
                        f'{github_homepage}/commits/{branch}.atom',
                        (r'<id>tag:github.com,2008:Grit::Commit/([0-9a-f]{' + str(len(version)) +
@@ -180,7 +180,7 @@ def get_props(search_dir: str,
                 raise UnhandledGitHubPackage(catpkg)
         elif parsed_uri.hostname == 'git.sr.ht':
             user_repo = '/'.join(parsed_uri.path.split('/')[1:3])
-            branch = (settings.branches[catpkg] if catpkg in settings.branches else 'master')
+            branch = (settings.branches.get(catpkg, 'master'))
             yield (cat, pkg, ebuild_version, ebuild_version,
                    f'https://git.sr.ht/{user_repo}/log/{branch}/rss.xml',
                    r'<pubDate>([^<]+)</pubDate>', False)
