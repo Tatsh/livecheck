@@ -14,7 +14,7 @@ classifiers = [
 description = "Tool to update ebuilds."
 documentation = "https://livecheck.readthedocs.io/"
 include = ["man"]
-keywords = ["command line"]
+keywords = ["command line", "ebuild", "gentoo", "portage"]
 license = "MIT"
 packages = [{ include = "livecheck" }]
 readme = "README.md"
@@ -217,7 +217,7 @@ extend-select = [
   "YTT",
 ]
 line-length = 100
-target-version = "py311"
+target-version = "py312"
 unsafe-fixes = true
 
 [tool.ruff.flake8-quotes]
