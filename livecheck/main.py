@@ -8,6 +8,7 @@ from typing import TypeVar, cast
 from urllib.parse import ParseResult, urlparse
 import contextlib
 import hashlib
+import logging
 import re
 import subprocess as sp
 import sys
@@ -43,7 +44,6 @@ from .utils import (
     make_github_grit_title_re,
     unique_justseen,
 )
-from .utils.logger import setup_logging
 from .utils.portage import (
     P,
     catpkg_catpkgsplit,
@@ -410,7 +410,8 @@ def main(
 ) -> int:
     if working_dir and working_dir != '.':
         chdir(working_dir)
-    setup_logging(debug)
+    if debug:
+        logging.basicConfig(level=logging.DEBUG)
     if exclude:
         logger.debug(f'Excluding {", ".join(exclude)}')
     search_dir = working_dir or '.'
