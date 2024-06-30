@@ -41,18 +41,18 @@ class UnknownTransformationFunction(NameError):
 
 
 def gather_settings(search_dir: str) -> LivecheckSettings:
-    branches = {}
-    checksum_livechecks = set()
-    custom_livechecks = {}
-    dotnet_projects = {}
-    golang_packages = {}
-    ignored_packages = set()
-    no_auto_update = set()
+    branches: dict[str, str] = {}
+    checksum_livechecks: set[str] = set()
+    custom_livechecks: dict[str, tuple[str, str, bool, str]] = {}
+    dotnet_projects: dict[str, str] = {}
+    golang_packages: dict[str, str] = {}
+    ignored_packages: set[str] = set()
+    no_auto_update: set[str] = set()
     semver: dict[str, bool] = {}
-    sha_sources = {}
-    transformations = {}
-    yarn_base_packages = {}
-    yarn_packages = {}
+    sha_sources: dict[str, str] = {}
+    transformations: dict[str, Callable[[str], str]] = {}
+    yarn_base_packages: dict[str, str] = {}
+    yarn_packages: dict[str, set[str]] = {}
     for path in Path(search_dir).glob('**/livecheck.json'):
         logger.debug('Opening %s', path)
         with path.open() as f:
