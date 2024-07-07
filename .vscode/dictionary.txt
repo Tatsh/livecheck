@@ -95,12 +95,14 @@ rpcs
 rstcheck
 rtfd
 ryujinx
+simpleini
 sirit
 softfloat
 soundtouch
 spdlog
 spirv
 subclassing
+sudachi
 tasksh
 tatsh
 testfloat
