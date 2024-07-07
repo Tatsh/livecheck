@@ -7,7 +7,7 @@
 ![PyPI - Version](https://img.shields.io/pypi/v/portage-livecheck)
 ![GitHub tag (with filter)](https://img.shields.io/github/v/tag/Tatsh/livecheck)
 ![GitHub](https://img.shields.io/github/license/Tatsh/livecheck)
-![GitHub commits since latest release (by SemVer including pre-releases)](https://img.shields.io/github/commits-since/Tatsh/livecheck/v0.0.12/master)
+![GitHub commits since latest release (by SemVer including pre-releases)](https://img.shields.io/github/commits-since/Tatsh/livecheck/v0.0.13/master)
 
 Tool for overlays to update ebuilds. Inspired by the MacPorts `port` subcommand of the same name.
 
