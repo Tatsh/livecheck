@@ -47,7 +47,7 @@ SUBMODULES: Final[Mapping[str, set[str | tuple[str, str]]]] = {
         'externals/cpp-httplib',
         'externals/cpp-jwt',
         'externals/dynarmic',
-        'externals/ffmpeg',
+        'externals/ffmpeg/ffmpeg',
         'externals/mbedtls',
         'externals/simpleini',
         'externals/sirit',
