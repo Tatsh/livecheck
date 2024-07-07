@@ -42,6 +42,17 @@ SUBMODULES: Final[Mapping[str, set[str | tuple[str, str]]]] = {
         '3rdparty/SoundTouch/soundtouch',
         '3rdparty/llvm/llvm',
     },
+    'games-emulation/sudachi': {
+        'externals/SDL',
+        'externals/cpp-httplib',
+        'externals/cpp-jwt',
+        'externals/dynarmic',
+        'externals/ffmpeg',
+        'externals/mbedtls',
+        'externals/simpleini',
+        'externals/sirit',
+        'externals/xbyak',
+    },
     'games-emulation/xemu': {
         'genconfig',
         'hw/xbox/nv2a/thirdparty/nv2a_vsh_cpu',
