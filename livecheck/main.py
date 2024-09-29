@@ -117,6 +117,11 @@ def get_props(search_dir: str,
         if cat.startswith('acct-') or catpkg in settings.ignored_packages:
             logger.debug(f'Ignoring {catpkg}')
             continue
+        # Exclude packages with no SRC_URI or with version contain 9999
+        # live ebuilds o virtual packages
+        if not src_uri or re.search(r'9999', ebuild_version):
+            logger.debug(f'Ignoring {catpkg}')
+            continue
         if catpkg in settings.custom_livechecks:
             url, regex, use_vercmp, version = settings.custom_livechecks[catpkg]
             yield (cat, pkg, version or ebuild_version, version
