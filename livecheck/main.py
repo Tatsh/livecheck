@@ -16,6 +16,7 @@ import xml.etree.ElementTree as etree
 
 from loguru import logger
 from portage.versions import vercmp
+from portage.exception import InvalidAtom
 from requests import ConnectTimeout, ReadTimeout
 import click
 import requests
@@ -100,10 +101,18 @@ def get_props(search_dir: str,
               exclude: Sequence[str] | None = None) -> Iterator[PropTuple]:
     logger.debug(f'search_dir={search_dir}')
     exclude = exclude or []
-    matches = unique_justseen(sorted(set(
-        get_highest_matches(search_dir) if not names else get_highest_matches2(names, search_dir)),
-                                     key=cmp_to_key(sort_by_v)),
-                              key=lambda a: catpkg_catpkgsplit(a)[0])
+    try:
+        matches = unique_justseen(sorted(set(
+            get_highest_matches(search_dir
+                                ) if not names else get_highest_matches2(names, search_dir)),
+                                         key=cmp_to_key(sort_by_v)),
+                                  key=lambda a: catpkg_catpkgsplit(a)[0])
+    except InvalidAtom as e:
+        logger.error(f"Invalid Atom: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
+        return None
     if not matches:
         logger.error('No matches!')
         raise click.Abort
