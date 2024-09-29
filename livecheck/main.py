@@ -113,10 +113,12 @@ def get_props(search_dir: str,
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
         return None
-    if not matches:
+    matches_list = list(matches)
+    logger.debug(f'Found {len(matches_list)} ebuilds')
+    if not matches_list:
         logger.error('No matches!')
         raise click.Abort
-    for match in matches:
+    for match in matches_list:
         catpkg, cat, pkg, ebuild_version = catpkg_catpkgsplit(match)
         if catpkg in exclude or pkg in exclude:
             logger.debug(f'Ignoring {catpkg}')
@@ -427,7 +429,6 @@ def main(
     if debug:
         logging.basicConfig(level=logging.DEBUG)
     else:
-        #logging.basicConfig(level=logging.INFO)
         logger.configure(handlers=[{"sink": sys.stderr, "level": "INFO"}])
     if exclude:
         logger.debug(f'Excluding {", ".join(exclude)}')
