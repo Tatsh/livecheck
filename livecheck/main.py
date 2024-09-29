@@ -413,7 +413,8 @@ def main(
     if debug:
         logging.basicConfig(level=logging.DEBUG)
     else:
-        logger.configure(handlers=[{"sink": sys.stdout, "level": "INFO"}])
+        #logging.basicConfig(level=logging.INFO)
+        logger.configure(handlers=[{"sink": sys.stderr, "level": "INFO"}])
     if exclude:
         logger.debug(f'Excluding {", ".join(exclude)}')
     search_dir = working_dir or '.'
