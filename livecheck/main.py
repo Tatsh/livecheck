@@ -32,6 +32,7 @@ from .constants import (
 )
 from .settings import LivecheckSettings, gather_settings
 from .special.dotnet import update_dotnet_ebuild
+from .special.downloaders import check_for_new_version_from_pecl
 from .special.golang import update_go_ebuild
 from .special.yarn import update_yarn_ebuild
 from .typing import PropTuple, Response
@@ -238,6 +239,10 @@ def get_props(search_dir: str,
                     if parsed_uri.path.startswith('/@') else parsed_uri.path.split('/')[1])
             yield (cat, pkg, ebuild_version, ebuild_version, f'https://registry.yarnpkg.com/{path}',
                    r'"latest":"([^"]+)",?', True)
+        elif parsed_uri.hostname == 'pecl.php.net':
+            new_version, url = check_for_new_version_from_pecl(pkg, ebuild_version)
+            if new_version:
+                yield (cat, pkg, ebuild_version, new_version, url, None, True)
         else:
             home = P.aux_get(match, ['HOMEPAGE'], mytree=search_dir)[0]
             raise UnhandledPackage(catpkg, home, src_uri)
@@ -301,7 +306,7 @@ def do_main(*, auto_update: bool, cat: str, ebuild_version: str, parsed_uri: Par
             else:
                 raise UnhandledState(cat, pkg, url)
         else:
-            raise UnhandledState(cat, pkg, url)
+            results = [version]
     else:
         needs_adjustment = (re.match(SEMVER_RE, version) and regex.startswith('archive/')
                             and settings.semver.get(cp, True))
