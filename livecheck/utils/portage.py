@@ -2,6 +2,7 @@ from collections.abc import Iterator, Sequence
 from functools import cmp_to_key, lru_cache
 from pathlib import Path
 import logging
+import os
 
 from portage.versions import catpkgsplit, vercmp
 import portage
@@ -14,6 +15,7 @@ __all__ = (
     'get_highest_matches',
     'get_highest_matches2',
     'sort_by_v',
+    'get_repository_root_if_inside',
 )
 
 P = portage.db[portage.root]['porttree'].dbapi
@@ -35,13 +37,13 @@ def sort_by_v(a: str, b: str) -> int:
     return cp_a < cp_b
 
 
-def get_highest_matches(search_dir: str) -> Iterator[str]:
+def get_highest_matches(search_dir: str, repo_root: str) -> Iterator[str]:
     for path in Path(search_dir).glob('**/*.ebuild'):
         dn = path.parent
         name = f'{dn.parent.name}/{dn.name}'
         if matches := P.xmatch('match-visible', name):
             for m in matches:
-                if P.findname2(m)[1] == search_dir:
+                if P.findname2(m)[1] == repo_root:
                     yield m
 
 
@@ -118,3 +120,33 @@ def catpkg_catpkgsplit(atom: str) -> tuple[str, str, str, str]:
 
 def get_first_src_uri(match: str, search_dir: str | None = None) -> str:
     return P.aux_get(match, ['SRC_URI'], mytree=search_dir)[0].split(' ')[0]
+
+
+def get_repository_root_if_inside(directory: str) -> tuple[str, str]:
+    # Get Portage configuration
+    settings = portage.config(clone=portage.settings)
+
+    # Get repositories from the settings object
+    repos = settings['PORTDIR_OVERLAY'].split() + [settings['PORTDIR']]
+
+    # Normalize the directory path to check
+    directory = os.path.abspath(directory) + "/"
+    selected_repo_root = ''
+    selected_repo_name = ''
+
+    # Check each repository
+    for repo_root in repos:
+        if os.path.isdir(repo_root):
+            repo_root = os.path.abspath(repo_root)
+            # Check if the directory is inside the repository root
+            if directory.startswith(repo_root + "/"):
+                # Select the most specific repository (deepest path)
+                if selected_repo_root is None or len(repo_root) > len(selected_repo_root):
+                    selected_repo_root = repo_root
+                    selected_repo_name = os.path.basename(repo_root)
+
+    if '/local/' in directory and not '/local/' in selected_repo_root:
+        return '', ''
+
+    # Return the most specific repository root, if found
+    return selected_repo_root, selected_repo_name
