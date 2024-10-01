@@ -55,6 +55,7 @@ from .utils.portage import (
     get_highest_matches,
     get_highest_matches2,
     sort_by_v,
+    get_repository_root_if_inside,
 )
 
 T = TypeVar('T')
@@ -117,11 +118,15 @@ def get_props(search_dir: str,
               settings: LivecheckSettings,
               names: Sequence[str] | None = None,
               exclude: Sequence[str] | None = None) -> Iterator[PropTuple]:
-    logger.debug(f'search_dir={search_dir}')
+    repo_root, repo_name = get_repository_root_if_inside(search_dir)
+    if not repo_root:
+        logger.error('Not inside a repository configured in repos.conf')
+        return
+    logger.debug(f'search_dir={search_dir} repo_root={repo_root} repo_name={repo_name}')
     exclude = exclude or []
     try:
         matches = unique_justseen(sorted(set(
-            get_highest_matches(search_dir
+            get_highest_matches(search_dir, repo_root
                                 ) if not names else get_highest_matches2(names, search_dir)),
                                          key=cmp_to_key(sort_by_v)),
                                   key=lambda a: catpkg_catpkgsplit(a)[0])
@@ -179,7 +184,7 @@ def get_props(search_dir: str,
                            f'data:{hashlib.sha512(r.content).hexdigest()}', r'^[0-9a-f]+$', False)
                     break
             if not found:
-                home = P.aux_get(match, ['HOMEPAGE'], mytree=search_dir)[0]
+                home = P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0]
                 raise UnhandledPackage(catpkg, home, src_uri)
         elif parsed_uri.hostname == 'github.com':
             logger.debug(f'Parsed path: {parsed_uri.path}')
@@ -219,7 +224,7 @@ def get_props(search_dir: str,
                    f'https://git.sr.ht/{user_repo}/log/{branch}/rss.xml',
                    r'<pubDate>([^<]+)</pubDate>', False)
         elif parsed_uri.hostname in GIST_HOSTNAMES:
-            home = P.aux_get(match, ['HOMEPAGE'], mytree=search_dir)[0]
+            home = P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0]
             yield (cat, pkg, ebuild_version, ebuild_version, f'{home}/revisions',
                    r'<relative-time datetime="([0-9-]{10})', False)
         elif src_uri.startswith('mirror://pypi/'):
@@ -233,7 +238,7 @@ def get_props(search_dir: str,
         elif (parsed_uri.hostname == 'www.raphnet-tech.com'
               and parsed_uri.path.startswith('/downloads')):
             yield (cat, pkg, ebuild_version, ebuild_version,
-                   P.aux_get(match, ['HOMEPAGE'], mytree=search_dir)[0],
+                   P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0],
                    (r'\b' + pkg.replace('-', r'[-_]') + r'-([^"]+)\.tar\.gz'), True)
         elif parsed_uri.hostname == 'download.jetbrains.com':
             yield (cat, pkg, ebuild_version, ebuild_version,
@@ -261,7 +266,7 @@ def get_props(search_dir: str,
             if new_version:
                 yield (cat, pkg, ebuild_version, new_version, url, None, True)
         else:
-            home = P.aux_get(match, ['HOMEPAGE'], mytree=search_dir)[0]
+            home = P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0]
             raise UnhandledPackage(catpkg, home, src_uri)
 
 
