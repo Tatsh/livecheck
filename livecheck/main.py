@@ -59,6 +59,22 @@ from .utils.portage import (
 T = TypeVar('T')
 
 
+# Sanitize version to Gentoo Ebuild format
+# info: https://dev.gentoo.org/~gokturk/devmanual/pr65/ebuild-writing/file-format/index.html
+def sanitize_version(version: str) -> str:
+    pattern = r"(\d+(\.\d+)*[a-z]?(_(alpha|beta|pre|rc|p)\d*)*(-r\d+)?)"
+
+    match = re.search(pattern, version)
+
+    if match.group(1) != version:
+        logger.warning(f'Version {version} sanitized to {match.group(1)}')
+
+    if match:
+        return match.group(1)
+    else:
+        return version
+
+
 def process_submodules(pkg_name: str, ref: str, contents: str, repo_uri: str) -> str:
     if pkg_name not in SUBMODULES:
         return contents
@@ -341,6 +357,7 @@ def do_main(*, auto_update: bool, cat: str, ebuild_version: str, parsed_uri: Par
     logger.debug(f'top_hash = {top_hash}')
     logger.debug(f'Comparing current ebuild version {version} with live version {top_hash}')
     assert isinstance(use_vercmp, bool)
+    top_hash = sanitize_version(top_hash)
     if ((use_vercmp and (vercmp(top_hash, version, silent=0) or 0) > 0) or top_hash != version):
         if auto_update and cp not in settings.no_auto_update:
             ebuild = find_highest_match_ebuild_path(cp, search_dir)
