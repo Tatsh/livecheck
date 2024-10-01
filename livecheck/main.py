@@ -13,6 +13,7 @@ import re
 import subprocess as sp
 import sys
 import xml.etree.ElementTree as etree
+import os
 
 from loguru import logger
 from portage.versions import vercmp
@@ -411,11 +412,7 @@ def do_main(*, auto_update: bool, cat: str, ebuild_version: str, parsed_uri: Par
               '--working-dir',
               default='.',
               help='Working directory. Should be a port tree root.',
-              type=click.Path(file_okay=False,
-                              exists=True,
-                              resolve_path=True,
-                              readable=True,
-                              writable=True))
+              type=click.Path(file_okay=False, exists=True, resolve_path=True, readable=True))
 @click.argument('package_names', nargs=-1)
 def main(
     auto_update: bool = False,
@@ -433,6 +430,9 @@ def main(
     if exclude:
         logger.debug(f'Excluding {", ".join(exclude)}')
     search_dir = working_dir or '.'
+    if auto_update and not os.access(search_dir, os.W_OK):
+        raise click.ClickException(
+            f'The directory "{working_dir}" must be writable because --auto-update is enabled.')
     session = requests.Session()
     settings = gather_settings(search_dir)
     package_names = sorted(package_names or [])
