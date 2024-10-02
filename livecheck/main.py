@@ -68,10 +68,9 @@ def sanitize_version(version: str) -> str:
 
     match = re.search(pattern, version)
 
-    if match.group(1) != version:
-        logger.warning(f'Version {version} sanitized to {match.group(1)}')
-
     if match:
+        if match.group(1) != version:
+            logger.warning(f'Version {version} sanitized to {match.group(1)}')
         return match.group(1)
     else:
         return version
@@ -103,15 +102,13 @@ def process_submodules(pkg_name: str, ref: str, contents: str, repo_uri: str) ->
     return contents
 
 
-class UnhandledPackage(RuntimeError):
-    def __init__(self, catpkg: str, home: str, src_uri: str):
-        super().__init__(f'Not handled: {catpkg} (checksum), homepage: {home}, '
-                         f'SRC_URI: {src_uri}')
+def UnhandledPackage(catpkg: str, home: str, src_uri: str):
+    logger.debug(f'Not handled: {catpkg} (checksum), homepage: {home}, '
+                 f'SRC_URI: {src_uri}')
 
 
-class UnhandledGitHubPackage(ValueError):
-    def __init__(self, catpkg: str):
-        super().__init__(f'Unhandled GitHub package: {catpkg}')
+def UnhandledGitHubPackage(catpkg: str):
+    logger.debug(f'Unhandled GitHub package: {catpkg}')
 
 
 def get_props(search_dir: str,
@@ -185,7 +182,7 @@ def get_props(search_dir: str,
                     break
             if not found:
                 home = P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0]
-                raise UnhandledPackage(catpkg, home, src_uri)
+                UnhandledPackage(catpkg, home, src_uri)
         elif parsed_uri.hostname == 'github.com':
             logger.debug(f'Parsed path: {parsed_uri.path}')
             github_homepage = f'https://github.com{"/".join(parsed_uri.path.split("/")[0:3])}'
@@ -216,7 +213,7 @@ def get_props(search_dir: str,
                        (r'<id>tag:github.com,2008:Grit::Commit/([0-9a-f]{' + str(len(version)) +
                         r'})[0-9a-f]*</id>'), False)
             else:
-                raise UnhandledGitHubPackage(catpkg)
+                UnhandledGitHubPackage(catpkg)
         elif parsed_uri.hostname == 'git.sr.ht':
             user_repo = '/'.join(parsed_uri.path.split('/')[1:3])
             branch = (settings.branches.get(catpkg, 'master'))
@@ -267,16 +264,15 @@ def get_props(search_dir: str,
                 yield (cat, pkg, ebuild_version, new_version, url, None, True)
         else:
             home = P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0]
-            raise UnhandledPackage(catpkg, home, src_uri)
+            UnhandledPackage(catpkg, home, src_uri)
 
 
 def special_vercmp(x: str, y: str) -> int:
     return 1 if (ret := vercmp(x, y)) is None else ret
 
 
-class ExpectedSHALine(RuntimeError):
-    def __init__(self) -> None:
-        super().__init__('Expected SHA line to be present')
+def ExpectedSHALine() -> None:
+    logger.debug('Expected SHA line to be present')
 
 
 def get_old_sha(ebuild: str) -> str:
@@ -284,12 +280,11 @@ def get_old_sha(ebuild: str) -> str:
         for line in f.readlines():
             if line.startswith('SHA="'):
                 return line.split('"')[1]
-    raise ExpectedSHALine
+    ExpectedSHALine()
 
 
-class UnsupportedSHASource(ValueError):
-    def __init__(self, src: str) -> None:
-        super().__init__(f'Unsupported SHA source: {src}')
+def UnsupportedSHASource(src: str) -> None:
+    logger.debug(f'Unsupported SHA source: {src}')
 
 
 def get_new_sha(src: str) -> str:
@@ -305,12 +300,11 @@ def get_new_sha(src: str) -> str:
                       requests.get(src, timeout=30).content.decode())
         assert m is not None
         return m.groups()[0]
-    raise UnsupportedSHASource(src)
+    UnsupportedSHASource(src)
 
 
-class UnhandledState(RuntimeError):
-    def __init__(self, cat: str, pkg: str, url: str, regex: str | None = None) -> None:
-        super().__init__(f'Unhandled state: regex={regex}, cat={cat}, pkg={pkg}, url={url}')
+def UnhandledState(cat: str, pkg: str, url: str, regex: str | None = None) -> None:
+    logger.debug(f'Unhandled state: regex={regex}, cat={cat}, pkg={pkg}, url={url}')
 
 
 def do_main(*, auto_update: bool, cat: str, ebuild_version: str, parsed_uri: ParseResult, pkg: str,
@@ -326,7 +320,8 @@ def do_main(*, auto_update: bool, cat: str, ebuild_version: str, parsed_uri: Par
                 results = [x['fullNumber'] for x in jb_versions]
                 prefixes = {z['fullNumber']: f"{z['version']}." for z in jb_versions}
             else:
-                raise UnhandledState(cat, pkg, url)
+                UnhandledState(cat, pkg, url)
+                return
         else:
             results = [version]
     else:
@@ -344,8 +339,12 @@ def do_main(*, auto_update: bool, cat: str, ebuild_version: str, parsed_uri: Par
     if tf := settings.transformations.get(cp, None):
         results = [tf(x) for x in results]
     logger.debug(f'Result count: {len(results)}')
-    top_hash = (sorted(results, key=cmp_to_key(special_vercmp), reverse=True)
-                if use_vercmp else results)[0]
+    try:
+        top_hash = (sorted(results, key=cmp_to_key(special_vercmp), reverse=True)
+                    if use_vercmp else results)[0]
+    except IndexError:
+        logger.warning(f'Attempted to fix top_hash version but it failed in {cp}')
+        return
     logger.debug(f're.findall() -> "{top_hash}"')
     if update_sha_too_source := settings.sha_sources.get(cp, None):
         logger.debug('Package also needs a SHA update')
