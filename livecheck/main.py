@@ -102,12 +102,12 @@ def process_submodules(pkg_name: str, ref: str, contents: str, repo_uri: str) ->
     return contents
 
 
-def UnhandledPackage(catpkg: str, home: str, src_uri: str):
+def log_unhandled_pkg(catpkg: str, home: str, src_uri: str):
     logger.debug(f'Not handled: {catpkg} (checksum), homepage: {home}, '
                  f'SRC_URI: {src_uri}')
 
 
-def UnhandledGitHubPackage(catpkg: str):
+def log_unhandled_github_package(catpkg: str):
     logger.debug(f'Unhandled GitHub package: {catpkg}')
 
 
@@ -182,7 +182,7 @@ def get_props(search_dir: str,
                     break
             if not found:
                 home = P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0]
-                UnhandledPackage(catpkg, home, src_uri)
+                log_unhandled_pkg(catpkg, home, src_uri)
         elif parsed_uri.hostname == 'github.com':
             logger.debug(f'Parsed path: {parsed_uri.path}')
             github_homepage = f'https://github.com{"/".join(parsed_uri.path.split("/")[0:3])}'
@@ -213,7 +213,7 @@ def get_props(search_dir: str,
                        (r'<id>tag:github.com,2008:Grit::Commit/([0-9a-f]{' + str(len(version)) +
                         r'})[0-9a-f]*</id>'), False)
             else:
-                UnhandledGitHubPackage(catpkg)
+                log_unhandled_github_package(catpkg)
         elif parsed_uri.hostname == 'git.sr.ht':
             user_repo = '/'.join(parsed_uri.path.split('/')[1:3])
             branch = (settings.branches.get(catpkg, 'master'))
@@ -264,14 +264,14 @@ def get_props(search_dir: str,
                 yield (cat, pkg, ebuild_version, new_version, url, None, True)
         else:
             home = P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0]
-            UnhandledPackage(catpkg, home, src_uri)
+            log_unhandled_pkg(catpkg, home, src_uri)
 
 
 def special_vercmp(x: str, y: str) -> int:
     return 1 if (ret := vercmp(x, y)) is None else ret
 
 
-def ExpectedSHALine() -> None:
+def log_expected_sha_line() -> None:
     logger.debug('Expected SHA line to be present')
 
 
@@ -280,10 +280,10 @@ def get_old_sha(ebuild: str) -> str:
         for line in f.readlines():
             if line.startswith('SHA="'):
                 return line.split('"')[1]
-    ExpectedSHALine()
+    log_expected_sha_line()
 
 
-def UnsupportedSHASource(src: str) -> None:
+def log_unsupported_sha_source(src: str) -> None:
     logger.debug(f'Unsupported SHA source: {src}')
 
 
@@ -300,10 +300,10 @@ def get_new_sha(src: str) -> str:
                       requests.get(src, timeout=30).content.decode())
         assert m is not None
         return m.groups()[0]
-    UnsupportedSHASource(src)
+    log_unsupported_sha_source(src)
 
 
-def UnhandledState(cat: str, pkg: str, url: str, regex: str | None = None) -> None:
+def log_unhandled_state(cat: str, pkg: str, url: str, regex: str | None = None) -> None:
     logger.debug(f'Unhandled state: regex={regex}, cat={cat}, pkg={pkg}, url={url}')
 
 
@@ -320,7 +320,7 @@ def do_main(*, auto_update: bool, cat: str, ebuild_version: str, parsed_uri: Par
                 results = [x['fullNumber'] for x in jb_versions]
                 prefixes = {z['fullNumber']: f"{z['version']}." for z in jb_versions}
             else:
-                UnhandledState(cat, pkg, url)
+                log_unhandled_state(cat, pkg, url)
                 return
         else:
             results = [version]
