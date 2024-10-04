@@ -36,6 +36,7 @@ from .special.dotnet import update_dotnet_ebuild
 from .special.golang import update_go_ebuild
 from .special.pecl import get_latest_pecl_package
 from .special.metacpan import get_latest_metacpan_package
+from .special.rubygems import get_latest_rubygems_package
 
 from .special.yarn import update_yarn_ebuild
 from .typing import PropTuple, Response
@@ -266,6 +267,10 @@ def get_props(search_dir: str,
                 yield (cat, pkg, ebuild_version, last_version, url, None, True)
         elif parsed_uri.hostname == 'metacpan.org' or parsed_uri.hostname == 'cpan':
             last_version, url = get_latest_metacpan_package(pkg)
+            if last_version:
+                yield (cat, pkg, ebuild_version, last_version, url, None, True)
+        elif parsed_uri.hostname == 'rubygems.org':
+            last_version, url = get_latest_rubygems_package(pkg)
             if last_version:
                 yield (cat, pkg, ebuild_version, last_version, url, None, True)
         else:
