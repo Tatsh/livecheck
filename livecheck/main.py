@@ -34,7 +34,9 @@ from .constants import (
 from .settings import LivecheckSettings, gather_settings
 from .special.dotnet import update_dotnet_ebuild
 from .special.golang import update_go_ebuild
-from .special.pecl import check_for_new_version_from_pecl
+from .special.pecl import get_latest_pecl_package
+from .special.metacpan import get_latest_metacpan_package
+
 from .special.yarn import update_yarn_ebuild
 from .typing import PropTuple, Response
 from .utils import (
@@ -259,10 +261,15 @@ def get_props(search_dir: str,
             yield (cat, pkg, ebuild_version, ebuild_version, f'https://registry.yarnpkg.com/{path}',
                    r'"latest":"([^"]+)",?', True)
         elif parsed_uri.hostname == 'pecl.php.net':
-            new_version, url = check_for_new_version_from_pecl(pkg, ebuild_version)
-            if new_version:
-                yield (cat, pkg, ebuild_version, new_version, url, None, True)
+            last_version, url = get_latest_pecl_package(pkg)
+            if last_version:
+                yield (cat, pkg, ebuild_version, last_version, url, None, True)
+        elif parsed_uri.hostname == 'metacpan.org' or parsed_uri.hostname == 'cpan':
+            last_version, url = get_latest_metacpan_package(pkg)
+            if last_version:
+                yield (cat, pkg, ebuild_version, last_version, url, None, True)
         else:
+            logger.debug(f'Unhandled: {catpkg} {parsed_uri.hostname}')
             home = P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0]
             log_unhandled_pkg(catpkg, home, src_uri)
 
@@ -323,6 +330,9 @@ def do_main(*, auto_update: bool, cat: str, ebuild_version: str, parsed_uri: Par
                 log_unhandled_state(cat, pkg, url)
                 return
         else:
+            # Force convert version to string to fix version like 1.8
+            version = str(version)
+            version = sanitize_version(version)
             results = [version]
     else:
         needs_adjustment = (re.match(SEMVER_RE, version) and regex.startswith('archive/')
@@ -345,6 +355,8 @@ def do_main(*, auto_update: bool, cat: str, ebuild_version: str, parsed_uri: Par
     except IndexError:
         logger.warning(f'Attempted to fix top_hash version but it failed in {cp}')
         return
+    # Convert top_hash to string always to fix version like 1.8
+    top_hash = str(top_hash)
     logger.debug(f're.findall() -> "{top_hash}"')
     if update_sha_too_source := settings.sha_sources.get(cp, None):
         logger.debug('Package also needs a SHA update')

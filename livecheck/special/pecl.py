@@ -3,7 +3,7 @@ import re
 
 from loguru import logger
 
-__all__ = ("check_for_new_version_from_pecl",)
+__all__ = ("get_latest_pecl_package",)
 
 
 def get_last_filename(url: str) -> str:
@@ -28,7 +28,7 @@ def get_last_filename(url: str) -> str:
         return ''
 
 
-def check_for_new_version_from_pecl(program_name: str, current_version: str) -> tuple[str, str]:
+def get_latest_pecl_package(program_name: str) -> tuple[str, str]:
     # Remove 'pecl-' prefix if present
     if program_name.startswith('pecl-'):
         program_name = program_name.replace('pecl-', '', 1)
