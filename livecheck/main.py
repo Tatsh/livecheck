@@ -38,6 +38,7 @@ from .special.pecl import get_latest_pecl_package
 from .special.metacpan import get_latest_metacpan_package
 from .special.rubygems import get_latest_rubygems_package
 from .special.sourceforge import get_latest_sourceforge_package
+from .special.jetbrains import get_latest_jetbrains_package
 
 from .special.yarn import update_yarn_ebuild
 from .typing import PropTuple, Response
@@ -46,7 +47,6 @@ from .utils import (
     chunks,
     get_github_api_credentials,
     is_sha,
-    latest_jetbrains_versions,
     make_github_grit_commit_re,
     make_github_grit_title_re,
     unique_justseen,
@@ -242,8 +242,9 @@ def get_props(search_dir: str,
                    P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0],
                    (r'\b' + pkg.replace('-', r'[-_]') + r'-([^"]+)\.tar\.gz'), True)
         elif parsed_uri.hostname == 'download.jetbrains.com':
-            yield (cat, pkg, ebuild_version, ebuild_version,
-                   'https://www.jetbrains.com/updates/updates.xml', None, True)
+            last_version, url = get_latest_jetbrains_package(pkg)
+            if last_version:
+                yield (cat, pkg, ebuild_version, last_version, url, None, True)
         elif (parsed_uri.hostname in GITLAB_HOSTNAMES and '/archive/' in parsed_uri.path):
             author, proj = src_uri.split('/')[3:5]
             m = re.match('^https://([^/]+)', src_uri)
@@ -331,19 +332,11 @@ def do_main(*, auto_update: bool, cat: str, ebuild_version: str, parsed_uri: Par
     cp = f'{cat}/{pkg}'
     prefixes: dict[str, str] | None = None
     if not regex:
-        if 'www.jetbrains.com/updates' in url:
-            if pkg.startswith('idea'):
-                jb_versions = list(latest_jetbrains_versions(r.text, 'IntelliJ IDEA'))
-                results = [x['fullNumber'] for x in jb_versions]
-                prefixes = {z['fullNumber']: f"{z['version']}." for z in jb_versions}
-            else:
-                log_unhandled_state(cat, pkg, url)
-                return
-        else:
-            # Force convert version to string to fix version like 1.8
-            version = str(version)
-            version = sanitize_version(version)
-            results = [version]
+        # Force convert version to string to fix version like 1.8
+        version = str(version)
+        version = sanitize_version(version)
+        results = [version]
+        version = ebuild_version
     else:
         needs_adjustment = (re.match(SEMVER_RE, version) and regex.startswith('archive/')
                             and settings.semver.get(cp, True))
