@@ -13,8 +13,8 @@ import xml.etree.ElementTree as etree
 import yaml
 
 __all__ = ('TextDataResponse', 'assert_not_none', 'chunks', 'dash_to_underscore', 'dotize',
-           'get_github_api_credentials', 'is_sha', 'latest_jetbrains_versions',
-           'make_github_grit_commit_re', 'make_github_grit_title_re', 'prefix_v', 'unique_justseen')
+           'get_github_api_credentials', 'is_sha', 'make_github_grit_commit_re',
+           'make_github_grit_title_re', 'prefix_v', 'unique_justseen')
 
 logger2 = logging.getLogger(__name__)
 T = TypeVar('T')
@@ -77,14 +77,6 @@ def get_github_api_credentials() -> str:
 @lru_cache
 def prefix_v(s: str) -> str:
     return f'v{s}'
-
-
-def latest_jetbrains_versions(xml_content: str, product_name: str) -> Iterator[dict[str, str]]:
-    return (dict(version=z.attrib['version'], fullNumber=z.attrib['fullNumber']) for z in [
-        y
-        for y in [x for x in etree.fromstring(xml_content)
-                  if x.attrib.get('name') == product_name][0] if y.attrib.get('status') == 'release'
-    ][0])
 
 
 def unique_justseen(iterable: Iterable[T], key: Callable[[T], T] | None = None) -> Iterator[T]:
