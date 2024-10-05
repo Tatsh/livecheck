@@ -6,7 +6,7 @@ from loguru import logger
 __all__ = ("get_latest_sourceforge_package",)
 
 
-def get_latest_sourceforge_package(program_name: str) -> tuple[str, str]:
+def get_latest_sourceforge_package(project_name: str) -> tuple[str, str]:
     url = f"https://sourceforge.net/projects/{project_name}/best_release.json"
     try:
         response = requests.get(url)
@@ -17,10 +17,10 @@ def get_latest_sourceforge_package(program_name: str) -> tuple[str, str]:
         filename = release_json['release']['filename']
 
         version_match = re.search(r'/(\d+\.\d+\.\d+)/', filename)
-        download_url = f"https://downloads.sourceforge.net/{project_name}/{project_name}-{latest_version}.tar.gz"
 
         if version_match:
             version = version_match.group(1)
+            download_url = f"https://downloads.sourceforge.net/{project_name}/{project_name}-{version}.tar.gz"
             return version, download_url
 
     except requests.exceptions.HTTPError as e:
