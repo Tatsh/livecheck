@@ -41,7 +41,7 @@ def get_highest_matches(search_dir: str, repo_root: str) -> Iterator[str]:
     for path in Path(search_dir).glob('**/*.ebuild'):
         dn = path.parent
         name = f'{dn.parent.name}/{dn.name}'
-        if matches := P.xmatch('match-visible', name):
+        if matches := P.xmatch('match-all', name):
             for m in matches:
                 if P.findname2(m)[1] == repo_root:
                     yield m
@@ -49,7 +49,7 @@ def get_highest_matches(search_dir: str, repo_root: str) -> Iterator[str]:
 
 def get_highest_matches2(names: Sequence[str], search_dir: str) -> Iterator[str]:
     for name in names:
-        if matches := P.xmatch('match-visible', name):
+        if matches := P.xmatch('match-all', name):
             for m in matches:
                 candidate = P.findname2(m)[1]
                 logger.debug('Checking: %s == %s ?', candidate, search_dir)

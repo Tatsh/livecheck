@@ -62,7 +62,7 @@ def update_dotnet_ebuild(ebuild: str | Path, project_or_solution: str | Path, cp
     with tempfile.TemporaryDirectory(prefix='livecheck-dotnet-', ignore_cleanup_errors=True) as td:
         sp.run(('ebuild', str(ebuild), 'manifest'), check=True)
         matches = list(
-            unique_justseen(sorted(set(P.xmatch('match-visible', cp)), key=cmp_to_key(sort_by_v)),
+            unique_justseen(sorted(set(P.xmatch('match-all', cp)), key=cmp_to_key(sort_by_v)),
                             key=lambda a: catpkg_catpkgsplit(a)[0]))
         if not matches:
             raise NoMatch(cp)
