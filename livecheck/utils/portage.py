@@ -119,7 +119,11 @@ def catpkg_catpkgsplit(atom: str) -> tuple[str, str, str, str]:
 
 
 def get_first_src_uri(match: str, search_dir: str | None = None) -> str:
-    return P.aux_get(match, ['SRC_URI'], mytree=search_dir)[0].split(' ')[0]
+    for uri in P.aux_get(match, ['SRC_URI'], mytree=search_dir):
+        for line in uri.split():
+            if line.startswith(('http://', 'https://')):
+                return line
+    return ''
 
 
 def get_repository_root_if_inside(directory: str) -> tuple[str, str]:
