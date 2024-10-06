@@ -85,12 +85,12 @@ def sanitize_version(version: str) -> str:
         return '0'
 
     if is_hast(version):
-        logger.warning(f'Not permitted hash version {version}')
+        logger.debug(f'Not permitted hash version {version}')
         return '0'
 
     # check if is a beta, alpa, pre or rc version and not accept this version
     if re.search(r'(alpha|beta|pre|rc)', version, re.IGNORECASE):
-        logger.warning(f'Not permitted development version {version}')
+        logger.debug(f'Not permitted development version {version}')
         return '0'
 
     # remove initial "2-" found in dev-libs/libpcre2, net-analyzer/barnyard2, etc..
@@ -104,7 +104,7 @@ def sanitize_version(version: str) -> str:
 
     if match:
         if match.group(1) != version:
-            logger.warning(f'Version {version} sanitized to {match.group(1)}')
+            logger.debug(f'Version {version} sanitized to {match.group(1)}')
         return match.group(1)
     else:
         return version
@@ -391,7 +391,7 @@ def do_main(*, auto_update: bool, cat: str, ebuild_version: str, parsed_uri: Par
         top_hash = (sorted(results, key=cmp_to_key(special_vercmp), reverse=True)
                     if use_vercmp else results)[0]
     except IndexError:
-        logger.warning(f'Attempted to fix top_hash version but it failed in {cp}')
+        logger.debug(f'Attempted to fix top_hash version but it failed in {cp}')
         return
     # Convert top_hash to string always to fix version like 1.8
     top_hash = str(top_hash)
