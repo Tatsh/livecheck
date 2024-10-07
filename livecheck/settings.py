@@ -58,7 +58,11 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
         with path.open() as f:
             dn = path.parent
             catpkg = f'{dn.parent.name}/{dn.name}'
-            settings_parsed = json.load(f)
+            try:
+                settings_parsed = json.load(f)
+            except json.JSONDecodeError as e:
+                logger.error('Error parsing file %s: %s', path, e)
+                continue
             if settings_parsed.get('type') == 'none':
                 ignored_packages.add(catpkg)
             elif settings_parsed.get('type') == 'regex':
