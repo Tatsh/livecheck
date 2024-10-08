@@ -116,14 +116,10 @@ def log_unhandled_github_package(catpkg: str):
 
 
 def get_props(search_dir: str,
+              repo_root: str,
               settings: LivecheckSettings,
               names: Sequence[str] | None = None,
               exclude: Sequence[str] | None = None) -> Iterator[PropTuple]:
-    repo_root, repo_name = get_repository_root_if_inside(search_dir)
-    if not repo_root:
-        logger.error('Not inside a repository configured in repos.conf')
-        return
-    logger.debug(f'search_dir={search_dir} repo_root={repo_root} repo_name={repo_name}')
     exclude = exclude or []
     try:
         matches = unique_justseen(sorted(set(
@@ -474,11 +470,16 @@ def main(
     if auto_update and not os.access(search_dir, os.W_OK):
         raise click.ClickException(
             f'The directory "{working_dir}" must be writable because --auto-update is enabled.')
+    repo_root, repo_name = get_repository_root_if_inside(search_dir)
+    if not repo_root:
+        logger.error('Not inside a repository configured in repos.conf')
+        raise click.Abort
+    logger.debug(f'search_dir={search_dir} repo_root={repo_root} repo_name={repo_name}')
     session = requests.Session()
     settings = gather_settings(search_dir)
     package_names = sorted(package_names or [])
     for cat, pkg, ebuild_version, version, url, regex, _use_vercmp in get_props(
-            search_dir, settings, package_names, exclude):
+            search_dir, repo_root, settings, package_names, exclude):
         logger.debug(f'Fetching {url}')
         headers = {}
         parsed_uri = urlparse(url)
@@ -503,7 +504,7 @@ def main(
                     pkg=pkg,
                     url=url,
                     regex=regex,
-                    search_dir=search_dir,
+                    search_dir=repo_root,
                     auto_update=auto_update,
                     settings=settings,
                     use_vercmp=_use_vercmp,
