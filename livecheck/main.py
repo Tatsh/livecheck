@@ -65,16 +65,46 @@ from .utils.portage import (
 T = TypeVar('T')
 
 
+def is_hast(str: str) -> bool:
+    pattern = {
+        'MD5': r'[0-9a-f]{32}',
+        'SHA1': r'[0-9a-f]{40}',
+        'SHA256': r'[0-9a-f]{64}',
+        'SHA512': r'[0-9a-f]{128}',
+    }
+    for _, value in pattern.items():
+        if re.match(value, str):
+            return True
+    return False
+
+
 # Sanitize version to Gentoo Ebuild format
 # info: https://dev.gentoo.org/~gokturk/devmanual/pr65/ebuild-writing/file-format/index.html
 def sanitize_version(version: str) -> str:
+    if not version:
+        return '0'
+
+    if is_hast(version):
+        logger.debug(f'Not permitted hash version {version}')
+        return '0'
+
+    # check if is a beta, alpa, pre or rc version and not accept this version
+    if re.search(r'(alpha|beta|pre|rc)', version, re.IGNORECASE):
+        logger.debug(f'Not permitted development version {version}')
+        return '0'
+
+    # remove initial "2-" found in dev-libs/libpcre2, net-analyzer/barnyard2, etc..
+    if version.startswith('2-'):
+        version = version[2:]
+
+    version = re.sub(r'(\d)_(\d)', r'\1.\2', version)
     pattern = r"(\d+(\.\d+)*[a-z]?(_(alpha|beta|pre|rc|p)\d*)*(-r\d+)?)"
 
-    match = re.search(pattern, version)
+    match = re.search(pattern, version, re.IGNORECASE)
 
     if match:
         if match.group(1) != version:
-            logger.warning(f'Version {version} sanitized to {match.group(1)}')
+            logger.debug(f'Version {version} sanitized to {match.group(1)}')
         return match.group(1)
     else:
         return version
@@ -118,12 +148,13 @@ def log_unhandled_github_package(catpkg: str):
 def get_props(search_dir: str,
               settings: LivecheckSettings,
               names: Sequence[str] | None = None,
-              exclude: Sequence[str] | None = None) -> Iterator[PropTuple]:
+              exclude: Sequence[str] | None = None,
+              progress: bool = False) -> Iterator[PropTuple]:
     repo_root, repo_name = get_repository_root_if_inside(search_dir)
     if not repo_root:
         logger.error('Not inside a repository configured in repos.conf')
         return
-    logger.debug(f'search_dir={search_dir} repo_root={repo_root} repo_name={repo_name}')
+    logger.info(f'search_dir={search_dir} repo_root={repo_root} repo_name={repo_name}')
     exclude = exclude or []
     try:
         matches = unique_justseen(sorted(set(
@@ -138,7 +169,7 @@ def get_props(search_dir: str,
         logger.error(f"Unexpected error: {e}")
         return None
     matches_list = list(matches)
-    logger.debug(f'Found {len(matches_list)} ebuilds')
+    logger.info(f'Found {len(matches_list)} ebuilds')
     if not matches_list:
         logger.error('No matches!')
         raise click.Abort
@@ -157,6 +188,8 @@ def get_props(search_dir: str,
         if not src_uri or re.search(r'9999', ebuild_version):
             logger.debug(f'Ignoring {catpkg}')
             continue
+        info = f'Processing {catpkg} version {ebuild_version}'
+        logger.info(info) if progress else logger.debug(info)
         if catpkg in settings.custom_livechecks:
             url, regex, use_vercmp, version = settings.custom_livechecks[catpkg]
             yield (cat, pkg, version or ebuild_version, version
@@ -352,11 +385,13 @@ def do_main(*, auto_update: bool, cat: str, ebuild_version: str, parsed_uri: Par
     if tf := settings.transformations.get(cp, None):
         results = [tf(x) for x in results]
     logger.debug(f'Result count: {len(results)}')
+    if len(results) == 0:
+        return
     try:
         top_hash = (sorted(results, key=cmp_to_key(special_vercmp), reverse=True)
                     if use_vercmp else results)[0]
     except IndexError:
-        logger.warning(f'Attempted to fix top_hash version but it failed in {cp}')
+        logger.debug(f'Attempted to fix top_hash version but it failed in {cp}')
         return
     # Convert top_hash to string always to fix version like 1.8
     top_hash = str(top_hash)
@@ -382,6 +417,9 @@ def do_main(*, auto_update: bool, cat: str, ebuild_version: str, parsed_uri: Par
     logger.debug(f'Comparing current ebuild version {version} with live version {top_hash}')
     assert isinstance(use_vercmp, bool)
     top_hash = sanitize_version(top_hash)
+    # Skip if is a development version or hash
+    if top_hash == '0':
+        return
     if ((use_vercmp and (vercmp(top_hash, version, silent=0) or 0) > 0) or top_hash != version):
         if auto_update and cp not in settings.no_auto_update:
             ebuild = find_highest_match_ebuild_path(cp, search_dir)
@@ -425,7 +463,11 @@ def do_main(*, auto_update: bool, cat: str, ebuild_version: str, parsed_uri: Par
         else:
             new_date = ''
             if is_sha(top_hash):
-                doc = etree.fromstring(r.text)
+                try:
+                    doc = etree.fromstring(r.text)
+                except etree.ParseError as e:
+                    logger.debug(f'Caught error {e} attempting to parse {url}')
+                    return
                 updated_el = doc.find('entry/updated', RSS_NS)
                 assert updated_el is not None
                 assert updated_el.text is not None
@@ -449,6 +491,7 @@ def do_main(*, auto_update: bool, cat: str, ebuild_version: str, parsed_uri: Par
 @click.option('-a', '--auto-update', is_flag=True, help='Rename and modify ebuilds.')
 @click.option('-d', '--debug', is_flag=True, help='Enable debug logging.')
 @click.option('-e', '--exclude', multiple=True, help='Exclude package(s) from updates.')
+@click.option('-p', '--progress', is_flag=True, help='Enable progress logging.')
 @click.option('-W',
               '--working-dir',
               default='.',
@@ -458,6 +501,7 @@ def do_main(*, auto_update: bool, cat: str, ebuild_version: str, parsed_uri: Par
 def main(
     auto_update: bool = False,
     debug: bool = False,
+    progress: bool = False,
     exclude: tuple[str] | None = None,
     package_names: tuple[str] | list[str] | None = None,
     working_dir: str | None = '.',
@@ -478,7 +522,7 @@ def main(
     settings = gather_settings(search_dir)
     package_names = sorted(package_names or [])
     for cat, pkg, ebuild_version, version, url, regex, _use_vercmp in get_props(
-            search_dir, settings, package_names, exclude):
+            search_dir, settings, package_names, exclude, progress):
         logger.debug(f'Fetching {url}')
         headers = {}
         parsed_uri = urlparse(url)
@@ -494,7 +538,7 @@ def main(
             r = (TextDataResponse(url[5:])
                  if url.startswith('data:') else session.get(url, headers=headers, timeout=30))
         except (ReadTimeout, ConnectTimeout, requests.exceptions.HTTPError,
-                requests.exceptions.SSLError) as e:
+                requests.exceptions.SSLError, requests.exceptions.ConnectionError) as e:
             logger.debug(f'Caught error {e} attempting to fetch {url}')
             continue
         try:
@@ -511,7 +555,7 @@ def main(
                     ebuild_version=ebuild_version,
                     version=version)
         except (requests.exceptions.HTTPError, requests.exceptions.SSLError) as e:
-            logger.warning(f'Caught error while checking {cat}/{pkg}: {e}')
+            logger.debug(f'Caught error while checking {cat}/{pkg}: {e}')
         except Exception:
             print(f'Exception while checking {cat}/{pkg}', file=sys.stderr)
             raise
