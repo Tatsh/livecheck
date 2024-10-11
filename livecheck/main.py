@@ -38,7 +38,7 @@ from .special.pecl import get_latest_pecl_package
 from .special.metacpan import get_latest_metacpan_package
 from .special.rubygems import get_latest_rubygems_package
 from .special.sourceforge import get_latest_sourceforge_package
-from .special.jetbrains import get_latest_jetbrains_package
+from .special.jetbrains import get_latest_jetbrains_package, update_jetbrains_ebuild
 
 from .special.yarn import update_yarn_ebuild
 from .typing import PropTuple, Response
@@ -418,6 +418,8 @@ def do_main(*, auto_update: bool, cat: str, ebuild_version: str, parsed_uri: Par
                 update_go_ebuild(new_filename, pkg, top_hash, settings.go_sum_uri[cp])
             elif cp in settings.dotnet_projects:
                 update_dotnet_ebuild(new_filename, settings.dotnet_projects[cp], cp)
+            elif cp in settings.jetbrains_packages:
+                update_jetbrains_ebuild(new_filename, url)
         else:
             new_date = ''
             if is_sha(top_hash):

@@ -33,6 +33,7 @@ class LivecheckSettings:
     transformations: Mapping[str, Callable[[str], str]]
     yarn_base_packages: dict[str, str]
     yarn_packages: dict[str, set[str]]
+    jetbrains_packages: dict[str, bool]
 
 
 class UnknownTransformationFunction(NameError):
@@ -53,6 +54,7 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
     transformations: dict[str, Callable[[str], str]] = {}
     yarn_base_packages: dict[str, str] = {}
     yarn_packages: dict[str, set[str]] = {}
+    jetbrains_packages: dict[str, bool] = {}
     for path in Path(search_dir).glob('**/livecheck.json'):
         logger.debug('Opening %s', path)
         with path.open() as f:
@@ -97,6 +99,8 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
                 dotnet_projects[catpkg] = settings_parsed['dotnet_project']
             if 'semver' in settings_parsed:
                 semver[catpkg] = settings_parsed['semver']
+            if 'jetbrains' in settings_parsed:
+                jetbrains_packages[catpkg] = settings_parsed['jetbrains']
     return LivecheckSettings(branches, checksum_livechecks, custom_livechecks, dotnet_projects,
                              golang_packages, ignored_packages, no_auto_update, semver, sha_sources,
-                             transformations, yarn_base_packages, yarn_packages)
+                             transformations, yarn_base_packages, yarn_packages, jetbrains_packages)
