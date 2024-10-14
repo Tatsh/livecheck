@@ -423,7 +423,11 @@ def do_main(*, auto_update: bool, cat: str, ebuild_version: str, parsed_uri: Par
         else:
             new_date = ''
             if is_sha(top_hash):
-                doc = etree.fromstring(r.text)
+                try:
+                    doc = etree.fromstring(r.text)
+                except etree.ParseError as e:
+                    logger.debug(f'Caught error {e} attempting to parse {url}')
+                    return
                 updated_el = doc.find('entry/updated', RSS_NS)
                 assert updated_el is not None
                 assert updated_el.text is not None
@@ -497,7 +501,7 @@ def main(
             r = (TextDataResponse(url[5:])
                  if url.startswith('data:') else session.get(url, headers=headers, timeout=30))
         except (ReadTimeout, ConnectTimeout, requests.exceptions.HTTPError,
-                requests.exceptions.SSLError) as e:
+                requests.exceptions.SSLError, requests.exceptions.ConnectionError) as e:
             logger.debug(f'Caught error {e} attempting to fetch {url}')
             continue
         try:
