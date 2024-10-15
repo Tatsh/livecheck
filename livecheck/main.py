@@ -74,7 +74,7 @@ def sanitize_version(version: str) -> str:
 
     if match:
         if match.group(1) != version:
-            logger.debug(f'Version {version} sanitized to {match.group(1)}')
+            logger.warning(f'Version {version} sanitized to {match.group(1)}')
         return match.group(1)
     else:
         return version
