@@ -49,16 +49,13 @@ from .utils import (
     is_sha,
     make_github_grit_commit_re,
     make_github_grit_title_re,
-    unique_justseen,
 )
 from .utils.portage import (
     P,
     catpkg_catpkgsplit,
-    find_highest_match_ebuild_path,
     get_first_src_uri,
     get_highest_matches,
     get_highest_matches2,
-    sort_by_v,
     get_repository_root_if_inside,
 )
 
@@ -122,18 +119,15 @@ def get_props(search_dir: str,
               exclude: Sequence[str] | None = None) -> Iterator[PropTuple]:
     exclude = exclude or []
     try:
-        matches = unique_justseen(sorted(set(
+        matches_list = sorted(
             get_highest_matches(search_dir, repo_root
-                                ) if not names else get_highest_matches2(names, search_dir)),
-                                         key=cmp_to_key(sort_by_v)),
-                                  key=lambda a: catpkg_catpkgsplit(a)[0])
+                                ) if not names else get_highest_matches2(names, repo_root))
     except InvalidAtom as e:
         logger.error(f"Invalid Atom: {e}")
         return None
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
         return None
-    matches_list = list(matches)
     logger.debug(f'Found {len(matches_list)} ebuilds')
     if not matches_list:
         logger.error('No matches!')
@@ -143,14 +137,14 @@ def get_props(search_dir: str,
         if catpkg in exclude or pkg in exclude:
             logger.debug(f'Ignoring {catpkg}')
             continue
-        src_uri = get_first_src_uri(match)
+        src_uri = get_first_src_uri(match, repo_root)
         parsed_uri = urlparse(src_uri)
         if cat.startswith('acct-') or catpkg in settings.ignored_packages:
             logger.debug(f'Ignoring {catpkg}')
             continue
-        # Exclude packages with no SRC_URI or with version contain 9999
+        # Exclude packages with no SRC_URI
         # live ebuilds o virtual packages
-        if not src_uri or re.search(r'9999', ebuild_version):
+        if not src_uri:
             logger.debug(f'Ignoring {catpkg}')
             continue
         if catpkg in settings.custom_livechecks:
@@ -380,7 +374,7 @@ def do_main(*, auto_update: bool, cat: str, ebuild_version: str, parsed_uri: Par
     top_hash = sanitize_version(top_hash)
     if ((use_vercmp and (vercmp(top_hash, version, silent=0) or 0) > 0) or top_hash != version):
         if auto_update and cp not in settings.no_auto_update:
-            ebuild = find_highest_match_ebuild_path(cp, search_dir)
+            ebuild = search_dir + '/' + cp + '/' + pkg + '-' + ebuild_version + '.ebuild'
             with open(ebuild) as f:
                 old_content = f.read()
             content = old_content.replace(version, top_hash)
@@ -433,7 +427,7 @@ def do_main(*, auto_update: bool, cat: str, ebuild_version: str, parsed_uri: Par
             sha_str = ''
             new_sha = ''
             if update_sha_too_source:
-                ebuild = find_highest_match_ebuild_path(cp, search_dir)
+                ebuild = search_dir + '/' + cp + '/' + pkg + '-' + ebuild_version + '.ebuild'
                 old_sha = get_old_sha(ebuild)
                 sha_str = f' ({old_sha}) '
                 logger.debug(f'Fetching {update_sha_too_source}')

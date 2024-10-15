@@ -1,10 +1,12 @@
+from ast import Dict
 from collections.abc import Iterator, Sequence
 from functools import cmp_to_key, lru_cache
 from pathlib import Path
 import logging
 import os
+from typing import List
 
-from portage.versions import catpkgsplit, vercmp
+from portage.versions import catpkgsplit, vercmp, pkgcmp
 import portage
 
 __all__ = (
@@ -37,24 +39,42 @@ def sort_by_v(a: str, b: str) -> int:
     return cp_a < cp_b
 
 
-def get_highest_matches(search_dir: str, repo_root: str) -> Iterator[str]:
+def get_highest_matches(search_dir: str, repo_root: str) -> List[str]:
+    result = {}
     for path in Path(search_dir).glob('**/*.ebuild'):
         dn = path.parent
         name = f'{dn.parent.name}/{dn.name}'
         if matches := P.xmatch('match-all', name):
             for m in matches:
                 if P.findname2(m)[1] == repo_root:
-                    yield m
+                    cp_a, _, _, version_a = catpkg_catpkgsplit(m)
+                    if '9999' in version_a or not cp_a or not version_a:
+                        continue
+                    if cp_a in result:
+                        if vercmp(version_a, result[cp_a]):
+                            result[cp_a] = version_a
+                    else:
+                        result[cp_a] = version_a
+
+    return [f"{cp}-{version}" for cp, version in result.items()]
 
 
-def get_highest_matches2(names: Sequence[str], search_dir: str) -> Iterator[str]:
+def get_highest_matches2(names: Sequence[str], repo_root: str) -> List[str]:
+    result = {}
     for name in names:
         if matches := P.xmatch('match-all', name):
             for m in matches:
-                candidate = P.findname2(m)[1]
-                logger.debug('Checking: %s == %s ?', candidate, search_dir)
-                if candidate == search_dir:
-                    yield m
+                if P.findname2(m)[1] == repo_root:
+                    cp_a, _, _, version_a = catpkg_catpkgsplit(m)
+                    if '9999' in version_a or not cp_a or not version_a:
+                        continue
+                    if cp_a in result:
+                        if vercmp(version_a, result[cp_a]):
+                            result[cp_a] = version_a
+                    else:
+                        result[cp_a] = version_a
+
+    return [f"{cp}-{version}" for cp, version in result.items()]
 
 
 def get_3rd_of_4(tup: tuple[str, str] | tuple[str, str, str] | tuple[str, str, str, str]) -> str:
@@ -112,8 +132,11 @@ def catpkg_catpkgsplit(atom: str) -> tuple[str, str, str, str]:
     match result:
         case [cat, pkg, ebuild_version]:
             return f'{cat}/{pkg}', cat, pkg, ebuild_version
-        case [cat, pkg, ebuild_version, _]:
-            return f'{cat}/{pkg}', cat, pkg, ebuild_version
+        case [cat, pkg, ebuild_version, revision]:
+            if revision != 'r0':
+                return f'{cat}/{pkg}', cat, pkg, ebuild_version + '-' + revision
+            else:
+                return f'{cat}/{pkg}', cat, pkg, ebuild_version
         case _:
             raise ValueError(result)
 
