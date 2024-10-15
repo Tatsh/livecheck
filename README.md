@@ -30,7 +30,7 @@ Options:
   -a, --auto-update            Rename and modify ebuilds.
   -d, --debug                  Enable debug logging.
   -e, --exclude TEXT           Exclude package(s) from updates.
-  -p, --process                Show the ebuild process
+  -p, --progress               Enable progress logging.
   -W, --working-dir DIRECTORY  Working directory. Should be a port tree root.
   --help                       Show this message and exit.
 ```
