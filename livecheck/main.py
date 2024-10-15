@@ -102,7 +102,10 @@ def get_props(search_dir: str,
               repo_root: str,
               settings: LivecheckSettings,
               names: Sequence[str] | None = None,
-              exclude: Sequence[str] | None = None) -> Iterator[PropTuple]:
+              exclude: Sequence[str] | None = None,
+              *,
+              progress: bool = False,
+              debug: bool = False) -> Iterator[PropTuple]:
     exclude = exclude or []
     try:
         matches_list = sorted(
@@ -114,7 +117,7 @@ def get_props(search_dir: str,
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
         return None
-    logger.debug(f'Found {len(matches_list)} ebuilds')
+    logger.info(f'Found {len(matches_list)} ebuilds')
     if not matches_list:
         logger.error('No matches!')
         raise click.Abort
@@ -133,6 +136,8 @@ def get_props(search_dir: str,
         if not src_uri:
             logger.debug(f'Ignoring {catpkg}')
             continue
+        if debug or progress:
+            logger.info(f'Processing {catpkg} version {ebuild_version}')
         if catpkg in settings.custom_livechecks:
             url, regex, use_vercmp, version = settings.custom_livechecks[catpkg]
             yield (cat, pkg, version or ebuild_version, version
@@ -417,6 +422,7 @@ def do_main(*, auto_update: bool, cat: str, ebuild_version: str, parsed_uri: Par
 @click.command()
 @click.option('-a', '--auto-update', is_flag=True, help='Rename and modify ebuilds.')
 @click.option('-d', '--debug', is_flag=True, help='Enable debug logging.')
+@click.option('-p', '--progress', is_flag=True, help='Enable progress logging.')
 @click.option('-e', '--exclude', multiple=True, help='Exclude package(s) from updates.')
 @click.option('-W',
               '--working-dir',
@@ -427,6 +433,7 @@ def do_main(*, auto_update: bool, cat: str, ebuild_version: str, parsed_uri: Par
 def main(
     auto_update: bool = False,
     debug: bool = False,
+    progress: bool = False,
     exclude: tuple[str] | None = None,
     package_names: tuple[str] | list[str] | None = None,
     working_dir: str | None = '.',
@@ -436,7 +443,14 @@ def main(
     if debug:
         logging.basicConfig(level=logging.DEBUG)
     else:
-        logger.configure(handlers=[{"sink": sys.stderr, "level": "INFO"}])
+        logger.configure(handlers=[{
+            "sink":
+                sys.stderr,
+            "level":
+                "INFO",
+            "format":
+                "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <level>{message}</level>"
+        }])
     if exclude:
         logger.debug(f'Excluding {", ".join(exclude)}')
     search_dir = working_dir or '.'
@@ -447,12 +461,17 @@ def main(
     if not repo_root:
         logger.error('Not inside a repository configured in repos.conf')
         raise click.Abort
-    logger.debug(f'search_dir={search_dir} repo_root={repo_root} repo_name={repo_name}')
+    logger.info(f'search_dir={search_dir} repo_root={repo_root} repo_name={repo_name}')
     session = requests.Session()
     settings = gather_settings(search_dir)
     package_names = sorted(package_names or [])
-    for cat, pkg, ebuild_version, version, url, regex, _use_vercmp in get_props(
-            search_dir, repo_root, settings, package_names, exclude):
+    for cat, pkg, ebuild_version, version, url, regex, _use_vercmp in get_props(search_dir,
+                                                                                repo_root,
+                                                                                settings,
+                                                                                package_names,
+                                                                                exclude,
+                                                                                progress=progress,
+                                                                                debug=debug):
         logger.debug(f'Fetching {url}')
         headers = {}
         parsed_uri = urlparse(url)
@@ -485,7 +504,7 @@ def main(
                     ebuild_version=ebuild_version,
                     version=version)
         except (requests.exceptions.HTTPError, requests.exceptions.SSLError) as e:
-            logger.warning(f'Caught error while checking {cat}/{pkg}: {e}')
+            logger.debug(f'Caught error while checking {cat}/{pkg}: {e}')
         except Exception:
             print(f'Exception while checking {cat}/{pkg}', file=sys.stderr)
             raise
