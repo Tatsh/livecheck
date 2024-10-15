@@ -198,16 +198,13 @@ def sanitize_version(version: str) -> str:
         return version
 
 
-def compare_versions(old: str, new: str) -> int | None:
+def compare_versions(old: str, new: str) -> bool:
     if is_hash(old) and is_hash(new):
-        if old != new:
-            return 1
-        else:
-            return 0
+        return old != new
 
     # check if is a beta, alpa, pre or rc version and not accept this version
     if is_version_development(new):
         logger.debug(f'Not permitted development version {new}')
-        return 0
+        return False
 
-    return vercmp(sanitize_version(new), sanitize_version(old), silent=0)
+    return vercmp(sanitize_version(new), sanitize_version(old), silent=0) == -1
