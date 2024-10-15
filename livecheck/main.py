@@ -357,7 +357,7 @@ def do_main(*, auto_update: bool, cat: str, ebuild_version: str, parsed_uri: Par
         top_hash = (sorted(results, key=cmp_to_key(special_vercmp), reverse=True)
                     if use_vercmp else results)[0]
     except IndexError:
-        logger.debug(f'Attempted to fix top_hash version but it failed in {cp}')
+        logger.warning(f'Attempted to fix top_hash version but it failed in {cp}')
         return
     # Convert top_hash to string always to fix version like 1.8
     top_hash = str(top_hash)
