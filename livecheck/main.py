@@ -374,7 +374,7 @@ def do_main(*, auto_update: bool, cat: str, ebuild_version: str, parsed_uri: Par
     top_hash = sanitize_version(top_hash)
     if ((use_vercmp and (vercmp(top_hash, version, silent=0) or 0) > 0) or top_hash != version):
         if auto_update and cp not in settings.no_auto_update:
-            ebuild = os.path.join(search_dir, cp, pkg + '-' + ebuild_version + '.ebuild')
+            ebuild = os.path.join(search_dir, cp, f"{pkg}-{ebuild_version}.ebuild")
             with open(ebuild) as f:
                 old_content = f.read()
             content = old_content.replace(version, top_hash)
@@ -427,7 +427,7 @@ def do_main(*, auto_update: bool, cat: str, ebuild_version: str, parsed_uri: Par
             sha_str = ''
             new_sha = ''
             if update_sha_too_source:
-                ebuild = os.path.join(search_dir, cp, pkg + '-' + ebuild_version + '.ebuild')
+                ebuild = os.path.join(search_dir, cp, f"{pkg}-{ebuild_version}.ebuild")
                 old_sha = get_old_sha(ebuild)
                 sha_str = f' ({old_sha}) '
                 logger.debug(f'Fetching {update_sha_too_source}')
