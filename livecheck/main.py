@@ -16,7 +16,6 @@ import xml.etree.ElementTree as etree
 import os
 
 from loguru import logger
-from portage.versions import vercmp
 from portage.exception import InvalidAtom
 from requests import ConnectTimeout, ReadTimeout
 import click
@@ -60,24 +59,11 @@ from .utils.portage import (
     get_highest_matches2,
     sort_by_v,
     get_repository_root_if_inside,
+    sanitize_version,
+    compare_versions,
 )
 
 T = TypeVar('T')
-
-
-# Sanitize version to Gentoo Ebuild format
-# info: https://dev.gentoo.org/~gokturk/devmanual/pr65/ebuild-writing/file-format/index.html
-def sanitize_version(version: str) -> str:
-    pattern = r"(\d+(\.\d+)*[a-z]?(_(alpha|beta|pre|rc|p)\d*)*(-r\d+)?)"
-
-    match = re.search(pattern, version)
-
-    if match:
-        if match.group(1) != version:
-            logger.warning(f'Version {version} sanitized to {match.group(1)}')
-        return match.group(1)
-    else:
-        return version
 
 
 def process_submodules(pkg_name: str, ref: str, contents: str, repo_uri: str) -> str:
@@ -286,10 +272,6 @@ def get_props(search_dir: str,
             log_unhandled_pkg(catpkg, home, src_uri)
 
 
-def special_vercmp(x: str, y: str) -> int:
-    return 1 if (ret := vercmp(x, y)) is None else ret
-
-
 def log_expected_sha_line() -> None:
     logger.debug('Expected SHA line to be present')
 
@@ -333,9 +315,6 @@ def do_main(*, auto_update: bool, cat: str, ebuild_version: str, parsed_uri: Par
     cp = f'{cat}/{pkg}'
     prefixes: dict[str, str] | None = None
     if not regex:
-        # Force convert version to string to fix version like 1.8
-        version = str(version)
-        version = sanitize_version(version)
         results = [version]
         version = ebuild_version
     else:
@@ -353,14 +332,9 @@ def do_main(*, auto_update: bool, cat: str, ebuild_version: str, parsed_uri: Par
     if tf := settings.transformations.get(cp, None):
         results = [tf(x) for x in results]
     logger.debug(f'Result count: {len(results)}')
-    try:
-        top_hash = (sorted(results, key=cmp_to_key(special_vercmp), reverse=True)
-                    if use_vercmp else results)[0]
-    except IndexError:
-        logger.warning(f'Attempted to fix top_hash version but it failed in {cp}')
+    if len(results) == 0:
         return
-    # Convert top_hash to string always to fix version like 1.8
-    top_hash = str(top_hash)
+    top_hash = results[0]
     logger.debug(f're.findall() -> "{top_hash}"')
     if update_sha_too_source := settings.sha_sources.get(cp, None):
         logger.debug('Package also needs a SHA update')
@@ -381,9 +355,8 @@ def do_main(*, auto_update: bool, cat: str, ebuild_version: str, parsed_uri: Par
             logger.debug('Attempted to fix top_hash date but it failed. Ignoring this error.')
     logger.debug(f'top_hash = {top_hash}')
     logger.debug(f'Comparing current ebuild version {version} with live version {top_hash}')
-    assert isinstance(use_vercmp, bool)
-    top_hash = sanitize_version(top_hash)
-    if ((use_vercmp and (vercmp(top_hash, version, silent=0) or 0) > 0) or top_hash != version):
+    if compare_versions(top_hash, version):
+        top_hash = sanitize_version(top_hash)
         if auto_update and cp not in settings.no_auto_update:
             ebuild = find_highest_match_ebuild_path(cp, search_dir)
             with open(ebuild) as f:
@@ -428,7 +401,11 @@ def do_main(*, auto_update: bool, cat: str, ebuild_version: str, parsed_uri: Par
         else:
             new_date = ''
             if is_sha(top_hash):
-                doc = etree.fromstring(r.text)
+                try:
+                    doc = etree.fromstring(r.text)
+                except etree.ParseError as e:
+                    logger.debug(f'Caught error {e} attempting to parse {url}')
+                    return
                 updated_el = doc.find('entry/updated', RSS_NS)
                 assert updated_el is not None
                 assert updated_el.text is not None
@@ -516,7 +493,7 @@ def main(
             r = (TextDataResponse(url[5:])
                  if url.startswith('data:') else session.get(url, headers=headers, timeout=30))
         except (ReadTimeout, ConnectTimeout, requests.exceptions.HTTPError,
-                requests.exceptions.SSLError) as e:
+                requests.exceptions.SSLError, requests.exceptions.ConnectionError) as e:
             logger.debug(f'Caught error {e} attempting to fetch {url}')
             continue
         try:

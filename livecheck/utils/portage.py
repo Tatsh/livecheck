@@ -3,20 +3,14 @@ from functools import cmp_to_key, lru_cache
 from pathlib import Path
 import logging
 import os
+import re
 
 from portage.versions import catpkgsplit, vercmp
 import portage
 
-__all__ = (
-    'P',
-    'catpkg_catpkgsplit',
-    'find_highest_match_ebuild_path',
-    'get_first_src_uri',
-    'get_highest_matches',
-    'get_highest_matches2',
-    'sort_by_v',
-    'get_repository_root_if_inside',
-)
+__all__ = ('P', 'catpkg_catpkgsplit', 'find_highest_match_ebuild_path', 'get_first_src_uri',
+           'get_highest_matches', 'get_highest_matches2', 'sort_by_v',
+           'get_repository_root_if_inside', 'compare_versions', 'sanitize_version')
 
 P = portage.db[portage.root]['porttree'].dbapi
 logger = logging.getLogger(__name__)
@@ -154,3 +148,63 @@ def get_repository_root_if_inside(directory: str) -> tuple[str, str]:
 
     # Return the most specific repository root, if found
     return selected_repo_root, selected_repo_name
+
+
+def is_hash(str: str) -> bool:
+    pattern = {
+        'MD5': r'[0-9a-f]{32}',
+        'SHA1': r'[0-9a-f]{40}',
+        'SHA256': r'[0-9a-f]{64}',
+        'SHA512': r'[0-9a-f]{128}',
+    }
+    for _, value in pattern.items():
+        if re.match(value, str):
+            return True
+    return False
+
+
+def is_version_development(version: str) -> bool:
+    if re.search(r'(alpha|beta|pre|dev|rc)', version, re.IGNORECASE):
+        return True
+    return False
+
+
+# Sanitize version to Gentoo Ebuild format
+# info: https://dev.gentoo.org/~gokturk/devmanual/pr65/ebuild-writing/file-format/index.html
+def sanitize_version(version: str) -> str:
+    if not version:
+        return '0'
+
+    # Force convert version to string to fix version like 1.8
+    version = str(version)
+
+    if is_hash(version):
+        return version
+
+    # remove initial "2-" found in dev-libs/libpcre2, net-analyzer/barnyard2, etc..
+    if version.startswith('2-'):
+        version = version[2:]
+
+    version = re.sub(r'(\d)_(\d)', r'\1.\2', version)
+    pattern = r"(\d+(\.\d+)*[a-z]?(_(alpha|beta|pre|rc|p)\d*)*(-r\d+)?)"
+
+    match = re.search(pattern, version, re.IGNORECASE)
+
+    if match:
+        if match.group(1) != version:
+            logger.debug(f'Version {version} sanitized to {match.group(1)}')
+        return match.group(1)
+    else:
+        return version
+
+
+def compare_versions(old: str, new: str) -> bool:
+    if is_hash(old) and is_hash(new):
+        return old != new
+
+    # check if is a beta, alpa, pre or rc version and not accept this version
+    if is_version_development(new):
+        logger.debug(f'Not permitted development version {new}')
+        return False
+
+    return vercmp(sanitize_version(new), sanitize_version(old), silent=0) == -1
