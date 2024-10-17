@@ -14,16 +14,12 @@ def get_latest_sourceforge_package(project_name: str) -> tuple[str, str]:
         release_json = response.json()
 
         release = release_json.get('release')
-        if release and release.get('filename'):
-            filename = release['filename']
-            version_match = re.search(r'/(\d+(?:\.\d+)+)/', filename)
-
-            if version_match:
-                version = version_match.group(1)
+        if release and (filename := release.get('filename')):
+            if version_match := re.search(r'/(\d+(?:\.\d+)+)/', filename):
                 download_url = release.get('url').rstrip('/download')
-                return version, download_url
+                return version_match.group(1), download_url
         else:
-            logger.debug(f"Could not extract filename o release: {url}")
+            logger.debug(f"Could not extract filename or release: {url}")
 
     except requests.exceptions.JSONDecodeError as e:
         logger.debug(f"Error decoding JSON {url}: {e}")
