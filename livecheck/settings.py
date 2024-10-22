@@ -26,7 +26,7 @@ class LivecheckSettings:
     placed.
     '''
     ignored_packages: set[str]
-    no_auto_update: set[str]
+    no_auto_update: dict[str, bool]
     semver: dict[str, bool]
     '''Disable auto-detection of semantic versioning.'''
     sha_sources: dict[str, str]
@@ -34,6 +34,7 @@ class LivecheckSettings:
     yarn_base_packages: dict[str, str]
     yarn_packages: dict[str, set[str]]
     jetbrains_packages: dict[str, bool]
+    keep_old: dict[str, bool]
 
 
 class UnknownTransformationFunction(NameError):
@@ -41,20 +42,23 @@ class UnknownTransformationFunction(NameError):
         super().__init__(f'Unknown transformation function: {tfs}')
 
 
-def gather_settings(search_dir: str) -> LivecheckSettings:
+def gather_settings(search_dir: str, *,
+                    default_auto_update:bool = False,
+                    default_keep_old:bool = False) -> LivecheckSettings:
     branches: dict[str, str] = {}
     checksum_livechecks: set[str] = set()
     custom_livechecks: dict[str, tuple[str, str, bool, str]] = {}
     dotnet_projects: dict[str, str] = {}
     golang_packages: dict[str, str] = {}
     ignored_packages: set[str] = set()
-    no_auto_update: set[str] = set()
+    no_auto_update: dict[str, bool] = {}
     semver: dict[str, bool] = {}
     sha_sources: dict[str, str] = {}
     transformations: dict[str, Callable[[str], str]] = {}
     yarn_base_packages: dict[str, str] = {}
     yarn_packages: dict[str, set[str]] = {}
     jetbrains_packages: dict[str, bool] = {}
+    keep_old: dict[str, bool] = {}
     for path in Path(search_dir).glob('**/livecheck.json'):
         logger.debug('Opening %s', path)
         with path.open() as f:
@@ -76,7 +80,9 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
             if settings_parsed.get('branch'):
                 branches[catpkg] = settings_parsed['branch']
             if 'no_auto_update' in settings_parsed:
-                no_auto_update.add(catpkg)
+                no_auto_update[catpkg]= not settings_parsed['no_auto_update']
+            else:
+                no_auto_update[catpkg]= default_auto_update
             if settings_parsed.get('transformation_function', None):
                 tfs = settings_parsed['transformation_function']
                 try:
@@ -101,6 +107,11 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
                 semver[catpkg] = settings_parsed['semver']
             if 'jetbrains' in settings_parsed:
                 jetbrains_packages[catpkg] = settings_parsed['jetbrains']
+            if 'keep_old' in settings_parsed:
+                keep_old[catpkg] = settings_parsed['keep_old']
+            else:
+                keep_old[catpkg] = default_keep_old
     return LivecheckSettings(branches, checksum_livechecks, custom_livechecks, dotnet_projects,
                              golang_packages, ignored_packages, no_auto_update, semver, sha_sources,
-                             transformations, yarn_base_packages, yarn_packages, jetbrains_packages)
+                             transformations, yarn_base_packages, yarn_packages, jetbrains_packages,
+                             keep_old)

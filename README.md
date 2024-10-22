@@ -30,6 +30,7 @@ Options:
   -a, --auto-update            Rename and modify ebuilds.
   -d, --debug                  Enable debug logging.
   -e, --exclude TEXT           Exclude package(s) from updates.
+  -k, --keep-old               Keep old ebuild versions.
   -p, --progress               Enable progress logging.
   -W, --working-dir DIRECTORY  Working directory. Should be a port tree root.
   --help                       Show this message and exit.
@@ -55,15 +56,16 @@ For packages that will not work with currently heuristic checking, a configurati
 
 ### Configuration keys
 
-- `type` - `none`, `regex`, or `checksum`
 - `branch` - The GitHub branch name to use for commits
+- `keep_old` - boolean - Keep old ebuild versions
 - `no_auto_update` - boolean - Do not allow auto-updating of this package
 - `regex` - The regular expression to use
 - `semver` - When set to `false`, do not allow detection of semantic versioning
 - `transformation_function` - string - Function to use to transform the version string. Currently
-  only `dotize` is supported. Others are for internal use.
+   only `dotize` is supported. Others are for internal use
+- `type` - `none`, `regex`, or `checksum`
 - `url` - URL of the document to run regular expressions against
-- `use_vercmp` - boolean - if `vercmp` from Portage should be used. Default: `true`.
+- `use_vercmp` - boolean - if `vercmp` from Portage should be used. Default: `true`
 
 ## Development use
 
