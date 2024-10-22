@@ -302,9 +302,9 @@ def log_unhandled_state(cat: str, pkg: str, url: str, regex: str | None = None) 
     logger.debug(f'Unhandled state: regex={regex}, cat={cat}, pkg={pkg}, url={url}')
 
 
-def do_main(*, cat: str, ebuild_version: str, parsed_uri: ParseResult, pkg: str,
-            r: Response, regex: str | None, search_dir: str, settings: LivecheckSettings, url: str,
-            use_vercmp: bool, version: str) -> None:
+def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
+            parsed_uri: ParseResult, pkg: str, r: Response, regex: str | None, search_dir: str,
+            settings: LivecheckSettings, url: str, use_vercmp: bool, version: str) -> None:
     r.raise_for_status()
     cp = f'{cat}/{pkg}'
     prefixes: dict[str, str] | None = None
@@ -352,7 +352,7 @@ def do_main(*, cat: str, ebuild_version: str, parsed_uri: ParseResult, pkg: str,
     if compare_versions(top_hash, version):
         top_hash = sanitize_version(top_hash)
         ebuild = os.path.join(search_dir, cp, f'{pkg}-{ebuild_version}.ebuild')
-        if settings.no_auto_update.get(cp, False):
+        if auto_update and cp not in settings.no_auto_update:
             with open(ebuild) as f:
                 old_content = f.read()
             content = old_content.replace(version, top_hash)
@@ -380,8 +380,12 @@ def do_main(*, cat: str, ebuild_version: str, parsed_uri: ParseResult, pkg: str,
                 ext = Path(ebuild).suffix
                 new_filename = f'{name}-r1{ext}'
             print(f'{ebuild} -> {new_filename}')
-            if settings.keep_old.get(cp, False):
-                sp.run(('mv', ebuild, new_filename), check=True)
+            if cp in settings.keep_old:
+                if not settings.keep_old.get(cp, True):
+                    sp.run(('mv', ebuild, new_filename), check=True)
+            else:
+                if not keep_old:
+                    sp.run(('mv', ebuild, new_filename), check=True)
             with open(new_filename, 'w') as f:
                 f.write(content)
             if cp in settings.yarn_base_packages:
@@ -425,7 +429,6 @@ def do_main(*, cat: str, ebuild_version: str, parsed_uri: ParseResult, pkg: str,
 @click.option('-e', '--exclude', multiple=True, help='Exclude package(s) from updates.')
 @click.option('-k', '--keep-old', is_flag=True, help='Keep old ebuild versions.')
 @click.option('-p', '--progress', is_flag=True, help='Enable progress logging.')
-
 @click.option('-W',
               '--working-dir',
               default='.',
@@ -466,7 +469,7 @@ def main(
         raise click.Abort
     logger.info(f'search_dir={search_dir} repo_root={repo_root} repo_name={repo_name}')
     session = requests.Session()
-    settings = gather_settings(search_dir, default_auto_update=auto_update, default_keep_old=keep_old)
+    settings = gather_settings(search_dir)
     package_names = sorted(package_names or [])
     for cat, pkg, ebuild_version, version, url, regex, _use_vercmp in get_props(search_dir,
                                                                                 repo_root,
@@ -500,6 +503,8 @@ def main(
                     url=url,
                     regex=regex,
                     search_dir=repo_root,
+                    auto_update=auto_update,
+                    keep_old=keep_old,
                     settings=settings,
                     use_vercmp=_use_vercmp,
                     parsed_uri=parsed_uri,
