@@ -380,12 +380,8 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
                 ext = Path(ebuild).suffix
                 new_filename = f'{name}-r1{ext}'
             print(f'{ebuild} -> {new_filename}')
-            if cp in settings.keep_old:
-                if not settings.keep_old.get(cp, True):
-                    sp.run(('mv', ebuild, new_filename), check=True)
-            else:
-                if not keep_old:
-                    sp.run(('mv', ebuild, new_filename), check=True)
+            if (cp in settings.keep_old and not settings.keep_old.get(cp, True)) or not keep_old:
+                sp.run(('mv', ebuild, new_filename), check=True)
             with open(new_filename, 'w') as f:
                 f.write(content)
             if cp in settings.yarn_base_packages:
