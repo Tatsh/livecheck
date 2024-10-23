@@ -42,16 +42,6 @@ class UnknownTransformationFunction(NameError):
         super().__init__(f'Unknown transformation function: {tfs}')
 
 
-def to_bool(val) -> bool:
-    if isinstance(val, bool):
-        return val
-    if isinstance(val, str):
-        return val.lower() in ('true', '1', 'yes')
-    if isinstance(val, int):
-        return val != 0
-    return bool(val)
-
-
 def gather_settings(search_dir: str) -> LivecheckSettings:
     branches: dict[str, str] = {}
     checksum_livechecks: set[str] = set()
@@ -114,7 +104,7 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
             if 'jetbrains' in settings_parsed:
                 jetbrains_packages[catpkg] = settings_parsed['jetbrains']
             if 'keep_old' in settings_parsed:
-                keep_old[catpkg] = to_bool(settings_parsed['keep_old'])
+                keep_old[catpkg] = settings_parsed['keep_old']
     return LivecheckSettings(branches, checksum_livechecks, custom_livechecks, dotnet_projects,
                              golang_packages, ignored_packages, no_auto_update, semver, sha_sources,
                              transformations, yarn_base_packages, yarn_packages, jetbrains_packages,
