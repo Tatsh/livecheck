@@ -73,6 +73,7 @@ numpy
 paren
 parens
 pipx
+pkgdev
 pkgs
 pluggy
 porttree

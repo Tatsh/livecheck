@@ -30,6 +30,7 @@ Options:
   -a, --auto-update            Rename and modify ebuilds.
   -d, --debug                  Enable debug logging.
   -e, --exclude TEXT           Exclude package(s) from updates.
+  -g, --git                    Use git and pkgdev to make changes.
   -k, --keep-old               Keep old ebuild versions.
   -p, --progress               Enable progress logging.
   -W, --working-dir DIRECTORY  Working directory. Should be a port tree root.

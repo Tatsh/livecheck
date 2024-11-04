@@ -304,7 +304,8 @@ def log_unhandled_state(cat: str, pkg: str, url: str, regex: str | None = None) 
 
 def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
             parsed_uri: ParseResult, pkg: str, r: Response, regex: str | None, search_dir: str,
-            settings: LivecheckSettings, url: str, use_vercmp: bool, version: str) -> None:
+            settings: LivecheckSettings, url: str, use_vercmp: bool, version: str,
+            git: bool) -> None:
     r.raise_for_status()
     cp = f'{cat}/{pkg}'
     prefixes: dict[str, str] | None = None
@@ -380,10 +381,15 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
                 ext = Path(ebuild).suffix
                 new_filename = f'{name}-r1{ext}'
             print(f'{ebuild} -> {new_filename}')
-            if (cp in settings.keep_old and not settings.keep_old.get(cp, True)) or not keep_old:
-                sp.run(('mv', ebuild, new_filename), check=True)
-            with open(new_filename, 'w') as f:
-                f.write(content)
+            if settings.keep_old.get(cp, keep_old):
+                if git:
+                    sp.run(('git', 'mv', ebuild, new_filename), check=True)
+                else:
+                    sp.run(('mv', ebuild, new_filename), check=True)
+            else:
+                with open(new_filename, 'w') as f:
+                    f.write(content)
+                sp.run(('git', 'add', new_filename), check=True)
             if cp in settings.yarn_base_packages:
                 update_yarn_ebuild(new_filename, settings.yarn_base_packages[cp], pkg,
                                    settings.yarn_packages.get(cp))
@@ -393,6 +399,10 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
                 update_dotnet_ebuild(new_filename, settings.dotnet_projects[cp], cp)
             elif cp in settings.jetbrains_packages:
                 update_jetbrains_ebuild(new_filename, url)
+            if git:
+                sp.run(('/usr/bin/ebuild', new_filename, 'digest'), check=True)
+                sp.run(('git', 'add', os.path.join(search_dir, cp, 'Manifest')), check=True)
+                sp.run(('/usr/bin/pkgdev', 'commit'), cwd=os.path.join(search_dir, cp), check=True)
         else:
             new_date = ''
             if is_sha(top_hash):
@@ -423,6 +433,7 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
 @click.option('-a', '--auto-update', is_flag=True, help='Rename and modify ebuilds.')
 @click.option('-d', '--debug', is_flag=True, help='Enable debug logging.')
 @click.option('-e', '--exclude', multiple=True, help='Exclude package(s) from updates.')
+@click.option('-g', '--git', is_flag=True, help='Use git and pkgdev to make changes.')
 @click.option('-k', '--keep-old', is_flag=True, help='Keep old ebuild versions.')
 @click.option('-p', '--progress', is_flag=True, help='Enable progress logging.')
 @click.option('-W',
@@ -436,6 +447,7 @@ def main(
     debug: bool = False,
     exclude: tuple[str] | None = None,
     keep_old: bool = False,
+    git: bool = False,
     package_names: tuple[str] | list[str] | None = None,
     progress: bool = False,
     working_dir: str | None = '.',
@@ -459,10 +471,15 @@ def main(
     if auto_update and not os.access(search_dir, os.W_OK):
         raise click.ClickException(
             f'The directory "{working_dir}" must be writable because --auto-update is enabled.')
+    if git and not auto_update:
+        logger.error('Git option requires --auto-update')
+        raise click.Abort
     repo_root, repo_name = get_repository_root_if_inside(search_dir)
     if not repo_root:
         logger.error('Not inside a repository configured in repos.conf')
         raise click.Abort
+    if not os.path.isdir(os.path.join(repo_root, '.git')):
+        logger.error(f'Directory {repo_root} is not a git repository')
     logger.info(f'search_dir={search_dir} repo_root={repo_root} repo_name={repo_name}')
     session = requests.Session()
     settings = gather_settings(search_dir)
@@ -505,7 +522,8 @@ def main(
                     use_vercmp=_use_vercmp,
                     parsed_uri=parsed_uri,
                     ebuild_version=ebuild_version,
-                    version=version)
+                    version=version,
+                    git=git)
         except (requests.exceptions.HTTPError, requests.exceptions.SSLError) as e:
             logger.debug(f'Caught error while checking {cat}/{pkg}: {e}')
         except Exception:
