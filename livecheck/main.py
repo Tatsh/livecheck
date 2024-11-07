@@ -486,7 +486,7 @@ def main(
             logger.error('Git is not installed')
             raise click.Abort
         # Check if pkgdev is installed
-        if sp.run(('pkgdev', '--version'), stdout=sp.PIPE, check=True).returncode != 0:
+        if sp.run(('pkgdev', '--version'), stdout=sp.PIPE, check=False).returncode != 0:
             logger.error('pkgdev is not installed')
             raise click.Abort
     logger.info(f'search_dir={search_dir} repo_root={repo_root} repo_name={repo_name}')
