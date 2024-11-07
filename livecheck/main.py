@@ -381,7 +381,7 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
                 ext = Path(ebuild).suffix
                 new_filename = f'{name}-r1{ext}'
             print(f'{ebuild} -> {new_filename}')
-            if settings.keep_old.get(cp, keep_old):
+            if settings.keep_old.get(cp, not keep_old):
                 if git:
                     sp.run(('git', 'mv', ebuild, new_filename), check=True)
                 else:
@@ -482,7 +482,7 @@ def main(
             logger.error(f'Directory {repo_root} is not a git repository')
             raise click.Abort
         # Check if git is installed
-        if sp.run(('git', '--version'), stdout=sp.PIPE, check=True).returncode != 0:
+        if sp.run(('git', '--version'), stdout=sp.PIPE, check=False).returncode != 0:
             logger.error('Git is not installed')
             raise click.Abort
         # Check if pkgdev is installed
