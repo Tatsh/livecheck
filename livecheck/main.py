@@ -402,7 +402,7 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
             if git:
                 sp.run(('ebuild', new_filename, 'digest'), check=True)
                 sp.run(('git', 'add', os.path.join(search_dir, cp, 'Manifest')), check=True)
-                sp.run(('/usr/bin/pkgdev', 'commit'), cwd=os.path.join(search_dir, cp), check=True)
+                sp.run(('pkgdev', 'commit'), cwd=os.path.join(search_dir, cp), check=True)
         else:
             new_date = ''
             if is_sha(top_hash):
