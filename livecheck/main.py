@@ -400,7 +400,7 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
             elif cp in settings.jetbrains_packages:
                 update_jetbrains_ebuild(new_filename, url)
             if git:
-                sp.run(('/usr/bin/ebuild', new_filename, 'digest'), check=True)
+                sp.run(('ebuild', new_filename, 'digest'), check=True)
                 sp.run(('git', 'add', os.path.join(search_dir, cp, 'Manifest')), check=True)
                 sp.run(('/usr/bin/pkgdev', 'commit'), cwd=os.path.join(search_dir, cp), check=True)
         else:
