@@ -480,6 +480,15 @@ def main(
         raise click.Abort
     if not os.path.isdir(os.path.join(repo_root, '.git')):
         logger.error(f'Directory {repo_root} is not a git repository')
+    if git:
+        # Check if git is installed
+        if sp.run(('git', '--version'), stdout=sp.PIPE).returncode != 0:
+            logger.error('Git is not installed')
+            raise click.Abort
+        # Check if pkgdev is installed
+        if sp.run(('pkgdev', '--version'), stdout=sp.PIPE).returncode != 0:
+            logger.error('pkgdev is not installed')
+            raise click.Abort
     logger.info(f'search_dir={search_dir} repo_root={repo_root} repo_name={repo_name}')
     session = requests.Session()
     settings = gather_settings(search_dir)
