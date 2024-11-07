@@ -399,8 +399,7 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
                 update_dotnet_ebuild(new_filename, settings.dotnet_projects[cp], cp)
             elif cp in settings.jetbrains_packages:
                 update_jetbrains_ebuild(new_filename, url)
-            if git:
-                sp.run(('ebuild', new_filename, 'digest'), check=True)
+            if git and sp.run(('ebuild', new_filename, 'digest'), check=True).returncode == 0:
                 sp.run(('git', 'add', os.path.join(search_dir, cp, 'Manifest')), check=True)
                 sp.run(('pkgdev', 'commit'), cwd=os.path.join(search_dir, cp), check=True)
         else:
@@ -471,22 +470,23 @@ def main(
     if auto_update and not os.access(search_dir, os.W_OK):
         raise click.ClickException(
             f'The directory "{working_dir}" must be writable because --auto-update is enabled.')
-    if git and not auto_update:
-        logger.error('Git option requires --auto-update')
-        raise click.Abort
     repo_root, repo_name = get_repository_root_if_inside(search_dir)
     if not repo_root:
         logger.error('Not inside a repository configured in repos.conf')
         raise click.Abort
-    if not os.path.isdir(os.path.join(repo_root, '.git')):
-        logger.error(f'Directory {repo_root} is not a git repository')
     if git:
+        if not auto_update:
+            logger.error('Git option requires --auto-update')
+            raise click.Abort
+        if not os.path.isdir(os.path.join(repo_root, '.git')):
+            logger.error(f'Directory {repo_root} is not a git repository')
+            raise click.Abort
         # Check if git is installed
-        if sp.run(('git', '--version'), stdout=sp.PIPE).returncode != 0:
+        if sp.run(('git', '--version'), stdout=sp.PIPE, check=True).returncode != 0:
             logger.error('Git is not installed')
             raise click.Abort
         # Check if pkgdev is installed
-        if sp.run(('pkgdev', '--version'), stdout=sp.PIPE).returncode != 0:
+        if sp.run(('pkgdev', '--version'), stdout=sp.PIPE, check=True).returncode != 0:
             logger.error('pkgdev is not installed')
             raise click.Abort
     logger.info(f'search_dir={search_dir} repo_root={repo_root} repo_name={repo_name}')
