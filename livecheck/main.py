@@ -399,7 +399,7 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
                 update_dotnet_ebuild(new_filename, settings.dotnet_projects[cp], cp)
             elif cp in settings.jetbrains_packages:
                 update_jetbrains_ebuild(new_filename, url)
-            if git and sp.run(('ebuild', new_filename, 'digest'), check=True).returncode == 0:
+            if git and sp.run(('ebuild', new_filename, 'digest'), check=False).returncode == 0:
                 sp.run(('git', 'add', os.path.join(search_dir, cp, 'Manifest')), check=True)
                 sp.run(('pkgdev', 'commit'), cwd=os.path.join(search_dir, cp), check=True)
         else:
