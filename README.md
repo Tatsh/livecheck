@@ -4,7 +4,7 @@
 [![Tests](https://github.com/Tatsh/livecheck/actions/workflows/tests.yml/badge.svg)](https://github.com/Tatsh/livecheck/actions/workflows/tests.yml)
 [![Coverage Status](https://coveralls.io/repos/github/Tatsh/livecheck/badge.svg?branch=master)](https://coveralls.io/github/Tatsh/livecheck?branch=master)
 [![Documentation Status](https://readthedocs.org/projects/livecheck/badge/?version=latest)](https://livecheck.readthedocs.io/en/latest/?badge=latest)
-![PyPI - Version](https://img.shields.io/pypi/v/portage-livecheck)
+![PyPI - Version](https://img.shields.io/pypi/v/livecheck)
 ![GitHub tag (with filter)](https://img.shields.io/github/v/tag/Tatsh/livecheck)
 ![GitHub](https://img.shields.io/github/license/Tatsh/livecheck)
 ![GitHub commits since latest release (by SemVer including pre-releases)](https://img.shields.io/github/commits-since/Tatsh/livecheck/v0.0.13/master)
@@ -57,16 +57,16 @@ For packages that will not work with currently heuristic checking, a configurati
 
 ### Configuration keys
 
-- `branch` - The GitHub branch name to use for commits
-- `keep_old` - boolean - Keep old ebuild versions
-- `no_auto_update` - boolean - Do not allow auto-updating of this package
-- `regex` - The regular expression to use
-- `semver` - When set to `false`, do not allow detection of semantic versioning
+- `branch` - The GitHub branch name to use for commits.
+- `keep_old` - boolean - Keep old ebuild versions.
+- `no_auto_update` - boolean - Do not allow auto-updating of this package.
+- `regex` - The regular expression to use.
+- `semver` - When set to `false`, do not allow detection of semantic versioning.
 - `transformation_function` - string - Function to use to transform the version string. Currently
-   only `dotize` is supported. Others are for internal use
-- `type` - `none`, `regex`, or `checksum`
-- `url` - URL of the document to run regular expressions against
-- `use_vercmp` - boolean - if `vercmp` from Portage should be used. Default: `true`
+  only `dotize` is supported. Others are for internal use.
+- `type` - `none`, `regex`, or `checksum`.
+- `url` - URL of the document to run regular expressions against.
+- `use_vercmp` - boolean - if `vercmp` from Portage should be used. Default: `true`.
 
 ## Development use
 

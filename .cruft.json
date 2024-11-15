@@ -8,7 +8,7 @@
         "list": ["Andrew Udvare <audvare@gmail.com>"]
       },
       "description": "Tool to update ebuilds.",
-      "directory_name": "portage-livecheck",
+      "directory_name": "livecheck",
       "github_username": "Tatsh",
       "human_project_name": "livecheck",
       "main_cli_name": "livecheck",
