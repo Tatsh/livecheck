@@ -38,6 +38,8 @@ from .special.metacpan import get_latest_metacpan_package
 from .special.rubygems import get_latest_rubygems_package
 from .special.sourceforge import get_latest_sourceforge_package
 from .special.jetbrains import get_latest_jetbrains_package, update_jetbrains_ebuild
+from .special.gomodule import update_gomodule_ebuild, remove_gomodule_url
+from .special.nodejs import update_nodejs_ebuild, remove_nodejs_url
 
 from .special.yarn import update_yarn_ebuild
 from .typing import PropTuple, Response
@@ -49,16 +51,9 @@ from .utils import (
     make_github_grit_commit_re,
     make_github_grit_title_re,
 )
-from .utils.portage import (
-    P,
-    catpkg_catpkgsplit,
-    get_first_src_uri,
-    get_highest_matches,
-    get_highest_matches2,
-    get_repository_root_if_inside,
-    sanitize_version,
-    compare_versions,
-)
+from .utils.portage import (P, catpkg_catpkgsplit, get_first_src_uri, get_highest_matches,
+                            get_highest_matches2, get_repository_root_if_inside, sanitize_version,
+                            compare_versions, digest_ebuild)
 
 T = TypeVar('T')
 
@@ -386,20 +381,48 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
                     sp.run(('git', 'mv', ebuild, new_filename), check=True)
                 else:
                     sp.run(('mv', ebuild, new_filename), check=True)
-            else:
+            # Write net ebuild content because it may be modified
+            if old_content != content:
                 with open(new_filename, 'w') as f:
                     f.write(content)
-                sp.run(('git', 'add', new_filename), check=True)
+            # Stores the content so that it can be recovered because it had to be modified
+            old_content = content
+            # First pass
+            # Remove URLs that do not yet exist to be able to correctly generate the digest
+            if cp in settings.gomodule_packages:
+                content = remove_gomodule_url(content)
+            if cp in settings.nodejs_packages:
+                content = remove_nodejs_url(content)
+            if old_content != content:
+                with open(new_filename, 'w') as file:
+                    file.write(content)
+            if not digest_ebuild(new_filename):
+                logger.error(f'Error digesting {new_filename}')
+                return
+            # Second pass
+            # Update ebuild or download news file
             if cp in settings.yarn_base_packages:
                 update_yarn_ebuild(new_filename, settings.yarn_base_packages[cp], pkg,
                                    settings.yarn_packages.get(cp))
-            elif cp in settings.go_sum_uri:
+            if cp in settings.go_sum_uri:
                 update_go_ebuild(new_filename, pkg, top_hash, settings.go_sum_uri[cp])
-            elif cp in settings.dotnet_projects:
+            if cp in settings.dotnet_projects:
                 update_dotnet_ebuild(new_filename, settings.dotnet_projects[cp], cp)
-            elif cp in settings.jetbrains_packages:
+            if cp in settings.jetbrains_packages:
                 update_jetbrains_ebuild(new_filename, url)
+            if cp in settings.nodejs_packages:
+                update_nodejs_ebuild(new_filename, settings.nodejs_path[cp])
+            if cp in settings.gomodule_packages:
+                update_gomodule_ebuild(new_filename, settings.gomodule_path[cp])
+            # Restore original ebuild content
+            if old_content != content:
+                with open(new_filename, 'w') as file:
+                    file.write(old_content)
+                if not digest_ebuild(new_filename):
+                    logger.error(f'Error digesting {new_filename}')
+                    return
             if git and sp.run(('ebuild', new_filename, 'digest'), check=False).returncode == 0:
+                sp.run(('git', 'add', new_filename), check=True)
                 sp.run(('git', 'add', os.path.join(search_dir, cp, 'Manifest')), check=True)
                 sp.run(('pkgdev', 'commit'), cwd=os.path.join(search_dir, cp), check=True)
         else:
@@ -424,8 +447,13 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
                 logger.debug(f'Fetching {update_sha_too_source}')
                 new_sha = f' ({get_new_sha(update_sha_too_source)})'
             ebv_str = (f' ({ebuild_version}) ' if ebuild_version != version else '')
+            if cp in settings.no_auto_update:
+                no_auto_update_str = ' (no_auto_update)'
+            else:
+                no_auto_update_str = ''
+
             print(f'{cat}/{pkg}: {version}{ebv_str}{sha_str} -> '
-                  f'{top_hash}{new_date}{new_sha}')
+                  f'{top_hash}{new_date}{new_sha}{no_auto_update_str}')
 
 
 @click.command()

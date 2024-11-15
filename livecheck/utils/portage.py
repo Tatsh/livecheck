@@ -1,17 +1,19 @@
 from collections.abc import Sequence
 from functools import cmp_to_key, lru_cache
+from genericpath import isdir
 from pathlib import Path
 import logging
 import os
 import re
 from typing import List
 
-from portage.versions import catpkgsplit, vercmp, pkgcmp
+from portage.versions import catpkgsplit, vercmp
 import portage
 
 __all__ = ('P', 'catpkg_catpkgsplit', 'find_highest_match_ebuild_path', 'get_first_src_uri',
            'get_highest_matches', 'get_highest_matches2', 'sort_by_v',
-           'get_repository_root_if_inside', 'compare_versions', 'sanitize_version')
+           'get_repository_root_if_inside', 'compare_versions', 'sanitize_version', 'get_distdir',
+           'fetch_ebuild', 'unpack_ebuild')
 
 P = portage.db[portage.root]['porttree'].dbapi
 logger = logging.getLogger(__name__)
@@ -231,3 +233,43 @@ def compare_versions(old: str, new: str) -> bool:
         return False
 
     return vercmp(sanitize_version(new), sanitize_version(old), silent=0) == -1
+
+
+def get_distdir() -> str:
+    settings = portage.config(clone=portage.settings)
+    distdir = settings.get('DISTDIR')
+    if distdir:
+        return distdir
+    else:
+        return '/var/cache/distfiles'
+
+
+def fetch_ebuild(ebuild_path: str) -> bool:
+    settings = portage.config(clone=portage.settings)
+
+    return portage.doebuild(ebuild_path, 'fetch', settings=settings, tree='porttree') == 0
+
+
+def digest_ebuild(ebuild_path: str) -> bool:
+    settings = portage.config(clone=portage.settings)
+
+    return portage.doebuild(ebuild_path, 'digest', settings=settings, tree='porttree') == 0
+
+
+def unpack_ebuild(ebuild_path: str) -> str:
+    settings = portage.config(clone=portage.settings)
+    #if not digest_ebuild(ebuild_path):
+    #    return ''
+
+    if portage.doebuild(ebuild_path, 'clean', settings=settings, tree='porttree') != 0:
+        return ''
+
+    if portage.doebuild(ebuild_path, 'unpack', settings=settings, tree='porttree') != 0:
+        return ''
+
+    workdir = settings["WORKDIR"]
+
+    if os.path.exists(workdir) and os.path.isdir(workdir):
+        return workdir
+
+    return ''

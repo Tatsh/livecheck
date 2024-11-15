@@ -1,4 +1,6 @@
+analyzer
 archiver
+arcname
 asmjit
 atrac
 automodule
@@ -12,10 +14,13 @@ commitizen
 cookiecutter
 cython
 dbapi
+distdir
+distfiles
 dlmalloc
 docparams
 doctrees
 docutils
+doebuild
 dotize
 dynarmic
 ebuilds
@@ -28,12 +33,14 @@ esbenp
 esbonio
 eselect
 excinfo
+fetchlist
 findname
 freedesktop
 genconfig
 genindex
 getabsfile
 glabels
+gomodule
 hidapi
 hostnames
 htmlcov
@@ -53,6 +60,7 @@ levelno
 libchdr
 libfat
 libimobiledevice
+libpcre2
 libshared
 linters
 livecheck
@@ -76,6 +84,8 @@ pipx
 pkgdev
 pkgs
 pluggy
+portdb
+portdir
 porttree
 prerelease
 psvpfstools
@@ -118,6 +128,7 @@ vercmp
 virtualenv
 wiimm
 wiimms
+workdir
 xbyak
 xemu
 xmatch
