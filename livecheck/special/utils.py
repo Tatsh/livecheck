@@ -1,5 +1,5 @@
 from pathlib import Path
-from loguru import logger
+import logging
 
 from xdg.BaseDirectory import save_cache_path
 
@@ -9,6 +9,8 @@ import portage
 from ..utils.portage import unpack_ebuild, get_distdir
 
 __all__ = ("get_project_path", "remove_url_ebuild", "search_ebuild", "build_compress")
+
+logger = logging.getLogger(__name__)
 
 
 def get_project_path(package_name: str) -> Path:
