@@ -86,7 +86,7 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
                     checksum_livechecks.add(catpkg)
                 else:
                     logger.error(
-                        f"Unknown \"type\" in {path}, only \"none\", \"regex\", and \"checksum\" are supported."
+                        f'Unknown "type" in {path}, only "none", "regex", and "checksum" are supported.'
                     )
             if settings_parsed.get('branch'):
                 check_instance(settings_parsed['branch'], 'branch', 'string', path)
