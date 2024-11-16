@@ -71,7 +71,8 @@ For packages that will not work with currently heuristic checking, a configurati
 - `nodejs_path` - path - Where is 'package.json' located (need nodejs_packages)
 - `regex` - The regular expression to use
 - `semver` - boolean - When set to `false`, do not allow detection of semantic versioning
-- `transformation_function` - string - Function to use to transform the version string. Currently only `dotize` is supported. Others are for internal use
+- `transformation_function` - string - Function to use to transform the version string. Currently
+  only `dotize` is supported. Others are for internal use
 - `type` - `none`, `regex`, or `checksum`
 - `url` - URL of the document to run regular expressions against
 - `use_vercmp` - boolean - if `vercmp` from Portage should be used. Default: `true`
