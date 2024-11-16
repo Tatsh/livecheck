@@ -381,7 +381,7 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
                     sp.run(('git', 'mv', ebuild, new_filename), check=True)
                 else:
                     sp.run(('mv', ebuild, new_filename), check=True)
-            # Write net ebuild content because it may be modified
+            # Write the content of the ebuild if you have modified the version or commit within the ebuild
             if old_content != content:
                 with open(new_filename, 'w') as f:
                     f.write(content)
