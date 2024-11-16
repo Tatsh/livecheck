@@ -58,12 +58,16 @@ For packages that will not work with currently heuristic checking, a configurati
 ### Configuration keys
 
 - `branch` - The GitHub branch name to use for commits
+- `gomodule_packages` - boolean - Download go vendor modules
+- `gomodule_path` - path - Where is 'go.mod' located (need gomodule_packages)
+- `jetbrains_packages` - boolean - Update internal ID.
 - `keep_old` - boolean - Keep old ebuild versions
-- `no_auto_update` - boolean - Do not allow auto-updating of this package
+- `no_auto_update` - boolean True - Do not allow auto-updating of this package
+- `nodejs_packages` - boolean - Download nodejs node_modules
+- `nodejs_path` - path - Where is 'package.json' located (need nodejs_packages)
 - `regex` - The regular expression to use
-- `semver` - When set to `false`, do not allow detection of semantic versioning
-- `transformation_function` - string - Function to use to transform the version string. Currently
-   only `dotize` is supported. Others are for internal use
+- `semver` - boolean - When set to `false`, do not allow detection of semantic versioning
+- `transformation_function` - string - Function to use to transform the version string. Currently only `dotize` is supported. Others are for internal use
 - `type` - `none`, `regex`, or `checksum`
 - `url` - URL of the document to run regular expressions against
 - `use_vercmp` - boolean - if `vercmp` from Portage should be used. Default: `true`
