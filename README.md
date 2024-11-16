@@ -46,6 +46,10 @@ This package can do automated lookups based on commonly used hosts. Currently:
 - GitHub releases
 - JetBrains products
 - PyPI
+- Sourceforge
+- PECL
+- RubyGems
+- Perl CPAN
 
 This works as long as the version system is usable with Portage's version
 comparison function. For anything else, see [Package configuration](#package-configuration).
