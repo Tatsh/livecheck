@@ -33,13 +33,13 @@ from .constants import (
 from .settings import LivecheckSettings, gather_settings
 from .special.dotnet import update_dotnet_ebuild
 from .special.golang import update_go_ebuild
-from .special.pecl import get_latest_pecl_package
+from .special.gomodule import update_gomodule_ebuild, remove_gomodule_url
+from .special.jetbrains import get_latest_jetbrains_package, update_jetbrains_ebuild
 from .special.metacpan import get_latest_metacpan_package
+from .special.nodejs import update_nodejs_ebuild, remove_nodejs_url
+from .special.pecl import get_latest_pecl_package
 from .special.rubygems import get_latest_rubygems_package
 from .special.sourceforge import get_latest_sourceforge_package
-from .special.jetbrains import get_latest_jetbrains_package, update_jetbrains_ebuild
-from .special.gomodule import update_gomodule_ebuild, remove_gomodule_url
-from .special.nodejs import update_nodejs_ebuild, remove_nodejs_url
 
 from .special.yarn import update_yarn_ebuild
 from .typing import PropTuple, Response
