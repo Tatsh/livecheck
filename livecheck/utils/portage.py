@@ -240,8 +240,8 @@ def get_distdir() -> str:
     distdir = settings.get('DISTDIR')
     if distdir:
         return distdir
-    else:
-        return '/var/cache/distfiles'
+
+    return '/var/cache/distfiles'
 
 
 def fetch_ebuild(ebuild_path: str) -> bool:
