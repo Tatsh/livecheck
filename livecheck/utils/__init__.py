@@ -69,8 +69,11 @@ def parse_npm_package_name(s: str) -> tuple[str, str | None, str | None]:
 
 @lru_cache
 def get_github_api_credentials() -> str:
-    with Path('~/.config/gh/hosts.yml').expanduser().open() as f:
-        data = yaml.safe_load(f)
+    try:
+        with Path('~/.config/gh/hosts.yml').expanduser().open() as f:
+            data = yaml.safe_load(f)
+    except FileNotFoundError:
+        return ''
     return cast(str, data['github.com']['oauth_token'])
 
 
