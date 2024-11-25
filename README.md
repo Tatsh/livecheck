@@ -46,6 +46,10 @@ This package can do automated lookups based on commonly used hosts. Currently:
 - GitHub releases
 - JetBrains products
 - PyPI
+- Sourceforge
+- PECL
+- RubyGems
+- Perl CPAN
 
 This works as long as the version system is usable with Portage's version
 comparison function. For anything else, see [Package configuration](#package-configuration).
@@ -67,6 +71,11 @@ For packages that will not work with currently heuristic checking, a configurati
 - `type` - `none`, `regex`, or `checksum`.
 - `url` - URL of the document to run regular expressions against.
 - `use_vercmp` - boolean - if `vercmp` from Portage should be used. Default: `true`.
+- `gomodule_packages` - boolean - Download go vendor modules
+- `gomodule_path` - path - Where is 'go.mod' located (need gomodule_packages)
+- `jetbrains_packages` - boolean - Update internal ID.
+- `nodejs_packages` - boolean - Download nodejs node_modules
+- `nodejs_path` - path - Where is 'package.json' located (need nodejs_packages)
 
 ## Development use
 
