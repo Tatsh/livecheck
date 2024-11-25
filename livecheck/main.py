@@ -33,32 +33,21 @@ from .constants import (
 from .settings import LivecheckSettings, gather_settings
 from .special.dotnet import update_dotnet_ebuild
 from .special.golang import update_go_ebuild
-from .special.pecl import get_latest_pecl_package
+from .special.gomodule import update_gomodule_ebuild, remove_gomodule_url
+from .special.jetbrains import get_latest_jetbrains_package, update_jetbrains_ebuild
 from .special.metacpan import get_latest_metacpan_package
+from .special.nodejs import update_nodejs_ebuild, remove_nodejs_url
+from .special.pecl import get_latest_pecl_package
 from .special.rubygems import get_latest_rubygems_package
 from .special.sourceforge import get_latest_sourceforge_package
-from .special.jetbrains import get_latest_jetbrains_package, update_jetbrains_ebuild
 
 from .special.yarn import update_yarn_ebuild
 from .typing import PropTuple, Response
-from .utils import (
-    TextDataResponse,
-    chunks,
-    get_github_api_credentials,
-    is_sha,
-    make_github_grit_commit_re,
-    make_github_grit_title_re,
-)
-from .utils.portage import (
-    P,
-    catpkg_catpkgsplit,
-    get_first_src_uri,
-    get_highest_matches,
-    get_highest_matches2,
-    get_repository_root_if_inside,
-    sanitize_version,
-    compare_versions,
-)
+from .utils import (TextDataResponse, chunks, get_github_api_credentials, is_sha,
+                    make_github_grit_commit_re, make_github_grit_title_re)
+from .utils.portage import (P, catpkg_catpkgsplit, get_first_src_uri, get_highest_matches,
+                            get_highest_matches2, get_repository_root_if_inside, sanitize_version,
+                            compare_versions, digest_ebuild, catpkgsplit)
 
 T = TypeVar('T')
 
@@ -146,25 +135,29 @@ def get_props(search_dir: str,
             manifest_file = Path(search_dir) / catpkg / 'Manifest'
             bn = Path(src_uri).name
             found = False
-            with open(manifest_file) as f:
-                for line in f.readlines():
-                    if not line.startswith('DIST '):
-                        continue
-                    fields_s = ' '.join(line.strip().split(' ')[-4:])
-                    rest = line.replace(fields_s, '').strip()
-                    filename = rest.replace(f' {rest.strip().split(" ")[-1]}', '')[5:]
-                    m = re.match(f'^{pkg}-[0-9\\.]+(?:_(?:alpha|beta|p)[0-9]+)?(tar\\.gz|zip)',
-                                 filename)
-                    if filename != bn and not m:
-                        continue
-                    found = True
-                    r = requests.get(src_uri, timeout=30)
-                    r.raise_for_status()
-                    yield (cat, pkg, ebuild_version,
-                           dict(cast(Sequence[tuple[str, str]], chunks(fields_s.split(' '),
-                                                                       2)))['SHA512'],
-                           f'data:{hashlib.sha512(r.content).hexdigest()}', r'^[0-9a-f]+$', False)
-                    break
+            try:
+                with open(manifest_file) as f:
+                    for line in f.readlines():
+                        if not line.startswith('DIST '):
+                            continue
+                        fields_s = ' '.join(line.strip().split(' ')[-4:])
+                        rest = line.replace(fields_s, '').strip()
+                        filename = rest.replace(f' {rest.strip().split(" ")[-1]}', '')[5:]
+                        m = re.match(f'^{pkg}-[0-9\\.]+(?:_(?:alpha|beta|p)[0-9]+)?(tar\\.gz|zip)',
+                                     filename)
+                        if filename != bn and not m:
+                            continue
+                        found = True
+                        r = requests.get(src_uri, timeout=30)
+                        r.raise_for_status()
+                        yield (cat, pkg, ebuild_version,
+                               dict(cast(Sequence[tuple[str, str]], chunks(
+                                   fields_s.split(' '),
+                                   2)))['SHA512'], f'data:{hashlib.sha512(r.content).hexdigest()}',
+                               r'^[0-9a-f]+$', False)
+                        break
+            except FileNotFoundError:
+                pass
             if not found:
                 home = P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0]
                 log_unhandled_pkg(catpkg, home, src_uri)
@@ -266,16 +259,16 @@ def get_props(search_dir: str,
             log_unhandled_pkg(catpkg, home, src_uri)
 
 
-def log_expected_sha_line() -> None:
-    logger.debug('Expected SHA line to be present')
-
-
 def get_old_sha(ebuild: str) -> str:
-    with open(ebuild) as f:
-        for line in f.readlines():
-            if line.startswith('SHA="'):
-                return line.split('"')[1]
-    log_expected_sha_line()
+    sha_pattern = re.compile(r'(SHA|COMMIT|EGIT_COMMIT)=["\']?([a-f0-9]{40})["\']?')
+
+    with open(ebuild, 'r') as file:
+        for line in file:
+            match = sha_pattern.search(line)
+            if match:
+                return match.group(2)
+
+    return ''
 
 
 def log_unsupported_sha_source(src: str) -> None:
@@ -302,17 +295,50 @@ def log_unhandled_state(cat: str, pkg: str, url: str, regex: str | None = None) 
     logger.debug(f'Unhandled state: regex={regex}, cat={cat}, pkg={pkg}, url={url}')
 
 
-def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
-            parsed_uri: ParseResult, pkg: str, r: Response, regex: str | None, search_dir: str,
-            settings: LivecheckSettings, url: str, use_vercmp: bool, version: str,
-            git: bool) -> None:
-    r.raise_for_status()
+def str_version(version: str, revision: str, sha: str) -> str:
+    if revision != 'r0':
+        version = version + f'-{revision}'
+    if sha:
+        version = version + f' ({sha})'
+    return version
+
+
+def replace_date_in_ebuild(ebuild: str, new_date: str) -> str:
+    pattern = r'_(p|r)(\d{8})(?=\.\w+)'
+
+    return re.sub(pattern, f'_p{new_date}', ebuild)
+
+
+def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str, pkg: Response,
+            regex: str | None, search_dir: str, settings: LivecheckSettings, url: str,
+            use_vercmp: bool, version: str, git: bool) -> None:
     cp = f'{cat}/{pkg}'
-    prefixes: dict[str, str] | None = None
+    ebuild = os.path.join(search_dir, cp, f'{pkg}-{ebuild_version}.ebuild')
+    new_date = ''
+    new_sha = ''
+    old_sha = get_old_sha(ebuild)
+    parsed_uri = urlparse(url)
     if not regex:
-        results = [version]
-        version = ebuild_version
+        version = top_hash = str(ebuild_version)
     else:
+        logger.debug(f'Fetching {url}')
+        headers = {}
+        session = requests.Session()
+        if parsed_uri.hostname == 'api.github.com':
+            logger.debug('Attempting to add authorization header')
+            with contextlib.suppress(KeyError):
+                headers['Authorization'] = f'token {get_github_api_credentials()}'
+        if url.endswith('.atom'):
+            logger.debug('Adding Accept header for XML')
+            headers['Accept'] = 'application/xml'  # atom+xml does not work
+        r: TextDataResponse | requests.Response  # only Mypy wants this
+        try:
+            r = (TextDataResponse(url[5:])
+                 if url.startswith('data:') else session.get(url, headers=headers, timeout=30))
+        except (ReadTimeout, ConnectTimeout, requests.exceptions.HTTPError,
+                requests.exceptions.SSLError, requests.exceptions.ConnectionError) as e:
+            logger.debug(f'Caught error {e} attempting to fetch {url}')
+            return
         needs_adjustment = (re.match(SEMVER_RE, version) and regex.startswith('archive/')
                             and settings.semver.get(cp, True))
         logger.debug(f'Using RE: "{regex}"')
@@ -324,20 +350,29 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
         if needs_adjustment:
             logger.debug(f'Adjusted RE: {new_regex}')
         results = re.findall(new_regex, r.text)
-    if tf := settings.transformations.get(cp, None):
-        results = [tf(x) for x in results]
-    logger.debug(f'Result count: {len(results)}')
-    if len(results) == 0:
-        return
-    top_hash = results[0]
-    logger.debug(f're.findall() -> "{top_hash}"')
-    if update_sha_too_source := settings.sha_sources.get(cp, None):
-        logger.debug('Package also needs a SHA update')
+
+        if tf := settings.transformations.get(cp, None):
+            results = [tf(x) for x in results]
+        logger.debug(f'Result count: {len(results)}')
+        if len(results) == 0:
+            return
+        top_hash = results[0]
+        logger.debug(f're.findall() -> "{top_hash}"')
+        if is_sha(top_hash):
+            new_sha = str(top_hash)
+            r.raise_for_status()
+            try:
+                updated_el = etree.fromstring(r.text).find('entry/updated', RSS_NS)
+                assert updated_el is not None
+                assert updated_el.text is not None
+                if re.search(r'(2[0-9]{7})', ebuild_version):
+                    new_date = updated_el.text.split('T')[0].replace('-', '')
+                    logger.debug(f'Use updated date {new_date} for commit {top_hash}')
+            except etree.ParseError:
+                logger.error(f'Error parsing {url}')
+    top_hash = sanitize_version(top_hash)
     if cp == 'games-emulation/play':
         top_hash = top_hash.replace('-', '.')
-    if prefixes:
-        assert top_hash in prefixes
-        top_hash = f'{prefixes[top_hash]}{top_hash}'
     if (re.match(r'[0-9]{4}-[0-9]{2}-[0-9]{2}$', top_hash)
             and parsed_uri.hostname == 'gist.github.com'):
         top_hash = top_hash.replace('-', '')
@@ -349,83 +384,108 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
         except ValueError:
             logger.debug('Attempted to fix top_hash date but it failed. Ignoring this error.')
     logger.debug(f'top_hash = {top_hash}')
+
+    if update_sha_too_source := settings.sha_sources.get(cp, None):
+        logger.debug('Package also needs a SHA update')
+        new_sha = get_new_sha(update_sha_too_source)
+        # if empty, it means that the source is not supported
+        if not new_sha:
+            return
     logger.debug(f'Comparing current ebuild version {version} with live version {top_hash}')
     if compare_versions(top_hash, version):
-        top_hash = sanitize_version(top_hash)
-        ebuild = os.path.join(search_dir, cp, f'{pkg}-{ebuild_version}.ebuild')
+        dn = Path(ebuild).parent
+        if new_date:
+            new_pkg = replace_date_in_ebuild(ebuild_version, new_date)
+            new_filename = f'{dn}/{pkg}-{new_pkg}.ebuild'
+            logger.debug(f'Updating ebuild {ebuild} to {new_filename}')
+            result = catpkgsplit(f'{cat}/{pkg}-{new_pkg}')
+        else:
+            new_filename = f'{dn}/{pkg}-{top_hash}.ebuild'
+            result = catpkgsplit(f'{cp}-{top_hash}')
+        if not result:
+            logger.error(f'Invalid atom: {cp}-{top_hash}')
+            return
+        _, _, new_version, new_revision = result
+        result = catpkgsplit(f'{cp}-{ebuild_version}')
+        if not result:
+            logger.error(f'Invalid atom: {cp}-{ebuild_version}')
+            return
+        _, _, old_version, old_revision = result
+        if ebuild == new_filename:
+            new_revision = 'r' + str(int(new_revision[1:]) + 1)
+            logger.debug(f'Incrementing revision to {new_revision}')
+            new_filename = f'{dn}/{pkg}-{new_version}-{new_revision}.ebuild'
+        logger.debug(f'Migrating from {ebuild} to {new_filename}')
+        if cp in settings.no_auto_update:
+            no_auto_update_str = ' (no_auto_update)'
+        else:
+            no_auto_update_str = ''
+        str_new_version = str_version(new_version, new_revision, new_sha)
+        str_old_version = str_version(old_version, old_revision, old_sha)
+        print(f'{cat}/{pkg}: {str_old_version} -> '
+              f'{str_new_version}{no_auto_update_str}')
+
         if auto_update and cp not in settings.no_auto_update:
             with open(ebuild) as f:
-                old_content = f.read()
-            content = old_content.replace(version, top_hash)
+                old_content = content = f.read()
+            # Only update the version if it is not a commit
+            if new_sha and old_sha:
+                content = content.replace(old_sha, new_sha)
             ps_ref = top_hash
             if not is_sha(top_hash) and cp in TAG_NAME_FUNCTIONS:
                 ps_ref = TAG_NAME_FUNCTIONS[cp](top_hash)
             content = process_submodules(cp, ps_ref, content, url)
-            if update_sha_too_source:
-                old_sha = get_old_sha(ebuild)
-                new_sha = get_new_sha(update_sha_too_source)
-                if old_sha != new_sha:
-                    content = content.replace(old_sha, new_sha)
             dn = Path(ebuild).parent
-            new_filename = f'{dn}/{pkg}-{top_hash}.ebuild'
-            if is_sha(top_hash):
-                updated_el = etree.fromstring(r.text).find('entry/updated', RSS_NS)
-                assert updated_el is not None
-                assert updated_el.text is not None
-                if re.search(r'(2[0-9]{7})', ebuild_version):
-                    new_date = updated_el.text.split('T')[0].replace('-', '')
-                    new_filename = (f'{dn}/{pkg}-{re.sub(r"2[0-9]{7}", new_date, ebuild_version)}'
-                                    '.ebuild')
-            if ebuild == new_filename:
-                name = Path(ebuild).stem
-                ext = Path(ebuild).suffix
-                new_filename = f'{name}-r1{ext}'
             print(f'{ebuild} -> {new_filename}')
             if settings.keep_old.get(cp, not keep_old):
                 if git:
                     sp.run(('git', 'mv', ebuild, new_filename), check=True)
                 else:
                     sp.run(('mv', ebuild, new_filename), check=True)
-            else:
+            # Write the content of the ebuild if you have modified the version or commit within the ebuild
+            if old_content != content:
                 with open(new_filename, 'w') as f:
                     f.write(content)
-                sp.run(('git', 'add', new_filename), check=True)
+            # Stores the content so that it can be recovered because it had to be modified
+            old_content = content
+            # First pass
+            # Remove URLs that do not yet exist to be able to correctly generate the digest
+            if cp in settings.gomodule_packages:
+                content = remove_gomodule_url(content)
+            if cp in settings.nodejs_packages:
+                content = remove_nodejs_url(content)
+            if old_content != content:
+                with open(new_filename, 'w') as file:
+                    file.write(content)
+            if not digest_ebuild(new_filename):
+                logger.error(f'Error digesting {new_filename}')
+                return
+            # Second pass
+            # Update ebuild or download news file
             if cp in settings.yarn_base_packages:
                 update_yarn_ebuild(new_filename, settings.yarn_base_packages[cp], pkg,
                                    settings.yarn_packages.get(cp))
-            elif cp in settings.go_sum_uri:
+            if cp in settings.go_sum_uri:
                 update_go_ebuild(new_filename, pkg, top_hash, settings.go_sum_uri[cp])
-            elif cp in settings.dotnet_projects:
+            if cp in settings.dotnet_projects:
                 update_dotnet_ebuild(new_filename, settings.dotnet_projects[cp], cp)
-            elif cp in settings.jetbrains_packages:
+            if cp in settings.jetbrains_packages:
                 update_jetbrains_ebuild(new_filename, url)
+            if cp in settings.nodejs_packages:
+                update_nodejs_ebuild(new_filename, settings.nodejs_path[cp])
+            if cp in settings.gomodule_packages:
+                update_gomodule_ebuild(new_filename, settings.gomodule_path[cp])
+            # Restore original ebuild content
+            if old_content != content:
+                with open(new_filename, 'w') as file:
+                    file.write(old_content)
+                if not digest_ebuild(new_filename):
+                    logger.error(f'Error digesting {new_filename}')
+                    return
             if git and sp.run(('ebuild', new_filename, 'digest'), check=False).returncode == 0:
+                sp.run(('git', 'add', new_filename), check=True)
                 sp.run(('git', 'add', os.path.join(search_dir, cp, 'Manifest')), check=True)
                 sp.run(('pkgdev', 'commit'), cwd=os.path.join(search_dir, cp), check=True)
-        else:
-            new_date = ''
-            if is_sha(top_hash):
-                try:
-                    doc = etree.fromstring(r.text)
-                except etree.ParseError as e:
-                    logger.debug(f'Caught error {e} attempting to parse {url}')
-                    return
-                updated_el = doc.find('entry/updated', RSS_NS)
-                assert updated_el is not None
-                assert updated_el.text is not None
-                if m := re.search(r'^(2[0-9]{7})', ebuild_version):
-                    new_date = (' (' + ebuild_version[:m.span()[0]] +
-                                updated_el.text.split('T')[0].replace('-', '') + ')')
-            sha_str = ''
-            new_sha = ''
-            if update_sha_too_source:
-                old_sha = get_old_sha(ebuild)
-                sha_str = f' ({old_sha}) '
-                logger.debug(f'Fetching {update_sha_too_source}')
-                new_sha = f' ({get_new_sha(update_sha_too_source)})'
-            ebv_str = (f' ({ebuild_version}) ' if ebuild_version != version else '')
-            print(f'{cat}/{pkg}: {version}{ebv_str}{sha_str} -> '
-                  f'{top_hash}{new_date}{new_sha}')
 
 
 @click.command()
@@ -490,7 +550,6 @@ def main(
             logger.error('pkgdev is not installed')
             raise click.Abort
     logger.info(f'search_dir={search_dir} repo_root={repo_root} repo_name={repo_name}')
-    session = requests.Session()
     settings = gather_settings(search_dir)
     package_names = sorted(package_names or [])
     for cat, pkg, ebuild_version, version, url, regex, _use_vercmp in get_props(search_dir,
@@ -500,27 +559,9 @@ def main(
                                                                                 exclude,
                                                                                 progress=progress,
                                                                                 debug=debug):
-        logger.debug(f'Fetching {url}')
-        headers = {}
-        parsed_uri = urlparse(url)
-        if parsed_uri.hostname == 'api.github.com':
-            logger.debug('Attempting to add authorization header')
-            with contextlib.suppress(KeyError):
-                headers['Authorization'] = f'token {get_github_api_credentials()}'
-        if url.endswith('.atom'):
-            logger.debug('Adding Accept header for XML')
-            headers['Accept'] = 'application/xml'  # atom+xml does not work
-        r: TextDataResponse | requests.Response  # only Mypy wants this
+
         try:
-            r = (TextDataResponse(url[5:])
-                 if url.startswith('data:') else session.get(url, headers=headers, timeout=30))
-        except (ReadTimeout, ConnectTimeout, requests.exceptions.HTTPError,
-                requests.exceptions.SSLError, requests.exceptions.ConnectionError) as e:
-            logger.debug(f'Caught error {e} attempting to fetch {url}')
-            continue
-        try:
-            do_main(r=r,
-                    cat=cat,
+            do_main(cat=cat,
                     pkg=pkg,
                     url=url,
                     regex=regex,
@@ -529,7 +570,6 @@ def main(
                     keep_old=keep_old,
                     settings=settings,
                     use_vercmp=_use_vercmp,
-                    parsed_uri=parsed_uri,
                     ebuild_version=ebuild_version,
                     version=version,
                     git=git)
