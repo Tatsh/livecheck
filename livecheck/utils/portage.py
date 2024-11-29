@@ -138,10 +138,13 @@ def catpkg_catpkgsplit(atom: str) -> tuple[str, str, str, str]:
 
 
 def get_first_src_uri(match: str, search_dir: str | None = None) -> str:
-    for uri in P.aux_get(match, ['SRC_URI'], mytree=search_dir):
-        for line in uri.split():
-            if line.startswith(('http://', 'https://')):
-                return line
+    try:
+        for uri in P.aux_get(match, ['SRC_URI'], mytree=search_dir):
+            for line in uri.split():
+                if line.startswith(('http://', 'https://')):
+                    return line
+    except KeyError:
+        pass
     return ''
 
 
