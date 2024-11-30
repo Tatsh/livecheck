@@ -14,7 +14,7 @@
   "editor.insertSpaces": true,
   "editor.rulers": [100],
   "editor.tabSize": 2,
-  "editor.wordWrapColumn": 100,
+  "editor.wordWrapColumn": 120,
   "esbonio.sphinx.confDir": "",
   "eslint.lintTask.enable": true,
   "files.insertFinalNewline": true,
@@ -43,5 +43,8 @@
   "python.languageServer": "Pylance",
   "restructuredtext.linter.disabledLinters": ["rstcheck"],
   "restructuredtext.linter.run": "onSave",
-  "yaml.format.printWidth": 100
+  "yaml.format.printWidth": 120,
+  "flake8.args": [
+        "--max-line-length", "120"
+    ]
 }

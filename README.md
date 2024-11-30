@@ -29,6 +29,7 @@ Usage: livecheck [OPTIONS] [PACKAGE_NAMES]...
 Options:
   -a, --auto-update            Rename and modify ebuilds.
   -d, --debug                  Enable debug logging.
+  -D, --development            Include development packages.
   -e, --exclude TEXT           Exclude package(s) from updates.
   -g, --git                    Use git and pkgdev to make changes.
   -k, --keep-old               Keep old ebuild versions.
@@ -61,21 +62,26 @@ For packages that will not work with currently heuristic checking, a configurati
 
 ### Configuration keys
 
-- `branch` - The GitHub branch name to use for commits.
+- `branch` - string- The GitHub branch name to use for commits.
+- `development` - bool - Include development packages.
 - `keep_old` - boolean - Keep old ebuild versions.
 - `no_auto_update` - boolean - Do not allow auto-updating of this package.
-- `regex` - The regular expression to use.
-- `semver` - When set to `false`, do not allow detection of semantic versioning.
+- `semver` - bool - When set to `false`, do not allow detection of semantic versioning.
 - `transformation_function` - string - Function to use to transform the version string. Currently
   only `dotize` is supported. Others are for internal use.
 - `type` - `none`, `regex`, or `checksum`.
-- `url` - URL of the document to run regular expressions against.
-- `use_vercmp` - boolean - if `vercmp` from Portage should be used. Default: `true`.
 - `gomodule_packages` - boolean - Download go vendor modules
 - `gomodule_path` - path - Where is 'go.mod' located (need gomodule_packages)
 - `jetbrains_packages` - boolean - Update internal ID.
 - `nodejs_packages` - boolean - Download nodejs node_modules
 - `nodejs_path` - path - Where is 'package.json' located (need nodejs_packages)
+
+Only then `type` is `regex`
+
+- `url` - URL of the document to run regular expressions against. Required
+- `regex` - string - The regular expression to use. Required
+- `use_vercmp` - boolean - if `vercmp` from Portage should be used. Default: `true`.
+- `version` - string - Version of package. Default: `None`.
 
 ## Development use
 

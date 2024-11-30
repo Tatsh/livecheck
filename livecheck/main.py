@@ -1,11 +1,10 @@
 """Main command."""
 from collections.abc import Iterator, Sequence
 from datetime import UTC, datetime
-from functools import cmp_to_key
 from os import chdir
 from pathlib import Path
 from typing import TypeVar, cast
-from urllib.parse import ParseResult, urlparse
+from urllib.parse import urlparse
 import contextlib
 import hashlib
 import logging
@@ -94,7 +93,8 @@ def get_props(search_dir: str,
               exclude: Sequence[str] | None = None,
               *,
               progress: bool = False,
-              debug: bool = False) -> Iterator[PropTuple]:
+              debug: bool = False,
+              development: bool = False) -> Iterator[PropTuple]:
     exclude = exclude or []
     try:
         matches_list = sorted(
@@ -112,6 +112,7 @@ def get_props(search_dir: str,
         raise click.Abort
     for match in matches_list:
         catpkg, cat, pkg, ebuild_version = catpkg_catpkgsplit(match)
+        devel = settings.development.get(catpkg, development)
         if catpkg in exclude or pkg in exclude:
             logger.debug(f'Ignoring {catpkg}')
             continue
@@ -216,9 +217,9 @@ def get_props(search_dir: str,
                    P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0],
                    (r'\b' + pkg.replace('-', r'[-_]') + r'-([^"]+)\.tar\.gz'), True)
         elif parsed_uri.hostname == 'download.jetbrains.com':
-            last_version, url = get_latest_jetbrains_package(pkg)
+            last_version = get_latest_jetbrains_package(pkg, devel)
             if last_version:
-                yield (cat, pkg, ebuild_version, last_version, url, None, True)
+                yield (cat, pkg, ebuild_version, last_version, '', '', True)
         elif (parsed_uri.hostname in GITLAB_HOSTNAMES and '/archive/' in parsed_uri.path):
             author, proj = src_uri.split('/')[3:5]
             m = re.match('^https://([^/]+)', src_uri)
@@ -238,21 +239,21 @@ def get_props(search_dir: str,
             yield (cat, pkg, ebuild_version, ebuild_version, f'https://registry.yarnpkg.com/{path}',
                    r'"latest":"([^"]+)",?', True)
         elif parsed_uri.hostname == 'pecl.php.net':
-            last_version, url = get_latest_pecl_package(pkg)
+            last_version = get_latest_pecl_package(pkg)
             if last_version:
-                yield (cat, pkg, ebuild_version, last_version, url, None, True)
+                yield (cat, pkg, ebuild_version, last_version, '', '', True)
         elif parsed_uri.hostname == 'metacpan.org' or parsed_uri.hostname == 'cpan':
-            last_version, url = get_latest_metacpan_package(pkg)
+            last_version = get_latest_metacpan_package(pkg)
             if last_version:
-                yield (cat, pkg, ebuild_version, last_version, url, None, True)
+                yield (cat, pkg, ebuild_version, last_version, '', '', True)
         elif parsed_uri.hostname == 'rubygems.org':
-            last_version, url = get_latest_rubygems_package(pkg)
+            last_version = get_latest_rubygems_package(pkg)
             if last_version:
-                yield (cat, pkg, ebuild_version, last_version, url, None, True)
+                yield (cat, pkg, ebuild_version, last_version, '', '', True)
         elif parsed_uri.hostname == 'downloads.sourceforge.net':
-            last_version, url = get_latest_sourceforge_package(pkg)
+            last_version = get_latest_sourceforge_package(pkg)
             if last_version:
-                yield (cat, pkg, ebuild_version, last_version, url, None, True)
+                yield (cat, pkg, ebuild_version, last_version, '', '', True)
         else:
             logger.debug(f'Unhandled: {catpkg} {parsed_uri.hostname}')
             home = P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0]
@@ -310,8 +311,8 @@ def replace_date_in_ebuild(ebuild: str, new_date: str) -> str:
 
 
 def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str, pkg: Response,
-            regex: str | None, search_dir: str, settings: LivecheckSettings, url: str,
-            use_vercmp: bool, version: str, git: bool) -> None:
+            regex: str | None, search_dir: str, settings: LivecheckSettings, url: str, version: str,
+            git: bool) -> None:
     cp = f'{cat}/{pkg}'
     ebuild = os.path.join(search_dir, cp, f'{pkg}-{ebuild_version}.ebuild')
     new_date = ''
@@ -319,7 +320,7 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
     old_sha = get_old_sha(ebuild)
     parsed_uri = urlparse(url)
     if not regex:
-        version = top_hash = str(ebuild_version)
+        top_hash = version
     else:
         logger.debug(f'Fetching {url}')
         headers = {}
@@ -391,8 +392,8 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
         # if empty, it means that the source is not supported
         if not new_sha:
             return
-    logger.debug(f'Comparing current ebuild version {version} with live version {top_hash}')
-    if compare_versions(top_hash, version):
+    logger.debug(f'Comparing current ebuild version {ebuild_version} with live version {top_hash}')
+    if compare_versions(top_hash, ebuild_version):
         dn = Path(ebuild).parent
         if new_date:
             new_pkg = replace_date_in_ebuild(ebuild_version, new_date)
@@ -491,6 +492,7 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
 @click.command()
 @click.option('-a', '--auto-update', is_flag=True, help='Rename and modify ebuilds.')
 @click.option('-d', '--debug', is_flag=True, help='Enable debug logging.')
+@click.option('-D', '--development', is_flag=True, help='Include development packages.')
 @click.option('-e', '--exclude', multiple=True, help='Exclude package(s) from updates.')
 @click.option('-g', '--git', is_flag=True, help='Use git and pkgdev to make changes.')
 @click.option('-k', '--keep-old', is_flag=True, help='Keep old ebuild versions.')
@@ -504,6 +506,7 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
 def main(
     auto_update: bool = False,
     debug: bool = False,
+    development: bool = False,
     exclude: tuple[str] | None = None,
     keep_old: bool = False,
     git: bool = False,
@@ -552,13 +555,15 @@ def main(
     logger.info(f'search_dir={search_dir} repo_root={repo_root} repo_name={repo_name}')
     settings = gather_settings(search_dir)
     package_names = sorted(package_names or [])
-    for cat, pkg, ebuild_version, version, url, regex, _use_vercmp in get_props(search_dir,
-                                                                                repo_root,
-                                                                                settings,
-                                                                                package_names,
-                                                                                exclude,
-                                                                                progress=progress,
-                                                                                debug=debug):
+    for cat, pkg, ebuild_version, version, url, regex, _use_vercmp in get_props(
+            search_dir,
+            repo_root,
+            settings,
+            package_names,
+            exclude,
+            progress=progress,
+            debug=debug,
+            development=development):
 
         try:
             do_main(cat=cat,
@@ -569,7 +574,6 @@ def main(
                     auto_update=auto_update,
                     keep_old=keep_old,
                     settings=settings,
-                    use_vercmp=_use_vercmp,
                     ebuild_version=ebuild_version,
                     version=version,
                     git=git)

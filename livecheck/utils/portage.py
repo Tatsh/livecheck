@@ -139,10 +139,10 @@ def catpkg_catpkgsplit(atom: str) -> tuple[str, str, str, str]:
 
 def get_first_src_uri(match: str, search_dir: str | None = None) -> str:
     try:
-        for uri in P.aux_get(match, ['SRC_URI'], mytree=search_dir):
-            for line in uri.split():
-                if line.startswith(('http://', 'https://')):
-                    return line
+        for line in P.aux_get(match, ['SRC_URI'], mytree=search_dir):
+            for uri in line.split():
+                if uri.startswith(('http://', 'https://', 'mirror://', 'ftp://')):
+                    return uri
     except KeyError:
         pass
     return ''
@@ -171,7 +171,7 @@ def get_repository_root_if_inside(directory: str) -> tuple[str, str]:
                     selected_repo_root = repo_root
                     selected_repo_name = os.path.basename(repo_root)
 
-    if '/local/' in directory and not '/local/' in selected_repo_root:
+    if '/local/' in directory and not '/local/' not in selected_repo_root:
         return '', ''
 
     # Return the most specific repository root, if found
@@ -226,12 +226,12 @@ def sanitize_version(version: str) -> str:
         return version
 
 
-def compare_versions(old: str, new: str) -> bool:
+def compare_versions(old: str, new: str, development: bool = False) -> bool:
     if is_hash(old) and is_hash(new):
         return old != new
 
     # check if is a beta, alpa, pre or rc version and not accept this version
-    if is_version_development(new):
+    if not development and is_version_development(new):
         logger.debug(f'Not permitted development version {new}')
         return False
 
@@ -261,8 +261,6 @@ def digest_ebuild(ebuild_path: str) -> bool:
 
 def unpack_ebuild(ebuild_path: str) -> str:
     settings = portage.config(clone=portage.settings)
-    #if not digest_ebuild(ebuild_path):
-    #    return ''
 
     if portage.doebuild(ebuild_path, 'clean', settings=settings, tree='porttree') != 0:
         return ''
