@@ -6,6 +6,7 @@ import logging
 import os
 import re
 from typing import List
+from itertools import chain
 
 from portage.versions import catpkgsplit, vercmp
 import portage
@@ -139,10 +140,11 @@ def catpkg_catpkgsplit(atom: str) -> tuple[str, str, str, str]:
 
 def get_first_src_uri(match: str, search_dir: str | None = None) -> str:
     try:
-        for line in P.aux_get(match, ['SRC_URI'], mytree=search_dir):
-            for uri in line.split():
-                if uri.startswith(('http://', 'https://', 'mirror://', 'ftp://')):
-                    return uri
+        if (found_uri := next(
+            (uri for uri in chain(*(x.split()
+                                    for x in P.aux_get(match, ['SRC_URI'], mytree=search_dir)))
+             if uri.startswith(('http://', 'https://', 'mirror://', 'ftp://'))), None)):
+            return found_uri
     except KeyError:
         pass
     return ''
