@@ -171,7 +171,7 @@ def get_repository_root_if_inside(directory: str) -> tuple[str, str]:
                     selected_repo_root = repo_root
                     selected_repo_name = os.path.basename(repo_root)
 
-    if '/local/' in directory and not '/local/' not in selected_repo_root:
+    if '/local/' in directory and not '/local/' in selected_repo_root:
         return '', ''
 
     # Return the most specific repository root, if found
