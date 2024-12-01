@@ -43,5 +43,5 @@
   "python.languageServer": "Pylance",
   "restructuredtext.linter.disabledLinters": ["rstcheck"],
   "restructuredtext.linter.run": "onSave",
-  "yaml.format.printWidth": 120
+  "yaml.format.printWidth": 100
 }
