@@ -28,7 +28,7 @@ def get_last_filename(url: str) -> str:
         return ''
 
 
-def get_latest_pecl_package(program_name: str) -> tuple[str, str]:
+def get_latest_pecl_package(program_name: str) -> str:
     # Remove 'pecl-' prefix if present
     if program_name.startswith('pecl-'):
         program_name = program_name.replace('pecl-', '', 1)
@@ -40,13 +40,13 @@ def get_latest_pecl_package(program_name: str) -> tuple[str, str]:
     filename = get_last_filename(url)
     if not filename:
         logger.debug(f"Could not determine the download filename for {program_name}.")
-        return '', ''
+        return ''
 
     # Extract the version number from the filename using a regex
     match = re.search(rf'{re.escape(program_name)}-(\d+\.\d+(\.\d+)?)+', filename)
     if match:
         latest_version = match.group(1)
-        return latest_version, url
+        return latest_version
     else:
         logger.debug(f"Could not extract version information from filename: {filename}")
-        return '', ''
+        return ''

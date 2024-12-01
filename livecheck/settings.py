@@ -39,6 +39,7 @@ class LivecheckSettings:
     gomodule_path: dict[str, str]
     nodejs_packages: dict[str, bool]
     nodejs_path: dict[str, str]
+    development: dict[str, bool]
 
 
 class UnknownTransformationFunction(NameError):
@@ -65,6 +66,7 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
     gomodule_path: dict[str, str] = {}
     nodejs_packages: dict[str, bool] = {}
     nodejs_path: dict[str, str] = {}
+    development: dict[str, bool] = {}
     for path in Path(search_dir).glob('**/livecheck.json'):
         logger.debug(f"Opening {path}")
         with path.open() as f:
@@ -79,6 +81,12 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
                 if settings_parsed.get('type').lower() == 'none':
                     ignored_packages.add(catpkg)
                 elif settings_parsed.get('type').lower() == 'regex':
+                    if settings_parsed.get('url') is None:
+                        logger.error(f'No "url" in {path}')
+                        continue
+                    if settings_parsed.get('regex') is None:
+                        logger.error(f'No "regex" in {path}')
+                        continue
                     custom_livechecks[catpkg] = (settings_parsed['url'], settings_parsed['regex'],
                                                  settings_parsed.get('use_vercmp', True),
                                                  settings_parsed.get('version', None))
@@ -147,12 +155,15 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
                 if settings_parsed.get('nodejs_path'):
                     check_instance(settings_parsed['nodejs_path'], 'nodejs_path', 'string', path)
                     nodejs_path[catpkg] = settings_parsed['nodejs_path']
+            if 'development' in settings_parsed:
+                check_instance(settings_parsed['development'], 'development', 'bool', path)
+                development[catpkg] = settings_parsed['development']
 
     return LivecheckSettings(branches, checksum_livechecks, custom_livechecks, dotnet_projects,
                              golang_packages, ignored_packages, no_auto_update, semver, sha_sources,
                              transformations, yarn_base_packages, yarn_packages, jetbrains_packages,
                              keep_old, gomodule_packages, gomodule_path, nodejs_packages,
-                             nodejs_path)
+                             nodejs_path, development)
 
 
 def check_instance(value: int | str | bool | list[str] | None,

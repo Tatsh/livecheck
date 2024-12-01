@@ -6,6 +6,7 @@ import logging
 import os
 import re
 from typing import List
+from itertools import chain
 
 from portage.versions import catpkgsplit, vercmp
 import portage
@@ -139,10 +140,11 @@ def catpkg_catpkgsplit(atom: str) -> tuple[str, str, str, str]:
 
 def get_first_src_uri(match: str, search_dir: str | None = None) -> str:
     try:
-        for uri in P.aux_get(match, ['SRC_URI'], mytree=search_dir):
-            for line in uri.split():
-                if line.startswith(('http://', 'https://')):
-                    return line
+        if (found_uri := next(
+            (uri for uri in chain(*(x.split()
+                                    for x in P.aux_get(match, ['SRC_URI'], mytree=search_dir)))
+             if uri.startswith(('http://', 'https://', 'mirror://', 'ftp://'))), None)):
+            return found_uri
     except KeyError:
         pass
     return ''
@@ -226,12 +228,12 @@ def sanitize_version(version: str) -> str:
         return version
 
 
-def compare_versions(old: str, new: str) -> bool:
+def compare_versions(old: str, new: str, development: bool = False) -> bool:
     if is_hash(old) and is_hash(new):
         return old != new
 
     # check if is a beta, alpa, pre or rc version and not accept this version
-    if is_version_development(new):
+    if not development and is_version_development(new):
         logger.debug(f'Not permitted development version {new}')
         return False
 
@@ -261,8 +263,6 @@ def digest_ebuild(ebuild_path: str) -> bool:
 
 def unpack_ebuild(ebuild_path: str) -> str:
     settings = portage.config(clone=portage.settings)
-    #if not digest_ebuild(ebuild_path):
-    #    return ''
 
     if portage.doebuild(ebuild_path, 'clean', settings=settings, tree='porttree') != 0:
         return ''
