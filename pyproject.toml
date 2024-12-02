@@ -32,7 +32,7 @@ requests = "^2.31.0"
 optional = true
 
 [tool.poetry.group.dev.dependencies]
-commitizen = "^3.13.0"
+commitizen = ">=3.13,<5.0"
 mypy = "^1.8.0"
 portage = { git = "https://github.com/gentoo/portage.git" }
 portage-types = "^0.0.2"
