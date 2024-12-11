@@ -228,16 +228,16 @@ def sanitize_version(version: str) -> str:
         return version
 
 
-def compare_versions(old: str, new: str, development: bool = False) -> bool:
-    if is_hash(old) and is_hash(new):
-        return old != new
+def compare_versions(old: str, new: str, development: bool = False, old_sha: str = "") -> bool:
+    if is_hash(new):
+        return old_sha != new
 
     # check if is a beta, alpa, pre or rc version and not accept this version
     if not development and is_version_development(new):
         logger.debug(f'Not permitted development version {new}')
         return False
 
-    return vercmp(sanitize_version(new), sanitize_version(old), silent=0) == -1
+    return vercmp(sanitize_version(old), sanitize_version(new), silent=0) == -1
 
 
 def get_distdir() -> str:
