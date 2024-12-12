@@ -245,7 +245,7 @@ def get_props(search_dir: str,
                 ebuild_version, catpkg, settings, f'https://registry.yarnpkg.com/{path}',
                 r'"latest":"([^"]+)",?', '', devel)
         elif parsed_uri.hostname == 'pecl.php.net':
-            last_version = get_latest_pecl_package(pkg)
+            last_version = get_latest_pecl_package(pkg, devel)
         elif parsed_uri.hostname == 'metacpan.org' or parsed_uri.hostname == 'cpan':
             last_version = get_latest_metacpan_package(pkg)
         elif parsed_uri.hostname == 'rubygems.org':

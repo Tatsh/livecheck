@@ -2,11 +2,13 @@ import requests
 import re
 
 from loguru import logger
+from sphinx.search import de
+from ..utils.portage import is_version_development
 
 __all__ = ("get_latest_pecl_package",)
 
 
-def get_last_filename(url: str) -> str:
+def get_last_filename(url: str, development: bool) -> str:
     try:
         # Send a HEAD request to get the headers without downloading the file
         response = requests.head(url, allow_redirects=True)
@@ -20,7 +22,8 @@ def get_last_filename(url: str) -> str:
             if filename_part:
                 # Remove any extra characters like quotes
                 filename = filename_part[0].split('=')[1].strip(' "')
-                return filename
+                if not is_version_development(filename) or development:
+                    return filename
         return ''
 
     except requests.RequestException as e:
@@ -28,7 +31,7 @@ def get_last_filename(url: str) -> str:
         return ''
 
 
-def get_latest_pecl_package(program_name: str) -> str:
+def get_latest_pecl_package(program_name: str, development: bool) -> str:
     # Remove 'pecl-' prefix if present
     if program_name.startswith('pecl-'):
         program_name = program_name.replace('pecl-', '', 1)
@@ -37,7 +40,7 @@ def get_latest_pecl_package(program_name: str) -> str:
     url = f'https://pecl.php.net/get/{program_name}'
 
     # Get the filename from the download URL
-    filename = get_last_filename(url)
+    filename = get_last_filename(url, development)
     if not filename:
         logger.debug(f"Could not determine the download filename for {program_name}.")
         return ''
