@@ -5,5 +5,5 @@ from .utils import TextDataResponse
 
 __all__ = ('PropTuple', 'Response')
 
-PropTuple = tuple[str, str, str, str, str, str | None, bool]
+PropTuple = tuple[str, str, str, str, str, str]
 Response = TextDataResponse | requests.Response

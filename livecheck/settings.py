@@ -89,7 +89,7 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
                         continue
                     custom_livechecks[catpkg] = (settings_parsed['url'], settings_parsed['regex'],
                                                  settings_parsed.get('use_vercmp', True),
-                                                 settings_parsed.get('version', None))
+                                                 settings_parsed.get('version', ''))
                 elif settings_parsed.get('type').lower() == 'checksum':
                     checksum_livechecks.add(catpkg)
                 else:
