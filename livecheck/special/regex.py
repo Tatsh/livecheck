@@ -17,6 +17,20 @@ from ..utils.portage import is_version_development
 __all__ = ('get_latest_regex_package',)
 
 
+def adjust_regex(version: str, regex: str, settings: LivecheckSettings, cp: str,
+                 text: str) -> list[str]:
+    logger.debug(f'Using RE: "{regex}"')
+
+    # Ignore beta/alpha/etc if semantic and coming from GitHub
+    if (re.match(SEMVER_RE, version) and regex.startswith('archive/')
+            and settings.semver.get(cp, True)):
+        logger.debug('Adjusting RE for semantic versioning')
+        regex = regex.replace(r'([^"+)', r'v?(\d+\.\d+(?:\.\d+)?)')
+        logger.debug(f'Adjusted RE: {regex}')
+
+    return re.findall(regex, text)
+
+
 def get_latest_regex_package(ebuild_version: str,
                              cp: str,
                              settings: LivecheckSettings,
@@ -44,17 +58,8 @@ def get_latest_regex_package(ebuild_version: str,
             requests.exceptions.MissingSchema) as e:
         logger.debug(f'Caught error {e} attempting to fetch {url}')
         return '', '', ''
-    needs_adjustment = (re.match(SEMVER_RE, version) and regex.startswith('archive/')
-                        and settings.semver.get(cp, True))
-    logger.debug(f'Using RE: "{regex}"')
-    # Ignore beta/alpha/etc if semantic and coming from GitHub
-    if needs_adjustment:
-        logger.debug('Adjusting RE for semantic versioning')
-    new_regex = (regex.replace(r'([^"]+)', r'v?(\d+\.\d+(?:\.\d+)?)')
-                 if needs_adjustment else regex)
-    if needs_adjustment:
-        logger.debug(f'Adjusted RE: {new_regex}')
-    results = re.findall(new_regex, r.text)
+
+    results = adjust_regex(version, regex, settings, cp, r.text)
 
     if tf := settings.transformations.get(cp, None):
         results = [tf(x) for x in results]
