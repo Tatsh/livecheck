@@ -2,7 +2,6 @@ import requests
 import re
 
 from loguru import logger
-from sphinx.search import de
 from ..utils.portage import is_version_development
 
 __all__ = ("get_latest_pecl_package",)
