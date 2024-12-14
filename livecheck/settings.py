@@ -40,6 +40,8 @@ class LivecheckSettings:
     nodejs_packages: dict[str, bool]
     nodejs_path: dict[str, str]
     development: dict[str, bool]
+    composer_packages: dict[str, bool]
+    composer_path: dict[str, str]
 
 
 class UnknownTransformationFunction(NameError):
@@ -67,6 +69,8 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
     nodejs_packages: dict[str, bool] = {}
     nodejs_path: dict[str, str] = {}
     development: dict[str, bool] = {}
+    composer_packages: dict[str, bool] = {}
+    composer_path: dict[str, str] = {}
     for path in Path(search_dir).glob('**/livecheck.json'):
         logger.debug(f"Opening {path}")
         with path.open() as f:
@@ -158,12 +162,20 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
             if 'development' in settings_parsed:
                 check_instance(settings_parsed['development'], 'development', 'bool', path)
                 development[catpkg] = settings_parsed['development']
+            if 'composer' in settings_parsed:
+                check_instance(settings_parsed['composer'], 'composer', 'bool', path)
+                composer_packages[catpkg] = settings_parsed['composer']
+                composer_path[catpkg] = ""
+                if settings_parsed.get('composer_path'):
+                    check_instance(settings_parsed['composer_path'], 'composer_path', 'string',
+                                   path)
+                    composer_path[catpkg] = settings_parsed['composer_path']
 
     return LivecheckSettings(branches, checksum_livechecks, custom_livechecks, dotnet_projects,
                              golang_packages, ignored_packages, no_auto_update, semver, sha_sources,
                              transformations, yarn_base_packages, yarn_packages, jetbrains_packages,
                              keep_old, gomodule_packages, gomodule_path, nodejs_packages,
-                             nodejs_path, development)
+                             nodejs_path, development, composer_packages, composer_path)
 
 
 def check_instance(value: int | str | bool | list[str] | None,
