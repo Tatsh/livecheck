@@ -13,8 +13,8 @@ import os
 
 from loguru import logger
 from portage.exception import InvalidAtom
+from portage import portdb
 import click
-from pygments.lexers.objective import LogosLexer
 import requests
 from typing import Match
 
@@ -32,6 +32,7 @@ from .special.gomodule import update_gomodule_ebuild, remove_gomodule_url
 from .special.jetbrains import get_latest_jetbrains_package, update_jetbrains_ebuild
 from .special.metacpan import get_latest_metacpan_package
 from .special.nodejs import update_nodejs_ebuild, remove_nodejs_url
+from .special.composer import update_composer_ebuild, remove_composer_url
 from .special.pecl import get_latest_pecl_package
 from .special.regex import get_latest_regex_package
 from .special.rubygems import get_latest_rubygems_package
@@ -401,10 +402,9 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
                     sp.run(('git', 'mv', ebuild, new_filename), check=True)
                 else:
                     sp.run(('mv', ebuild, new_filename), check=True)
-            # Write the content of the ebuild if you have modified the version or commit within the ebuild
-            if old_content != content:
-                with open(new_filename, 'w') as f:
-                    f.write(content)
+            with open(new_filename, 'w') as f:
+                f.write(content)
+            fetchlist = portdb.getFetchMap(f"{cp}-{new_version}")
             # Stores the content so that it can be recovered because it had to be modified
             old_content = content
             # First pass
@@ -413,6 +413,8 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
                 content = remove_gomodule_url(content)
             if cp in settings.nodejs_packages:
                 content = remove_nodejs_url(content)
+            if cp in settings.composer_packages:
+                content = remove_composer_url(content)
             if old_content != content:
                 with open(new_filename, 'w') as file:
                     file.write(content)
@@ -431,9 +433,11 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
             if cp in settings.jetbrains_packages:
                 update_jetbrains_ebuild(new_filename, url)
             if cp in settings.nodejs_packages:
-                update_nodejs_ebuild(new_filename, settings.nodejs_path[cp])
+                update_nodejs_ebuild(new_filename, settings.nodejs_path[cp], fetchlist)
             if cp in settings.gomodule_packages:
-                update_gomodule_ebuild(new_filename, settings.gomodule_path[cp])
+                update_gomodule_ebuild(new_filename, settings.gomodule_path[cp], fetchlist)
+            if cp in settings.composer_packages:
+                update_composer_ebuild(new_filename, settings.composer_path[cp], fetchlist)
             # Restore original ebuild content
             if old_content != content:
                 with open(new_filename, 'w') as file:
@@ -444,7 +448,10 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
             if git and sp.run(('ebuild', new_filename, 'digest'), check=False).returncode == 0:
                 sp.run(('git', 'add', new_filename), check=True)
                 sp.run(('git', 'add', os.path.join(search_dir, cp, 'Manifest')), check=True)
-                sp.run(('pkgdev', 'commit'), cwd=os.path.join(search_dir, cp), check=True)
+                try:
+                    sp.run(('pkgdev', 'commit'), cwd=os.path.join(search_dir, cp), check=True)
+                except sp.CalledProcessError:
+                    logger.error(f'Error committing {new_filename}')
 
 
 @click.command()

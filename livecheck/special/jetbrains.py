@@ -1,9 +1,9 @@
-import requests
 import tempfile
 import tarfile
 import io
-
 from pathlib import Path
+
+import requests
 from loguru import logger
 
 __all__ = ("def get_latest_jetbrains_package", "update_jetbrains_ebuild")

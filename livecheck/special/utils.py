@@ -1,11 +1,9 @@
 from pathlib import Path
 import logging
-
-from xdg.BaseDirectory import save_cache_path
-
 import os
 import tarfile
-import portage
+
+from xdg.BaseDirectory import save_cache_path
 from ..utils.portage import unpack_ebuild, get_distdir
 
 __all__ = ("get_project_path", "remove_url_ebuild", "search_ebuild", "build_compress")
@@ -29,14 +27,15 @@ def remove_url_ebuild(ebuild: str, remove: str) -> str:
         if remove in stripped_line:
             url = stripped_line.strip(' "\'')
             if url.endswith(remove):
-                if stripped_line.endswith(('"', "'")):
+                if stripped_line.endswith(('"', "'")) and (stripped_line.count('"') == 1
+                                                           or stripped_line.count("'") == 1):
                     filtered_lines.append(stripped_line[-1])
                 continue
         filtered_lines.append(original_line)
     return '\n'.join(filtered_lines)
 
 
-def search_ebuild(ebuild: str, archive: str, path: str) -> tuple[str, str]:
+def search_ebuild(ebuild: str, archive: str, path: str | None) -> tuple[str, str]:
     temp_dir = unpack_ebuild(ebuild)
     if temp_dir == "":
         logger.warning("Error unpacking the ebuild.")
@@ -58,19 +57,14 @@ def search_ebuild(ebuild: str, archive: str, path: str) -> tuple[str, str]:
     return "", ""
 
 
-def build_compress(ebuild: str, temp_dir: str, base_dir: str, directory: str,
-                   extension: str) -> bool:
+def build_compress(temp_dir: str, base_dir: str, directory: str, extension: str,
+                   fetchlist: dict[str, str]) -> bool:
 
     vendor_dir = os.path.join(base_dir, directory)
     if not os.path.exists(vendor_dir):
         logger.warning("The directory vendor was not created.")
         return False
 
-    ebuild_filename = os.path.basename(ebuild)
-    cpv = ebuild_filename.replace(".ebuild", "")
-    category = os.path.basename(os.path.dirname(os.path.dirname(ebuild)))
-
-    fetchlist = portage.portdb.getFetchMap(f"{category}/{cpv}")
     filename, _ = next(iter(fetchlist.items()))
 
     if filename.endswith('.tar.gz'):
@@ -85,8 +79,11 @@ def build_compress(ebuild: str, temp_dir: str, base_dir: str, directory: str,
         logger.warning("Invalid extension.")
         return False
 
-    base_name = filename[:-len(archive_ext)]
-    vendor_archive_name = f"{base_name}{extension}"
+    if extension in filename:
+        vendor_archive_name = filename
+    else:
+        base_name = filename[:-len(archive_ext)]
+        vendor_archive_name = f"{base_name}{extension}"
     vendor_archive_path = os.path.join(get_distdir(), vendor_archive_name)
 
     vendor_path = Path(base_dir).resolve()

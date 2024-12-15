@@ -1,5 +1,5 @@
-import requests
 import re
+import requests
 
 from loguru import logger
 from ..utils.portage import is_version_development
