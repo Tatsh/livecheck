@@ -63,7 +63,7 @@ For packages that will not work with currently heuristic checking, a configurati
 ### Configuration keys
 
 - `branch` - string- The GitHub branch name to use for commits.
-- `composer_packages` - boolean - Download go vendor modules
+- `composer_packages` - boolean - Download composer vendor modules
 - `composer_path` - path - Where is 'composer.json' located (need composer_packages)
 - `development` - bool - Include development packages.
 - `keep_old` - boolean - Keep old ebuild versions.
