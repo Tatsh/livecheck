@@ -1,3 +1,4 @@
+import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -42,6 +43,7 @@ class LivecheckSettings:
     development: dict[str, bool]
     composer_packages: dict[str, bool]
     composer_path: dict[str, str]
+    regex_version: dict[str, tuple[str, str]]
 
 
 class UnknownTransformationFunction(NameError):
@@ -71,6 +73,7 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
     development: dict[str, bool] = {}
     composer_packages: dict[str, bool] = {}
     composer_path: dict[str, str] = {}
+    regex_version: dict[str, tuple[str, str]] = {}
     for path in Path(search_dir).glob('**/livecheck.json'):
         logger.debug(f"Opening {path}")
         with path.open() as f:
@@ -170,12 +173,24 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
                     check_instance(settings_parsed['composer_path'], 'composer_path', 'string',
                                    path)
                     composer_path[catpkg] = settings_parsed['composer_path']
+            if 'pattern_version' in settings_parsed or 'replace_version' in settings_parsed:
+                if 'pattern_version' not in settings_parsed:
+                    logger.error(f'No "pattern_version" in {path}')
+                    continue
+                if 'replace_version' not in settings_parsed:
+                    logger.error(f'No "replace_version" in {path}')
+                    continue
+                check_instance(settings_parsed['pattern_version'], 'pattern_version', 'regex', path)
+                check_instance(settings_parsed['replace_version'], 'replace_version', 'string',
+                               path)
+                regex_version[catpkg] = (settings_parsed['pattern_version'],
+                                         settings_parsed['replace_version'])
 
-    return LivecheckSettings(branches, checksum_livechecks, custom_livechecks, dotnet_projects,
-                             golang_packages, ignored_packages, no_auto_update, semver, sha_sources,
-                             transformations, yarn_base_packages, yarn_packages, jetbrains_packages,
-                             keep_old, gomodule_packages, gomodule_path, nodejs_packages,
-                             nodejs_path, development, composer_packages, composer_path)
+    return LivecheckSettings(
+        branches, checksum_livechecks, custom_livechecks, dotnet_projects, golang_packages,
+        ignored_packages, no_auto_update, semver, sha_sources, transformations, yarn_base_packages,
+        yarn_packages, jetbrains_packages, keep_old, gomodule_packages, gomodule_path,
+        nodejs_packages, nodejs_path, development, composer_packages, composer_path, regex_version)
 
 
 def check_instance(value: int | str | bool | list[str] | None,
@@ -198,6 +213,13 @@ def check_instance(value: int | str | bool | list[str] | None,
         if isinstance(value, str):
             parsed_url = urlparse(value)
             is_type = all([parsed_url.scheme, parsed_url.netloc])
+    elif type == 'regex':
+        if isinstance(value, str):
+            try:
+                re.compile(value)
+                is_type = True
+            except re.error:
+                is_type = False
 
     if not is_type:
         logger.error(f"Value \"{value}\" in key \"{key}\" is not of type \"{type}\" in file {path}")

@@ -78,6 +78,11 @@ For packages that will not work with currently heuristic checking, a configurati
 - `nodejs_packages` - boolean - Download nodejs node_modules
 - `nodejs_path` - path - Where is 'package.json' located (need nodejs_packages)
 
+Use the pattern to adjust the version using a regular expression
+
+- `pattern_version` - string - The pattern string
+- `replace_version` - string - The replace string
+
 Only then `type` is `regex`
 
 - `url` - URL of the document to run regular expressions against. Required
