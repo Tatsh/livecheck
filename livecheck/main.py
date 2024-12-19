@@ -340,6 +340,7 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
     new_sha = ''
     old_sha = get_old_sha(ebuild)
     if cp in settings.regex_version:
+        logger.debug(f'Applying regex for {cp} old version {top_hash}')
         regex, replace = settings.regex_version[cp]
         top_hash = re.sub(regex, replace, top_hash)
     top_hash = sanitize_version(top_hash)
@@ -407,7 +408,7 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
                     sp.run(('mv', ebuild, new_filename), check=True)
             with open(new_filename, 'w') as f:
                 f.write(content)
-            fetchlist = portdb.getFetchMap(f"{cp}-{new_version}")
+            fetchlist = portdb.getFetchMap(f"{cp}-{str_new_version}")
             # Stores the content so that it can be recovered because it had to be modified
             old_content = content
             # First pass
