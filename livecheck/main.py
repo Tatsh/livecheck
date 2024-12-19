@@ -339,6 +339,9 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
     ebuild = os.path.join(search_dir, cp, f'{pkg}-{ebuild_version}.ebuild')
     new_sha = ''
     old_sha = get_old_sha(ebuild)
+    if cp in settings.regex_version:
+        regex, replace = settings.regex_version[cp]
+        top_hash = re.sub(regex, replace, top_hash)
     top_hash = sanitize_version(top_hash)
     if cp == 'games-emulation/play':
         top_hash = top_hash.replace('-', '.')
