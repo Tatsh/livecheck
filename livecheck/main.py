@@ -334,7 +334,7 @@ def _replace_format(match: Match[str], replacements: dict[str, str]) -> str:
 
 def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str, pkg: str,
             search_dir: str, settings: LivecheckSettings, top_hash: str, hash_date: str, url: str,
-            git: bool) -> None:
+            git: bool, hook: click.File | None) -> None:
     cp = f'{cat}/{pkg}'
     ebuild = os.path.join(search_dir, cp, f'{pkg}-{ebuild_version}.ebuild')
     new_sha = ''
@@ -408,6 +408,10 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
                     sp.run(('mv', ebuild, new_filename), check=True)
             with open(new_filename, 'w') as f:
                 f.write(content)
+            if hook and sp.run((hook.name, 'pre', search_dir, cp, str_old_version, str_new_version,
+                                old_sha, new_sha, hash_date),
+                               check=False).returncode != 0:
+                logger.error(f'Error running hook {hook.name}')
             fetchlist = portdb.getFetchMap(f"{cp}-{str_new_version}")
             # Stores the content so that it can be recovered because it had to be modified
             old_content = content
@@ -449,6 +453,10 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
                 if not digest_ebuild(new_filename):
                     logger.error(f'Error digesting {new_filename}')
                     return
+            if hook and sp.run((hook.name, 'post', search_dir, cp, str_old_version, str_new_version,
+                                old_sha, new_sha, hash_date),
+                               check=False).returncode != 0:
+                logger.error(f'Error running hook {hook.name}')
             if git and sp.run(('ebuild', new_filename, 'digest'), check=False).returncode == 0:
                 sp.run(('git', 'add', new_filename), check=True)
                 sp.run(('git', 'add', os.path.join(search_dir, cp, 'Manifest')), check=True)
@@ -464,6 +472,12 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
 @click.option('-D', '--development', is_flag=True, help='Include development packages.')
 @click.option('-e', '--exclude', multiple=True, help='Exclude package(s) from updates.')
 @click.option('-g', '--git', is_flag=True, help='Use git and pkgdev to make changes.')
+@click.option('-H',
+              '--hook',
+              default=None,
+              help="Run a hook script with various parameters.",
+              type=click.File('r'))
+@click.option('-h', '--help', is_flag=True, help='Show help.')
 @click.option('-k', '--keep-old', is_flag=True, help='Keep old ebuild versions.')
 @click.option('-p', '--progress', is_flag=True, help='Enable progress logging.')
 @click.option('-W',
@@ -477,12 +491,17 @@ def main(
     debug: bool = False,
     development: bool = False,
     exclude: tuple[str] | None = None,
-    keep_old: bool = False,
     git: bool = False,
+    help: bool = False,
+    hook: click.File | None = None,
+    keep_old: bool = False,
     package_names: tuple[str] | list[str] | None = None,
     progress: bool = False,
     working_dir: str | None = '.',
 ) -> int:
+    if help:
+        click.echo(main.get_help(click.Context(main)))
+        return 0
     if working_dir and working_dir != '.':
         chdir(working_dir)
     if debug:
@@ -521,6 +540,9 @@ def main(
         if sp.run(('pkgdev', '--version'), stdout=sp.PIPE, check=False).returncode != 0:
             logger.error('pkgdev is not installed')
             raise click.Abort
+    if hook and not os.access(hook.name, os.X_OK):
+        logger.error(f'Hook file {hook.name} is not executable')
+        raise click.Abort
     logger.info(f'search_dir={search_dir} repo_root={repo_root} repo_name={repo_name}')
     settings = gather_settings(search_dir)
     package_names = sorted(package_names or [])
@@ -545,7 +567,8 @@ def main(
                     keep_old=keep_old,
                     settings=settings,
                     ebuild_version=ebuild_version,
-                    git=git)
+                    git=git,
+                    hook=hook)
         except (requests.exceptions.HTTPError, requests.exceptions.SSLError) as e:
             logger.debug(f'Caught error while checking {cat}/{pkg}: {e}')
         except Exception:
