@@ -453,10 +453,6 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
                 if not digest_ebuild(new_filename):
                     logger.error(f'Error digesting {new_filename}')
                     return
-            if hook and sp.run((hook.name, 'post', search_dir, cp, str_old_version, str_new_version,
-                                old_sha, new_sha, hash_date),
-                               check=False).returncode != 0:
-                logger.error(f'Error running hook {hook.name}')
             if git and sp.run(('ebuild', new_filename, 'digest'), check=False).returncode == 0:
                 sp.run(('git', 'add', new_filename), check=True)
                 sp.run(('git', 'add', os.path.join(search_dir, cp, 'Manifest')), check=True)
@@ -464,6 +460,10 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
                     sp.run(('pkgdev', 'commit'), cwd=os.path.join(search_dir, cp), check=True)
                 except sp.CalledProcessError:
                     logger.error(f'Error committing {new_filename}')
+            if hook and sp.run((hook.name, 'post', search_dir, cp, str_old_version, str_new_version,
+                                old_sha, new_sha, hash_date),
+                               check=False).returncode != 0:
+                logger.error(f'Error running hook {hook.name}')
 
 
 @click.command()
