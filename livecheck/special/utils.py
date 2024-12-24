@@ -35,7 +35,7 @@ def remove_url_ebuild(ebuild: str, remove: str) -> str:
     return '\n'.join(filtered_lines)
 
 
-def search_ebuild(ebuild: str, archive: str, path: str | None) -> tuple[str, str]:
+def search_ebuild(ebuild: str, archive: str, path: str | None = None) -> tuple[str, str]:
     temp_dir = unpack_ebuild(ebuild)
     if temp_dir == "":
         logger.warning("Error unpacking the ebuild.")
