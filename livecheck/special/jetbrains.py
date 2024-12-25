@@ -5,8 +5,9 @@ from pathlib import Path
 
 import requests
 from loguru import logger
+from .utils import search_ebuild
 
-__all__ = ("def get_latest_jetbrains_package", "update_jetbrains_ebuild")
+__all__ = ("get_latest_jetbrains_package", "update_jetbrains_ebuild")
 
 
 def get_latest_jetbrains_package(product_code: str, development: bool = False) -> str:
@@ -34,7 +35,7 @@ def get_latest_jetbrains_package(product_code: str, development: bool = False) -
                         continue
                     if 'linux' in release['downloads']:
                         latest_version = release['version']
-                        return latest_version
+                        return str(latest_version)
 
         logger.debug(f"Version information not found for {product_code}.")
 
@@ -44,21 +45,9 @@ def get_latest_jetbrains_package(product_code: str, development: bool = False) -
     return ''
 
 
-def get_first_directory_in_tar_gz(url: str) -> str | None:
-    response = requests.get(url)
-    response.raise_for_status()
-
-    fileobj = io.BytesIO(response.content)
-    with tarfile.open(fileobj=fileobj, mode='r:gz') as tar:
-        for member in tar.getmembers():
-            if member.isdir():
-                return member.name.rstrip('/')
-    return None
-
-
-def update_jetbrains_ebuild(ebuild: str | Path, url: str) -> None:
-    version = get_first_directory_in_tar_gz(url)
-
+def update_jetbrains_ebuild(ebuild: str | Path) -> None:
+    package_path, _ = search_ebuild(str(ebuild), 'product-info.json')
+    version = package_path.split('/')[-1]
     if not version:
         logger.warning('No version found in the tar.gz file.')
         return

@@ -11,6 +11,7 @@ catpkg
 catpkgsplit
 cgit
 citra
+clion
 commitizen
 cookiecutter
 cpan
@@ -43,6 +44,7 @@ genconfig
 genindex
 getabsfile
 glabels
+goland
 gomodule
 hidapi
 hostnames
@@ -85,6 +87,7 @@ numpy
 paren
 parens
 pecl
+phpstorm
 pipx
 pkgdev
 pkgs

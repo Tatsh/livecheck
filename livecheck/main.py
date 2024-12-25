@@ -403,7 +403,11 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
             print(f'{ebuild} -> {new_filename}')
             if settings.keep_old.get(cp, not keep_old):
                 if git:
-                    sp.run(('git', 'mv', ebuild, new_filename), check=True)
+                    try:
+                        sp.run(('git', 'mv', ebuild, new_filename), check=True)
+                    except sp.CalledProcessError:
+                        logger.error(f'Error moving {ebuild} to {new_filename}')
+                        return
                 else:
                     sp.run(('mv', ebuild, new_filename), check=True)
             with open(new_filename, 'w') as f:
@@ -435,7 +439,7 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
             if cp in settings.dotnet_projects:
                 update_dotnet_ebuild(new_filename, settings.dotnet_projects[cp], cp)
             if cp in settings.jetbrains_packages:
-                update_jetbrains_ebuild(new_filename, url)
+                update_jetbrains_ebuild(new_filename)
             if cp in settings.nodejs_packages:
                 update_nodejs_ebuild(new_filename, settings.nodejs_path[cp], fetchlist)
             if cp in settings.gomodule_packages:
