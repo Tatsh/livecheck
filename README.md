@@ -32,6 +32,7 @@ Options:
   -D, --development            Include development packages.
   -e, --exclude TEXT           Exclude package(s) from updates.
   -g, --git                    Use git and pkgdev to make changes.
+  -H, --hook-dir               Run a hook directory scripts with various parameters.
   -k, --keep-old               Keep old ebuild versions.
   -p, --progress               Enable progress logging.
   -W, --working-dir DIRECTORY  Working directory. Should be a port tree root.
@@ -59,6 +60,21 @@ comparison function. For anything else, see [Package configuration](#package-con
 
 For packages that will not work with currently heuristic checking, a configuration file named
 `livecheck.json` can be placed in the directory alongside the ebuild.
+
+## Hook directory
+
+The hooks directory structure is subdivided into actions, currently `post` and `pre`, within each
+action directory there can be several scripts that are executed in order of name.
+
+## Hook arguments
+
+- Root portage directory, e.g. `/var/db/repos/gentoo`.
+- Category and package name, e.g. `dev-lang/php`.
+- Previous version, e.g. `8.2.32-r2`.
+- New version, e.g. `8.2.33`.
+- SHA hash of the old version. Optional.
+- SHA hash of the new version. Optional.
+- Date associated with the hash. Optional.
 
 ### Configuration keys
 
