@@ -332,9 +332,28 @@ def _replace_format(match: Match[str], replacements: dict[str, str]) -> str:
     return match.group(0)
 
 
+def execute_hooks(hook_dir: str | None, action: str, search_dir: str, cp: str, str_old_version: str,
+                  str_new_version: str, old_sha: str, new_sha: str, hash_date: str) -> None:
+    if not hook_dir:
+        return
+    dir = Path(hook_dir + '/' + action)
+    if not dir.is_dir():
+        return
+    for hook in sorted(dir.iterdir()):
+        if hook.is_file() and os.access(hook, os.X_OK):
+            logger.debug(f'Running hook {hook}')
+            result = sp.run([
+                hook, search_dir, cp, str_old_version, str_new_version, old_sha, new_sha, hash_date
+            ],
+                            check=False)
+            if result.returncode != 0:
+                click.echo(f'Error running hook {hook}.', err=True)
+                raise click.Abort
+
+
 def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str, pkg: str,
             search_dir: str, settings: LivecheckSettings, top_hash: str, hash_date: str, url: str,
-            git: bool, hook: click.File | None) -> None:
+            git: bool, hook_dir: str | None) -> None:
     cp = f'{cat}/{pkg}'
     ebuild = os.path.join(search_dir, cp, f'{pkg}-{ebuild_version}.ebuild')
     new_sha = ''
@@ -408,10 +427,8 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
                     sp.run(('mv', ebuild, new_filename), check=True)
             with open(new_filename, 'w') as f:
                 f.write(content)
-            if hook and sp.run((hook.name, 'pre', search_dir, cp, str_old_version, str_new_version,
-                                old_sha, new_sha, hash_date),
-                               check=False).returncode != 0:
-                logger.error(f'Error running hook {hook.name}')
+            execute_hooks(hook_dir, 'pre', search_dir, cp, str_old_version, str_new_version,
+                          old_sha, new_sha, hash_date)
             fetchlist = portdb.getFetchMap(f"{cp}-{str_new_version}")
             # Stores the content so that it can be recovered because it had to be modified
             old_content = content
@@ -460,24 +477,25 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
                     sp.run(('pkgdev', 'commit'), cwd=os.path.join(search_dir, cp), check=True)
                 except sp.CalledProcessError:
                     logger.error(f'Error committing {new_filename}')
-            if hook and sp.run((hook.name, 'post', search_dir, cp, str_old_version, str_new_version,
-                                old_sha, new_sha, hash_date),
-                               check=False).returncode != 0:
-                logger.error(f'Error running hook {hook.name}')
+            execute_hooks(hook_dir, 'post', search_dir, cp, str_old_version, str_new_version,
+                          old_sha, new_sha, hash_date)
 
 
-@click.command()
+@click.command(context_settings={'help_option_names': ['-h', '--help']})
 @click.option('-a', '--auto-update', is_flag=True, help='Rename and modify ebuilds.')
 @click.option('-d', '--debug', is_flag=True, help='Enable debug logging.')
 @click.option('-D', '--development', is_flag=True, help='Include development packages.')
 @click.option('-e', '--exclude', multiple=True, help='Exclude package(s) from updates.')
 @click.option('-g', '--git', is_flag=True, help='Use git and pkgdev to make changes.')
 @click.option('-H',
-              '--hook',
+              '--hook-dir',
               default=None,
-              help="Run a hook script with various parameters.",
-              type=click.File('r'))
-@click.option('-h', '--help', is_flag=True, help='Show help.')
+              help="Run a hook directory scripts with various parameters.",
+              type=click.Path(file_okay=False,
+                              dir_okay=True,
+                              exists=True,
+                              resolve_path=True,
+                              executable=True))
 @click.option('-k', '--keep-old', is_flag=True, help='Keep old ebuild versions.')
 @click.option('-p', '--progress', is_flag=True, help='Enable progress logging.')
 @click.option('-W',
@@ -492,16 +510,12 @@ def main(
     development: bool = False,
     exclude: tuple[str] | None = None,
     git: bool = False,
-    help: bool = False,
-    hook: click.File | None = None,
+    hook_dir: str | None = None,
     keep_old: bool = False,
     package_names: tuple[str] | list[str] | None = None,
     progress: bool = False,
     working_dir: str | None = '.',
 ) -> int:
-    if help:
-        click.echo(main.get_help(click.Context(main)))
-        return 0
     if working_dir and working_dir != '.':
         chdir(working_dir)
     if debug:
@@ -540,9 +554,6 @@ def main(
         if sp.run(('pkgdev', '--version'), stdout=sp.PIPE, check=False).returncode != 0:
             logger.error('pkgdev is not installed')
             raise click.Abort
-    if hook and not os.access(hook.name, os.X_OK):
-        logger.error(f'Hook file {hook.name} is not executable')
-        raise click.Abort
     logger.info(f'search_dir={search_dir} repo_root={repo_root} repo_name={repo_name}')
     settings = gather_settings(search_dir)
     package_names = sorted(package_names or [])
@@ -568,7 +579,7 @@ def main(
                     settings=settings,
                     ebuild_version=ebuild_version,
                     git=git,
-                    hook=hook)
+                    hook_dir=hook_dir)
         except (requests.exceptions.HTTPError, requests.exceptions.SSLError) as e:
             logger.debug(f'Caught error while checking {cat}/{pkg}: {e}')
         except Exception:

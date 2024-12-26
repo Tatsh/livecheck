@@ -32,8 +32,7 @@ Options:
   -D, --development            Include development packages.
   -e, --exclude TEXT           Exclude package(s) from updates.
   -g, --git                    Use git and pkgdev to make changes.
-  -h, --help                   Show help.
-  -H, --hook                   Run a hook script with various parameters.
+  -H, --hook-dir               Run a hook directory scripts with various parameters.
   -k, --keep-old               Keep old ebuild versions.
   -p, --progress               Enable progress logging.
   -W, --working-dir DIRECTORY  Working directory. Should be a port tree root.
@@ -62,17 +61,20 @@ comparison function. For anything else, see [Package configuration](#package-con
 For packages that will not work with currently heuristic checking, a configuration file named
 `livecheck.json` can be placed in the directory alongside the ebuild.
 
-## hook parameters
+## Hook directory
 
-1. name: Name of the hook script to execute.
-2. action: Action type, e.g., `post` or `pre`
-3. search_dir: Root portage directory, e.g., `/usr/portage`
-4. cp: Category and ebuild name, e.g., `dev-lang/php`
-5. old_version: Previous version, e.g., `8.2.32-r2`
-6. new_version: New version, e.g., `8.2.33`
-7. old_sha: (Optional) SHA hash of the old version.
-8. new_sha: (Optional) SHA hash of the new version.
-9. hash_date: (Optional) Date associated with the hash.
+The hooks directory structure is subdivided into actions, currently `post` and `pre`, within each
+action directory there can be several scripts that are executed in order of name.
+
+## Hook arguments
+
+- Root portage directory, e.g. `/var/db/repos/gentoo`.
+- Category and package name, e.g. `dev-lang/php`.
+- Previous version, e.g. `8.2.32-r2`.
+- New version, e.g. `8.2.33`.
+- SHA hash of the old version. Optional.
+- SHA hash of the new version. Optional.
+- Date associated with the hash. Optional.
 
 ### Configuration keys
 
