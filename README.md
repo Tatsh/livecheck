@@ -43,6 +43,7 @@ Options:
 
 This package can do automated lookups based on commonly used hosts. Currently:
 
+- Bitbucket
 - GitHub archives
 - GitHub commit hashes
 - GitHub releases
