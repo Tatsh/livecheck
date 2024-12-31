@@ -204,7 +204,7 @@ def parse_metadata(
     settings: LivecheckSettings,
     match: str,
 ) -> tuple[str, str, str]:
-    catpkg, _, _, _ = catpkg_catpkgsplit(match)
+    catpkg, _, _, ebuild_version = catpkg_catpkgsplit(match)
 
     metadata_file = os.path.join(repo_root, catpkg, "metadata.xml")
     if not os.path.exists(metadata_file):
@@ -223,11 +223,12 @@ def parse_metadata(
                 text_val = subelem.text.strip() if subelem.text else ""
                 attribs = subelem.attrib
                 last_version = hash_date = url = ''
-
                 if tag_name == 'remote-id':
                     if attribs['type'] == 'github':
                         last_version, hash_date, url = parse_url(
-                            repo_root, f'https://github.com/{text_val}', devel, settings, match)
+                            repo_root,
+                            f'https://github.com/{text_val}/releases/download/{ebuild_version}/file-{ebuild_version}.tar.gz',
+                            devel, settings, match)
                     if attribs['type'] == 'bitbucket':
                         last_version, hash_date, url = parse_url(
                             repo_root, f'https://bitbucket.org/{text_val}', devel, settings, match)
