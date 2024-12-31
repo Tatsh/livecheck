@@ -10,6 +10,7 @@ import re
 import subprocess as sp
 import sys
 import os
+import xml.etree.ElementTree as ET
 
 from loguru import logger
 from portage.exception import InvalidAtom
@@ -86,6 +87,155 @@ def log_unhandled_github_package(catpkg: str):
     logger.debug(f'Unhandled GitHub package: {catpkg}')
 
 
+def parse_url(
+    repo_root: str,
+    src_uri: str,
+    devel: bool,
+    settings: LivecheckSettings,
+    match: str,
+) -> tuple[str, str, str]:
+    catpkg, _, pkg, ebuild_version = catpkg_catpkgsplit(match)
+
+    parsed_uri = urlparse(src_uri)
+    last_version = hash_date = url = ''
+
+    if parsed_uri.hostname == 'github.com':
+        logger.debug(f'Parsed path: {parsed_uri.path}')
+        github_homepage = f'https://github.com{"/".join(parsed_uri.path.split("/")[0:3])}'
+        filename = Path(parsed_uri.path).name
+        version = re.split(r'\.(?:tar\.(?:gz|bz2)|zip)$', filename, maxsplit=2)[0]
+        if (re.match(r'^[0-9a-f]{7,}$', version) and not re.match('^[0-9a-f]{8}$', version)):
+            branch = (settings.branches.get(catpkg, 'master'))
+            last_version, hash_date, url = get_latest_regex_package(
+                ebuild_version, catpkg, settings, f'{github_homepage}/commits/{branch}.atom',
+                make_github_grit_commit_re(40 * ' '), version, devel)
+        elif ('/releases/download/' in parsed_uri.path or '/archive/' in parsed_uri.path):
+            prefix = ''
+            if (m := re.match(PREFIX_RE, filename) if '/archive/' in parsed_uri.path else re.match(
+                    PREFIX_RE,
+                    Path(parsed_uri.path).parent.name)):
+                prefix = m.group(1)
+            url = f'{github_homepage}/tags'
+            regex = f'archive/refs/tags/{prefix}([^"]+)\\.tar\\.gz'
+            if re.match(r'^wiimms-(iso|szs)-tools$', pkg):
+                regex = make_github_grit_title_re()
+                url = f'github.com/Wiimm/{pkg}/commits/master.atom'
+            last_version, hash_date, url = get_latest_regex_package(
+                ebuild_version, catpkg, settings, url, regex, version, devel)
+        elif m := re.search(r'/raw/([0-9a-f]+)/', parsed_uri.path):
+            version = m.group(1)
+            branch = (settings.branches.get(catpkg, 'master'))
+            last_version, hash_date, url = get_latest_regex_package(
+                ebuild_version, catpkg, settings, f'{github_homepage}/commits/{branch}.atom',
+                (r'<id>tag:github.com,2008:Grit::Commit/([0-9a-f]{' + str(len(version)) +
+                 r'})[0-9a-f]*</id>'), version, devel)
+        else:
+            log_unhandled_github_package(catpkg)
+    elif parsed_uri.hostname == 'git.sr.ht':
+        user_repo = '/'.join(parsed_uri.path.split('/')[1:3])
+        branch = (settings.branches.get(catpkg, 'master'))
+        last_version, hash_date, url = get_latest_regex_package(
+            ebuild_version, catpkg, settings, f'https://git.sr.ht/{user_repo}/log/{branch}/rss.xml',
+            r'<pubDate>([^<]+)</pubDate>', '', devel)
+    elif parsed_uri.hostname in GIST_HOSTNAMES:
+        home = P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0]
+        last_version, hash_date, url = get_latest_regex_package(
+            ebuild_version, catpkg, settings, f'{home}/revisions',
+            r'<relative-time datetime="([0-9-]{10})', '', devel)
+    elif src_uri.startswith('mirror://pypi/'):
+        dist_name = src_uri.split('/')[4]
+        last_version, hash_date, url = get_latest_regex_package(
+            ebuild_version, catpkg, settings, f'https://pypi.org/pypi/{dist_name}/json',
+            r'"version":"([^"]+)"[,\}]', '', devel)
+    elif parsed_uri.hostname == 'files.pythonhosted.org':
+        dist_name = src_uri.split('/')[-2]
+        last_version, hash_date, url = get_latest_regex_package(
+            ebuild_version, catpkg, settings, f'https://pypi.org/pypi/{dist_name}/json',
+            r'"version":"([^"]+)"[,\}]', '', devel)
+    elif (parsed_uri.hostname == 'www.raphnet-tech.com'
+          and parsed_uri.path.startswith('/downloads')):
+        last_version, hash_date, url = get_latest_regex_package(
+            ebuild_version, catpkg, settings,
+            P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0],
+            (r'\b' + pkg.replace('-', r'[-_]') + r'-([^"]+)\.tar\.gz'), '', devel)
+    elif parsed_uri.hostname == 'download.jetbrains.com':
+        last_version = get_latest_jetbrains_package(pkg, devel)
+    elif (parsed_uri.hostname in GITLAB_HOSTNAMES and '/archive/' in parsed_uri.path):
+        author, proj = src_uri.split('/')[3:5]
+        m = re.match('^https://([^/]+)', src_uri)
+        assert m is not None
+        domain = m.group(1)
+        last_version, hash_date, url = get_latest_regex_package(
+            ebuild_version, catpkg, settings,
+            f'https://{domain}/{author}/{proj}/-/tags?format=atom', r'<title>v?([0-9][^>]+)</title',
+            '', devel)
+    elif parsed_uri.hostname == 'cgit.libimobiledevice.org':
+        proj = src_uri.split('/')[3]
+        last_version, hash_date, url = get_latest_regex_package(
+            ebuild_version, catpkg, settings, f'https://cgit.libimobiledevice.org/{proj}/',
+            r"href='/" + re.escape(proj) + r"/tag/\?h=([0-9][^']+)", '', devel)
+    elif parsed_uri.hostname == 'registry.yarnpkg.com':
+        path = ('/'.join(parsed_uri.path.split('/')[1:3])
+                if parsed_uri.path.startswith('/@') else parsed_uri.path.split('/')[1])
+        last_version, hash_date, url = get_latest_regex_package(
+            ebuild_version, catpkg, settings, f'https://registry.yarnpkg.com/{path}',
+            r'"latest":"([^"]+)",?', '', devel)
+    elif parsed_uri.hostname == 'pecl.php.net':
+        last_version = get_latest_pecl_package(pkg, devel)
+    elif parsed_uri.hostname == 'metacpan.org' or parsed_uri.hostname == 'cpan':
+        last_version = get_latest_metacpan_package(pkg)
+    elif parsed_uri.hostname == 'rubygems.org':
+        last_version = get_latest_rubygems_package(pkg)
+    elif parsed_uri.hostname == 'downloads.sourceforge.net':
+        last_version = get_latest_sourceforge_package(pkg)
+    elif parsed_uri.hostname == 'bitbucket.org':
+        last_version = get_latest_bitbucket_package(parsed_uri.path)
+    else:
+        logger.debug(f'Unhandled: {catpkg} {parsed_uri.hostname}')
+        home = P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0]
+        log_unhandled_pkg(catpkg, home, src_uri)
+
+    return last_version, hash_date, url
+
+
+def parse_metadata(
+    repo_root: str,
+    devel: bool,
+    settings: LivecheckSettings,
+    match: str,
+) -> tuple[str, str, str]:
+    catpkg, _, _, _ = catpkg_catpkgsplit(match)
+
+    metadata_file = os.path.join(repo_root, catpkg, "metadata.xml")
+    if not os.path.exists(metadata_file):
+        return '', '', ''
+    try:
+        tree = ET.parse(metadata_file)
+        root = tree.getroot()
+    except ET.ParseError as e:
+        logger.error(f'Error parsing {metadata_file}: {e}')
+        return '', '', ''
+    upstream_list = root.findall("upstream")
+    if upstream_list:
+        for upstream in upstream_list:
+            for subelem in upstream:
+                tag_name = subelem.tag
+                text_val = subelem.text.strip() if subelem.text else ""
+                attribs = subelem.attrib
+                last_version = hash_date = url = ''
+
+                if tag_name == 'remote-id':
+                    if attribs['type'] == 'github':
+                        last_version, hash_date, url = parse_url(
+                            repo_root, f'https://github.com/{text_val}', devel, settings, match)
+                    if attribs['type'] == 'bitbucket':
+                        last_version, hash_date, url = parse_url(
+                            repo_root, f'https://bitbucket.org/{text_val}', devel, settings, match)
+                    if last_version:
+                        return last_version, hash_date, url
+    return '', '', ''
+
+
 def get_props(search_dir: str,
               repo_root: str,
               settings: LivecheckSettings,
@@ -117,20 +267,12 @@ def get_props(search_dir: str,
             logger.debug(f'Ignoring {catpkg}')
             continue
         src_uri = get_first_src_uri(match, repo_root)
-        parsed_uri = urlparse(src_uri)
         if cat.startswith('acct-') or catpkg in settings.ignored_packages:
-            logger.debug(f'Ignoring {catpkg}')
-            continue
-        # Exclude packages with no SRC_URI
-        # live ebuilds o virtual packages
-        if not src_uri:
             logger.debug(f'Ignoring {catpkg}')
             continue
         if debug or progress:
             logger.info(f'Processing {catpkg} version {ebuild_version}')
-        last_version = ''
-        hash_date = ''
-        url = ''
+        last_version = hash_date = url = ''
         if catpkg in settings.custom_livechecks:
             url, regex, _, version = settings.custom_livechecks[catpkg]
             last_version, hash_date, url = get_latest_regex_package(
@@ -165,105 +307,15 @@ def get_props(search_dir: str,
             if not found:
                 home = P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0]
                 log_unhandled_pkg(catpkg, home, src_uri)
-        elif parsed_uri.hostname == 'github.com':
-            logger.debug(f'Parsed path: {parsed_uri.path}')
-            github_homepage = f'https://github.com{"/".join(parsed_uri.path.split("/")[0:3])}'
-            filename = Path(parsed_uri.path).name
-            version = re.split(r'\.(?:tar\.(?:gz|bz2)|zip)$', filename, maxsplit=2)[0]
-            if (re.match(r'^[0-9a-f]{7,}$', version) and not re.match('^[0-9a-f]{8}$', version)):
-                branch = (settings.branches.get(catpkg, 'master'))
-                last_version, hash_date, url = get_latest_regex_package(
-                    ebuild_version, catpkg, settings, f'{github_homepage}/commits/{branch}.atom',
-                    make_github_grit_commit_re(40 * ' '), version, devel)
-            elif ('/releases/download/' in parsed_uri.path or '/archive/' in parsed_uri.path):
-                prefix = ''
-                if (m := re.match(PREFIX_RE, filename) if '/archive/' in parsed_uri.path else
-                        re.match(PREFIX_RE,
-                                 Path(parsed_uri.path).parent.name)):
-                    prefix = m.group(1)
-                url = f'{github_homepage}/tags'
-                regex = f'archive/refs/tags/{prefix}([^"]+)\\.tar\\.gz'
-                if re.match(r'^wiimms-(iso|szs)-tools$', pkg):
-                    regex = make_github_grit_title_re()
-                    url = f'github.com/Wiimm/{pkg}/commits/master.atom'
-                last_version, hash_date, url = get_latest_regex_package(
-                    ebuild_version, catpkg, settings, url, regex, version, devel)
-            elif m := re.search(r'/raw/([0-9a-f]+)/', parsed_uri.path):
-                version = m.group(1)
-                branch = (settings.branches.get(catpkg, 'master'))
-                last_version, hash_date, url = get_latest_regex_package(
-                    ebuild_version, catpkg, settings, f'{github_homepage}/commits/{branch}.atom',
-                    (r'<id>tag:github.com,2008:Grit::Commit/([0-9a-f]{' + str(len(version)) +
-                     r'})[0-9a-f]*</id>'), version, devel)
-            else:
-                log_unhandled_github_package(catpkg)
-        elif parsed_uri.hostname == 'git.sr.ht':
-            user_repo = '/'.join(parsed_uri.path.split('/')[1:3])
-            branch = (settings.branches.get(catpkg, 'master'))
-            last_version, hash_date, url = get_latest_regex_package(
-                ebuild_version, catpkg, settings,
-                f'https://git.sr.ht/{user_repo}/log/{branch}/rss.xml',
-                r'<pubDate>([^<]+)</pubDate>', '', devel)
-        elif parsed_uri.hostname in GIST_HOSTNAMES:
-            home = P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0]
-            last_version, hash_date, url = get_latest_regex_package(
-                ebuild_version, catpkg, settings, f'{home}/revisions',
-                r'<relative-time datetime="([0-9-]{10})', '', devel)
-        elif src_uri.startswith('mirror://pypi/'):
-            dist_name = src_uri.split('/')[4]
-            last_version, hash_date, url = get_latest_regex_package(
-                ebuild_version, catpkg, settings, f'https://pypi.org/pypi/{dist_name}/json',
-                r'"version":"([^"]+)"[,\}]', '', devel)
-        elif parsed_uri.hostname == 'files.pythonhosted.org':
-            dist_name = src_uri.split('/')[-2]
-            last_version, hash_date, url = get_latest_regex_package(
-                ebuild_version, catpkg, settings, f'https://pypi.org/pypi/{dist_name}/json',
-                r'"version":"([^"]+)"[,\}]', '', devel)
-        elif (parsed_uri.hostname == 'www.raphnet-tech.com'
-              and parsed_uri.path.startswith('/downloads')):
-            last_version, hash_date, url = get_latest_regex_package(
-                ebuild_version, catpkg, settings,
-                P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0],
-                (r'\b' + pkg.replace('-', r'[-_]') + r'-([^"]+)\.tar\.gz'), '', devel)
-        elif parsed_uri.hostname == 'download.jetbrains.com':
-            last_version = get_latest_jetbrains_package(pkg, devel)
-        elif (parsed_uri.hostname in GITLAB_HOSTNAMES and '/archive/' in parsed_uri.path):
-            author, proj = src_uri.split('/')[3:5]
-            m = re.match('^https://([^/]+)', src_uri)
-            assert m is not None
-            domain = m.group(1)
-            last_version, hash_date, url = get_latest_regex_package(
-                ebuild_version, catpkg, settings,
-                f'https://{domain}/{author}/{proj}/-/tags?format=atom',
-                r'<title>v?([0-9][^>]+)</title', '', devel)
-        elif parsed_uri.hostname == 'cgit.libimobiledevice.org':
-            proj = src_uri.split('/')[3]
-            last_version, hash_date, url = get_latest_regex_package(
-                ebuild_version, catpkg, settings, f'https://cgit.libimobiledevice.org/{proj}/',
-                r"href='/" + re.escape(proj) + r"/tag/\?h=([0-9][^']+)", '', devel)
-        elif parsed_uri.hostname == 'registry.yarnpkg.com':
-            path = ('/'.join(parsed_uri.path.split('/')[1:3])
-                    if parsed_uri.path.startswith('/@') else parsed_uri.path.split('/')[1])
-            last_version, hash_date, url = get_latest_regex_package(
-                ebuild_version, catpkg, settings, f'https://registry.yarnpkg.com/{path}',
-                r'"latest":"([^"]+)",?', '', devel)
-        elif parsed_uri.hostname == 'pecl.php.net':
-            last_version = get_latest_pecl_package(pkg, devel)
-        elif parsed_uri.hostname == 'metacpan.org' or parsed_uri.hostname == 'cpan':
-            last_version = get_latest_metacpan_package(pkg)
-        elif parsed_uri.hostname == 'rubygems.org':
-            last_version = get_latest_rubygems_package(pkg)
-        elif parsed_uri.hostname == 'downloads.sourceforge.net':
-            last_version = get_latest_sourceforge_package(pkg)
-        elif parsed_uri.hostname == 'bitbucket.org':
-            last_version = get_latest_bitbucket_package(parsed_uri.path)
         else:
-            logger.debug(f'Unhandled: {catpkg} {parsed_uri.hostname}')
-            home = P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0]
-            log_unhandled_pkg(catpkg, home, src_uri)
+            last_version, hash_date, url = parse_url(repo_root, src_uri, devel, settings, match)
+            if not last_version:
+                last_version, hash_date, url = parse_metadata(repo_root, devel, settings, match)
         if last_version:
             logger.debug(f'Inserting {catpkg}: {ebuild_version} -> {last_version}')
             yield (cat, pkg, ebuild_version, last_version, hash_date, url)
+        else:
+            logger.debug(f'Ignoring {catpkg}, update not available')
 
 
 def get_old_sha(ebuild: str) -> str:
