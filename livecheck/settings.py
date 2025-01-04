@@ -44,6 +44,7 @@ class LivecheckSettings:
     composer_packages: dict[str, bool]
     composer_path: dict[str, str]
     regex_version: dict[str, tuple[str, str]]
+    restrict_version: dict[str, str]
 
 
 class UnknownTransformationFunction(NameError):
@@ -74,6 +75,7 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
     composer_packages: dict[str, bool] = {}
     composer_path: dict[str, str] = {}
     regex_version: dict[str, tuple[str, str]] = {}
+    restrict_version: dict[str, str] = {}
     for path in Path(search_dir).glob('**/livecheck.json'):
         logger.debug(f"Opening {path}")
         with path.open() as f:
@@ -185,12 +187,20 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
                                path)
                 regex_version[catpkg] = (settings_parsed['pattern_version'],
                                          settings_parsed['replace_version'])
+            if 'restrict_version' in settings_parsed:
+                if settings_parsed.get('restrict_version').lower(
+                ) != 'full' and settings_parsed.get('restrict_version').lower(
+                ) != 'major' and settings_parsed.get('restrict_version').lower() != 'minor':
+                    logger.error(f'Invalid "restrict_version" in {path}')
+                    continue
+                restrict_version[catpkg] = settings_parsed['restrict_version'].lower()
 
-    return LivecheckSettings(
-        branches, checksum_livechecks, custom_livechecks, dotnet_projects, golang_packages,
-        ignored_packages, no_auto_update, semver, sha_sources, transformations, yarn_base_packages,
-        yarn_packages, jetbrains_packages, keep_old, gomodule_packages, gomodule_path,
-        nodejs_packages, nodejs_path, development, composer_packages, composer_path, regex_version)
+    return LivecheckSettings(branches, checksum_livechecks, custom_livechecks, dotnet_projects,
+                             golang_packages, ignored_packages, no_auto_update, semver, sha_sources,
+                             transformations, yarn_base_packages, yarn_packages, jetbrains_packages,
+                             keep_old, gomodule_packages, gomodule_path, nodejs_packages,
+                             nodejs_path, development, composer_packages, composer_path,
+                             regex_version, restrict_version)
 
 
 def check_instance(value: int | str | bool | list[str] | None,

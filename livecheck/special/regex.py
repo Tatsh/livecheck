@@ -37,7 +37,8 @@ def get_latest_regex_package(ebuild_version: str,
                              url: str,
                              regex: str,
                              version: str = '',
-                             development: bool = False) -> tuple[str, str, str]:
+                             development: bool = False,
+                             restrict_version: str = '') -> tuple[str, str, str]:
     parsed_uri = urlparse(url)
     logger.debug(f'Fetching {url}')
     headers = {}
@@ -68,6 +69,8 @@ def get_latest_regex_package(ebuild_version: str,
         return '', '', ''
     top_hash = ''
     for result in results:
+        if not result.startswith(restrict_version):
+            continue
         if not is_version_development(result) or development:
             top_hash = result
             break
