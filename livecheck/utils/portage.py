@@ -9,6 +9,7 @@ from typing import List
 from itertools import chain
 
 from portage.versions import catpkgsplit, vercmp
+from ..settings import LivecheckSettings
 import portage
 
 __all__ = ('P', 'catpkg_catpkgsplit', 'find_highest_match_ebuild_path', 'get_first_src_uri',
@@ -35,7 +36,16 @@ def sort_by_v(a: str, b: str) -> int:
     return cp_a < cp_b
 
 
-def get_highest_matches(search_dir: str, repo_root: str) -> List[str]:
+def mask_version(cp: str, version: str, restrict_version: str | None = 'full') -> str | None:
+    if restrict_version == 'full':
+        return cp
+    if restrict_version == 'major':
+        return cp + ':' + re.sub(r'\.\d+', '', version) + ':'
+    if restrict_version == 'minor':
+        return cp + '' + re.sub(r'\.\d+\.\d+', '', version) + ':'
+
+
+def get_highest_matches(search_dir: str, repo_root: str, settings: LivecheckSettings) -> List[str]:
     result = {}
     for path in Path(search_dir).glob('**/*.ebuild'):
         dn = path.parent
@@ -46,16 +56,19 @@ def get_highest_matches(search_dir: str, repo_root: str) -> List[str]:
                     cp_a, _, _, version_a = catpkg_catpkgsplit(m)
                     if '9999' in version_a or not cp_a or not version_a:
                         continue
-                    if cp_a in result:
-                        if vercmp(version_a, result[cp_a]):
-                            result[cp_a] = version_a
+                    restrict_version = settings.restrict_version.get(name, 'full')
+                    cp_mask = mask_version(cp_a, version_a, restrict_version)
+                    if cp_mask in result:
+                        if vercmp(version_a, result[cp_mask]):
+                            result[cp_mask] = version_a
                     else:
-                        result[cp_a] = version_a
+                        result[cp_mask] = version_a
 
     return [f"{cp}-{version}" for cp, version in result.items()]
 
 
-def get_highest_matches2(names: Sequence[str], repo_root: str) -> List[str]:
+def get_highest_matches2(names: Sequence[str], repo_root: str,
+                         settings: LivecheckSettings) -> List[str]:
     result = {}
     for name in names:
         if matches := P.xmatch('match-all', name):
@@ -64,11 +77,13 @@ def get_highest_matches2(names: Sequence[str], repo_root: str) -> List[str]:
                     cp_a, _, _, version_a = catpkg_catpkgsplit(m)
                     if '9999' in version_a or not cp_a or not version_a:
                         continue
-                    if cp_a in result:
-                        if vercmp(version_a, result[cp_a]):
-                            result[cp_a] = version_a
+                    restrict_version = settings.restrict_version.get(name, 'full')
+                    cp_mask = mask_version(cp_a, version_a, restrict_version)
+                    if cp_mask in result:
+                        if vercmp(version_a, result[cp_mask]):
+                            result[cp_mask] = version_a
                     else:
-                        result[cp_a] = version_a
+                        result[cp_mask] = version_a
 
     return [f"{cp}-{version}" for cp, version in result.items()]
 

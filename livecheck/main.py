@@ -87,13 +87,8 @@ def log_unhandled_github_package(catpkg: str):
     logger.debug(f'Unhandled GitHub package: {catpkg}')
 
 
-def parse_url(
-    repo_root: str,
-    src_uri: str,
-    devel: bool,
-    settings: LivecheckSettings,
-    match: str,
-) -> tuple[str, str, str]:
+def parse_url(repo_root: str, src_uri: str, devel: bool, settings: LivecheckSettings, match: str,
+              restrict_version: str) -> tuple[str, str, str]:
     catpkg, _, pkg, ebuild_version = catpkg_catpkgsplit(match)
 
     parsed_uri = urlparse(src_uri)
@@ -108,7 +103,7 @@ def parse_url(
             branch = (settings.branches.get(catpkg, 'master'))
             last_version, hash_date, url = get_latest_regex_package(
                 ebuild_version, catpkg, settings, f'{github_homepage}/commits/{branch}.atom',
-                make_github_grit_commit_re(40 * ' '), version, devel)
+                make_github_grit_commit_re(40 * ' '), version, devel, restrict_version)
         elif ('/releases/download/' in parsed_uri.path or '/archive/' in parsed_uri.path):
             prefix = ''
             if (m := re.match(PREFIX_RE, filename) if '/archive/' in parsed_uri.path else re.match(
@@ -121,14 +116,14 @@ def parse_url(
                 regex = make_github_grit_title_re()
                 url = f'github.com/Wiimm/{pkg}/commits/master.atom'
             last_version, hash_date, url = get_latest_regex_package(
-                ebuild_version, catpkg, settings, url, regex, version, devel)
+                ebuild_version, catpkg, settings, url, regex, version, devel, restrict_version)
         elif m := re.search(r'/raw/([0-9a-f]+)/', parsed_uri.path):
             version = m.group(1)
             branch = (settings.branches.get(catpkg, 'master'))
             last_version, hash_date, url = get_latest_regex_package(
                 ebuild_version, catpkg, settings, f'{github_homepage}/commits/{branch}.atom',
                 (r'<id>tag:github.com,2008:Grit::Commit/([0-9a-f]{' + str(len(version)) +
-                 r'})[0-9a-f]*</id>'), version, devel)
+                 r'})[0-9a-f]*</id>'), version, devel, restrict_version)
         else:
             log_unhandled_github_package(catpkg)
     elif parsed_uri.hostname == 'git.sr.ht':
@@ -136,28 +131,28 @@ def parse_url(
         branch = (settings.branches.get(catpkg, 'master'))
         last_version, hash_date, url = get_latest_regex_package(
             ebuild_version, catpkg, settings, f'https://git.sr.ht/{user_repo}/log/{branch}/rss.xml',
-            r'<pubDate>([^<]+)</pubDate>', '', devel)
+            r'<pubDate>([^<]+)</pubDate>', '', devel, restrict_version)
     elif parsed_uri.hostname in GIST_HOSTNAMES:
         home = P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0]
         last_version, hash_date, url = get_latest_regex_package(
             ebuild_version, catpkg, settings, f'{home}/revisions',
-            r'<relative-time datetime="([0-9-]{10})', '', devel)
+            r'<relative-time datetime="([0-9-]{10})', '', devel, restrict_version)
     elif src_uri.startswith('mirror://pypi/'):
         dist_name = src_uri.split('/')[4]
         last_version, hash_date, url = get_latest_regex_package(
             ebuild_version, catpkg, settings, f'https://pypi.org/pypi/{dist_name}/json',
-            r'"version":"([^"]+)"[,\}]', '', devel)
+            r'"version":"([^"]+)"[,\}]', '', devel, restrict_version)
     elif parsed_uri.hostname == 'files.pythonhosted.org':
         dist_name = src_uri.split('/')[-2]
         last_version, hash_date, url = get_latest_regex_package(
             ebuild_version, catpkg, settings, f'https://pypi.org/pypi/{dist_name}/json',
-            r'"version":"([^"]+)"[,\}]', '', devel)
+            r'"version":"([^"]+)"[,\}]', '', devel, restrict_version)
     elif (parsed_uri.hostname == 'www.raphnet-tech.com'
           and parsed_uri.path.startswith('/downloads')):
         last_version, hash_date, url = get_latest_regex_package(
             ebuild_version, catpkg, settings,
             P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0],
-            (r'\b' + pkg.replace('-', r'[-_]') + r'-([^"]+)\.tar\.gz'), '', devel)
+            (r'\b' + pkg.replace('-', r'[-_]') + r'-([^"]+)\.tar\.gz'), '', devel, restrict_version)
     elif parsed_uri.hostname == 'download.jetbrains.com':
         last_version = get_latest_jetbrains_package(pkg, devel)
     elif (parsed_uri.hostname in GITLAB_HOSTNAMES and '/archive/' in parsed_uri.path):
@@ -168,18 +163,18 @@ def parse_url(
         last_version, hash_date, url = get_latest_regex_package(
             ebuild_version, catpkg, settings,
             f'https://{domain}/{author}/{proj}/-/tags?format=atom', r'<title>v?([0-9][^>]+)</title',
-            '', devel)
+            '', devel, restrict_version)
     elif parsed_uri.hostname == 'cgit.libimobiledevice.org':
         proj = src_uri.split('/')[3]
         last_version, hash_date, url = get_latest_regex_package(
             ebuild_version, catpkg, settings, f'https://cgit.libimobiledevice.org/{proj}/',
-            r"href='/" + re.escape(proj) + r"/tag/\?h=([0-9][^']+)", '', devel)
+            r"href='/" + re.escape(proj) + r"/tag/\?h=([0-9][^']+)", '', devel, restrict_version)
     elif parsed_uri.hostname == 'registry.yarnpkg.com':
         path = ('/'.join(parsed_uri.path.split('/')[1:3])
                 if parsed_uri.path.startswith('/@') else parsed_uri.path.split('/')[1])
         last_version, hash_date, url = get_latest_regex_package(
             ebuild_version, catpkg, settings, f'https://registry.yarnpkg.com/{path}',
-            r'"latest":"([^"]+)",?', '', devel)
+            r'"latest":"([^"]+)",?', '', devel, restrict_version)
     elif parsed_uri.hostname == 'pecl.php.net':
         last_version = get_latest_pecl_package(pkg, devel)
     elif parsed_uri.hostname == 'metacpan.org' or parsed_uri.hostname == 'cpan':
@@ -198,12 +193,8 @@ def parse_url(
     return last_version, hash_date, url
 
 
-def parse_metadata(
-    repo_root: str,
-    devel: bool,
-    settings: LivecheckSettings,
-    match: str,
-) -> tuple[str, str, str]:
+def parse_metadata(repo_root: str, devel: bool, settings: LivecheckSettings, match: str,
+                   restrict_version: str) -> tuple[str, str, str]:
     catpkg, _, _, ebuild_version = catpkg_catpkgsplit(match)
 
     metadata_file = os.path.join(repo_root, catpkg, "metadata.xml")
@@ -228,13 +219,24 @@ def parse_metadata(
                         last_version, hash_date, url = parse_url(
                             repo_root,
                             f'https://github.com/{text_val}/releases/download/{ebuild_version}/file-{ebuild_version}.tar.gz',
-                            devel, settings, match)
+                            devel, settings, match, restrict_version)
                     if attribs['type'] == 'bitbucket':
                         last_version, hash_date, url = parse_url(
-                            repo_root, f'https://bitbucket.org/{text_val}', devel, settings, match)
+                            repo_root, f'https://bitbucket.org/{text_val}', devel, settings, match,
+                            restrict_version)
                     if last_version:
                         return last_version, hash_date, url
     return '', '', ''
+
+
+def extract_restrict_version(cp: str) -> tuple[str, str]:
+    match = re.match(r"(.*?):(\d+):-(.*)", cp)
+    if match:
+        package, slot, version = match.groups()
+        cleaned_string = f"{package}-{version}"
+        return cleaned_string, slot
+    else:
+        return cp, ''
 
 
 def get_props(search_dir: str,
@@ -249,8 +251,8 @@ def get_props(search_dir: str,
     exclude = exclude or []
     try:
         matches_list = sorted(
-            get_highest_matches(search_dir, repo_root
-                                ) if not names else get_highest_matches2(names, repo_root))
+            get_highest_matches(search_dir, repo_root, settings)
+            if not names else get_highest_matches2(names, repo_root, settings))
     except InvalidAtom as e:
         logger.error(f"Invalid Atom: {e}")
         return None
@@ -262,6 +264,7 @@ def get_props(search_dir: str,
         logger.error('No matches!')
         raise click.Abort
     for match in matches_list:
+        match, restrict_version = extract_restrict_version(match)
         catpkg, cat, pkg, ebuild_version = catpkg_catpkgsplit(match)
         devel = settings.development.get(catpkg, development)
         if catpkg in exclude or pkg in exclude:
@@ -277,7 +280,7 @@ def get_props(search_dir: str,
         if catpkg in settings.custom_livechecks:
             url, regex, _, version = settings.custom_livechecks[catpkg]
             last_version, hash_date, url = get_latest_regex_package(
-                ebuild_version, catpkg, settings, url, regex, version, devel)
+                ebuild_version, catpkg, settings, url, regex, version, devel, restrict_version)
         elif catpkg in settings.checksum_livechecks:
             manifest_file = Path(search_dir) / catpkg / 'Manifest'
             bn = Path(src_uri).name
@@ -301,7 +304,8 @@ def get_props(search_dir: str,
                             ebuild_version, catpkg, settings,
                             dict(cast(Sequence[tuple[str, str]], chunks(fields_s.split(' '),
                                                                         2)))['SHA512'],
-                            f'data:{hashlib.sha512(r.content).hexdigest()}', r'^[0-9a-f]+$', devel)
+                            f'data:{hashlib.sha512(r.content).hexdigest()}', r'^[0-9a-f]+$', devel,
+                            restrict_version)
                         break
             except FileNotFoundError:
                 pass
@@ -309,9 +313,11 @@ def get_props(search_dir: str,
                 home = P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0]
                 log_unhandled_pkg(catpkg, home, src_uri)
         else:
-            last_version, hash_date, url = parse_url(repo_root, src_uri, devel, settings, match)
+            last_version, hash_date, url = parse_url(repo_root, src_uri, devel, settings, match,
+                                                     restrict_version)
             if not last_version:
-                last_version, hash_date, url = parse_metadata(repo_root, devel, settings, match)
+                last_version, hash_date, url = parse_metadata(repo_root, devel, settings, match,
+                                                              restrict_version)
         if last_version:
             logger.debug(f'Inserting {catpkg}: {ebuild_version} -> {last_version}')
             yield (cat, pkg, ebuild_version, last_version, hash_date, url)
