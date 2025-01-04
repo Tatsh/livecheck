@@ -9,7 +9,17 @@
 ![GitHub](https://img.shields.io/github/license/Tatsh/livecheck)
 ![GitHub commits since latest release (by SemVer including pre-releases)](https://img.shields.io/github/commits-since/Tatsh/livecheck/v0.0.13/master)
 
-Tool for overlays to update ebuilds. Inspired by the MacPorts `port` subcommand of the same name.
+Tool for overlays to update ebuilds. Inspired by the MacPorts `port` subcommand of the same name
+or [nvchecker](https://github.com/lilydjwg/nvchecker).
+
+## Internal workings
+
+The script uses the first url of the ebuild using the SRC_URI variable to search for new versions,
+using logic for github, PyPI, PECL or if it is configured in the livecheck.json file within the
+same package directory.
+Then if you do not find a new version, try to use the repositories within the metadata.xml file
+That is why it is important to have the first download url well defined and thus automatically
+update the ebuild.
 
 ## Installation
 

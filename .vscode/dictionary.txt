@@ -84,6 +84,7 @@ netcore
 nuanceur
 nugets
 numpy
+nvchecker
 paren
 parens
 pecl
