@@ -73,7 +73,7 @@ def get_highest_matches2(names: Sequence[str], repo_root: str,
     for name in names:
         if matches := P.xmatch('match-all', name):
             for m in matches:
-                if P.findname2(m)[1] == repo_root:
+                if not repo_root or P.findname2(m)[1] == repo_root:
                     cp_a, _, _, version_a = catpkg_catpkgsplit(m)
                     if '9999' in version_a or not cp_a or not version_a:
                         continue

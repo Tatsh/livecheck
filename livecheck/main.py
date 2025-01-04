@@ -277,7 +277,15 @@ def get_props(search_dir: str,
         if debug or progress:
             logger.info(f'Processing {catpkg} version {ebuild_version}')
         last_version = hash_date = url = ''
-        if catpkg in settings.custom_livechecks:
+        if catpkg in settings.sync_version:
+            matches_sync = get_highest_matches2([settings.sync_version[catpkg]], '', settings)
+            if not matches_sync:
+                logger.error(f'No matches for {catpkg}')
+                continue
+            _, _, _, last_version = catpkg_catpkgsplit(matches_sync[0])
+            # remove -r* from version
+            last_version = re.sub(r'-r\d+$', '', last_version)
+        elif catpkg in settings.custom_livechecks:
             url, regex, _, version = settings.custom_livechecks[catpkg]
             last_version, hash_date, url = get_latest_regex_package(
                 ebuild_version, catpkg, settings, url, regex, version, devel, restrict_version)
