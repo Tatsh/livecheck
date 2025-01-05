@@ -26,7 +26,7 @@ class LivecheckSettings:
     Dictionary of catpkg to full URI to ``go.sum`` with ``@PV@`` used for where version gets
     placed.
     '''
-    ignored_packages: set[str]
+    type_packages: dict[str, str]
     no_auto_update: set[str]
     semver: dict[str, bool]
     '''Disable auto-detection of semantic versioning.'''
@@ -59,7 +59,7 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
     custom_livechecks: dict[str, tuple[str, str, bool, str]] = {}
     dotnet_projects: dict[str, str] = {}
     golang_packages: dict[str, str] = {}
-    ignored_packages: set[str] = set()
+    type_packages: dict[str, str] = {}
     no_auto_update: set[str] = set()
     semver: dict[str, bool] = {}
     sha_sources: dict[str, str] = {}
@@ -90,7 +90,7 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
                 continue
             if settings_parsed.get('type') != None:
                 if settings_parsed.get('type').lower() == 'none':
-                    ignored_packages.add(catpkg)
+                    type_packages[catpkg] = 'none'
                 elif settings_parsed.get('type').lower() == 'regex':
                     if settings_parsed.get('url') is None:
                         logger.error(f'No "url" in {path}')
@@ -103,9 +103,11 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
                                                  settings_parsed.get('version', ''))
                 elif settings_parsed.get('type').lower() == 'checksum':
                     checksum_livechecks.add(catpkg)
+                elif settings_parsed.get('type').lower() == 'davinci':
+                    type_packages[catpkg] = 'davinci'
                 else:
                     logger.error(
-                        f'Unknown "type" in {path}, only "none", "regex", and "checksum" are supported.'
+                        f'Unknown "type" in {path}, only "none", "regex", "davinci" and "checksum" are supported.'
                     )
             if settings_parsed.get('branch'):
                 check_instance(settings_parsed['branch'], 'branch', 'string', path)
@@ -200,12 +202,20 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
                 check_instance(settings_parsed['sync_version'], 'sync_version', 'string', path)
                 sync_version[catpkg] = settings_parsed['sync_version']
 
+<<<<<<< HEAD
     return LivecheckSettings(branches, checksum_livechecks, custom_livechecks, dotnet_projects,
                              golang_packages, ignored_packages, no_auto_update, semver, sha_sources,
                              transformations, yarn_base_packages, yarn_packages, jetbrains_packages,
                              keep_old, gomodule_packages, gomodule_path, nodejs_packages,
                              nodejs_path, development, composer_packages, composer_path,
                              regex_version, restrict_version, sync_version)
+=======
+    return LivecheckSettings(
+        branches, checksum_livechecks, custom_livechecks, dotnet_projects, golang_packages,
+        type_packages, no_auto_update, semver, sha_sources, transformations, yarn_base_packages,
+        yarn_packages, jetbrains_packages, keep_old, gomodule_packages, gomodule_path,
+        nodejs_packages, nodejs_path, development, composer_packages, composer_path, regex_version)
+>>>>>>> 0204a83 (support for check davinci resolve)
 
 
 def check_instance(value: int | str | bool | list[str] | None,

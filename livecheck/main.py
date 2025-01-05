@@ -30,6 +30,7 @@ from .settings import LivecheckSettings, gather_settings
 
 from .special.bitbucket import get_latest_bitbucket_package
 from .special.composer import update_composer_ebuild, remove_composer_url
+from .special.davinci import get_latest_davinci_package
 from .special.dotnet import update_dotnet_ebuild
 from .special.golang import update_go_ebuild
 from .special.gomodule import update_gomodule_ebuild, remove_gomodule_url
@@ -271,12 +272,13 @@ def get_props(search_dir: str,
             logger.debug(f'Ignoring {catpkg}')
             continue
         src_uri = get_first_src_uri(match, repo_root)
-        if cat.startswith('acct-') or catpkg in settings.ignored_packages:
+        if cat.startswith('acct-') or settings.type_packages.get(catpkg) == 'none':
             logger.debug(f'Ignoring {catpkg}')
             continue
         if debug or progress:
             logger.info(f'Processing {catpkg} version {ebuild_version}')
         last_version = hash_date = url = ''
+<<<<<<< HEAD
         if catpkg in settings.sync_version:
             matches_sync = get_highest_matches2([settings.sync_version[catpkg]], '', settings)
             if not matches_sync:
@@ -285,6 +287,10 @@ def get_props(search_dir: str,
             _, _, _, last_version = catpkg_catpkgsplit(matches_sync[0])
             # remove -r* from version
             last_version = re.sub(r'-r\d+$', '', last_version)
+=======
+        if settings.type_packages.get(catpkg) == 'davinci':
+            last_version = get_latest_davinci_package(pkg)
+>>>>>>> 0204a83 (support for check davinci resolve)
         elif catpkg in settings.custom_livechecks:
             url, regex, _, version = settings.custom_livechecks[catpkg]
             last_version, hash_date, url = get_latest_regex_package(
