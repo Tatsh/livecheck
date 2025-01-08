@@ -42,7 +42,7 @@ def mask_version(cp: str, version: str, restrict_version: str | None = 'full') -
     if restrict_version == 'major':
         return cp + ':' + re.sub(r'\.\d+', '', version) + ':'
     if restrict_version == 'minor':
-        return cp + '' + re.sub(r'\.\d+\.\d+', '', version) + ':'
+        return cp + ':' + re.sub(r'\.\d+\.\d+', '', version) + ':'
 
 
 def get_highest_matches(search_dir: str, repo_root: str, settings: LivecheckSettings) -> List[str]:
