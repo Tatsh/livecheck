@@ -202,20 +202,12 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
                 check_instance(settings_parsed['sync_version'], 'sync_version', 'string', path)
                 sync_version[catpkg] = settings_parsed['sync_version']
 
-<<<<<<< HEAD
     return LivecheckSettings(branches, checksum_livechecks, custom_livechecks, dotnet_projects,
-                             golang_packages, ignored_packages, no_auto_update, semver, sha_sources,
+                             golang_packages, type_packages, no_auto_update, semver, sha_sources,
                              transformations, yarn_base_packages, yarn_packages, jetbrains_packages,
                              keep_old, gomodule_packages, gomodule_path, nodejs_packages,
                              nodejs_path, development, composer_packages, composer_path,
                              regex_version, restrict_version, sync_version)
-=======
-    return LivecheckSettings(
-        branches, checksum_livechecks, custom_livechecks, dotnet_projects, golang_packages,
-        type_packages, no_auto_update, semver, sha_sources, transformations, yarn_base_packages,
-        yarn_packages, jetbrains_packages, keep_old, gomodule_packages, gomodule_path,
-        nodejs_packages, nodejs_path, development, composer_packages, composer_path, regex_version)
->>>>>>> 0204a83 (support for check davinci resolve)
 
 
 def check_instance(value: int | str | bool | list[str] | None,
