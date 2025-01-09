@@ -57,6 +57,7 @@ This package can do automated lookups based on commonly used hosts. Currently:
 - GitHub archives
 - GitHub commit hashes
 - GitHub releases
+- Gitlab repositories
 - JetBrains products
 - PyPI
 - Sourceforge

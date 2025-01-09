@@ -32,6 +32,7 @@ from .special.bitbucket import get_latest_bitbucket_package
 from .special.composer import update_composer_ebuild, remove_composer_url
 from .special.davinci import get_latest_davinci_package
 from .special.dotnet import update_dotnet_ebuild
+from .special.gitlab import get_latest_gitlab_package
 from .special.golang import update_go_ebuild
 from .special.gomodule import update_gomodule_ebuild, remove_gomodule_url
 from .special.jetbrains import get_latest_jetbrains_package, update_jetbrains_ebuild
@@ -156,15 +157,8 @@ def parse_url(repo_root: str, src_uri: str, devel: bool, settings: LivecheckSett
             (r'\b' + pkg.replace('-', r'[-_]') + r'-([^"]+)\.tar\.gz'), '', devel, restrict_version)
     elif parsed_uri.hostname == 'download.jetbrains.com':
         last_version = get_latest_jetbrains_package(pkg, devel)
-    elif (parsed_uri.hostname in GITLAB_HOSTNAMES and '/archive/' in parsed_uri.path):
-        author, proj = src_uri.split('/')[3:5]
-        m = re.match('^https://([^/]+)', src_uri)
-        assert m is not None
-        domain = m.group(1)
-        last_version, hash_date, url = get_latest_regex_package(
-            ebuild_version, catpkg, settings,
-            f'https://{domain}/{author}/{proj}/-/tags?format=atom', r'<title>v?([0-9][^>]+)</title',
-            '', devel, restrict_version)
+    elif parsed_uri.hostname and 'gitlab' in parsed_uri.hostname:
+        last_version, hash_date, url = get_latest_gitlab_package(src_uri, devel, restrict_version)
     elif parsed_uri.hostname == 'cgit.libimobiledevice.org':
         proj = src_uri.split('/')[3]
         last_version, hash_date, url = get_latest_regex_package(
@@ -225,6 +219,11 @@ def parse_metadata(repo_root: str, devel: bool, settings: LivecheckSettings, mat
                         last_version, hash_date, url = parse_url(
                             repo_root, f'https://bitbucket.org/{text_val}', devel, settings, match,
                             restrict_version)
+                    if 'gitlab' in attribs['type']:
+                        uri = GITLAB_HOSTNAMES[attribs['type']]
+                        last_version, hash_date, url = parse_url(repo_root,
+                                                                 f'https://{uri}/{text_val}', devel,
+                                                                 settings, match, restrict_version)
                     if last_version:
                         return last_version, hash_date, url
     return '', '', ''
@@ -451,7 +450,7 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
     logger.debug(f'Comparing current ebuild version {ebuild_version} with live version {top_hash}')
     if compare_versions(ebuild_version, top_hash, True, old_sha):
         dn = Path(ebuild).parent
-        if hash_date:
+        if hash_date and (ebuild_version == top_hash or is_sha(top_hash)):
             new_pkg = replace_date_in_ebuild(ebuild_version, hash_date)
             new_filename = f'{dn}/{pkg}-{new_pkg}.ebuild'
             logger.debug(f'Updating ebuild {ebuild} to {new_filename}')
