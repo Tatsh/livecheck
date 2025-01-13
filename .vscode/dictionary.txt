@@ -3,6 +3,7 @@ analyzer
 archiver
 arcname
 asmjit
+attribs
 atrac
 automodule
 bsnes
@@ -124,6 +125,7 @@ sourceforge
 spdlog
 spirv
 subclassing
+subelem
 sudachi
 tasksh
 tatsh
