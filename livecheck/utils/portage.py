@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from functools import cmp_to_key, lru_cache
+from functools import lru_cache
 from pathlib import Path
 import logging
 import os
@@ -20,8 +20,8 @@ logger = logging.getLogger(__name__)
 
 
 def sort_by_v(a: str, b: str) -> int:
-    cp_a, _cat_a, _pkg_b, version_a = catpkg_catpkgsplit(a)
-    cp_b, _cat_b, _pkg_b, version_b = catpkg_catpkgsplit(b)
+    cp_a, _, _, version_a = catpkg_catpkgsplit(a)
+    cp_b, _, _, version_b = catpkg_catpkgsplit(b)
     if cp_a == cp_b:
         if version_a == version_b:
             return 0
@@ -101,7 +101,7 @@ def catpkg_catpkgsplit(atom: str) -> tuple[str, str, str, str]:
         Tuple consisting of four strings.
     """
     result = catpkgsplit(atom)
-    if not result:
+    if not result or len(result) != 4:
         raise ValueError(f'Invalid atom: {atom}')
 
     cat, pkg, ebuild_version, revision = result

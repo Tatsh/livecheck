@@ -459,12 +459,12 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
         else:
             new_filename = f'{dn}/{pkg}-{top_hash}.ebuild'
             result = catpkgsplit(f'{cp}-{top_hash}')
-        if not result:
+        if not result or len(result) != 4:
             logger.error(f'Invalid atom: {cp}-{top_hash}')
             return
         _, _, new_version, new_revision = result
         result = catpkgsplit(f'{cp}-{ebuild_version}')
-        if not result:
+        if not result or len(result) != 4:
             logger.error(f'Invalid atom: {cp}-{ebuild_version}')
             return
         _, _, old_version, old_revision = result
