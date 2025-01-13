@@ -80,12 +80,12 @@ def process_submodules(pkg_name: str, ref: str, contents: str, repo_uri: str) ->
     return contents
 
 
-def log_unhandled_pkg(catpkg: str, home: str, src_uri: str):
+def log_unhandled_pkg(catpkg: str, home: str, src_uri: str) -> None:
     logger.debug(f'Not handled: {catpkg} (checksum), homepage: {home}, '
                  f'SRC_URI: {src_uri}')
 
 
-def log_unhandled_github_package(catpkg: str):
+def log_unhandled_github_package(catpkg: str) -> None:
     logger.debug(f'Unhandled GitHub package: {catpkg}')
 
 
@@ -365,6 +365,7 @@ def get_new_sha(src: str) -> str:
         assert m is not None
         return m.groups()[0]
     log_unsupported_sha_source(src)
+    return ''
 
 
 def log_unhandled_state(cat: str, pkg: str, url: str, regex: str | None = None) -> None:

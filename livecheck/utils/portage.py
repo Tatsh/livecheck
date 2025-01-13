@@ -1,6 +1,5 @@
 from collections.abc import Sequence
 from functools import cmp_to_key, lru_cache
-from genericpath import isdir
 from pathlib import Path
 import logging
 import os
@@ -12,10 +11,9 @@ from portage.versions import catpkgsplit, vercmp
 from ..settings import LivecheckSettings
 import portage
 
-__all__ = ('P', 'catpkg_catpkgsplit', 'find_highest_match_ebuild_path', 'get_first_src_uri',
-           'get_highest_matches', 'get_highest_matches2', 'sort_by_v',
-           'get_repository_root_if_inside', 'compare_versions', 'sanitize_version', 'get_distdir',
-           'fetch_ebuild', 'unpack_ebuild')
+__all__ = ('P', 'catpkg_catpkgsplit', 'get_first_src_uri', 'get_highest_matches',
+           'get_highest_matches2', 'sort_by_v', 'get_repository_root_if_inside', 'compare_versions',
+           'sanitize_version', 'get_distdir', 'fetch_ebuild', 'unpack_ebuild')
 
 P = portage.db[portage.root]['porttree'].dbapi
 logger = logging.getLogger(__name__)
@@ -36,17 +34,16 @@ def sort_by_v(a: str, b: str) -> int:
     return cp_a < cp_b
 
 
-def mask_version(cp: str, version: str, restrict_version: str | None = 'full') -> str | None:
-    if restrict_version == 'full':
-        return cp
+def mask_version(cp: str, version: str, restrict_version: str | None = 'full') -> str:
     if restrict_version == 'major':
         return cp + ':' + re.sub(r'\.\d+', '', version) + ':'
     if restrict_version == 'minor':
         return cp + ':' + re.sub(r'\.\d+\.\d+', '', version) + ':'
+    return cp
 
 
 def get_highest_matches(search_dir: str, repo_root: str, settings: LivecheckSettings) -> List[str]:
-    result = {}
+    result: dict[str, str] = {}
     for path in Path(search_dir).glob('**/*.ebuild'):
         dn = path.parent
         name = f'{dn.parent.name}/{dn.name}'
@@ -69,7 +66,7 @@ def get_highest_matches(search_dir: str, repo_root: str, settings: LivecheckSett
 
 def get_highest_matches2(names: Sequence[str], repo_root: str,
                          settings: LivecheckSettings) -> List[str]:
-    result = {}
+    result: dict[str, str] = {}
     for name in names:
         if matches := P.xmatch('match-all', name):
             for m in matches:
@@ -86,42 +83,6 @@ def get_highest_matches2(names: Sequence[str], repo_root: str,
                         result[cp_mask] = version_a
 
     return [f"{cp}-{version}" for cp, version in result.items()]
-
-
-def get_3rd_of_4(tup: tuple[str, str] | tuple[str, str, str] | tuple[str, str, str, str]) -> str:
-    match tup:
-        case (_x, _y, z, _w):
-            return z
-        case _:
-            raise TypeError
-
-
-def find_highest_match_ebuild_path(input_atom: str, search_dir: str) -> str:
-    """
-    Given a catpkg string and search directory, finds the highest version matching ebuild file path.
-
-    Parameters
-    ----------
-    input_atom : str
-        Atom string.
-
-    search_dir : str
-        Path to search.
-
-    Returns
-    -------
-    str
-        The ebuild file path. This will raise ``IndexError`` otherwise.
-    """
-    def cmp(a: tuple[str, str], b: tuple[str, str]) -> int:
-        return vercmp(get_3rd_of_4(catpkgsplit(a[1])), get_3rd_of_4(catpkgsplit(b[1]))) or 0
-
-    items: list[tuple[str, str]] = []
-    for atom in P.match(input_atom):
-        ebuild_path, tree = P.findname2(atom)
-        if ebuild_path and tree == search_dir:
-            items.append((ebuild_path, atom))
-    return sorted(items, key=cmp_to_key(cmp))[-1][0]
 
 
 @lru_cache
@@ -155,10 +116,10 @@ def catpkg_catpkgsplit(atom: str) -> tuple[str, str, str, str]:
 
 def get_first_src_uri(match: str, search_dir: str | None = None) -> str:
     try:
-        if (found_uri := next(
-            (uri for uri in chain(*(x.split()
-                                    for x in P.aux_get(match, ['SRC_URI'], mytree=search_dir)))
-             if uri.startswith(('http://', 'https://', 'mirror://', 'ftp://'))), None)):
+        if (found_uri := next((uri for uri in chain(
+                *(x.split() for x in map(str, P.aux_get(match, ['SRC_URI'], mytree=search_dir))))
+                               if uri.startswith(('http://', 'https://', 'mirror://', 'ftp://'))),
+                              None)):
             return found_uri
     except KeyError:
         pass
@@ -252,14 +213,14 @@ def compare_versions(old: str, new: str, development: bool = False, old_sha: str
         logger.debug(f'Not permitted development version {new}')
         return False
 
-    return vercmp(sanitize_version(old), sanitize_version(new), silent=0) == -1
+    return bool(vercmp(sanitize_version(old), sanitize_version(new), silent=0) == -1)
 
 
 def get_distdir() -> str:
     settings = portage.config(clone=portage.settings)
     distdir = settings.get('DISTDIR')
     if distdir:
-        return distdir
+        return str(distdir)
 
     return '/var/cache/distfiles'
 
@@ -267,13 +228,13 @@ def get_distdir() -> str:
 def fetch_ebuild(ebuild_path: str) -> bool:
     settings = portage.config(clone=portage.settings)
 
-    return portage.doebuild(ebuild_path, 'fetch', settings=settings, tree='porttree') == 0
+    return bool(portage.doebuild(ebuild_path, 'fetch', settings=settings, mytree='porttree') == 0)
 
 
 def digest_ebuild(ebuild_path: str) -> bool:
     settings = portage.config(clone=portage.settings)
 
-    return portage.doebuild(ebuild_path, 'digest', settings=settings, tree='porttree') == 0
+    return bool(portage.doebuild(ebuild_path, 'digest', settings=settings, tree='porttree') == 0)
 
 
 def unpack_ebuild(ebuild_path: str) -> str:
@@ -288,6 +249,6 @@ def unpack_ebuild(ebuild_path: str) -> str:
     workdir = settings["WORKDIR"]
 
     if os.path.exists(workdir) and os.path.isdir(workdir):
-        return workdir
+        return str(workdir)
 
     return ''
