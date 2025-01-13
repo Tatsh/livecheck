@@ -14,9 +14,7 @@ def get_latest_rubygems_package(gem_name: str) -> str:
 
         gem_info = response.json()
 
-        latest_version = gem_info['version']
-
-        return latest_version
+        return str(gem_info['version'])
 
     except requests.RequestException as e:
         logger.debug(f"Error accessing the URL: {e}")

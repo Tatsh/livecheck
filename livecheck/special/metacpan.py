@@ -14,9 +14,7 @@ def get_latest_metacpan_package(package_name: str) -> str:
 
         release_info = response.json()
 
-        latest_version = release_info.get('version')
-
-        return latest_version
+        return str(release_info.get('version'))
 
     except requests.exceptions.HTTPError as e:
         logger.debug(f"Error accessing the URL: {e}")
