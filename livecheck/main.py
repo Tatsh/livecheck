@@ -450,7 +450,7 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
     logger.debug(f'Comparing current ebuild version {ebuild_version} with live version {top_hash}')
     if compare_versions(ebuild_version, top_hash, True, old_sha):
         dn = Path(ebuild).parent
-        if hash_date and (ebuild_version == top_hash or is_sha(top_hash)):
+        if hash_date:
             new_pkg = replace_date_in_ebuild(ebuild_version, hash_date)
             new_filename = f'{dn}/{pkg}-{new_pkg}.ebuild'
             logger.debug(f'Updating ebuild {ebuild} to {new_filename}')
