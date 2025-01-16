@@ -32,6 +32,7 @@ from .special.bitbucket import get_latest_bitbucket_package
 from .special.composer import update_composer_ebuild, remove_composer_url
 from .special.davinci import get_latest_davinci_package
 from .special.dotnet import update_dotnet_ebuild
+from .special.github import get_latest_github_package, get_latest_github_commit
 from .special.gitlab import get_latest_gitlab_package
 from .special.golang import update_go_ebuild
 from .special.gomodule import update_gomodule_ebuild, remove_gomodule_url
@@ -96,36 +97,20 @@ def parse_url(repo_root: str, src_uri: str, devel: bool, settings: LivecheckSett
     parsed_uri = urlparse(src_uri)
     last_version = hash_date = url = ''
 
-    if parsed_uri.hostname == 'github.com':
+    if parsed_uri.hostname and 'github' in parsed_uri.hostname:
         logger.debug(f'Parsed path: {parsed_uri.path}')
-        github_homepage = f'https://github.com{"/".join(parsed_uri.path.split("/")[0:3])}'
         filename = Path(parsed_uri.path).name
         version = re.split(r'\.(?:tar\.(?:gz|bz2)|zip)$', filename, maxsplit=2)[0]
         if (re.match(r'^[0-9a-f]{7,}$', version) and not re.match('^[0-9a-f]{8}$', version)):
             branch = (settings.branches.get(catpkg, 'master'))
-            last_version, hash_date, url = get_latest_regex_package(
-                ebuild_version, catpkg, settings, f'{github_homepage}/commits/{branch}.atom',
-                make_github_grit_commit_re(40 * ' '), version, devel, restrict_version)
+            last_version, hash_date = get_latest_github_commit(src_uri, branch)
+
         elif ('/releases/download/' in parsed_uri.path or '/archive/' in parsed_uri.path):
-            prefix = ''
-            if (m := re.match(PREFIX_RE, filename) if '/archive/' in parsed_uri.path else re.match(
-                    PREFIX_RE,
-                    Path(parsed_uri.path).parent.name)):
-                prefix = m.group(1)
-            url = f'{github_homepage}/tags'
-            regex = f'archive/refs/tags/{prefix}([^"]+)\\.tar\\.gz'
-            if re.match(r'^wiimms-(iso|szs)-tools$', pkg):
-                regex = make_github_grit_title_re()
-                url = f'github.com/Wiimm/{pkg}/commits/master.atom'
-            last_version, hash_date, url = get_latest_regex_package(
-                ebuild_version, catpkg, settings, url, regex, version, devel, restrict_version)
-        elif m := re.search(r'/raw/([0-9a-f]+)/', parsed_uri.path):
-            version = m.group(1)
+            last_version, hash_date, url = get_latest_github_package(src_uri, devel,
+                                                                     restrict_version)
+        elif re.search(r'/raw/([0-9a-f]+)/', parsed_uri.path):
             branch = (settings.branches.get(catpkg, 'master'))
-            last_version, hash_date, url = get_latest_regex_package(
-                ebuild_version, catpkg, settings, f'{github_homepage}/commits/{branch}.atom',
-                (r'<id>tag:github.com,2008:Grit::Commit/([0-9a-f]{' + str(len(version)) +
-                 r'})[0-9a-f]*</id>'), version, devel, restrict_version)
+            last_version, hash_date = get_latest_github_commit(src_uri, branch)
         else:
             log_unhandled_github_package(catpkg)
     elif parsed_uri.hostname == 'git.sr.ht':
