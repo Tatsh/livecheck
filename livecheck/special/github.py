@@ -3,10 +3,9 @@ import re
 from urllib.parse import urlparse
 from datetime import datetime
 from loguru import logger
-import contextlib
 
 from ..utils.portage import is_version_development
-from ..utils import (get_github_api_credentials)
+from ..utils import (session_init)
 
 __all__ = ("get_latest_github_package", "get_latest_github_commit")
 
@@ -17,11 +16,13 @@ def extract_owner_repo(url: str) -> tuple[str, str]:
     m = re.match(r'^([^\.]+)\.github\.(io|com)$', n)
     if m:
         p = [x for x in u.path.split('/') if x]
-        if not p: return '', ''
+        if not p:
+            return '', ''
         return m.group(1), p[0]
     if 'github.' in n:
         p = [x for x in u.path.split('/') if x]
-        if len(p) < 2: return '', ''
+        if len(p) < 2:
+            return '', ''
         return p[0], p[1].replace('.git', '')
     return '', ''
 
@@ -34,17 +35,9 @@ def get_latest_github_package(url: str,
     if not owner or not repo:
         return '', '', ''
 
-    headers = {}
-    session = requests.Session()
-    token = get_github_api_credentials()
-    if not token:
-        logger.warning("No GitHub API token found")
-    with contextlib.suppress(KeyError):
-        headers['Authorization'] = f'token {get_github_api_credentials()}'
+    session = session_init('github')
 
-    r = session.get(f"https://api.github.com/repos/{owner}/{repo}/tags",
-                    headers=headers,
-                    timeout=30)
+    r = session.get(f"https://api.github.com/repos/{owner}/{repo}/tags")
     if r.status_code != 200:
         return '', '', ''
 
@@ -56,13 +49,17 @@ def get_latest_github_package(url: str,
         match = re.match(r"^(\d+(?:\.\d+){0,2})", cleaned_name)
         if match:
             cleaned_name = match.group(1)
+        # skip if the tag is not a version
+        if not re.match(r"^\d+(\.\d+){0,2}$", cleaned_name):
+            continue
         results.append({
             "tag": cleaned_name,
             "id": t["commit"]["sha"],
             "commit": t["commit"]["url"]
         })
 
-    results = sorted(results, key=lambda x: x["tag"], reverse=True)  # type: ignore
+    # sort results by version in numerical x.y.z order in descending order
+    results.sort(key=lambda x: tuple(map(int, x["tag"].split('.'))), reverse=True)
 
     for result in results:
         version = result["tag"]
@@ -70,18 +67,18 @@ def get_latest_github_package(url: str,
             continue
         if not is_version_development(version) or development:
             try:
-                cr = session.get(result["commit"], headers=headers, timeout=30)
+                cr = session.get(result["commit"])
                 if cr.status_code != 200:
                     continue
                 d = cr.json()["commit"]["committer"]["date"][:10]
                 try:
                     dt = datetime.fromisoformat(d.replace("Z", "+00:00"))
                     formatted_date = dt.strftime("%Y-%m-%d")
-                except:
+                except ValueError:
                     formatted_date = d[:10]
                 return version, result["id"], formatted_date
-            except requests.exceptions.HTTPError as e:
-                logger.error(f"URL error: {e}")
+            except requests.exceptions.RequestException as e:
+                logger.error(f"Request error: {e}")
                 return '', '', ''
 
     return '', '', ''
@@ -92,17 +89,9 @@ def get_latest_github_commit(url: str, branch: str = 'master') -> tuple[str, str
     if not owner or not repo:
         return '', ''
 
-    headers = {}
-    session = requests.Session()
-    token = get_github_api_credentials()
-    if not token:
-        logger.warning("No GitHub API token found")
-    with contextlib.suppress(KeyError):
-        headers['Authorization'] = f'token {get_github_api_credentials()}'
+    session = session_init('github')
 
-    r = session.get(f"https://api.github.com/repos/{owner}/{repo}/branches/{branch}",
-                    headers=headers,
-                    timeout=30)
+    r = session.get(f"https://api.github.com/repos/{owner}/{repo}/branches/{branch}")
     if r.status_code != 200:
         return '', ''
     j = r.json()
@@ -110,6 +99,6 @@ def get_latest_github_commit(url: str, branch: str = 'master') -> tuple[str, str
     try:
         dt = datetime.fromisoformat(d.replace("Z", "+00:00"))
         formatted_date = dt.strftime("%Y-%m-%d")
-    except:
+    except ValueError:
         formatted_date = d[:10]
     return j["commit"]["sha"], formatted_date

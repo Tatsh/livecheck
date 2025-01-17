@@ -8,13 +8,15 @@ from typing import TypeVar, cast
 import logging
 import operator
 import re
-import xml.etree.ElementTree as etree
+import requests
+import contextlib
+from loguru import logger
 
 import yaml
 
 __all__ = ('TextDataResponse', 'assert_not_none', 'chunks', 'dash_to_underscore', 'dotize',
            'get_github_api_credentials', 'is_sha', 'make_github_grit_commit_re',
-           'make_github_grit_title_re', 'prefix_v', 'unique_justseen')
+           'make_github_grit_title_re', 'prefix_v', 'unique_justseen', 'session_init')
 
 logger2 = logging.getLogger(__name__)
 T = TypeVar('T')
@@ -118,3 +120,17 @@ class TextDataResponse:
 
     def raise_for_status(self) -> None:
         pass
+
+
+@lru_cache
+def session_init(module: str) -> requests.Session:
+    session = requests.Session()
+    if module == 'github':
+        token = get_github_api_credentials()
+        if not token:
+            logger.warning("No GitHub API token found")
+        with contextlib.suppress(KeyError):
+            session.headers['Authorization'] = f'Bearer {get_github_api_credentials()}'
+            session.headers['Accept'] = 'application/vnd.github.v3+json'
+    session.headers['timeout'] = '30'
+    return session
