@@ -49,7 +49,7 @@ def get_latest_gitlab_package(url: str,
         date_str = tag.get("commit", {}).get("created_at", "")
         try:
             dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-            formatted_date = dt.strftime("%Y-%m-%d")
+            formatted_date = dt.strftime("%Y%m%d")
         except:
             formatted_date = date_str[:10]
 

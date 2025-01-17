@@ -132,5 +132,7 @@ def session_init(module: str) -> requests.Session:
         with contextlib.suppress(KeyError):
             session.headers['Authorization'] = f'Bearer {get_github_api_credentials()}'
             session.headers['Accept'] = 'application/vnd.github.v3+json'
+    elif module == 'atom':
+        session.headers['Accept'] = 'application/xml'
     session.headers['timeout'] = '30'
     return session

@@ -103,7 +103,7 @@ def parse_url(repo_root: str, src_uri: str, devel: bool, settings: LivecheckSett
         version = re.split(r'\.(?:tar\.(?:gz|bz2)|zip)$', filename, maxsplit=2)[0]
         if (re.match(r'^[0-9a-f]{7,}$', version) and not re.match('^[0-9a-f]{8}$', version)):
             branch = (settings.branches.get(catpkg, 'master'))
-            last_version, hash_date = get_latest_github_commit(src_uri, branch)
+            top_hash, hash_date = get_latest_github_commit(src_uri, branch)
 
         elif ('/releases/download/' in parsed_uri.path or '/archive/' in parsed_uri.path):
             last_version, top_hash, hash_date = get_latest_github_package(
@@ -310,7 +310,7 @@ def get_props(search_dir: str,
         else:
             last_version, top_hash, hash_date, url = parse_url(repo_root, src_uri, devel, settings,
                                                                match, restrict_version)
-            if not last_version:
+            if not last_version and not top_hash:
                 last_version, top_hash, hash_date, url = parse_metadata(
                     repo_root, devel, settings, match, restrict_version)
         if last_version or top_hash:
@@ -372,7 +372,7 @@ def replace_date_in_ebuild(ebuild: str, new_date: str) -> str:
     ]
 
     y, m, d = new_date[:4], new_date[4:6], new_date[6:]
-    replacements = {"yyyymmdd": new_date, "yyyy.mm.dd": f"{y}.{m}.{d}", "yyMMdd": f"{y[2:]}{m}{d}"}
+    replacements = {"yyyymmdd": new_date, "yyyy.mm.dd": f"{y}.{m}.{d}", "yyMMdd": f"{y}{m}{d}"}
     for pattern in patterns:
         ebuild = re.sub(pattern, lambda match: _replace_format(match, replacements), ebuild)
 
@@ -415,13 +415,29 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
             hash_date: str, url: str, git: bool, hook_dir: str | None) -> None:
     cp = f'{cat}/{pkg}'
     ebuild = os.path.join(search_dir, cp, f'{pkg}-{ebuild_version}.ebuild')
-    new_sha = ''
     old_sha = get_old_sha(ebuild)
+    if update_sha_too_source := settings.sha_sources.get(cp, None):
+        logger.debug('Package also needs a SHA update')
+        top_hash = get_new_sha(update_sha_too_source)
+        # if empty, it means that the source is not supported
+        if not top_hash:
+            logger.warning(f'Could not get new SHA for {update_sha_too_source}')
+            return
     if hash_date and not last_version:
         last_version = replace_date_in_ebuild(ebuild_version, hash_date)
         hash_date = ''
     if not last_version:
         last_version = ebuild_version
+    if last_version == ebuild_version and old_sha != top_hash and old_sha and top_hash:
+        result = catpkgsplit(f'{cp}-{last_version}')
+        if not result or len(result) != 4:
+            logger.error(f'Invalid atom: {cp}-{last_version}')
+            return
+        _, _, new_version, new_revision = result
+        new_revision = 'r' + str(int(new_revision[1:]) + 1)
+        logger.debug(f'Incrementing revision to {new_revision}')
+        last_version = f'{new_version}-{new_revision}'
+
     if cp in settings.regex_version:
         logger.debug(f'Applying regex for {cp} old version {last_version}')
         regex, replace = settings.regex_version[cp]
@@ -431,15 +447,9 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
         last_version = last_version.replace('-', '.')
     logger.debug(f'top_hash = {last_version}')
 
-    if update_sha_too_source := settings.sha_sources.get(cp, None):
-        logger.debug('Package also needs a SHA update')
-        new_sha = get_new_sha(update_sha_too_source)
-        # if empty, it means that the source is not supported
-        if not new_sha:
-            logger.warning(f'Could not get new SHA for {update_sha_too_source}')
-            return
-    logger.debug(f'Comparing current ebuild version {ebuild_version} with live version {top_hash}')
-    if compare_versions(ebuild_version, top_hash, True, old_sha):
+    logger.debug(
+        f'Comparing current ebuild version {ebuild_version} with live version {last_version}')
+    if compare_versions(ebuild_version, last_version, True, old_sha):
         dn = Path(ebuild).parent
         new_filename = f'{dn}/{pkg}-{last_version}.ebuild'
         result = catpkgsplit(f'{cp}-{last_version}')
@@ -452,26 +462,22 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
             logger.error(f'Invalid atom: {cp}-{ebuild_version}')
             return
         _, _, old_version, old_revision = result
-        if ebuild == new_filename:
-            new_revision = 'r' + str(int(new_revision[1:]) + 1)
-            logger.debug(f'Incrementing revision to {new_revision}')
-            new_filename = f'{dn}/{pkg}-{new_version}-{new_revision}.ebuild'
         logger.debug(f'Migrating from {ebuild} to {new_filename}')
         if cp in settings.no_auto_update:
             no_auto_update_str = ' (no_auto_update)'
         else:
             no_auto_update_str = ''
-        str_new_version = str_version(new_version, new_revision, new_sha)
+        str_new_version = str_version(new_version, new_revision, top_hash)
         str_old_version = str_version(old_version, old_revision, old_sha)
         print(f'{cat}/{pkg}: {str_old_version} -> '
               f'{str_new_version}{no_auto_update_str}')
 
         if auto_update and cp not in settings.no_auto_update:
-            with open(ebuild) as f:
+            with open(ebuild, encoding='utf-8') as f:
                 old_content = content = f.read()
             # Only update the version if it is not a commit
-            if new_sha and old_sha:
-                content = content.replace(old_sha, new_sha)
+            if top_hash and old_sha:
+                content = content.replace(old_sha, top_hash)
             ps_ref = top_hash
             if not is_sha(top_hash) and cp in TAG_NAME_FUNCTIONS:
                 ps_ref = TAG_NAME_FUNCTIONS[cp](top_hash)
@@ -487,11 +493,11 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
                         return
                 else:
                     sp.run(('mv', ebuild, new_filename), check=True)
-            with open(new_filename, 'w') as f:
+            with open(new_filename, 'w', encoding='utf-8') as f:
                 f.write(content)
-            execute_hooks(hook_dir, 'pre', search_dir, cp, str_old_version, str_new_version,
-                          old_sha, new_sha, hash_date)
-            fetchlist = portdb.getFetchMap(f"{cp}-{str_new_version}")
+            execute_hooks(hook_dir, 'pre', search_dir, cp, ebuild_version, last_version, old_sha,
+                          top_hash, hash_date)
+            fetchlist = portdb.getFetchMap(f"{cp}-{last_version}")
             # Stores the content so that it can be recovered because it had to be modified
             old_content = content
             # First pass
@@ -503,7 +509,7 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
             if cp in settings.composer_packages:
                 content = remove_composer_url(content)
             if old_content != content:
-                with open(new_filename, 'w') as file:
+                with open(new_filename, 'w', encoding='utf-8') as file:
                     file.write(content)
             if not digest_ebuild(new_filename):
                 logger.error(f'Error digesting {new_filename}')
@@ -527,7 +533,7 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
                 update_composer_ebuild(new_filename, settings.composer_path[cp], fetchlist)
             # Restore original ebuild content
             if old_content != content:
-                with open(new_filename, 'w') as file:
+                with open(new_filename, 'w', encoding='utf-8') as file:
                     file.write(old_content)
                 if not digest_ebuild(new_filename):
                     logger.error(f'Error digesting {new_filename}')
@@ -540,7 +546,7 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
                 except sp.CalledProcessError:
                     logger.error(f'Error committing {new_filename}')
             execute_hooks(hook_dir, 'post', search_dir, cp, str_old_version, str_new_version,
-                          old_sha, new_sha, hash_date)
+                          old_sha, top_hash, hash_date)
 
 
 @click.command(context_settings={'help_option_names': ['-h', '--help']})
