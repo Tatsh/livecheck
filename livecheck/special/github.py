@@ -48,9 +48,21 @@ def get_latest_github_package(url: str,
     if r.status_code != 200:
         return '', '', ''
 
-    results = []
+    results: list[dict[str, str]] = []
+
     for t in r.json():
-        results.append({"tag": t["name"], "id": t["commit"]["sha"], "commit": t["commit"]["url"]})
+        original_name = t["name"]
+        cleaned_name = re.sub(r"^[^\d]+", "", original_name)
+        match = re.match(r"^(\d+(?:\.\d+){0,2})", cleaned_name)
+        if match:
+            cleaned_name = match.group(1)
+        results.append({
+            "tag": cleaned_name,
+            "id": t["commit"]["sha"],
+            "commit": t["commit"]["url"]
+        })
+
+    results = sorted(results, key=lambda x: x["tag"], reverse=True)  # type: ignore
 
     for result in results:
         version = result["tag"]

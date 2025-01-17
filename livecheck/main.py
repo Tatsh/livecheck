@@ -97,7 +97,7 @@ def parse_url(repo_root: str, src_uri: str, devel: bool, settings: LivecheckSett
     parsed_uri = urlparse(src_uri)
     last_version = top_hash = hash_date = url = ''
 
-    if parsed_uri.hostname and 'github' in parsed_uri.hostname:
+    if parsed_uri.hostname and 'github.' in parsed_uri.hostname:
         logger.debug(f'Parsed path: {parsed_uri.path}')
         filename = Path(parsed_uri.path).name
         version = re.split(r'\.(?:tar\.(?:gz|bz2)|zip)$', filename, maxsplit=2)[0]
