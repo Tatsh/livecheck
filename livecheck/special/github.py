@@ -3,8 +3,10 @@ import re
 from urllib.parse import urlparse
 from datetime import datetime
 from loguru import logger
+import contextlib
 
 from ..utils.portage import is_version_development
+from ..utils import (get_github_api_credentials)
 
 __all__ = ("get_latest_github_package", "get_latest_github_commit")
 
@@ -32,7 +34,17 @@ def get_latest_github_package(url: str,
     if not owner or not repo:
         return '', '', ''
 
-    r = requests.get(f"https://api.github.com/repos/{owner}/{repo}/tags")
+    headers = {}
+    session = requests.Session()
+    token = get_github_api_credentials()
+    if not token:
+        logger.warning("No GitHub API token found")
+    with contextlib.suppress(KeyError):
+        headers['Authorization'] = f'token {get_github_api_credentials()}'
+
+    r = session.get(f"https://api.github.com/repos/{owner}/{repo}/tags",
+                    headers=headers,
+                    timeout=30)
     if r.status_code != 200:
         return '', '', ''
 
@@ -46,7 +58,7 @@ def get_latest_github_package(url: str,
             continue
         if not is_version_development(version) or development:
             try:
-                cr = requests.get(result["commit"])
+                cr = session.get(result["commit"], headers=headers, timeout=30)
                 if cr.status_code != 200:
                     continue
                 d = cr.json()["commit"]["committer"]["date"][:10]
@@ -64,7 +76,21 @@ def get_latest_github_package(url: str,
 
 
 def get_latest_github_commit(url: str, branch: str = 'master') -> tuple[str, str]:
-    r = requests.get(f"https://api.github.com/repos/{owner}/{repo}/branches/{branch}")
+    owner, repo = extract_owner_repo(url)
+    if not owner or not repo:
+        return '', ''
+
+    headers = {}
+    session = requests.Session()
+    token = get_github_api_credentials()
+    if not token:
+        logger.warning("No GitHub API token found")
+    with contextlib.suppress(KeyError):
+        headers['Authorization'] = f'token {get_github_api_credentials()}'
+
+    r = session.get(f"https://api.github.com/repos/{owner}/{repo}/branches/{branch}",
+                    headers=headers,
+                    timeout=30)
     if r.status_code != 200:
         return '', ''
     j = r.json()
