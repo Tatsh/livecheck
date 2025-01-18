@@ -175,33 +175,89 @@ def is_version_development(version: str) -> bool:
     return False
 
 
+def extract_version(s: str, repo: str) -> str:
+    s = s.lower().strip()
+    # check if first word of s is equal to repo and remove repo from s
+    if s.startswith(repo.lower()):
+        s = s[len(repo):].strip()
+
+    m = re.search(r'[-_]?([0-9][0-9\._-].*)', s)
+    if m:
+        return m.group(1).strip()
+
+    m = re.search(r'(?:^|[^-_])(\d.*)', s)
+    return m.group(1).strip() if m else ""
+
+
+def sanitize_version(ver: str, repo: str = '') -> str:
+    ver = extract_version(ver, repo)
+    ver = normalize_version(ver)
+    return remove_leading_zeros(ver)
+
+
+def remove_leading_zeros(ver: str) -> str:
+    match = re.match(r"(\d+)\.(\d+)(?:\.(\d+))?(.*)", ver)
+    if match:
+        a, b, c, suffix = match.groups()
+        if c is None:
+            return f"{int(a)}.{int(b)}{suffix}"
+        return f"{int(a)}.{int(b)}.{int(c)}{suffix}"
+    return ver
+
+
 # Sanitize version to Gentoo Ebuild format
 # info: https://dev.gentoo.org/~gokturk/devmanual/pr65/ebuild-writing/file-format/index.html
-def sanitize_version(version: str) -> str:
-    if not version:
-        return '0'
+def normalize_version(ver: str) -> str:
+    i = 0
+    sep = '._-'
+    while i < len(ver) and (ver[i].isdigit() or ver[i] in sep):
+        if ver[i] in sep:
+            sep = ver[i]
+        i += 1
+    main = re.sub(r'[-_]', '.', ver[:i])
+    suf = ver[i:]
 
-    # Force convert version to string to fix version like 1.8
-    version = str(version)
+    main = main.rstrip('.')
+    if not main:
+        return ver
 
-    if is_hash(version):
-        return version
-
-    # remove initial "2-" found in dev-libs/libpcre2, net-analyzer/barnyard2, etc..
-    if version.startswith('2-'):
-        version = version[2:]
-
-    version = re.sub(r'(\d)_(\d)', r'\1.\2', version)
-    pattern = r"(\d+(\.\d+)*[a-z]?(_(alpha|beta|pre|rc|p)\d*)*(-r\d+)?)"
-
-    match = re.search(pattern, version, re.IGNORECASE)
-
-    if match:
-        if match.group(1) != version:
-            logger.debug(f'Version {version} sanitized to {match.group(1)}')
-        return match.group(1)
+    suf = re.sub(r'[-_\.]', '', suf)
+    m = re.match(r'^([A-Za-z]+)([0-9]+)?', suf)
+    if m:
+        letters, digits = m.groups()
     else:
-        return version
+        suf_clean = re.sub(r'[\s.\-_]+', '', suf)
+        m2 = re.match(r'^([A-Za-z]+)([0-9]+)?$', suf_clean)
+        if m2:
+            letters, digits = m2.groups()
+        else:
+            letters, digits = '', ''
+
+    letters_lower = letters
+
+    if letters_lower in ('test', 'dev'):
+        letters_lower = 'beta'
+
+    allowed = ('pre', 'beta', 'rc', 'p', 'alpha')
+
+    if letters_lower in allowed:
+        if digits and digits:
+            return f"{main}_{letters_lower}{digits}"
+        return f"{main}_{letters_lower}"
+    else:
+        # Single-letter suffix with no digits -> preserve as lowercase
+        if len(letters) == 1 and not digits:
+            return f"{main}{letters_lower}"
+        # No recognized suffix
+        if not letters and digits:
+            # Just attach the digits directly (e.g. "1.2.3" + "4")
+            return f"{main}{digits}"
+        if letters and not digits and len(letters) == 1:
+            return f"{main}{letters_lower}"
+        # If the version ends with a letter like 1.2.20a (and not recognized),
+        # the requirement says "it is preserved" only if it is exactly a single letter.
+        # For multi-letter unknown suffix -> discard.
+        return main
 
 
 def compare_versions(old: str, new: str, development: bool = False, old_sha: str = "") -> bool:

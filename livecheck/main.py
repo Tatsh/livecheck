@@ -104,8 +104,8 @@ def parse_url(repo_root: str, src_uri: str, devel: bool, settings: LivecheckSett
             top_hash, hash_date = get_latest_github_commit(src_uri, branch)
 
         elif ('/releases/download/' in parsed_uri.path or '/archive/' in parsed_uri.path):
-            last_version, top_hash, hash_date = get_latest_github_package(
-                src_uri, devel, restrict_version)
+            last_version, top_hash = get_latest_github_package(src_uri, match, devel,
+                                                               restrict_version, settings)
         elif re.search(r'/raw/([0-9a-f]+)/', parsed_uri.path):
             branch = (settings.branches.get(catpkg, 'master'))
             top_hash, hash_date = get_latest_github_commit(src_uri, branch)
@@ -173,7 +173,7 @@ def parse_url(repo_root: str, src_uri: str, devel: bool, settings: LivecheckSett
 
 def parse_metadata(repo_root: str, devel: bool, settings: LivecheckSettings, match: str,
                    restrict_version: str) -> tuple[str, str, str, str]:
-    catpkg, _, _, ebuild_version = catpkg_catpkgsplit(match)
+    catpkg, _, _, _ = catpkg_catpkgsplit(match)
 
     metadata_file = os.path.join(repo_root, catpkg, "metadata.xml")
     if not os.path.exists(metadata_file):
@@ -194,10 +194,9 @@ def parse_metadata(repo_root: str, devel: bool, settings: LivecheckSettings, mat
                 last_version = top_hash = hash_date = url = ''
                 if tag_name == 'remote-id':
                     if attribs['type'] == 'github':
-                        last_version, top_hash, hash_date, url = parse_url(
-                            repo_root,
-                            f'https://github.com/{text_val}/releases/download/{ebuild_version}/file-{ebuild_version}.tar.gz',
-                            devel, settings, match, restrict_version)
+                        last_version, top_hash = get_latest_github_package(
+                            f'https://github.com/{text_val}', match, devel, restrict_version,
+                            settings)
                     if attribs['type'] == 'bitbucket':
                         last_version, top_hash, hash_date, url = parse_url(
                             repo_root, f'https://bitbucket.org/{text_val}', devel, settings, match,

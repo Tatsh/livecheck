@@ -56,7 +56,7 @@ def get_latest_regex_package(ebuild_version: str,
              if url.startswith('data:') else session.get(url, headers=headers, timeout=30))
     except (ReadTimeout, ConnectTimeout, requests.exceptions.HTTPError,
             requests.exceptions.SSLError, requests.exceptions.ConnectionError,
-            requests.exceptions.MissingSchema) as e:
+            requests.exceptions.MissingSchema, requests.exceptions.ChunkedEncodingError) as e:
         logger.debug(f'Caught error {e} attempting to fetch {url}')
         return '', '', ''
 
