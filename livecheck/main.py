@@ -22,7 +22,6 @@ from typing import Match
 from .constants import (
     GIST_HOSTNAMES,
     GITLAB_HOSTNAMES,
-    PREFIX_RE,
     SUBMODULES,
     TAG_NAME_FUNCTIONS,
 )
@@ -46,8 +45,7 @@ from .special.sourceforge import get_latest_sourceforge_package
 from .special.yarn import update_yarn_ebuild
 
 from .typing import PropTuple
-from .utils import (chunks, get_github_api_credentials, is_sha, make_github_grit_commit_re,
-                    make_github_grit_title_re)
+from .utils import (chunks, get_github_api_credentials, is_sha, make_github_grit_commit_re)
 from .utils.portage import (P, catpkg_catpkgsplit, get_first_src_uri, get_highest_matches,
                             get_highest_matches2, get_repository_root_if_inside, sanitize_version,
                             compare_versions, digest_ebuild, catpkgsplit)
@@ -365,40 +363,43 @@ def str_version(version: str, revision: str, sha: str) -> str:
     return version
 
 
-def replace_date_in_ebuild(ebuild: str, new_date: str) -> str:
-    patterns = [
-        r'(_p|_r|\.|-r|_pre)(\d{8})(-r\d+)?', r'(\d{4}\.\d{2}\.\d{2})(-r\d+)?', r'\d{8}',
-        r'(\d+\.\d+\.)(\d{6})(-r\d+)?', r'(\d{4}\.\d+\.\d+)(-r\d+)?'
-    ]
+def replace_date_in_ebuild(ebuild: str, new_date: str, cp: str) -> str:
+    short_date = new_date[2:]
+    pattern = re.compile(r"(\d{4,8})")
 
-    y, m, d = new_date[:4], new_date[4:6], new_date[6:]
-    replacements = {"yyyymmdd": new_date, "yyyy.mm.dd": f"{y}.{m}.{d}", "yyMMdd": f"{y}{m}{d}"}
-    for pattern in patterns:
-        ebuild = re.sub(pattern, lambda match: _replace_format(match, replacements), ebuild)
+    def replace_match(match: Match[str]) -> str:
+        matched_text = match.group(0)
+        if len(matched_text) == 8 and matched_text.isdigit():
+            return new_date
+        elif len(matched_text) == 6 and matched_text.isdigit():
+            return short_date
+        return matched_text
 
-    return ebuild
+    n = pattern.sub(replace_match, ebuild)
 
-
-def _replace_format(match: Match[str], replacements: dict[str, str]) -> str:
-    if len(match.groups()) == 1 and match.group(1) in ['_p', '_r', '.', '-', '_pre']:
-        return f"{match.group(1)}{replacements['yyyymmdd']}"
-    elif '.' in match.group(0):
-        return replacements['yyyy.mm.dd']
-    elif len(match.group(0)) == 8 or '-r' in match.group(0):
-        return replacements['yyyymmdd']
-    elif len(match.groups()) > 1 and match.group(2):
-        return f"{match.group(1)}{replacements['yyMMdd']}"
-    return match.group(0)
+    result = catpkgsplit(f'{cp}-{ebuild}')
+    if not result or len(result) != 4:
+        logger.error(f'Invalid atom: {cp}-{ebuild}')
+        return n
+    _, _, old_version, _ = result
+    result = catpkgsplit(f'{cp}-{n}')
+    if not result or len(result) != 4:
+        logger.error(f'Invalid atom: {cp}-{n}')
+        return n
+    _, _, new_version, _ = result
+    if old_version != new_version:
+        return new_version
+    return n
 
 
 def execute_hooks(hook_dir: str | None, action: str, search_dir: str, cp: str, str_old_version: str,
                   str_new_version: str, old_sha: str, new_sha: str, hash_date: str) -> None:
     if not hook_dir:
         return
-    dir = Path(hook_dir + '/' + action)
-    if not dir.is_dir():
+    hook_path = Path(hook_dir + '/' + action)
+    if not hook_path.is_dir():
         return
-    for hook in sorted(dir.iterdir()):
+    for hook in sorted(hook_path.iterdir()):
         if hook.is_file() and os.access(hook, os.X_OK):
             logger.debug(f'Running hook {hook}')
             result = sp.run([
@@ -424,7 +425,7 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
             logger.warning(f'Could not get new SHA for {update_sha_too_source}')
             return
     if hash_date and not last_version:
-        last_version = replace_date_in_ebuild(ebuild_version, hash_date)
+        last_version = replace_date_in_ebuild(ebuild_version, hash_date, cp)
         hash_date = ''
     if not last_version:
         last_version = ebuild_version
