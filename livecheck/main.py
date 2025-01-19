@@ -90,7 +90,7 @@ def log_unhandled_github_package(catpkg: str) -> None:
 
 def parse_url(repo_root: str, src_uri: str, devel: bool, settings: LivecheckSettings, match: str,
               restrict_version: str) -> tuple[str, str, str, str]:
-    catpkg, _, pkg, ebuild_version = catpkg_catpkgsplit(match)
+    catpkg, _, pkg, _ = catpkg_catpkgsplit(match)
 
     parsed_uri = urlparse(src_uri)
     last_version = top_hash = hash_date = url = ''
@@ -115,27 +115,27 @@ def parse_url(repo_root: str, src_uri: str, devel: bool, settings: LivecheckSett
         user_repo = '/'.join(parsed_uri.path.split('/')[1:3])
         branch = (settings.branches.get(catpkg, 'master'))
         last_version, hash_date, url = get_latest_regex_package(
-            ebuild_version, catpkg, settings, f'https://git.sr.ht/{user_repo}/log/{branch}/rss.xml',
+            match, settings, f'https://git.sr.ht/{user_repo}/log/{branch}/rss.xml',
             r'<pubDate>([^<]+)</pubDate>', '', devel, restrict_version)
     elif parsed_uri.hostname in GIST_HOSTNAMES:
         home = P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0]
         last_version, hash_date, url = get_latest_regex_package(
-            ebuild_version, catpkg, settings, f'{home}/revisions',
-            r'<relative-time datetime="([0-9-]{10})', '', devel, restrict_version)
+            match, settings, f'{home}/revisions', r'<relative-time datetime="([0-9-]{10})', '',
+            devel, restrict_version)
     elif src_uri.startswith('mirror://pypi/'):
         dist_name = src_uri.split('/')[4]
         last_version, hash_date, url = get_latest_regex_package(
-            ebuild_version, catpkg, settings, f'https://pypi.org/pypi/{dist_name}/json',
-            r'"version":"([^"]+)"[,\}]', '', devel, restrict_version)
+            match, settings, f'https://pypi.org/pypi/{dist_name}/json', r'"version":"([^"]+)"[,\}]',
+            '', devel, restrict_version)
     elif parsed_uri.hostname == 'files.pythonhosted.org':
         dist_name = src_uri.split('/')[-2]
         last_version, hash_date, url = get_latest_regex_package(
-            ebuild_version, catpkg, settings, f'https://pypi.org/pypi/{dist_name}/json',
-            r'"version":"([^"]+)"[,\}]', '', devel, restrict_version)
+            match, settings, f'https://pypi.org/pypi/{dist_name}/json', r'"version":"([^"]+)"[,\}]',
+            '', devel, restrict_version)
     elif (parsed_uri.hostname == 'www.raphnet-tech.com'
           and parsed_uri.path.startswith('/downloads')):
         last_version, hash_date, url = get_latest_regex_package(
-            ebuild_version, catpkg, settings,
+            match, settings,
             P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0],
             (r'\b' + pkg.replace('-', r'[-_]') + r'-([^"]+)\.tar\.gz'), '', devel, restrict_version)
     elif parsed_uri.hostname == 'download.jetbrains.com':
@@ -146,14 +146,14 @@ def parse_url(repo_root: str, src_uri: str, devel: bool, settings: LivecheckSett
     elif parsed_uri.hostname == 'cgit.libimobiledevice.org':
         proj = src_uri.split('/')[3]
         last_version, hash_date, url = get_latest_regex_package(
-            ebuild_version, catpkg, settings, f'https://cgit.libimobiledevice.org/{proj}/',
+            match, settings, f'https://cgit.libimobiledevice.org/{proj}/',
             r"href='/" + re.escape(proj) + r"/tag/\?h=([0-9][^']+)", '', devel, restrict_version)
     elif parsed_uri.hostname == 'registry.yarnpkg.com':
         path = ('/'.join(parsed_uri.path.split('/')[1:3])
                 if parsed_uri.path.startswith('/@') else parsed_uri.path.split('/')[1])
         last_version, hash_date, url = get_latest_regex_package(
-            ebuild_version, catpkg, settings, f'https://registry.yarnpkg.com/{path}',
-            r'"latest":"([^"]+)",?', '', devel, restrict_version)
+            match, settings, f'https://registry.yarnpkg.com/{path}', r'"latest":"([^"]+)",?', '',
+            devel, restrict_version)
     elif parsed_uri.hostname == 'pecl.php.net':
         last_version = get_latest_pecl_package(pkg, devel)
     elif parsed_uri.hostname == 'metacpan.org' or parsed_uri.hostname == 'cpan':
@@ -272,7 +272,7 @@ def get_props(search_dir: str,
         elif catpkg in settings.custom_livechecks:
             url, regex, _, version = settings.custom_livechecks[catpkg]
             last_version, hash_date, url = get_latest_regex_package(
-                ebuild_version, catpkg, settings, url, regex, version, devel, restrict_version)
+                match, settings, url, regex, version, devel, restrict_version)
         elif catpkg in settings.checksum_livechecks:
             manifest_file = Path(search_dir) / catpkg / 'Manifest'
             bn = Path(src_uri).name
@@ -293,7 +293,7 @@ def get_props(search_dir: str,
                         r = requests.get(src_uri, timeout=30)
                         r.raise_for_status()
                         last_version, hash_date, url = get_latest_regex_package(
-                            ebuild_version, catpkg, settings,
+                            match, settings,
                             dict(cast(Sequence[tuple[str, str]], chunks(fields_s.split(' '),
                                                                         2)))['SHA512'],
                             f'data:{hashlib.sha512(r.content).hexdigest()}', r'^[0-9a-f]+$', devel,
