@@ -326,6 +326,10 @@ def get_last_version(results: List[Dict[str, str]], repo: str, ebuild: str, deve
         else:
             version = sanitize_version(version, repo)
             logger.debug("Convert Tag: %s -> %s", tag, version)
+        # check if version has a equal count of dots
+        if version.count('.') != ebuild_version.count('.'):
+            logger.debug("Skip version: %s", version)
+            continue
         # Check valid version
         try:
             _, _, _, _ = catpkg_catpkgsplit(ebuild)
