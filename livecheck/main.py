@@ -139,7 +139,7 @@ def parse_url(repo_root: str, src_uri: str, devel: bool, settings: LivecheckSett
             P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0],
             (r'\b' + pkg.replace('-', r'[-_]') + r'-([^"]+)\.tar\.gz'), '', devel, restrict_version)
     elif parsed_uri.hostname == 'download.jetbrains.com':
-        last_version = get_latest_jetbrains_package(pkg, devel)
+        last_version = get_latest_jetbrains_package(match, devel, restrict_version, settings)
     elif parsed_uri.hostname and 'gitlab' in parsed_uri.hostname:
         last_version, top_hash = get_latest_gitlab_package(src_uri, match, devel, restrict_version,
                                                            settings)
