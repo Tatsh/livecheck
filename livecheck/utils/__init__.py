@@ -4,12 +4,11 @@ from dataclasses import dataclass
 from functools import lru_cache
 from itertools import groupby
 from pathlib import Path
-from typing import TypeVar, cast
+from typing import TypeVar
 import logging
 import operator
 import re
 import requests
-import contextlib
 from loguru import logger
 
 import yaml
@@ -65,13 +64,16 @@ def parse_npm_package_name(s: str) -> tuple[str, str | None, str | None]:
 
 
 @lru_cache
-def get_github_api_credentials() -> str:
+def get_github_api_credentials(repo: str = 'github.com') -> str:
     try:
         with Path('~/.config/gh/hosts.yml').expanduser().open() as f:
             data = yaml.safe_load(f)
     except FileNotFoundError:
         return ''
-    return cast(str, data['github.com']['oauth_token'])
+    token = str(data.get(repo, {}).get('oauth_token', ""))
+    if not token:
+        logger.warning(f"No {repo} API token found")
+    return token
 
 
 @lru_cache
@@ -122,12 +124,17 @@ def session_init(module: str) -> requests.Session:
     session = requests.Session()
     if module == 'github':
         token = get_github_api_credentials()
-        if not token:
-            logger.warning("No GitHub API token found")
-        with contextlib.suppress(KeyError):
-            session.headers['Authorization'] = f'Bearer {get_github_api_credentials()}'
-            session.headers['Accept'] = 'application/vnd.github.v3+json'
+        if token:
+            session.headers['Authorization'] = f'Bearer {token}'
+        session.headers['Accept'] = 'application/vnd.github.v3+json'
     elif module == 'atom':
         session.headers['Accept'] = 'application/xml'
+    elif module == 'json':
+        session.headers['Accept'] = 'application/json'
+    elif module == 'gitlab':
+        token = get_github_api_credentials('gitlab.com')
+        if token:
+            session.headers['Authorization'] = f'Bearer {token}'
+        session.headers['Accept'] = 'application/json'
     session.headers['timeout'] = '30'
     return session

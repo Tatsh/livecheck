@@ -5,6 +5,7 @@ from loguru import logger
 
 from ..settings import LivecheckSettings
 from ..utils.portage import get_last_version
+from ..utils import session_init
 
 __all__ = ("get_latest_gitlab_package")
 
@@ -27,8 +28,10 @@ def get_latest_gitlab_package(url: str, ebuild: str, development: bool, restrict
     domain, path_with_namespace, repo = extract_domain_and_namespace(url)
     base_api_url = f"https://{domain}/api/v4"
     encoded_path = quote(path_with_namespace, safe='')
+    session = session_init('gitlab')
+
     try:
-        tags_response = requests.get(
+        tags_response = session.get(
             f"{base_api_url}/projects/{encoded_path}/repository/tags?per_page={VERSIONS}")
         tags_response.raise_for_status()
         tags_data = tags_response.json()

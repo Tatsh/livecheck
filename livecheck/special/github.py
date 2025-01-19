@@ -5,9 +5,9 @@ from datetime import datetime
 
 from ..settings import LivecheckSettings
 from ..utils.portage import get_last_version
-from ..utils import (session_init)
+from ..utils import session_init
 
-from ..constants import (RSS_NS)
+from ..constants import RSS_NS
 
 __all__ = ("get_latest_github_package", "get_latest_github_commit")
 
