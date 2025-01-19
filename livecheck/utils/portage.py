@@ -241,7 +241,7 @@ def normalize_version(ver: str) -> str:
     allowed = ('pre', 'beta', 'rc', 'p', 'alpha')
 
     if letters_lower in allowed:
-        if digits and digits:
+        if digits and digits != '0':
             return f"{main}_{letters_lower}{digits}"
         return f"{main}_{letters_lower}"
     else:
