@@ -141,7 +141,8 @@ def parse_url(repo_root: str, src_uri: str, devel: bool, settings: LivecheckSett
     elif parsed_uri.hostname == 'download.jetbrains.com':
         last_version = get_latest_jetbrains_package(pkg, devel)
     elif parsed_uri.hostname and 'gitlab' in parsed_uri.hostname:
-        last_version, hash_date, url = get_latest_gitlab_package(src_uri, devel, restrict_version)
+        last_version, top_hash = get_latest_gitlab_package(src_uri, match, devel, restrict_version,
+                                                           settings)
     elif parsed_uri.hostname == 'cgit.libimobiledevice.org':
         proj = src_uri.split('/')[3]
         last_version, hash_date, url = get_latest_regex_package(
@@ -203,9 +204,8 @@ def parse_metadata(repo_root: str, devel: bool, settings: LivecheckSettings, mat
                             restrict_version)
                     if 'gitlab' in attribs['type']:
                         uri = GITLAB_HOSTNAMES[attribs['type']]
-                        last_version, top_hash, hash_date, url = parse_url(
-                            repo_root, f'https://{uri}/{text_val}', devel, settings, match,
-                            restrict_version)
+                        last_version, top_hash = get_latest_gitlab_package(
+                            f'https://{uri}/{text_val}', match, devel, restrict_version, settings)
                     if last_version or top_hash:
                         return last_version, top_hash, hash_date, url
     return '', '', '', ''

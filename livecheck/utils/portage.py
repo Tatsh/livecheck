@@ -4,7 +4,7 @@ from pathlib import Path
 import logging
 import os
 import re
-from typing import List
+from typing import List, Dict
 from itertools import chain
 
 from portage.versions import catpkgsplit, vercmp
@@ -13,7 +13,7 @@ import portage
 
 __all__ = ('P', 'catpkg_catpkgsplit', 'get_first_src_uri', 'get_highest_matches',
            'get_highest_matches2', 'sort_by_v', 'get_repository_root_if_inside', 'compare_versions',
-           'sanitize_version', 'get_distdir', 'fetch_ebuild', 'unpack_ebuild')
+           'sanitize_version', 'get_distdir', 'fetch_ebuild', 'unpack_ebuild', 'get_last_version')
 
 P = portage.db[portage.root]['porttree'].dbapi
 logger = logging.getLogger(__name__)
@@ -308,3 +308,37 @@ def unpack_ebuild(ebuild_path: str) -> str:
         return str(workdir)
 
     return ''
+
+
+def get_last_version(results: List[Dict[str, str]], repo: str, ebuild: str, development: bool,
+                     restrict_version: str, settings: LivecheckSettings) -> Dict[str, str]:
+    logger.debug('Result count: %d', len(results))
+
+    catpkg, _, _, ebuild_version = catpkg_catpkgsplit(ebuild)
+    last_version = {}
+
+    for result in results:
+        tag = version = result["tag"]
+        if catpkg in settings.regex_version:
+            logger.debug('Applying regex %s -> %s', tag, version)
+            regex, replace = settings.regex_version[catpkg]
+            version = re.sub(regex, replace, version)
+        else:
+            version = sanitize_version(version, repo)
+            logger.debug("Convert Tag: %s -> %s", tag, version)
+        # Check valid version
+        try:
+            _, _, _, _ = catpkg_catpkgsplit(ebuild)
+        except ValueError:
+            logger.debug("Skip non-version tag: %s", version)
+            continue
+        if not version.startswith(restrict_version):
+            continue
+        if is_version_development(ebuild_version) or (not is_version_development(version)
+                                                      or development):
+            last = last_version.get('version', '')
+            if not last or bool(vercmp(last, version) == -1):
+                last_version = result.copy()
+                last_version['version'] = version
+
+    return last_version
