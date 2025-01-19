@@ -4,17 +4,18 @@ from dataclasses import dataclass
 from functools import lru_cache
 from itertools import groupby
 from pathlib import Path
-from typing import TypeVar, cast
+from typing import TypeVar
 import logging
 import operator
 import re
-import xml.etree.ElementTree as etree
+import requests
+from loguru import logger
 
 import yaml
 
 __all__ = ('TextDataResponse', 'assert_not_none', 'chunks', 'dash_to_underscore', 'dotize',
-           'get_github_api_credentials', 'is_sha', 'make_github_grit_commit_re',
-           'make_github_grit_title_re', 'prefix_v', 'unique_justseen')
+           'get_github_api_credentials', 'is_sha', 'make_github_grit_commit_re', 'prefix_v',
+           'unique_justseen', 'session_init')
 
 logger2 = logging.getLogger(__name__)
 T = TypeVar('T')
@@ -28,11 +29,6 @@ RE_NON_SCOPED = r'^([^@\/]+)(?:@([^\/]+))?(\/.*)?$'
 def make_github_grit_commit_re(version: str) -> str:
     return (r'<id>tag:github.com,2008:Grit::Commit/([0-9a-f]{' + str(len(version)) +
             r'})[0-9a-f]*</id>')
-
-
-@lru_cache
-def make_github_grit_title_re() -> str:
-    return r'<title>\s+.*v([0-9][^ <]+) '
 
 
 @lru_cache
@@ -68,13 +64,16 @@ def parse_npm_package_name(s: str) -> tuple[str, str | None, str | None]:
 
 
 @lru_cache
-def get_github_api_credentials() -> str:
+def get_github_api_credentials(repo: str = 'github.com') -> str:
     try:
         with Path('~/.config/gh/hosts.yml').expanduser().open() as f:
             data = yaml.safe_load(f)
     except FileNotFoundError:
         return ''
-    return cast(str, data['github.com']['oauth_token'])
+    token = str(data.get(repo, {}).get('oauth_token', ""))
+    if not token:
+        logger.warning(f"No {repo} API token found")
+    return token
 
 
 @lru_cache
@@ -118,3 +117,24 @@ class TextDataResponse:
 
     def raise_for_status(self) -> None:
         pass
+
+
+@lru_cache
+def session_init(module: str) -> requests.Session:
+    session = requests.Session()
+    if module == 'github':
+        token = get_github_api_credentials()
+        if token:
+            session.headers['Authorization'] = f'Bearer {token}'
+        session.headers['Accept'] = 'application/vnd.github.v3+json'
+    elif module == 'atom':
+        session.headers['Accept'] = 'application/xml'
+    elif module == 'json':
+        session.headers['Accept'] = 'application/json'
+    elif module == 'gitlab':
+        token = get_github_api_credentials('gitlab.com')
+        if token:
+            session.headers['Authorization'] = f'Bearer {token}'
+        session.headers['Accept'] = 'application/json'
+    session.headers['timeout'] = '30'
+    return session

@@ -1,16 +1,19 @@
 import tempfile
-import tarfile
-import io
 from pathlib import Path
 
 import requests
 from loguru import logger
 from .utils import search_ebuild
 
+from ..settings import LivecheckSettings
+from ..utils.portage import get_last_version, catpkg_catpkgsplit
+from ..utils import session_init
+
 __all__ = ("get_latest_jetbrains_package", "update_jetbrains_ebuild")
 
 
-def get_latest_jetbrains_package(product_code: str, development: bool = False) -> str:
+def get_latest_jetbrains_package(ebuild: str, development: bool, restrict_version: str,
+                                 settings: LivecheckSettings) -> str:
     api_url = "https://data.services.jetbrains.com/products"
     product_name = {
         'phpstorm': 'PhpStorm',
@@ -21,10 +24,14 @@ def get_latest_jetbrains_package(product_code: str, development: bool = False) -
         'goland': 'GoLand',
     }
 
+    _, _, product_code, _ = catpkg_catpkgsplit(ebuild)
+
     product_code = product_name.get(product_code, product_code)
+    session = session_init('json')
+    results = []
 
     try:
-        response = requests.get(api_url)
+        response = session.get(api_url)
         response.raise_for_status()
         products_info = response.json()
 
@@ -33,14 +40,14 @@ def get_latest_jetbrains_package(product_code: str, development: bool = False) -
                 for release in product['releases']:
                     if (release['type'] == 'eap' or release['type'] == 'rc') and not development:
                         continue
-                    if 'linux' in release['downloads']:
-                        latest_version = release['version']
-                        return str(latest_version)
-
-        logger.debug(f"Version information not found for {product_code}.")
-
+                    if 'linux' in release.get('downloads', ''):
+                        results.append({"tag": release['version']})
     except requests.exceptions.HTTPError as e:
         logger.debug(f"Error accessing the URL: {e}")
+
+    result = get_last_version(results, '', ebuild, development, restrict_version, settings)
+    if result:
+        return result['tag']
 
     return ''
 

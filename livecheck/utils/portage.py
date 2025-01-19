@@ -4,7 +4,7 @@ from pathlib import Path
 import logging
 import os
 import re
-from typing import List
+from typing import List, Dict
 from itertools import chain
 
 from portage.versions import catpkgsplit, vercmp
@@ -13,7 +13,7 @@ import portage
 
 __all__ = ('P', 'catpkg_catpkgsplit', 'get_first_src_uri', 'get_highest_matches',
            'get_highest_matches2', 'sort_by_v', 'get_repository_root_if_inside', 'compare_versions',
-           'sanitize_version', 'get_distdir', 'fetch_ebuild', 'unpack_ebuild')
+           'sanitize_version', 'get_distdir', 'fetch_ebuild', 'unpack_ebuild', 'get_last_version')
 
 P = portage.db[portage.root]['porttree'].dbapi
 logger = logging.getLogger(__name__)
@@ -175,33 +175,89 @@ def is_version_development(version: str) -> bool:
     return False
 
 
+def extract_version(s: str, repo: str) -> str:
+    s = s.lower().strip()
+    # check if first word of s is equal to repo and remove repo from s
+    if s.startswith(repo.lower()):
+        s = s[len(repo):].strip()
+
+    m = re.search(r'[-_]?([0-9][0-9\._-].*)', s)
+    if m:
+        return m.group(1).strip()
+
+    m = re.search(r'(?:^|[^-_])(\d.*)', s)
+    return m.group(1).strip() if m else ""
+
+
+def sanitize_version(ver: str, repo: str = '') -> str:
+    ver = extract_version(ver, repo)
+    ver = normalize_version(ver)
+    return remove_leading_zeros(ver)
+
+
+def remove_leading_zeros(ver: str) -> str:
+    match = re.match(r"(\d+)\.(\d+)(?:\.(\d+))?(.*)", ver)
+    if match:
+        a, b, c, suffix = match.groups()
+        if c is None:
+            return f"{int(a)}.{int(b)}{suffix}"
+        return f"{int(a)}.{int(b)}.{int(c)}{suffix}"
+    return ver
+
+
 # Sanitize version to Gentoo Ebuild format
 # info: https://dev.gentoo.org/~gokturk/devmanual/pr65/ebuild-writing/file-format/index.html
-def sanitize_version(version: str) -> str:
-    if not version:
-        return '0'
+def normalize_version(ver: str) -> str:
+    i = 0
+    sep = '._-'
+    while i < len(ver) and (ver[i].isdigit() or ver[i] in sep):
+        if ver[i] in sep:
+            sep = ver[i]
+        i += 1
+    main = re.sub(r'[-_]', '.', ver[:i])
+    suf = ver[i:]
 
-    # Force convert version to string to fix version like 1.8
-    version = str(version)
+    main = main.rstrip('.')
+    if not main:
+        return ver
 
-    if is_hash(version):
-        return version
-
-    # remove initial "2-" found in dev-libs/libpcre2, net-analyzer/barnyard2, etc..
-    if version.startswith('2-'):
-        version = version[2:]
-
-    version = re.sub(r'(\d)_(\d)', r'\1.\2', version)
-    pattern = r"(\d+(\.\d+)*[a-z]?(_(alpha|beta|pre|rc|p)\d*)*(-r\d+)?)"
-
-    match = re.search(pattern, version, re.IGNORECASE)
-
-    if match:
-        if match.group(1) != version:
-            logger.debug(f'Version {version} sanitized to {match.group(1)}')
-        return match.group(1)
+    suf = re.sub(r'[-_\.]', '', suf)
+    m = re.match(r'^([A-Za-z]+)([0-9]+)?', suf)
+    if m:
+        letters, digits = m.groups()
     else:
-        return version
+        suf_clean = re.sub(r'[\s.\-_]+', '', suf)
+        m2 = re.match(r'^([A-Za-z]+)([0-9]+)?$', suf_clean)
+        if m2:
+            letters, digits = m2.groups()
+        else:
+            letters, digits = '', ''
+
+    letters_lower = letters
+
+    if letters_lower in ('test', 'dev'):
+        letters_lower = 'beta'
+
+    allowed = ('pre', 'beta', 'rc', 'p', 'alpha')
+
+    if letters_lower in allowed:
+        if digits and digits != '0':
+            return f"{main}_{letters_lower}{digits}"
+        return f"{main}_{letters_lower}"
+    else:
+        # Single-letter suffix with no digits -> preserve as lowercase
+        if len(letters) == 1 and not digits:
+            return f"{main}{letters_lower}"
+        # No recognized suffix
+        if not letters and digits:
+            # Just attach the digits directly (e.g. "1.2.3" + "4")
+            return f"{main}{digits}"
+        if letters and not digits and len(letters) == 1:
+            return f"{main}{letters_lower}"
+        # If the version ends with a letter like 1.2.20a (and not recognized),
+        # the requirement says "it is preserved" only if it is exactly a single letter.
+        # For multi-letter unknown suffix -> discard.
+        return main
 
 
 def compare_versions(old: str, new: str, development: bool = False, old_sha: str = "") -> bool:
@@ -252,3 +308,43 @@ def unpack_ebuild(ebuild_path: str) -> str:
         return str(workdir)
 
     return ''
+
+
+def get_last_version(results: List[Dict[str, str]], repo: str, ebuild: str, development: bool,
+                     restrict_version: str, settings: LivecheckSettings) -> Dict[str, str]:
+    logger.debug('Result count: %d', len(results))
+
+    catpkg, _, _, ebuild_version = catpkg_catpkgsplit(ebuild)
+    last_version = {}
+
+    for result in results:
+        tag = version = result["tag"]
+        if catpkg in settings.regex_version:
+            logger.debug('Applying regex %s -> %s', tag, version)
+            regex, replace = settings.regex_version[catpkg]
+            version = re.sub(regex, replace, version)
+        else:
+            version = sanitize_version(version, repo)
+            logger.debug("Convert Tag: %s -> %s", tag, version)
+        # check If ebuild_version has dots, last version must also have
+        if '.' in ebuild_version and '.' not in version:
+            continue
+        # Check valid version
+        try:
+            _, _, _, _ = catpkg_catpkgsplit(ebuild)
+        except ValueError:
+            logger.debug("Skip non-version tag: %s", version)
+            continue
+        if not version.startswith(restrict_version):
+            continue
+        if is_version_development(ebuild_version) or (not is_version_development(version)
+                                                      or development):
+            last = last_version.get('version', '')
+            if not last or bool(vercmp(last, version) == -1):
+                last_version = result.copy()
+                last_version['version'] = version
+
+    if not last_version:
+        logger.debug("No new update for %s.", ebuild)
+
+    return last_version
