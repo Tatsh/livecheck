@@ -45,21 +45,20 @@ def get_latest_github_package(url: str, ebuild: str, development: bool, restrict
         return '', ''
     r.raise_for_status()
 
-    results = []
-
+    results: list[dict[str, str]] = []
     for tag_id_element in etree.fromstring(r.text).findall('entry/id', RSS_NS):
         tag_id = tag_id_element.text
         tag = tag_id.split('/')[-1] if tag_id and '/' in tag_id else ''
         if tag:
             results.append({"tag": tag, "id": tag})
 
-    result = get_last_version(results, repo, ebuild, development, restrict_version, settings)
-    if result:
+    last_version = get_last_version(results, repo, ebuild, development, restrict_version, settings)
+    if last_version:
         session = session_init('github')
         r = session.get(f"https://api.github.com/repos/{owner}/{repo}/git/refs/tags/{result['id']}")
         if r.status_code != 200:
-            return result['version'], ''
-        return result['version'], r.json()["object"]["sha"]
+            return last_version['version'], ''
+        return last_version['version'], r.json()["object"]["sha"]
     return '', ''
 
 

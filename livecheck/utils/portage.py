@@ -315,7 +315,7 @@ def get_last_version(results: List[Dict[str, str]], repo: str, ebuild: str, deve
     logger.debug('Result count: %d', len(results))
 
     catpkg, _, _, ebuild_version = catpkg_catpkgsplit(ebuild)
-    last_version = {}
+    last_version: Dict[str, str] = {}
 
     for result in results:
         tag = version = result["tag"]

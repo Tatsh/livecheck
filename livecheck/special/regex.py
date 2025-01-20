@@ -50,9 +50,7 @@ def get_latest_regex_package(ebuild: str, settings: LivecheckSettings, url: str,
         logger.debug(f'Caught error {e} attempting to fetch {url}')
         return '', '', ''
 
-    results = adjust_regex(version, regex, settings, cp, r.text)
-
-    results = []
+    results: list[dict[str, str]] = []
     for result in adjust_regex(version, regex, settings, cp, r.text):
         if is_sha(result) and not results:
             hash_date = ''
@@ -69,8 +67,9 @@ def get_latest_regex_package(ebuild: str, settings: LivecheckSettings, url: str,
             return result, hash_date, url
         else:
             results.append({"tag": result})
-    result = get_last_version(results, '', ebuild, development, restrict_version, settings)
-    if result:
-        return result['version'], '', ''
+
+    last_version = get_last_version(results, '', ebuild, development, restrict_version, settings)
+    if last_version:
+        return last_version['version'], '', ''
 
     return '', '', ''

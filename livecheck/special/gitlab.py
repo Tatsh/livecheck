@@ -39,7 +39,7 @@ def get_latest_gitlab_package(url: str, ebuild: str, development: bool, restrict
         logger.error(f"URL error: {e}")
         return '', ''
 
-    results = []
+    results: list[dict[str, str]] = []
     for tag in tags_data:
         original_name = tag.get("name", "")
         cleaned_name = re.sub(r"^[^\d]+", "", original_name)
@@ -52,8 +52,8 @@ def get_latest_gitlab_package(url: str, ebuild: str, development: bool, restrict
             "id": tag.get("commit", {}).get("id", ""),
         })
 
-    result = get_last_version(results, repo, ebuild, development, restrict_version, settings)
-    if result:
-        return result['version'], result["id"]
+    last_version = get_last_version(results, repo, ebuild, development, restrict_version, settings)
+    if last_version:
+        return last_version['version'], last_version["id"]
 
     return '', ''

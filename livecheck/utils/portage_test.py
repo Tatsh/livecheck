@@ -3,7 +3,7 @@ import pytest
 from livecheck.utils.portage import sanitize_version
 
 
-def test_sanitize_version():
+def test_sanitize_version() -> None:
     # Test cases for normalize_version function
     # fmt: off
     test_cases = [
