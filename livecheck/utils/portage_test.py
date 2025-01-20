@@ -46,6 +46,7 @@ def test_sanitize_version() -> None:
         ("build_420", "420"),
         ("glabels", ""),
         ("NewBuild25rc1", "25_rc1"),
+        ("v1.12.post318", "1.12_p318")
     ]
     # fmt: on
 
