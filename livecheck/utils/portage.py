@@ -320,9 +320,9 @@ def get_last_version(results: List[Dict[str, str]], repo: str, ebuild: str, deve
     for result in results:
         tag = version = result["tag"]
         if catpkg in settings.regex_version:
-            logger.debug('Applying regex %s -> %s', tag, version)
             regex, replace = settings.regex_version[catpkg]
             version = re.sub(regex, replace, version)
+            logger.debug('Applying regex %s -> %s', tag, version)
         else:
             version = sanitize_version(version, repo)
             logger.debug("Convert Tag: %s -> %s", tag, version)
