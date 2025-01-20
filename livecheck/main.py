@@ -437,14 +437,6 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
         new_revision = 'r' + str(int(new_revision[1:]) + 1)
         logger.debug(f'Incrementing revision to {new_revision}')
         last_version = f'{new_version}-{new_revision}'
-
-    if cp in settings.regex_version:
-        logger.debug(f'Applying regex for {cp} old version {last_version}')
-        regex, replace = settings.regex_version[cp]
-        last_version = re.sub(regex, replace, last_version)
-    last_version = sanitize_version(last_version)
-    if cp == 'games-emulation/play':
-        last_version = last_version.replace('-', '.')
     logger.debug(f'top_hash = {last_version}')
 
     logger.debug(

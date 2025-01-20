@@ -221,7 +221,10 @@ def normalize_version(ver: str) -> str:
     if not main:
         return ver
 
-    suf = re.sub(r'[-_\.]', '', suf)
+    suf = re.sub(r'[-_\. ]', '', suf)
+    if suf.isdigit():
+        return f"{main}.{suf}"
+
     m = re.match(r'^([A-Za-z]+)([0-9]+)?', suf)
     if m:
         letters, digits = m.groups()
@@ -233,27 +236,27 @@ def normalize_version(ver: str) -> str:
         else:
             letters, digits = '', ''
 
-    letters_lower = letters
+    if letters in ('test', 'dev'):
+        letters = 'beta'
 
-    if letters_lower in ('test', 'dev'):
-        letters_lower = 'beta'
+    allowed = ('pre', 'beta', 'rc', 'p', 'alpha', 'post')
 
-    allowed = ('pre', 'beta', 'rc', 'p', 'alpha')
-
-    if letters_lower in allowed:
+    if letters in allowed:
+        if letters in ('post'):
+            letters = 'p'
         if digits and digits != '0':
-            return f"{main}_{letters_lower}{digits}"
-        return f"{main}_{letters_lower}"
+            return f"{main}_{letters}{digits}"
+        return f"{main}_{letters}"
     else:
         # Single-letter suffix with no digits -> preserve as lowercase
         if len(letters) == 1 and not digits:
-            return f"{main}{letters_lower}"
+            return f"{main}{letters}"
         # No recognized suffix
         if not letters and digits:
             # Just attach the digits directly (e.g. "1.2.3" + "4")
             return f"{main}{digits}"
         if letters and not digits and len(letters) == 1:
-            return f"{main}{letters_lower}"
+            return f"{main}{letters}"
         # If the version ends with a letter like 1.2.20a (and not recognized),
         # the requirement says "it is preserved" only if it is exactly a single letter.
         # For multi-letter unknown suffix -> discard.
@@ -326,8 +329,9 @@ def get_last_version(results: List[Dict[str, str]], repo: str, ebuild: str, deve
         else:
             version = sanitize_version(version, repo)
             logger.debug("Convert Tag: %s -> %s", tag, version)
-        # check If ebuild_version has dots, last version must also have
-        if '.' in ebuild_version and '.' not in version:
+        # skip version extraneous without dots, example Post120ToMaster
+        if ebuild_version.count('.') > 1 and version.count('.') == 0:
+            logger.debug("Skip version without dots: %s", version)
             continue
         # Check valid version
         try:
