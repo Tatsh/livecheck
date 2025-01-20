@@ -55,7 +55,8 @@ def get_latest_github_package(url: str, ebuild: str, development: bool, restrict
     last_version = get_last_version(results, repo, ebuild, development, restrict_version, settings)
     if last_version:
         session = session_init('github')
-        r = session.get(f"https://api.github.com/repos/{owner}/{repo}/git/refs/tags/{result['id']}")
+        r = session.get(
+            f"https://api.github.com/repos/{owner}/{repo}/git/refs/tags/{last_version['id']}")
         if r.status_code != 200:
             return last_version['version'], ''
         return last_version['version'], r.json()["object"]["sha"]
