@@ -21,6 +21,10 @@ Then if you do not find a new version, try to use the repositories within the me
 That is why it is important to have the first download url well defined and thus automatically
 update the ebuild.
 
+It is recommended to activate the oauth_token of both github and gitlab to avoid
+Rate Limiting problems for the REST API.
+You must create the file ~/.config/gh/hosts.yml and store the oauth_token.
+
 ## Installation
 
 On Gentoo, add my overlay and install:
@@ -119,6 +123,20 @@ Only then `type` is `regex`
 - `version` - string - Version of package. Default: `None`.
 
 ## Development use
+
+### Creating new downloads
+
+There are 2 types of download: `file` and `latest commit` (currently only git is supported) and this
+is evident from the first download url of the ebuild itself.
+
+- To download a file, a search is performed by version / tag, and optionally you can include the
+  commit of said version, including all the results in a list so that the highest one can be
+  selected, according to the search criteria or limit.
+
+- To locate the last commit of an ebuild, we need the sha of the commit and the date as
+  requirements, this is necessary to be able to adjust the name of the ebuild using
+  the a.b.c_pYYYYMMDD version as a scheme, if a different sha is detected with respect to the
+  stored version In the ebuild the version is uploaded.
 
 ### Set up PYTHONPATH
 
