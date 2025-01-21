@@ -65,7 +65,11 @@ def build_compress(temp_dir: str, base_dir: str, directory: str, extension: str,
         logger.warning("The directory vendor was not created.")
         return False
 
-    filename, _ = next(iter(fetchlist.items()))
+    try:
+        filename, _ = next(iter(fetchlist.items()))
+    except StopIteration:
+        logger.warning("Error getting the filename.")
+        return False
 
     if filename.endswith('.tar.gz'):
         archive_ext = '.tar.gz'
