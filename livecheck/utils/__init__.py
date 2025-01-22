@@ -5,17 +5,19 @@ from functools import lru_cache
 from itertools import groupby
 from pathlib import Path
 from typing import TypeVar
+from urllib.parse import urlparse
+from requests import ConnectTimeout, ReadTimeout
+from loguru import logger
+
 import logging
 import operator
 import re
 import requests
-from loguru import logger
-
 import yaml
 
 __all__ = ('TextDataResponse', 'assert_not_none', 'chunks', 'dash_to_underscore', 'dotize',
            'get_github_api_credentials', 'is_sha', 'make_github_grit_commit_re', 'prefix_v',
-           'unique_justseen', 'session_init')
+           'unique_justseen', 'session_init', 'get_content')
 
 logger2 = logging.getLogger(__name__)
 T = TypeVar('T')
@@ -114,6 +116,7 @@ def dash_to_underscore(s: str) -> str:
 class TextDataResponse:
     """Used for data URI responses."""
     text: str
+    status_code: int = 200  # Default status code for successful response
 
     def raise_for_status(self) -> None:
         pass
@@ -127,7 +130,7 @@ def session_init(module: str) -> requests.Session:
         if token:
             session.headers['Authorization'] = f'Bearer {token}'
         session.headers['Accept'] = 'application/vnd.github.v3+json'
-    elif module == 'atom':
+    elif module == 'xml':
         session.headers['Accept'] = 'application/xml'
     elif module == 'json':
         session.headers['Accept'] = 'application/json'
@@ -138,3 +141,31 @@ def session_init(module: str) -> requests.Session:
         session.headers['Accept'] = 'application/json'
     session.headers['timeout'] = '30'
     return session
+
+
+def get_content(url: str) -> requests.Response | None:
+    parsed_uri = urlparse(url)
+    logger.debug(f'Fetching {url}')
+
+    if parsed_uri.hostname == 'api.github.com':
+        session = session_init('github')
+    elif parsed_uri.hostname == 'gitlab.com':
+        session = session_init('gitlab')
+    elif url.endswith('.atom'):
+        session = session_init('xml')
+    else:
+        session = session_init('')
+
+    r: TextDataResponse | requests.Response  # only Mypy wants this
+    try:
+        r = session.get(url)
+    except (ReadTimeout, ConnectTimeout, requests.exceptions.HTTPError,
+            requests.exceptions.SSLError, requests.exceptions.ConnectionError,
+            requests.exceptions.MissingSchema, requests.exceptions.ChunkedEncodingError) as e:
+        logger.error(f'Caught error {e} attempting to fetch {url}')
+        return None
+    if r.status_code not in (200, 201, 202, 206, 301, 302, 307, 308):
+        logger.error(f'Error fetching {url} status_code {r.status_code}')
+        return None
+
+    return r

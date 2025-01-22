@@ -1,15 +1,12 @@
-from urllib.parse import urlparse
 import re
 import xml.etree.ElementTree as etree
-from requests import ConnectTimeout, ReadTimeout
-import requests
 
 from loguru import logger
 
 from ..constants import (RSS_NS, SEMVER_RE)
 
 from ..settings import LivecheckSettings
-from ..utils import (TextDataResponse, session_init, is_sha)
+from ..utils import (get_content, is_sha)
 from ..utils.portage import catpkg_catpkgsplit, get_last_version
 
 __all__ = ('get_latest_regex_package',)
@@ -35,26 +32,14 @@ def get_latest_regex_package(ebuild: str, settings: LivecheckSettings, url: str,
 
     cp, _, _, ebuild_version = catpkg_catpkgsplit(ebuild)
 
-    parsed_uri = urlparse(url)
-    logger.debug(f'Fetching {url}')
-    if parsed_uri.hostname == 'api.github.com':
-        session = session_init('github')
-    else:
-        session = session_init('atom')
-    r: TextDataResponse | requests.Response  # only Mypy wants this
-    try:
-        r = (TextDataResponse(url[5:]) if url.startswith('data:') else session.get(url))
-    except (ReadTimeout, ConnectTimeout, requests.exceptions.HTTPError,
-            requests.exceptions.SSLError, requests.exceptions.ConnectionError,
-            requests.exceptions.MissingSchema, requests.exceptions.ChunkedEncodingError) as e:
-        logger.debug(f'Caught error {e} attempting to fetch {url}')
+    r = get_content(url)
+    if not r:
         return '', '', ''
 
     results: list[dict[str, str]] = []
     for result in adjust_regex(version, regex, settings, cp, r.text):
         if is_sha(result) and not results:
             hash_date = ''
-            r.raise_for_status()
             try:
                 updated_el = etree.fromstring(r.text).find('entry/updated', RSS_NS)
                 assert updated_el is not None

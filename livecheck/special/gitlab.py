@@ -1,13 +1,11 @@
-import requests
 import re
 from urllib.parse import urlparse, quote
-from loguru import logger
 
 from ..settings import LivecheckSettings
 from ..utils.portage import get_last_version
-from ..utils import session_init
+from ..utils import get_content
 
-__all__ = ("get_latest_gitlab_package")
+__all__ = ("get_latest_gitlab_package",)
 
 # Number of versions to fetch from GitLab
 VERSIONS = 40
@@ -28,19 +26,14 @@ def get_latest_gitlab_package(url: str, ebuild: str, development: bool, restrict
     domain, path_with_namespace, repo = extract_domain_and_namespace(url)
     base_api_url = f"https://{domain}/api/v4"
     encoded_path = quote(path_with_namespace, safe='')
-    session = session_init('gitlab')
 
-    try:
-        tags_response = session.get(
-            f"{base_api_url}/projects/{encoded_path}/repository/tags?per_page={VERSIONS}")
-        tags_response.raise_for_status()
-        tags_data = tags_response.json()
-    except requests.exceptions.HTTPError as e:
-        logger.error(f"URL error: {e}")
+    tags_response = get_content(
+        f"{base_api_url}/projects/{encoded_path}/repository/tags?per_page={VERSIONS}")
+    if not tags_response:
         return '', ''
 
     results: list[dict[str, str]] = []
-    for tag in tags_data:
+    for tag in tags_response.json():
         original_name = tag.get("name", "")
         cleaned_name = re.sub(r"^[^\d]+", "", original_name)
         match = re.match(r"^(\d+(?:\.\d+){0,2})", cleaned_name)

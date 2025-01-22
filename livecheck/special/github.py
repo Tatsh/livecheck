@@ -5,7 +5,7 @@ from datetime import datetime
 
 from ..settings import LivecheckSettings
 from ..utils.portage import get_last_version
-from ..utils import session_init
+from ..utils import get_content
 
 from ..constants import RSS_NS
 
@@ -38,12 +38,9 @@ def get_latest_github_package(url: str, ebuild: str, development: bool, restrict
     if not owner or not repo:
         return '', ''
 
-    session = session_init('atom')
-
-    r = session.get(f"{domain}/tags.atom")
-    if r.status_code != 200:
+    r = get_content(f"{domain}/tags.atom")
+    if not r:
         return '', ''
-    r.raise_for_status()
 
     results: list[dict[str, str]] = []
     for tag_id_element in etree.fromstring(r.text).findall('entry/id', RSS_NS):
@@ -54,10 +51,9 @@ def get_latest_github_package(url: str, ebuild: str, development: bool, restrict
 
     last_version = get_last_version(results, repo, ebuild, development, restrict_version, settings)
     if last_version:
-        session = session_init('github')
-        r = session.get(
+        r = get_content(
             f"https://api.github.com/repos/{owner}/{repo}/git/refs/tags/{last_version['id']}")
-        if r.status_code != 200:
+        if not r:
             return last_version['version'], ''
         return last_version['version'], r.json()["object"]["sha"]
     return '', ''
@@ -68,16 +64,13 @@ def get_latest_github_commit(url: str, branch: str = 'master') -> tuple[str, str
     if not owner or not repo:
         return '', ''
 
-    session = session_init('github')
-
-    r = session.get(f"https://api.github.com/repos/{owner}/{repo}/branches/{branch}")
-    if r.status_code != 200:
+    r = get_content(f"https://api.github.com/repos/{owner}/{repo}/branches/{branch}")
+    if not r:
         return '', ''
-    j = r.json()
-    d = j["commit"]["commit"]["committer"]["date"][:10]
+    d = r.json()["commit"]["commit"]["committer"]["date"][:10]
     try:
         dt = datetime.fromisoformat(d.replace("Z", "+00:00"))
         formatted_date = dt.strftime("%Y%m%d")
     except ValueError:
         formatted_date = d[:10]
-    return j["commit"]["sha"], formatted_date
+    return r.json()["commit"]["sha"], formatted_date

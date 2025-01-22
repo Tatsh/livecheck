@@ -47,8 +47,8 @@ from .special.yarn import update_yarn_ebuild
 from .typing import PropTuple
 from .utils import (chunks, get_github_api_credentials, is_sha, make_github_grit_commit_re)
 from .utils.portage import (P, catpkg_catpkgsplit, get_first_src_uri, get_highest_matches,
-                            get_highest_matches2, get_repository_root_if_inside, sanitize_version,
-                            compare_versions, digest_ebuild, catpkgsplit)
+                            get_highest_matches2, get_repository_root_if_inside, compare_versions,
+                            digest_ebuild, catpkgsplit)
 
 T = TypeVar('T')
 
