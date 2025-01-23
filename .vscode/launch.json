@@ -1,7 +1,7 @@
 {
   "configurations": [
     {
-      "args": ["-W", "/usr/portage/local/inode64/app-metrics/metricbeat-bin"],
+      "args": ["-x"],
       "autoReload": {
         "enable": true
       },
@@ -10,7 +10,7 @@
         "_PYTEST_RAISE": "1"
       },
       "justMyCode": true,
-      "module": "livecheck",
+      "module": "pytest",
       "name": "Run tests",
       "request": "launch",
       "type": "python"
