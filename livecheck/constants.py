@@ -57,17 +57,6 @@ SUBMODULES: Final[Mapping[str, set[str | tuple[str, str]]]] = {
         'externals/sirit',
         'externals/xbyak',
     },
-    'games-emulation/xemu': {
-        'genconfig',
-        'hw/xbox/nv2a/thirdparty/nv2a_vsh_cpu',
-        'tomlplusplus',
-        'ui/thirdparty/httplib',
-        'ui/thirdparty/imgui',
-        'ui/thirdparty/implot',
-        'ui/keycodemapdb',
-        ('tests/fp/berkeley-softfloat-3', 'SOFTFLOAT_SHA'),
-        ('tests/fp/berkeley-testfloat-3', 'TESTFLOAT_SHA'),
-    },
     'games-emulation/vita3k': {
         'external/LibAtrac9',
         'external/SPIRV-Cross',
