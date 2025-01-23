@@ -22,7 +22,6 @@ from typing import Match
 from .constants import (
     GIST_HOSTNAMES,
     GITLAB_HOSTNAMES,
-    PREFIX_RE,
     SUBMODULES,
     TAG_NAME_FUNCTIONS,
 )
@@ -32,6 +31,7 @@ from .special.bitbucket import get_latest_bitbucket_package
 from .special.composer import update_composer_ebuild, remove_composer_url
 from .special.davinci import get_latest_davinci_package
 from .special.dotnet import update_dotnet_ebuild
+from .special.github import get_latest_github_package, get_latest_github_commit
 from .special.gitlab import get_latest_gitlab_package
 from .special.golang import update_go_ebuild
 from .special.gomodule import update_gomodule_ebuild, remove_gomodule_url
@@ -45,11 +45,10 @@ from .special.sourceforge import get_latest_sourceforge_package
 from .special.yarn import update_yarn_ebuild
 
 from .typing import PropTuple
-from .utils import (chunks, get_github_api_credentials, is_sha, make_github_grit_commit_re,
-                    make_github_grit_title_re)
+from .utils import (chunks, get_github_api_credentials, is_sha, make_github_grit_commit_re)
 from .utils.portage import (P, catpkg_catpkgsplit, get_first_src_uri, get_highest_matches,
-                            get_highest_matches2, get_repository_root_if_inside, sanitize_version,
-                            compare_versions, digest_ebuild, catpkgsplit)
+                            get_highest_matches2, get_repository_root_if_inside, compare_versions,
+                            digest_ebuild, catpkgsplit)
 
 T = TypeVar('T')
 
@@ -90,86 +89,71 @@ def log_unhandled_github_package(catpkg: str) -> None:
 
 
 def parse_url(repo_root: str, src_uri: str, devel: bool, settings: LivecheckSettings, match: str,
-              restrict_version: str) -> tuple[str, str, str]:
-    catpkg, _, pkg, ebuild_version = catpkg_catpkgsplit(match)
+              restrict_version: str) -> tuple[str, str, str, str]:
+    catpkg, _, pkg, _ = catpkg_catpkgsplit(match)
 
     parsed_uri = urlparse(src_uri)
-    last_version = hash_date = url = ''
+    last_version = top_hash = hash_date = url = ''
 
-    if parsed_uri.hostname == 'github.com':
+    if parsed_uri.hostname and 'github.' in parsed_uri.hostname:
         logger.debug(f'Parsed path: {parsed_uri.path}')
-        github_homepage = f'https://github.com{"/".join(parsed_uri.path.split("/")[0:3])}'
         filename = Path(parsed_uri.path).name
         version = re.split(r'\.(?:tar\.(?:gz|bz2)|zip)$', filename, maxsplit=2)[0]
         if (re.match(r'^[0-9a-f]{7,}$', version) and not re.match('^[0-9a-f]{8}$', version)):
             branch = (settings.branches.get(catpkg, 'master'))
-            last_version, hash_date, url = get_latest_regex_package(
-                ebuild_version, catpkg, settings, f'{github_homepage}/commits/{branch}.atom',
-                make_github_grit_commit_re(40 * ' '), version, devel, restrict_version)
+            top_hash, hash_date = get_latest_github_commit(src_uri, branch)
+
         elif ('/releases/download/' in parsed_uri.path or '/archive/' in parsed_uri.path):
-            prefix = ''
-            if (m := re.match(PREFIX_RE, filename) if '/archive/' in parsed_uri.path else re.match(
-                    PREFIX_RE,
-                    Path(parsed_uri.path).parent.name)):
-                prefix = m.group(1)
-            url = f'{github_homepage}/tags'
-            regex = f'archive/refs/tags/{prefix}([^"]+)\\.tar\\.gz'
-            if re.match(r'^wiimms-(iso|szs)-tools$', pkg):
-                regex = make_github_grit_title_re()
-                url = f'github.com/Wiimm/{pkg}/commits/master.atom'
-            last_version, hash_date, url = get_latest_regex_package(
-                ebuild_version, catpkg, settings, url, regex, version, devel, restrict_version)
-        elif m := re.search(r'/raw/([0-9a-f]+)/', parsed_uri.path):
-            version = m.group(1)
+            last_version, top_hash = get_latest_github_package(src_uri, match, devel,
+                                                               restrict_version, settings)
+        elif re.search(r'/raw/([0-9a-f]+)/', parsed_uri.path):
             branch = (settings.branches.get(catpkg, 'master'))
-            last_version, hash_date, url = get_latest_regex_package(
-                ebuild_version, catpkg, settings, f'{github_homepage}/commits/{branch}.atom',
-                (r'<id>tag:github.com,2008:Grit::Commit/([0-9a-f]{' + str(len(version)) +
-                 r'})[0-9a-f]*</id>'), version, devel, restrict_version)
+            top_hash, hash_date = get_latest_github_commit(src_uri, branch)
         else:
             log_unhandled_github_package(catpkg)
     elif parsed_uri.hostname == 'git.sr.ht':
         user_repo = '/'.join(parsed_uri.path.split('/')[1:3])
         branch = (settings.branches.get(catpkg, 'master'))
         last_version, hash_date, url = get_latest_regex_package(
-            ebuild_version, catpkg, settings, f'https://git.sr.ht/{user_repo}/log/{branch}/rss.xml',
+            match, settings, f'https://git.sr.ht/{user_repo}/log/{branch}/rss.xml',
             r'<pubDate>([^<]+)</pubDate>', '', devel, restrict_version)
     elif parsed_uri.hostname in GIST_HOSTNAMES:
         home = P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0]
         last_version, hash_date, url = get_latest_regex_package(
-            ebuild_version, catpkg, settings, f'{home}/revisions',
-            r'<relative-time datetime="([0-9-]{10})', '', devel, restrict_version)
+            match, settings, f'{home}/revisions', r'<relative-time datetime="([0-9-]{10})', '',
+            devel, restrict_version)
     elif src_uri.startswith('mirror://pypi/'):
         dist_name = src_uri.split('/')[4]
         last_version, hash_date, url = get_latest_regex_package(
-            ebuild_version, catpkg, settings, f'https://pypi.org/pypi/{dist_name}/json',
-            r'"version":"([^"]+)"[,\}]', '', devel, restrict_version)
+            match, settings, f'https://pypi.org/pypi/{dist_name}/json', r'"version":"([^"]+)"[,\}]',
+            '', devel, restrict_version)
     elif parsed_uri.hostname == 'files.pythonhosted.org':
         dist_name = src_uri.split('/')[-2]
         last_version, hash_date, url = get_latest_regex_package(
-            ebuild_version, catpkg, settings, f'https://pypi.org/pypi/{dist_name}/json',
-            r'"version":"([^"]+)"[,\}]', '', devel, restrict_version)
+            match, settings, f'https://pypi.org/pypi/{dist_name}/json', r'"version":"([^"]+)"[,\}]',
+            '', devel, restrict_version)
     elif (parsed_uri.hostname == 'www.raphnet-tech.com'
           and parsed_uri.path.startswith('/downloads')):
         last_version, hash_date, url = get_latest_regex_package(
-            ebuild_version, catpkg, settings,
+            match, settings,
             P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0],
             (r'\b' + pkg.replace('-', r'[-_]') + r'-([^"]+)\.tar\.gz'), '', devel, restrict_version)
     elif parsed_uri.hostname == 'download.jetbrains.com':
-        last_version = get_latest_jetbrains_package(pkg, devel)
+        last_version = get_latest_jetbrains_package(match, devel, restrict_version, settings)
     elif parsed_uri.hostname and 'gitlab' in parsed_uri.hostname:
-        last_version, hash_date, url = get_latest_gitlab_package(src_uri, devel, restrict_version)
+        last_version, top_hash = get_latest_gitlab_package(src_uri, match, devel, restrict_version,
+                                                           settings)
     elif parsed_uri.hostname == 'cgit.libimobiledevice.org':
         proj = src_uri.split('/')[3]
         last_version, hash_date, url = get_latest_regex_package(
-            ebuild_version, catpkg, settings, f'https://cgit.libimobiledevice.org/{proj}/',
+            match, settings, f'https://cgit.libimobiledevice.org/{proj}/',
             r"href='/" + re.escape(proj) + r"/tag/\?h=([0-9][^']+)", '', devel, restrict_version)
     elif parsed_uri.hostname == 'registry.yarnpkg.com':
         path = ('/'.join(parsed_uri.path.split('/')[1:3])
                 if parsed_uri.path.startswith('/@') else parsed_uri.path.split('/')[1])
         last_version, hash_date, url = get_latest_regex_package(
-            ebuild_version, catpkg, settings, f'https://registry.yarnpkg.com/{path}',
-            r'"latest":"([^"]+)",?', '', devel, restrict_version)
+            match, settings, f'https://registry.yarnpkg.com/{path}', r'"latest":"([^"]+)",?', '',
+            devel, restrict_version)
     elif parsed_uri.hostname == 'pecl.php.net':
         last_version = get_latest_pecl_package(pkg, devel)
     elif parsed_uri.hostname == 'metacpan.org' or parsed_uri.hostname == 'cpan':
@@ -185,22 +169,22 @@ def parse_url(repo_root: str, src_uri: str, devel: bool, settings: LivecheckSett
         home = P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0]
         log_unhandled_pkg(catpkg, home, src_uri)
 
-    return last_version, hash_date, url
+    return last_version, top_hash, hash_date, url
 
 
 def parse_metadata(repo_root: str, devel: bool, settings: LivecheckSettings, match: str,
-                   restrict_version: str) -> tuple[str, str, str]:
-    catpkg, _, _, ebuild_version = catpkg_catpkgsplit(match)
+                   restrict_version: str) -> tuple[str, str, str, str]:
+    catpkg, _, _, _ = catpkg_catpkgsplit(match)
 
     metadata_file = os.path.join(repo_root, catpkg, "metadata.xml")
     if not os.path.exists(metadata_file):
-        return '', '', ''
+        return '', '', '', ''
     try:
         tree = ET.parse(metadata_file)
         root = tree.getroot()
     except ET.ParseError as e:
         logger.error(f'Error parsing {metadata_file}: {e}')
-        return '', '', ''
+        return '', '', '', ''
     upstream_list = root.findall("upstream")
     if upstream_list:
         for upstream in upstream_list:
@@ -208,25 +192,23 @@ def parse_metadata(repo_root: str, devel: bool, settings: LivecheckSettings, mat
                 tag_name = subelem.tag
                 text_val = subelem.text.strip() if subelem.text else ""
                 attribs = subelem.attrib
-                last_version = hash_date = url = ''
+                last_version = top_hash = hash_date = url = ''
                 if tag_name == 'remote-id':
                     if attribs['type'] == 'github':
-                        last_version, hash_date, url = parse_url(
-                            repo_root,
-                            f'https://github.com/{text_val}/releases/download/{ebuild_version}/file-{ebuild_version}.tar.gz',
-                            devel, settings, match, restrict_version)
+                        last_version, top_hash = get_latest_github_package(
+                            f'https://github.com/{text_val}', match, devel, restrict_version,
+                            settings)
                     if attribs['type'] == 'bitbucket':
-                        last_version, hash_date, url = parse_url(
+                        last_version, top_hash, hash_date, url = parse_url(
                             repo_root, f'https://bitbucket.org/{text_val}', devel, settings, match,
                             restrict_version)
                     if 'gitlab' in attribs['type']:
                         uri = GITLAB_HOSTNAMES[attribs['type']]
-                        last_version, hash_date, url = parse_url(repo_root,
-                                                                 f'https://{uri}/{text_val}', devel,
-                                                                 settings, match, restrict_version)
-                    if last_version:
-                        return last_version, hash_date, url
-    return '', '', ''
+                        last_version, top_hash = get_latest_gitlab_package(
+                            f'https://{uri}/{text_val}', match, devel, restrict_version, settings)
+                    if last_version or top_hash:
+                        return last_version, top_hash, hash_date, url
+    return '', '', '', ''
 
 
 def extract_restrict_version(cp: str) -> tuple[str, str]:
@@ -276,7 +258,7 @@ def get_props(search_dir: str,
             continue
         if debug or progress:
             logger.info(f'Processing {catpkg} version {ebuild_version}')
-        last_version = hash_date = url = ''
+        last_version = hash_date = top_hash = url = ''
         if catpkg in settings.sync_version:
             matches_sync = get_highest_matches2([settings.sync_version[catpkg]], '', settings)
             if not matches_sync:
@@ -290,7 +272,7 @@ def get_props(search_dir: str,
         elif catpkg in settings.custom_livechecks:
             url, regex, _, version = settings.custom_livechecks[catpkg]
             last_version, hash_date, url = get_latest_regex_package(
-                ebuild_version, catpkg, settings, url, regex, version, devel, restrict_version)
+                match, settings, url, regex, version, devel, restrict_version)
         elif catpkg in settings.checksum_livechecks:
             manifest_file = Path(search_dir) / catpkg / 'Manifest'
             bn = Path(src_uri).name
@@ -311,7 +293,7 @@ def get_props(search_dir: str,
                         r = requests.get(src_uri, timeout=30)
                         r.raise_for_status()
                         last_version, hash_date, url = get_latest_regex_package(
-                            ebuild_version, catpkg, settings,
+                            match, settings,
                             dict(cast(Sequence[tuple[str, str]], chunks(fields_s.split(' '),
                                                                         2)))['SHA512'],
                             f'data:{hashlib.sha512(r.content).hexdigest()}', r'^[0-9a-f]+$', devel,
@@ -323,14 +305,14 @@ def get_props(search_dir: str,
                 home = P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0]
                 log_unhandled_pkg(catpkg, home, src_uri)
         else:
-            last_version, hash_date, url = parse_url(repo_root, src_uri, devel, settings, match,
-                                                     restrict_version)
-            if not last_version:
-                last_version, hash_date, url = parse_metadata(repo_root, devel, settings, match,
-                                                              restrict_version)
-        if last_version:
+            last_version, top_hash, hash_date, url = parse_url(repo_root, src_uri, devel, settings,
+                                                               match, restrict_version)
+            if not last_version and not top_hash:
+                last_version, top_hash, hash_date, url = parse_metadata(
+                    repo_root, devel, settings, match, restrict_version)
+        if last_version or top_hash:
             logger.debug(f'Inserting {catpkg}: {ebuild_version} -> {last_version}')
-            yield (cat, pkg, ebuild_version, last_version, hash_date, url)
+            yield (cat, pkg, ebuild_version, last_version, top_hash, hash_date, url)
         else:
             logger.debug(f'Ignoring {catpkg}, update not available')
 
@@ -380,40 +362,43 @@ def str_version(version: str, revision: str, sha: str) -> str:
     return version
 
 
-def replace_date_in_ebuild(ebuild: str, new_date: str) -> str:
-    patterns = [
-        r'(_p|_r|\.|-r|_pre)(\d{8})(-r\d+)?', r'(\d{4}\.\d{2}\.\d{2})(-r\d+)?', r'\d{8}',
-        r'(\d+\.\d+\.)(\d{6})(-r\d+)?', r'(\d{4}\.\d+\.\d+)(-r\d+)?'
-    ]
+def replace_date_in_ebuild(ebuild: str, new_date: str, cp: str) -> str:
+    short_date = new_date[2:]
+    pattern = re.compile(r"(\d{4,8})")
 
-    y, m, d = new_date[:4], new_date[4:6], new_date[6:]
-    replacements = {"yyyymmdd": new_date, "yyyy.mm.dd": f"{y}.{m}.{d}", "yyMMdd": f"{y[2:]}{m}{d}"}
-    for pattern in patterns:
-        ebuild = re.sub(pattern, lambda match: _replace_format(match, replacements), ebuild)
+    def replace_match(match: Match[str]) -> str:
+        matched_text = match.group(0)
+        if len(matched_text) == 8 and matched_text.isdigit():
+            return new_date
+        elif len(matched_text) == 6 and matched_text.isdigit():
+            return short_date
+        return matched_text
 
-    return ebuild
+    n = pattern.sub(replace_match, ebuild)
 
-
-def _replace_format(match: Match[str], replacements: dict[str, str]) -> str:
-    if len(match.groups()) == 1 and match.group(1) in ['_p', '_r', '.', '-', '_pre']:
-        return f"{match.group(1)}{replacements['yyyymmdd']}"
-    elif '.' in match.group(0):
-        return replacements['yyyy.mm.dd']
-    elif len(match.group(0)) == 8 or '-r' in match.group(0):
-        return replacements['yyyymmdd']
-    elif len(match.groups()) > 1 and match.group(2):
-        return f"{match.group(1)}{replacements['yyMMdd']}"
-    return match.group(0)
+    result = catpkgsplit(f'{cp}-{ebuild}')
+    if not result or len(result) != 4:
+        logger.error(f'Invalid atom: {cp}-{ebuild}')
+        return n
+    _, _, old_version, _ = result
+    result = catpkgsplit(f'{cp}-{n}')
+    if not result or len(result) != 4:
+        logger.error(f'Invalid atom: {cp}-{n}')
+        return n
+    _, _, new_version, _ = result
+    if old_version != new_version:
+        return new_version
+    return n
 
 
 def execute_hooks(hook_dir: str | None, action: str, search_dir: str, cp: str, str_old_version: str,
                   str_new_version: str, old_sha: str, new_sha: str, hash_date: str) -> None:
     if not hook_dir:
         return
-    dir = Path(hook_dir + '/' + action)
-    if not dir.is_dir():
+    hook_path = Path(hook_dir + '/' + action)
+    if not hook_path.is_dir():
         return
-    for hook in sorted(dir.iterdir()):
+    for hook in sorted(hook_path.iterdir()):
         if hook.is_file() and os.access(hook, os.X_OK):
             logger.debug(f'Running hook {hook}')
             result = sp.run([
@@ -426,41 +411,42 @@ def execute_hooks(hook_dir: str | None, action: str, search_dir: str, cp: str, s
 
 
 def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str, pkg: str,
-            search_dir: str, settings: LivecheckSettings, top_hash: str, hash_date: str, url: str,
-            git: bool, hook_dir: str | None) -> None:
+            search_dir: str, settings: LivecheckSettings, last_version: str, top_hash: str,
+            hash_date: str, url: str, git: bool, hook_dir: str | None) -> None:
     cp = f'{cat}/{pkg}'
     ebuild = os.path.join(search_dir, cp, f'{pkg}-{ebuild_version}.ebuild')
-    new_sha = ''
     old_sha = get_old_sha(ebuild)
-    if cp in settings.regex_version:
-        logger.debug(f'Applying regex for {cp} old version {top_hash}')
-        regex, replace = settings.regex_version[cp]
-        top_hash = re.sub(regex, replace, top_hash)
-    top_hash = sanitize_version(top_hash)
-    if cp == 'games-emulation/play':
-        top_hash = top_hash.replace('-', '.')
-    logger.debug(f'top_hash = {top_hash}')
-
     if update_sha_too_source := settings.sha_sources.get(cp, None):
         logger.debug('Package also needs a SHA update')
-        new_sha = get_new_sha(update_sha_too_source)
+        top_hash = get_new_sha(update_sha_too_source)
         # if empty, it means that the source is not supported
-        if not new_sha:
+        if not top_hash:
             logger.warning(f'Could not get new SHA for {update_sha_too_source}')
             return
-    logger.debug(f'Comparing current ebuild version {ebuild_version} with live version {top_hash}')
-    if compare_versions(ebuild_version, top_hash, True, old_sha):
-        dn = Path(ebuild).parent
-        if hash_date:
-            new_pkg = replace_date_in_ebuild(ebuild_version, hash_date)
-            new_filename = f'{dn}/{pkg}-{new_pkg}.ebuild'
-            logger.debug(f'Updating ebuild {ebuild} to {new_filename}')
-            result = catpkgsplit(f'{cat}/{pkg}-{new_pkg}')
-        else:
-            new_filename = f'{dn}/{pkg}-{top_hash}.ebuild'
-            result = catpkgsplit(f'{cp}-{top_hash}')
+    if hash_date and not last_version:
+        last_version = replace_date_in_ebuild(ebuild_version, hash_date, cp)
+        hash_date = ''
+    if not last_version:
+        last_version = ebuild_version
+    if last_version == ebuild_version and old_sha != top_hash and old_sha and top_hash:
+        result = catpkgsplit(f'{cp}-{last_version}')
         if not result or len(result) != 4:
-            logger.error(f'Invalid atom: {cp}-{top_hash}')
+            logger.error(f'Invalid atom: {cp}-{last_version}')
+            return
+        _, _, new_version, new_revision = result
+        new_revision = 'r' + str(int(new_revision[1:]) + 1)
+        logger.debug(f'Incrementing revision to {new_revision}')
+        last_version = f'{new_version}-{new_revision}'
+    logger.debug(f'top_hash = {last_version}')
+
+    logger.debug(
+        f'Comparing current ebuild version {ebuild_version} with live version {last_version}')
+    if compare_versions(ebuild_version, last_version, True, old_sha):
+        dn = Path(ebuild).parent
+        new_filename = f'{dn}/{pkg}-{last_version}.ebuild'
+        result = catpkgsplit(f'{cp}-{last_version}')
+        if not result or len(result) != 4:
+            logger.error(f'Invalid atom: {cp}-{last_version}')
             return
         _, _, new_version, new_revision = result
         result = catpkgsplit(f'{cp}-{ebuild_version}')
@@ -468,26 +454,22 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
             logger.error(f'Invalid atom: {cp}-{ebuild_version}')
             return
         _, _, old_version, old_revision = result
-        if ebuild == new_filename:
-            new_revision = 'r' + str(int(new_revision[1:]) + 1)
-            logger.debug(f'Incrementing revision to {new_revision}')
-            new_filename = f'{dn}/{pkg}-{new_version}-{new_revision}.ebuild'
         logger.debug(f'Migrating from {ebuild} to {new_filename}')
         if cp in settings.no_auto_update:
             no_auto_update_str = ' (no_auto_update)'
         else:
             no_auto_update_str = ''
-        str_new_version = str_version(new_version, new_revision, new_sha)
+        str_new_version = str_version(new_version, new_revision, top_hash)
         str_old_version = str_version(old_version, old_revision, old_sha)
         print(f'{cat}/{pkg}: {str_old_version} -> '
               f'{str_new_version}{no_auto_update_str}')
 
         if auto_update and cp not in settings.no_auto_update:
-            with open(ebuild) as f:
+            with open(ebuild, encoding='utf-8') as f:
                 old_content = content = f.read()
             # Only update the version if it is not a commit
-            if new_sha and old_sha:
-                content = content.replace(old_sha, new_sha)
+            if top_hash and old_sha:
+                content = content.replace(old_sha, top_hash)
             ps_ref = top_hash
             if not is_sha(top_hash) and cp in TAG_NAME_FUNCTIONS:
                 ps_ref = TAG_NAME_FUNCTIONS[cp](top_hash)
@@ -503,11 +485,11 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
                         return
                 else:
                     sp.run(('mv', ebuild, new_filename), check=True)
-            with open(new_filename, 'w') as f:
+            with open(new_filename, 'w', encoding='utf-8') as f:
                 f.write(content)
-            execute_hooks(hook_dir, 'pre', search_dir, cp, str_old_version, str_new_version,
-                          old_sha, new_sha, hash_date)
-            fetchlist = portdb.getFetchMap(f"{cp}-{str_new_version}")
+            execute_hooks(hook_dir, 'pre', search_dir, cp, ebuild_version, last_version, old_sha,
+                          top_hash, hash_date)
+            fetchlist = portdb.getFetchMap(f"{cp}-{last_version}")
             # Stores the content so that it can be recovered because it had to be modified
             old_content = content
             # First pass
@@ -519,7 +501,7 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
             if cp in settings.composer_packages:
                 content = remove_composer_url(content)
             if old_content != content:
-                with open(new_filename, 'w') as file:
+                with open(new_filename, 'w', encoding='utf-8') as file:
                     file.write(content)
             if not digest_ebuild(new_filename):
                 logger.error(f'Error digesting {new_filename}')
@@ -543,7 +525,7 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
                 update_composer_ebuild(new_filename, settings.composer_path[cp], fetchlist)
             # Restore original ebuild content
             if old_content != content:
-                with open(new_filename, 'w') as file:
+                with open(new_filename, 'w', encoding='utf-8') as file:
                     file.write(old_content)
                 if not digest_ebuild(new_filename):
                     logger.error(f'Error digesting {new_filename}')
@@ -556,7 +538,7 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
                 except sp.CalledProcessError:
                     logger.error(f'Error committing {new_filename}')
             execute_hooks(hook_dir, 'post', search_dir, cp, str_old_version, str_new_version,
-                          old_sha, new_sha, hash_date)
+                          old_sha, top_hash, hash_date)
 
 
 @click.command(context_settings={'help_option_names': ['-h', '--help']})
@@ -635,7 +617,7 @@ def main(
     logger.info(f'search_dir={search_dir} repo_root={repo_root} repo_name={repo_name}')
     settings = gather_settings(search_dir)
     package_names = sorted(package_names or [])
-    for cat, pkg, ebuild_version, last_version, hash_date, url in get_props(
+    for cat, pkg, ebuild_version, last_version, top_hash, hash_date, url in get_props(
             search_dir,
             repo_root,
             settings,
@@ -648,7 +630,8 @@ def main(
         try:
             do_main(cat=cat,
                     pkg=pkg,
-                    top_hash=last_version,
+                    last_version=last_version,
+                    top_hash=top_hash,
                     hash_date=hash_date,
                     url=url,
                     search_dir=repo_root,
