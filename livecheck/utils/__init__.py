@@ -67,8 +67,7 @@ def parse_npm_package_name(s: str) -> tuple[str, str | None, str | None]:
 
 @lru_cache
 def get_github_api_credentials(repo: str = 'github.com') -> str | None:
-    token = keyring.get_password(repo, 'livecheck')
-    if not token:
+    if not (token := keyring.get_password(repo, 'livecheck')):
         logger.warning(f"No {repo} API token found in your secret store")
     return token
 
