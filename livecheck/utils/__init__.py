@@ -3,7 +3,6 @@ from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from functools import lru_cache
 from itertools import groupby
-from pathlib import Path
 from typing import TypeVar
 from urllib.parse import urlparse
 from requests import ConnectTimeout, ReadTimeout
@@ -14,7 +13,7 @@ import logging
 import operator
 import re
 import requests
-import yaml
+import keyring
 
 __all__ = ('TextDataResponse', 'assert_not_none', 'chunks', 'dash_to_underscore', 'dotize',
            'get_github_api_credentials', 'is_sha', 'make_github_grit_commit_re', 'prefix_v',
@@ -67,15 +66,10 @@ def parse_npm_package_name(s: str) -> tuple[str, str | None, str | None]:
 
 
 @lru_cache
-def get_github_api_credentials(repo: str = 'github.com') -> str:
-    try:
-        with Path('~/.config/gh/hosts.yml').expanduser().open() as f:
-            data = yaml.safe_load(f)
-    except FileNotFoundError:
-        return ''
-    token = str(data.get(repo, {}).get('oauth_token', ""))
+def get_github_api_credentials(repo: str = 'github.com') -> str | None:
+    token = keyring.get_password(repo, 'livecheck')
     if not token:
-        logger.warning(f"No {repo} API token found")
+        logger.warning(f"No {repo} API token found in your secret store")
     return token
 
 

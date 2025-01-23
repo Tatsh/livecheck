@@ -23,7 +23,8 @@ update the ebuild.
 
 It is recommended to activate the oauth_token of both github and gitlab to avoid
 Rate Limiting problems for the REST API.
-You must create the file ~/.config/gh/hosts.yml and store the oauth_token.
+Use your secret storage to store `github.com` or `gitlab.com` tokens with the `livecheck` user.
+See [keyring](https://github.com/jaraco/keyring) to manage tokens.
 
 ## Installation
 
