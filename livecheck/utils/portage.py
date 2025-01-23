@@ -4,7 +4,6 @@ from pathlib import Path
 import logging
 import os
 import re
-from typing import List, Dict
 from itertools import chain
 
 from portage.versions import catpkgsplit, vercmp
@@ -42,7 +41,7 @@ def mask_version(cp: str, version: str, restrict_version: str | None = 'full') -
     return cp
 
 
-def get_highest_matches(search_dir: str, repo_root: str, settings: LivecheckSettings) -> List[str]:
+def get_highest_matches(search_dir: str, repo_root: str, settings: LivecheckSettings) -> list[str]:
     result: dict[str, str] = {}
     for path in Path(search_dir).glob('**/*.ebuild'):
         dn = path.parent
@@ -65,7 +64,7 @@ def get_highest_matches(search_dir: str, repo_root: str, settings: LivecheckSett
 
 
 def get_highest_matches2(names: Sequence[str], repo_root: str,
-                         settings: LivecheckSettings) -> List[str]:
+                         settings: LivecheckSettings) -> list[str]:
     result: dict[str, str] = {}
     for name in names:
         if matches := P.xmatch('match-all', name):
@@ -313,12 +312,12 @@ def unpack_ebuild(ebuild_path: str) -> str:
     return ''
 
 
-def get_last_version(results: List[Dict[str, str]], repo: str, ebuild: str, development: bool,
-                     restrict_version: str, settings: LivecheckSettings) -> Dict[str, str]:
+def get_last_version(results: list[dict[str, str]], repo: str, ebuild: str, development: bool,
+                     restrict_version: str, settings: LivecheckSettings) -> dict[str, str]:
     logger.debug('Result count: %d', len(results))
 
     catpkg, _, _, ebuild_version = catpkg_catpkgsplit(ebuild)
-    last_version: Dict[str, str] = {}
+    last_version: dict[str, str] = {}
 
     for result in results:
         tag = version = result["tag"]

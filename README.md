@@ -126,17 +126,16 @@ Only then `type` is `regex`
 
 ### Creating new downloads
 
-There are 2 types of download: `file` and `latest commit` (currently only git is supported) and this
-is evident from the first download url of the ebuild itself.
+There are 2 types of downloads: _file_ and _latest commit_ (currently only Git is supported) and this
+is evident from the first download URL of the ebuild itself.
 
-- To download a file, a search is performed by version / tag, and optionally you can include the
+- To download a file, a search is performed by version/tag, and optionally you can include the
   commit of said version, including all the results in a list so that the highest one can be
   selected, according to the search criteria or limit.
 
-- To locate the last commit of an ebuild, we need the sha of the commit and the date as
-  requirements, this is necessary to be able to adjust the name of the ebuild using
-  the a.b.c_pYYYYMMDD version as a scheme, if a different sha is detected with respect to the
-  stored version In the ebuild the version is uploaded.
+- To locate the last commit of an ebuild, we need the SHA of the commit and the date. This is
+  necessary to be able to adjust the name of the ebuild using
+  the a.b.c_pYYYYMMDD version as a scheme. If a different SHA is detected the version is updated.
 
 ### Set up PYTHONPATH
 

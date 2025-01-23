@@ -8,6 +8,7 @@ from typing import TypeVar
 from urllib.parse import urlparse
 from requests import ConnectTimeout, ReadTimeout
 from loguru import logger
+from http import HTTPStatus
 
 import logging
 import operator
@@ -116,7 +117,7 @@ def dash_to_underscore(s: str) -> str:
 class TextDataResponse:
     """Used for data URI responses."""
     text: str
-    status_code: int = 200  # Default status code for successful response
+    status_code: int = HTTPStatus.OK  # Default status code for successful response
 
     def raise_for_status(self) -> None:
         pass
@@ -164,7 +165,10 @@ def get_content(url: str) -> requests.Response | None:
             requests.exceptions.MissingSchema, requests.exceptions.ChunkedEncodingError) as e:
         logger.error(f'Caught error {e} attempting to fetch {url}')
         return None
-    if r.status_code not in (200, 201, 202, 206, 301, 302, 307, 308):
+    if r.status_code not in (HTTPStatus.OK, HTTPStatus.CREATED, HTTPStatus.ACCEPTED,
+                             HTTPStatus.PARTIAL_CONTENT, HTTPStatus.MOVED_PERMANENTLY,
+                             HTTPStatus.FOUND, HTTPStatus.TEMPORARY_REDIRECT,
+                             HTTPStatus.PERMANENT_REDIRECT):
         logger.error(f'Error fetching {url} status_code {r.status_code}')
         return None
 

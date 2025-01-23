@@ -1,12 +1,11 @@
-"""Configuration for Pytest."""
 import pytest
 from livecheck.utils.portage import sanitize_version
 
 
-def test_sanitize_version() -> None:
-    # Test cases for normalize_version function
-    # fmt: off
-    test_cases = [
+# fmt: off
+@pytest.mark.parametrize(
+    "version, expected",
+    [
         ("v1.2.3", "1.2.3"),
         ("s1.2.3", "1.2.3"),
         ("1.2.3", "1.2.3"),
@@ -48,7 +47,7 @@ def test_sanitize_version() -> None:
         ("NewBuild25rc1", "25_rc1"),
         ("v1.12.post318", "1.12_p318")
     ]
-    # fmt: on
-
-    for ver, expected in test_cases:
-        assert sanitize_version(ver) == expected
+)
+# fmt: on
+def test_sanitize_version(version: str, expected: str) -> None:
+    assert sanitize_version(version) == expected

@@ -14,8 +14,7 @@ __all__ = ("get_latest_github_package", "get_latest_github_commit")
 
 def extract_owner_repo(url: str) -> tuple[str, str, str]:
     u = urlparse(url)
-    d = u.netloc
-    n = u.netloc
+    d = n = u.netloc
     m = re.match(r'^([^\.]+)\.github\.(io|com)$', n)
     if m:
         p = [x for x in u.path.split('/') if x]
@@ -33,27 +32,25 @@ def extract_owner_repo(url: str) -> tuple[str, str, str]:
 
 def get_latest_github_package(url: str, ebuild: str, development: bool, restrict_version: str,
                               settings: LivecheckSettings) -> tuple[str, str]:
-
     domain, owner, repo = extract_owner_repo(url)
     if not owner or not repo:
         return '', ''
 
-    r = get_content(f"{domain}/tags.atom")
-    if not r:
+    if not (r := get_content(f"{domain}/tags.atom")):
         return '', ''
 
     results: list[dict[str, str]] = []
     for tag_id_element in etree.fromstring(r.text).findall('entry/id', RSS_NS):
         tag_id = tag_id_element.text
+
         tag = tag_id.split('/')[-1] if tag_id and '/' in tag_id else ''
-        if tag:
+        if tag := (tag_id.split('/')[-1] if tag_id and '/' in tag_id else ''):
             results.append({"tag": tag, "id": tag})
 
-    last_version = get_last_version(results, repo, ebuild, development, restrict_version, settings)
-    if last_version:
-        r = get_content(
-            f"https://api.github.com/repos/{owner}/{repo}/git/refs/tags/{last_version['id']}")
-        if not r:
+    if last_version := get_last_version(results, repo, ebuild, development, restrict_version,
+                                        settings):
+        if not (r := get_content(
+                f"https://api.github.com/repos/{owner}/{repo}/git/refs/tags/{last_version['id']}")):
             return last_version['version'], ''
         return last_version['version'], r.json()["object"]["sha"]
     return '', ''
@@ -64,8 +61,7 @@ def get_latest_github_commit(url: str, branch: str = 'master') -> tuple[str, str
     if not owner or not repo:
         return '', ''
 
-    r = get_content(f"https://api.github.com/repos/{owner}/{repo}/branches/{branch}")
-    if not r:
+    if not (r := get_content(f"https://api.github.com/repos/{owner}/{repo}/branches/{branch}")):
         return '', ''
     d = r.json()["commit"]["commit"]["committer"]["date"][:10]
     try:

@@ -6,7 +6,7 @@ from loguru import logger
 from ..constants import (RSS_NS, SEMVER_RE)
 
 from ..settings import LivecheckSettings
-from ..utils import (get_content, is_sha)
+from ..utils import get_content, is_sha
 from ..utils.portage import catpkg_catpkgsplit, get_last_version
 
 __all__ = ('get_latest_regex_package',)
