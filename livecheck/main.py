@@ -79,9 +79,8 @@ def process_submodules(pkg_name: str, ref: str, contents: str, repo_uri: str) ->
     return contents
 
 
-def log_unhandled_pkg(catpkg: str, home: str, src_uri: str) -> None:
-    logger.debug(f'Not handled: {catpkg} (checksum), homepage: {home}, '
-                 f'SRC_URI: {src_uri}')
+def log_unhandled_pkg(catpkg: str, src_uri: str) -> None:
+    logger.debug(f'Not handled: {catpkg} SRC_URI: {src_uri}')
 
 
 def log_unhandled_github_package(catpkg: str) -> None:
@@ -165,9 +164,7 @@ def parse_url(repo_root: str, src_uri: str, devel: bool, settings: LivecheckSett
     elif parsed_uri.hostname == 'bitbucket.org':
         last_version = get_latest_bitbucket_package(parsed_uri.path)
     else:
-        logger.debug(f'Unhandled: {catpkg} {parsed_uri.hostname}')
-        home = P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0]
-        log_unhandled_pkg(catpkg, home, src_uri)
+        log_unhandled_pkg(catpkg, src_uri)
 
     return last_version, top_hash, hash_date, url
 
@@ -302,8 +299,7 @@ def get_props(search_dir: str,
             except FileNotFoundError:
                 pass
             if not found:
-                home = P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0]
-                log_unhandled_pkg(catpkg, home, src_uri)
+                log_unhandled_pkg(catpkg, src_uri)
         else:
             last_version, top_hash, hash_date, url = parse_url(repo_root, src_uri, devel, settings,
                                                                match, restrict_version)
@@ -387,7 +383,7 @@ def replace_date_in_ebuild(ebuild: str, new_date: str, cp: str) -> str:
         return n
     _, _, new_version, _ = result
     if old_version != new_version:
-        return new_version
+        return str(new_version)
     return n
 
 
@@ -489,6 +485,13 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
                 f.write(content)
             execute_hooks(hook_dir, 'pre', search_dir, cp, ebuild_version, last_version, old_sha,
                           top_hash, hash_date)
+            # We do not check the digest because it may happen that additional files need to be
+            # created that have not yet been generated until the main ebuild is downloaded for
+            # the first time and the hooks create those additional files.
+            # And you cannot remove the digest generation either, but rather the repositories
+            # that do not have thin-Manifests ( metadata/layout.conf -> thin-manifests = true)
+            # see: https://devmanual.gentoo.org/general-concepts/manifest/index.html
+            digest_ebuild(new_filename)
             fetchlist = portdb.getFetchMap(f"{cp}-{last_version}")
             # Stores the content so that it can be recovered because it had to be modified
             old_content = content
@@ -537,8 +540,8 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
                     sp.run(('pkgdev', 'commit'), cwd=os.path.join(search_dir, cp), check=True)
                 except sp.CalledProcessError:
                     logger.error(f'Error committing {new_filename}')
-            execute_hooks(hook_dir, 'post', search_dir, cp, str_old_version, str_new_version,
-                          old_sha, top_hash, hash_date)
+            execute_hooks(hook_dir, 'post', search_dir, cp, ebuild_version, last_version, old_sha,
+                          top_hash, hash_date)
 
 
 @click.command(context_settings={'help_option_names': ['-h', '--help']})
