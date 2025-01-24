@@ -1,13 +1,12 @@
 import tempfile
 from pathlib import Path
 
-import requests
 from loguru import logger
 from .utils import search_ebuild
 
 from ..settings import LivecheckSettings
 from ..utils.portage import get_last_version, catpkg_catpkgsplit
-from ..utils import session_init
+from ..utils import get_content
 
 __all__ = ("get_latest_jetbrains_package", "update_jetbrains_ebuild")
 
@@ -27,23 +26,18 @@ def get_latest_jetbrains_package(ebuild: str, development: bool, restrict_versio
     _, _, product_code, _ = catpkg_catpkgsplit(ebuild)
 
     product_code = product_name.get(product_code, product_code)
-    session = session_init('json')
     results = []
 
-    try:
-        response = session.get(api_url)
-        response.raise_for_status()
-        products_info = response.json()
+    if not (response := get_content(api_url)):
+        return ''
 
-        for product in products_info:
-            if product['name'] == product_code:
-                for release in product['releases']:
-                    if (release['type'] == 'eap' or release['type'] == 'rc') and not development:
-                        continue
-                    if 'linux' in release.get('downloads', ''):
-                        results.append({"tag": release['version']})
-    except requests.exceptions.HTTPError as e:
-        logger.debug(f"Error accessing the URL: {e}")
+    for product in response.json():
+        if product['name'] == product_code:
+            for release in product['releases']:
+                if (release['type'] == 'eap' or release['type'] == 'rc') and not development:
+                    continue
+                if 'linux' in release.get('downloads', ''):
+                    results.append({"tag": release['version']})
 
     result = get_last_version(results, '', ebuild, development, restrict_version, settings)
     if result:
