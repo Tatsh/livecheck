@@ -5,7 +5,8 @@ from urllib.parse import urlparse
 
 from ..settings import LivecheckSettings
 from ..utils.portage import get_last_version, catpkg_catpkgsplit
-from ..utils import get_content, is_compressed_file
+from ..utils import get_content
+from .utils import get_archive_extension
 
 __all__ = ["get_latest_sourceforge_package"]
 
@@ -43,7 +44,7 @@ def get_latest_sourceforge_package(src_uri: str, ebuild: str, development: bool,
     for item in etree.fromstring(response.text).findall(".//item"):
         title = item.find("title")
         version = os.path.basename(title.text) if title is not None and title.text else ''
-        if version and is_compressed_file(version):
+        if version and get_archive_extension(version):
             results.append({"tag": version})
 
     result = get_last_version(results, repository, ebuild, development, restrict_version, settings)

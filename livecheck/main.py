@@ -282,7 +282,7 @@ def get_props(search_dir: str,
             bn = Path(src_uri).name
             found = False
             try:
-                with open(manifest_file) as f:
+                with open(manifest_file, 'r', encoding='utf-8') as f:
                     for line in f.readlines():
                         if not line.startswith('DIST '):
                             continue
@@ -323,7 +323,7 @@ def get_props(search_dir: str,
 def get_old_sha(ebuild: str) -> str:
     sha_pattern = re.compile(r'(SHA|COMMIT|EGIT_COMMIT)=["\']?([a-f0-9]{40})["\']?')
 
-    with open(ebuild, 'r') as file:
+    with open(ebuild, 'r', encoding='utf-8') as file:
         for line in file:
             match = sha_pattern.search(line)
             if match:
@@ -444,7 +444,7 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
 
     logger.debug(
         f'Comparing current ebuild version {ebuild_version} with live version {last_version}')
-    if compare_versions(ebuild_version, last_version, True, old_sha):
+    if compare_versions(ebuild_version, last_version):
         dn = Path(ebuild).parent
         new_filename = f'{dn}/{pkg}-{last_version}.ebuild'
         result = catpkgsplit(f'{cp}-{last_version}')
@@ -468,7 +468,7 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
               f'{str_new_version}{no_auto_update_str}')
 
         if auto_update and cp not in settings.no_auto_update:
-            with open(ebuild, encoding='utf-8') as f:
+            with open(ebuild, 'r', encoding='utf-8') as f:
                 old_content = content = f.read()
             # Only update the version if it is not a commit
             if top_hash and old_sha:

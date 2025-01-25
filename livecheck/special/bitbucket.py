@@ -2,7 +2,8 @@ import re
 
 from ..settings import LivecheckSettings
 from ..utils.portage import get_last_version
-from ..utils import get_content, is_compressed_file
+from ..utils import get_content
+from .utils import get_archive_extension
 
 __all__ = ("get_latest_bitbucket_package",)
 
@@ -42,7 +43,7 @@ def get_latest_bitbucket_package(path: str, ebuild: str, development: bool, rest
         data = response.json()
 
         for item in data.get("values", []):
-            if is_compressed_file(item.get('name',)):
+            if get_archive_extension(item.get('name',)):
                 results.append({
                     "tag": item.get('name', ''),
                     "id": '',
