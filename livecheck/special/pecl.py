@@ -1,7 +1,5 @@
 import xml.etree.ElementTree as etree
 
-from pygments.unistring import No
-
 from ..settings import LivecheckSettings
 from ..utils.portage import get_last_version
 from ..utils import get_content
