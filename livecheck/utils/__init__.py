@@ -152,7 +152,7 @@ def get_content(url: str) -> requests.Response | None:
         session = session_init('gitlab')
     elif parsed_uri.hostname == 'api.bitbucket.org':
         session = session_init('bitbucket')
-    elif url.endswith('.atom'):
+    elif url.endswith('.atom') or url.endswith('.xml'):
         session = session_init('xml')
     else:
         session = session_init('')

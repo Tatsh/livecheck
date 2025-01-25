@@ -1,54 +1,38 @@
-import re
-import requests
+import xml.etree.ElementTree as etree
 
-from loguru import logger
-from ..utils.portage import is_version_development
+from ..settings import LivecheckSettings
+from ..utils.portage import get_last_version
+from ..utils import get_content
 
-__all__ = ("get_latest_pecl_package",)
+__all__ = ["get_latest_pecl_package"]
 
+PECL_DOWNLOAD_URL = 'https://pecl.php.net/rest/r/%s/allreleases.xml'
 
-def get_last_filename(url: str, development: bool) -> str:
-    try:
-        # Send a HEAD request to get the headers without downloading the file
-        response = requests.head(url, allow_redirects=True)
-        response.raise_for_status()
-
-        # Check for the 'Content-Disposition' header
-        content_disposition = response.headers.get('Content-Disposition')
-        if content_disposition:
-            # Extract the filename from the header using string parsing
-            filename_part = [part for part in content_disposition.split(';') if 'filename=' in part]
-            if filename_part:
-                # Remove any extra characters like quotes
-                filename = filename_part[0].split('=')[1].strip(' "')
-                if not is_version_development(filename) or development:
-                    return filename
-        return ''
-
-    except requests.RequestException as e:
-        logger.debug(f"Error accessing the URL: {e}")
-        return ''
+NAMESPACE = "{http://pear.php.net/dtd/rest.allreleases}"
 
 
-def get_latest_pecl_package(program_name: str, development: bool) -> str:
+def get_latest_pecl_package(program_name: str, ebuild: str, development: bool,
+                            restrict_version: str, settings: LivecheckSettings) -> str:
     # Remove 'pecl-' prefix if present
     if program_name.startswith('pecl-'):
         program_name = program_name.replace('pecl-', '', 1)
 
-    # Construct the download URL for the package
-    url = f'https://pecl.php.net/get/{program_name}'
+    url = PECL_DOWNLOAD_URL % (program_name)
 
-    # Get the filename from the download URL
-    filename = get_last_filename(url, development)
-    if not filename:
-        logger.debug(f"Could not determine the download filename for {program_name}.")
+    if not (r := get_content(url)):
         return ''
 
-    # Extract the version number from the filename using a regex
-    match = re.search(rf'{re.escape(program_name)}-(\d+\.\d+(\.\d+)?)+', filename)
-    if match:
-        latest_version = match.group(1)
-        return latest_version
-    else:
-        logger.debug(f"Could not extract version information from filename: {filename}")
-        return ''
+    results = []
+    for release in etree.fromstring(r.text).findall(f"{NAMESPACE}r"):
+        stability = release.find(f"{NAMESPACE}s")
+        stability = stability.text if stability is not None else ""
+        if development or stability == 'stable':
+            version = release.find(f"{NAMESPACE}v")
+            version = version.text if version is not None else ""
+            results.append({"tag": version})
+
+    result = get_last_version(results, '', ebuild, development, restrict_version, settings)
+    if result:
+        return result['version']
+
+    return ''
