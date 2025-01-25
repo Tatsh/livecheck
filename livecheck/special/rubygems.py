@@ -1,22 +1,27 @@
-import requests
+from ..settings import LivecheckSettings
+from ..utils.portage import get_last_version
+from ..utils import get_content
 
-from loguru import logger
+__all__ = ["get_latest_rubygems_package"]
 
-__all__ = ("get_latest_rubygems_package",)
+RUBYGEMS_DOWNLOAD_URL = 'https://rubygems.org/api/v1/versions/%s.json'
 
 
-def get_latest_rubygems_package(gem_name: str) -> str:
-    api_url = f"https://rubygems.org/api/v1/gems/{gem_name}.json"
+def get_latest_rubygems_package(gem_name: str, ebuild: str, development: bool,
+                                restrict_version: str, settings: LivecheckSettings) -> str:
+    url = RUBYGEMS_DOWNLOAD_URL % (gem_name)
 
-    try:
-        response = requests.get(api_url)
-        response.raise_for_status()
+    if not (response := get_content(url)):
+        return ''
 
-        gem_info = response.json()
+    results = []
+    for release in response.json():
+        if development or not release.get("prerelease", False):
+            results.append({"tag": release.get("number", "")})
 
-        return str(gem_info['version'])
-
-    except requests.RequestException as e:
-        logger.debug(f"Error accessing the URL: {e}")
+    last_version = get_last_version(results, gem_name, ebuild, development, restrict_version,
+                                    settings)
+    if last_version:
+        return last_version['version']
 
     return ''

@@ -159,7 +159,7 @@ def parse_url(repo_root: str, src_uri: str, devel: bool, settings: LivecheckSett
         last_version = get_latest_metacpan_package(parsed_uri.path, match, devel, restrict_version,
                                                    settings)
     elif parsed_uri.hostname == 'rubygems.org':
-        last_version = get_latest_rubygems_package(pkg)
+        last_version = get_latest_rubygems_package(pkg, match, devel, restrict_version, settings)
     elif parsed_uri.hostname == 'downloads.sourceforge.net':
         last_version = get_latest_sourceforge_package(pkg)
     elif parsed_uri.hostname == 'bitbucket.org':
