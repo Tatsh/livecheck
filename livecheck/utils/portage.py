@@ -175,7 +175,8 @@ def is_version_development(version: str) -> bool:
 
 
 def extract_version(s: str, repo: str) -> str:
-    s = s.lower().strip()
+    # force convert to string to avoid a int object has no attribute lower
+    s = str(s).lower().strip()
     # check if first word of s is equal to repo and remove repo from s
     if s.startswith(repo.lower()):
         s = s[len(repo):].strip()
@@ -195,6 +196,9 @@ def sanitize_version(ver: str, repo: str = '') -> str:
 
 
 def remove_leading_zeros(ver: str) -> str:
+    # check if a date format like 2022.12.26 or 24.01.12
+    if not re.match(r'\d{4}|\d{2}\.\d{2}\.\d{2}', ver):
+        return ver
     match = re.match(r"(\d+)\.(\d+)(?:\.(\d+))?(.*)", ver)
     if match:
         a, b, c, suffix = match.groups()
