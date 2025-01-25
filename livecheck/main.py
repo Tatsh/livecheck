@@ -94,7 +94,10 @@ def parse_url(repo_root: str, src_uri: str, devel: bool, settings: LivecheckSett
     parsed_uri = urlparse(src_uri)
     last_version = top_hash = hash_date = url = ''
 
-    if parsed_uri.hostname and 'github.' in parsed_uri.hostname:
+    if not parsed_uri.hostname:
+        return last_version, top_hash, hash_date, url
+
+    if 'github.' in parsed_uri.hostname:
         logger.debug(f'Parsed path: {parsed_uri.path}')
         filename = Path(parsed_uri.path).name
         version = re.split(r'\.(?:tar\.(?:gz|bz2)|zip)$', filename, maxsplit=2)[0]
@@ -139,7 +142,7 @@ def parse_url(repo_root: str, src_uri: str, devel: bool, settings: LivecheckSett
             (r'\b' + pkg.replace('-', r'[-_]') + r'-([^"]+)\.tar\.gz'), '', devel, restrict_version)
     elif parsed_uri.hostname == 'download.jetbrains.com':
         last_version = get_latest_jetbrains_package(match, devel, restrict_version, settings)
-    elif parsed_uri.hostname and 'gitlab' in parsed_uri.hostname:
+    elif 'gitlab' in parsed_uri.hostname:
         last_version, top_hash = get_latest_gitlab_package(src_uri, match, devel, restrict_version,
                                                            settings)
     elif parsed_uri.hostname == 'cgit.libimobiledevice.org':
@@ -160,8 +163,9 @@ def parse_url(repo_root: str, src_uri: str, devel: bool, settings: LivecheckSett
                                                    settings)
     elif parsed_uri.hostname == 'rubygems.org':
         last_version = get_latest_rubygems_package(pkg, match, devel, restrict_version, settings)
-    elif parsed_uri.hostname == 'downloads.sourceforge.net':
-        last_version = get_latest_sourceforge_package(pkg)
+    elif 'sourceforge.' in parsed_uri.hostname or 'sf.' in parsed_uri.hostname:
+        last_version = get_latest_sourceforge_package(src_uri, match, devel, restrict_version,
+                                                      settings)
     elif parsed_uri.hostname == 'bitbucket.org':
         last_version, top_hash = get_latest_bitbucket_package(parsed_uri.path, match, devel,
                                                               restrict_version, settings)

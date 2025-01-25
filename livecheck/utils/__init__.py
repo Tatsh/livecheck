@@ -17,7 +17,7 @@ import keyring
 
 __all__ = ('TextDataResponse', 'assert_not_none', 'chunks', 'dash_to_underscore', 'dotize',
            'get_github_api_credentials', 'is_sha', 'make_github_grit_commit_re', 'prefix_v',
-           'unique_justseen', 'session_init', 'get_content')
+           'unique_justseen', 'session_init', 'get_content', 'is_compressed_file')
 
 logger2 = logging.getLogger(__name__)
 T = TypeVar('T')
@@ -175,3 +175,7 @@ def get_content(url: str) -> requests.Response | None:
         return None
 
     return r
+
+
+def is_compressed_file(file: str) -> bool:
+    return bool(re.search(r"\.(tar\.(gz|xz|bz2)|zip|rar|7z|gz|bz2|xz)$", file))
