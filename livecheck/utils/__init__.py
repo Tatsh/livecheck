@@ -133,6 +133,11 @@ def session_init(module: str) -> requests.Session:
         if token:
             session.headers['Authorization'] = f'Bearer {token}'
         session.headers['Accept'] = 'application/json'
+    elif module == 'bitbucket':
+        token = get_github_api_credentials('api.bitbucket.org')
+        if token:
+            session.headers['Authorization'] = f'Bearer {token}'
+        session.headers['Accept'] = 'application/json'
     session.headers['timeout'] = '30'
     return session
 
@@ -145,6 +150,8 @@ def get_content(url: str) -> requests.Response | None:
         session = session_init('github')
     elif parsed_uri.hostname == 'gitlab.com':
         session = session_init('gitlab')
+    elif parsed_uri.hostname == 'api.bitbucket.org':
+        session = session_init('bitbucket')
     elif url.endswith('.atom'):
         session = session_init('xml')
     else:

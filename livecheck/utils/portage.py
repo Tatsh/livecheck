@@ -174,12 +174,20 @@ def is_version_development(version: str) -> bool:
     return False
 
 
+def remove_initial_match(a: str, b: str) -> str:
+    i = 0
+    while i < len(a) and i < len(b) and a[i] == b[i]:
+        i += 1
+    return a[i:]
+
+
 def extract_version(s: str, repo: str) -> str:
     # force convert to string to avoid a int object has no attribute lower
     s = str(s).lower().strip()
     # check if first word of s is equal to repo and remove repo from s
-    if s.startswith(repo.lower()):
-        s = s[len(repo):].strip()
+
+    s = remove_initial_match(s, repo.lower())
+    s.strip()
 
     m = re.search(r'[-_]?([0-9][0-9\._-].*)', s)
     if m:

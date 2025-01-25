@@ -163,8 +163,10 @@ def parse_url(repo_root: str, src_uri: str, devel: bool, settings: LivecheckSett
     elif parsed_uri.hostname == 'downloads.sourceforge.net':
         last_version = get_latest_sourceforge_package(pkg)
     elif parsed_uri.hostname == 'bitbucket.org':
-        last_version = get_latest_bitbucket_package(parsed_uri.path)
+        last_version, top_hash = get_latest_bitbucket_package(parsed_uri.path, match, devel,
+                                                              restrict_version, settings)
     else:
+        logger.debug(f'Unhandled source: {parsed_uri.hostname}')
         log_unhandled_pkg(catpkg, src_uri)
 
     return last_version, top_hash, hash_date, url
