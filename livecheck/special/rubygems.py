@@ -19,9 +19,8 @@ def get_latest_rubygems_package(gem_name: str, ebuild: str, development: bool,
         if development or not release.get("prerelease", False):
             results.append({"tag": release.get("number", "")})
 
-    last_version = get_last_version(results, gem_name, ebuild, development, restrict_version,
-                                    settings)
-    if last_version:
+    if last_version := get_last_version(results, gem_name, ebuild, development, restrict_version,
+                                        settings):
         return last_version['version']
 
     return ''

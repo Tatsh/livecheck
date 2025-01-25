@@ -47,8 +47,8 @@ def get_latest_sourceforge_package(src_uri: str, ebuild: str, development: bool,
         if version and get_archive_extension(version):
             results.append({"tag": version})
 
-    result = get_last_version(results, repository, ebuild, development, restrict_version, settings)
-    if result:
-        return result['version']
+    if last_version := get_last_version(results, repository, ebuild, development, restrict_version,
+                                        settings):
+        return last_version['version']
 
     return ''

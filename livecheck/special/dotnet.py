@@ -93,7 +93,7 @@ def update_dotnet_ebuild(ebuild: str | Path, project_or_solution: str | Path, cp
                                      dir=ebuild.parent)
     skip_lines = None
     nugets_starting_line = None
-    with ebuild.open('r') as f:
+    with ebuild.open('r', encoding='utf-8') as f:
         for line_no, line in enumerate(f.readlines(), start=1):
             if line.startswith('NUGETS="'):
                 nugets_starting_line = line_no

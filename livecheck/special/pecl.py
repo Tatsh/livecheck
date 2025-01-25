@@ -31,8 +31,8 @@ def get_latest_pecl_package(program_name: str, ebuild: str, development: bool,
             version = version.text if version is not None else ""
             results.append({"tag": version})
 
-    result = get_last_version(results, '', ebuild, development, restrict_version, settings)
-    if result:
-        return result['version']
+    if last_version := get_last_version(results, '', ebuild, development, restrict_version,
+                                        settings):
+        return last_version['version']
 
     return ''

@@ -1,5 +1,3 @@
-import re
-
 from ..settings import LivecheckSettings
 from ..utils.portage import get_last_version
 from ..utils import get_content
@@ -52,9 +50,8 @@ def get_latest_bitbucket_package(path: str, ebuild: str, development: bool, rest
         url = data.get('next')
         iteration_count += 1
 
-    last_version = get_last_version(results, repository, ebuild, development, restrict_version,
-                                    settings)
-    if last_version:
+    if last_version := get_last_version(results, repository, ebuild, development, restrict_version,
+                                        settings):
         return last_version['version'], last_version["id"]
 
     return '', ''

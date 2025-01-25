@@ -53,8 +53,8 @@ def get_latest_regex_package(ebuild: str, settings: LivecheckSettings, url: str,
         else:
             results.append({"tag": result})
 
-    last_version = get_last_version(results, '', ebuild, development, restrict_version, settings)
-    if last_version:
+    if last_version := get_last_version(results, '', ebuild, development, restrict_version,
+                                        settings):
         return last_version['version'], '', ''
 
     return '', '', ''
