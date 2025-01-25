@@ -1,5 +1,7 @@
 import xml.etree.ElementTree as etree
 
+from pygments.unistring import No
+
 from ..settings import LivecheckSettings
 from ..utils.portage import get_last_version
 from ..utils import get_content
@@ -25,10 +27,10 @@ def get_latest_pecl_package(program_name: str, ebuild: str, development: bool,
     results = []
     for release in etree.fromstring(r.text).findall(f"{NAMESPACE}r"):
         stability = release.find(f"{NAMESPACE}s")
-        stability = stability.text if stability is not None else ""
+        stability = stability.text if stability is not None else None
         if development or stability == 'stable':
             version = release.find(f"{NAMESPACE}v")
-            version = version.text if version is not None else ""
+            version = version.text if version is not None else None
             results.append({"tag": version})
 
     if last_version := get_last_version(results, '', ebuild, development, restrict_version,
