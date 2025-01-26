@@ -49,8 +49,7 @@ def get_latest_regex_package(ebuild: str, url: str, regex: str, version: str,
             except etree.ParseError:
                 logger.error(f'Error parsing {url}')
             return result, hash_date, url
-        else:
-            results.append({"tag": result})
+        results.append({"tag": result})
 
     if last_version := get_last_version(results, '', ebuild, settings):
         return last_version['version'], '', ''
