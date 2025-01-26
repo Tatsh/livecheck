@@ -12,8 +12,7 @@ def extract_perl_package(path: str) -> str:
     return match.group(1) if match else ''
 
 
-def get_latest_metacpan_package(path: str, ebuild: str, development: bool, restrict_version: str,
-                                settings: LivecheckSettings) -> str:
+def get_latest_metacpan_package(path: str, ebuild: str, settings: LivecheckSettings) -> str:
     package_name = extract_perl_package(path)
 
     results = []
@@ -27,8 +26,7 @@ def get_latest_metacpan_package(path: str, ebuild: str, development: bool, restr
     if response := get_content(f"https://fastapi.metacpan.org/v1/release/{package_name}"):
         results.append({"tag": response.json().get('version')})
 
-    last_version = get_last_version(results, package_name, ebuild, development, restrict_version,
-                                    settings)
+    last_version = get_last_version(results, package_name, ebuild, settings)
     if last_version:
         return last_version['version']
 

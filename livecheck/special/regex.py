@@ -26,9 +26,8 @@ def adjust_regex(version: str, regex: str, settings: LivecheckSettings, cp: str,
     return re.findall(regex, text)
 
 
-def get_latest_regex_package(ebuild: str, settings: LivecheckSettings, url: str, regex: str,
-                             version: str, development: bool,
-                             restrict_version: str) -> tuple[str, str, str]:
+def get_latest_regex_package(ebuild: str, url: str, regex: str, version: str,
+                             settings: LivecheckSettings) -> tuple[str, str, str]:
 
     cp, _, _, ebuild_version = catpkg_catpkgsplit(ebuild)
 
@@ -53,8 +52,7 @@ def get_latest_regex_package(ebuild: str, settings: LivecheckSettings, url: str,
         else:
             results.append({"tag": result})
 
-    if last_version := get_last_version(results, '', ebuild, development, restrict_version,
-                                        settings):
+    if last_version := get_last_version(results, '', ebuild, settings):
         return last_version['version'], '', ''
 
     return '', '', ''

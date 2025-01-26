@@ -14,7 +14,7 @@ BITBUCKET_DOWNLOAD_URL = 'https://api.bitbucket.org/2.0/repositories/%s/%s/downl
 MAX_ITERATIONS = 4
 
 
-def get_latest_bitbucket_package(path: str, ebuild: str, development: bool, restrict_version: str,
+def get_latest_bitbucket_package(path: str, ebuild: str,
                                  settings: LivecheckSettings) -> tuple[str, str]:
     workspace, repository = path.strip("/").split('/')[:2]
 
@@ -50,8 +50,7 @@ def get_latest_bitbucket_package(path: str, ebuild: str, development: bool, rest
         url = data.get('next')
         iteration_count += 1
 
-    if last_version := get_last_version(results, repository, ebuild, development, restrict_version,
-                                        settings):
+    if last_version := get_last_version(results, repository, ebuild, settings):
         return last_version['version'], last_version["id"]
 
     return '', ''

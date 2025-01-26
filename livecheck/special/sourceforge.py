@@ -28,8 +28,7 @@ def extract_repository(url: str, pkg: str) -> str:
     return pkg
 
 
-def get_latest_sourceforge_package(src_uri: str, ebuild: str, development: bool,
-                                   restrict_version: str, settings: LivecheckSettings) -> str:
+def get_latest_sourceforge_package(src_uri: str, ebuild: str, settings: LivecheckSettings) -> str:
 
     _, pkg, _, _ = catpkg_catpkgsplit(ebuild)
 
@@ -47,8 +46,7 @@ def get_latest_sourceforge_package(src_uri: str, ebuild: str, development: bool,
         if version and get_archive_extension(version):
             results.append({"tag": version})
 
-    if last_version := get_last_version(results, repository, ebuild, development, restrict_version,
-                                        settings):
+    if last_version := get_last_version(results, repository, ebuild, settings):
         return last_version['version']
 
     return ''

@@ -13,8 +13,7 @@ __all__ = ("get_latest_jetbrains_package", "update_jetbrains_ebuild")
 JETBRAINS_TAG_URL = 'https://data.services.jetbrains.com/products'
 
 
-def get_latest_jetbrains_package(ebuild: str, development: bool, restrict_version: str,
-                                 settings: LivecheckSettings) -> str:
+def get_latest_jetbrains_package(ebuild: str, settings: LivecheckSettings) -> str:
     product_name = {
         'phpstorm': 'PhpStorm',
         'pycharm-community': 'PyCharm Community Edition',
@@ -24,7 +23,7 @@ def get_latest_jetbrains_package(ebuild: str, development: bool, restrict_versio
         'goland': 'GoLand',
     }
 
-    _, _, product_code, _ = catpkg_catpkgsplit(ebuild)
+    catpkg, _, product_code, _ = catpkg_catpkgsplit(ebuild)
 
     if not (response := get_content(JETBRAINS_TAG_URL)):
         return ''
@@ -35,13 +34,13 @@ def get_latest_jetbrains_package(ebuild: str, development: bool, restrict_versio
     for product in response.json():
         if product['name'] == product_code:
             for release in product['releases']:
-                if (release['type'] == 'eap' or release['type'] == 'rc') and not development:
+                if (release['type'] == 'eap'
+                        or release['type'] == 'rc') and not settings.is_devel(catpkg):
                     continue
                 if 'linux' in release.get('downloads', ''):
                     results.append({"tag": release['version']})
 
-    if last_version := get_last_version(results, '', ebuild, development, restrict_version,
-                                        settings):
+    if last_version := get_last_version(results, '', ebuild, settings):
         return last_version['tag']
 
     return ''

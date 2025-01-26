@@ -303,8 +303,8 @@ def unpack_ebuild(ebuild_path: str) -> str:
     return ''
 
 
-def get_last_version(results: list[dict[str, str]], repo: str, ebuild: str, development: bool,
-                     restrict_version: str, settings: LivecheckSettings) -> dict[str, str]:
+def get_last_version(results: list[dict[str, str]], repo: str, ebuild: str,
+                     settings: LivecheckSettings) -> dict[str, str]:
     logger.debug('Result count: %d', len(results))
 
     catpkg, _, _, ebuild_version = catpkg_catpkgsplit(ebuild)
@@ -329,10 +329,10 @@ def get_last_version(results: list[dict[str, str]], repo: str, ebuild: str, deve
         except ValueError:
             logger.debug("Skip non-version tag: %s", version)
             continue
-        if not version.startswith(restrict_version):
+        if not version.startswith(settings.restrict_version_process):
             continue
         if is_version_development(ebuild_version) or (not is_version_development(version)
-                                                      or development):
+                                                      or settings.is_devel(catpkg)):
             last = last_version.get('version', '')
             if not last or compare_versions(last, version):
                 last_version = result.copy()
