@@ -2,7 +2,7 @@
 from collections.abc import Iterator, Sequence
 from os import chdir
 from pathlib import Path
-from typing import TypeVar, cast
+from typing import TypeVar, cast, Match
 from urllib.parse import urlparse
 import hashlib
 import logging
@@ -17,7 +17,6 @@ from portage.exception import InvalidAtom
 from portage import portdb
 import click
 import requests
-from typing import Match
 
 from .constants import (
     GIST_HOSTNAMES,
@@ -87,8 +86,8 @@ def log_unhandled_github_package(catpkg: str) -> None:
     logger.debug(f'Unhandled GitHub package: {catpkg}')
 
 
-def parse_url(repo_root: str, src_uri: str, devel: bool, settings: LivecheckSettings, match: str,
-              restrict_version: str) -> tuple[str, str, str, str]:
+def parse_url(repo_root: str, src_uri: str, match: str,
+              settings: LivecheckSettings) -> tuple[str, str, str, str]:
     catpkg, _, pkg, _ = catpkg_catpkgsplit(match)
 
     parsed_uri = urlparse(src_uri)
@@ -102,73 +101,82 @@ def parse_url(repo_root: str, src_uri: str, devel: bool, settings: LivecheckSett
         filename = Path(parsed_uri.path).name
         version = re.split(r'\.(?:tar\.(?:gz|bz2)|zip)$', filename, maxsplit=2)[0]
         if (re.match(r'^[0-9a-f]{7,}$', version) and not re.match('^[0-9a-f]{8}$', version)):
-            branch = (settings.branches.get(catpkg, 'master'))
+            branch = settings.branches.get(catpkg, 'master')
             top_hash, hash_date = get_latest_github_commit(src_uri, branch)
 
         elif ('/releases/download/' in parsed_uri.path or '/archive/' in parsed_uri.path):
-            last_version, top_hash = get_latest_github_package(src_uri, match, devel,
-                                                               restrict_version, settings)
+            last_version, top_hash = get_latest_github_package(src_uri, match, settings)
         elif re.search(r'/raw/([0-9a-f]+)/', parsed_uri.path):
-            branch = (settings.branches.get(catpkg, 'master'))
+            branch = settings.branches.get(catpkg, 'master')
             top_hash, hash_date = get_latest_github_commit(src_uri, branch)
         else:
             log_unhandled_github_package(catpkg)
     elif parsed_uri.hostname == 'git.sr.ht':
         user_repo = '/'.join(parsed_uri.path.split('/')[1:3])
-        branch = (settings.branches.get(catpkg, 'master'))
+        branch = settings.branches.get(catpkg, 'master')
         last_version, hash_date, url = get_latest_regex_package(
-            match, settings, f'https://git.sr.ht/{user_repo}/log/{branch}/rss.xml',
-            r'<pubDate>([^<]+)</pubDate>', '', devel, restrict_version)
+            match,
+            f'https://git.sr.ht/{user_repo}/log/{branch}/rss.xml',
+            r'<pubDate>([^<]+)</pubDate>',
+            '',
+            settings,
+        )
     elif parsed_uri.hostname in GIST_HOSTNAMES:
         home = P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0]
         last_version, hash_date, url = get_latest_regex_package(
-            match, settings, f'{home}/revisions', r'<relative-time datetime="([0-9-]{10})', '',
-            devel, restrict_version)
+            match, f'{home}/revisions', r'<relative-time datetime="([0-9-]{10})', '', settings)
     elif src_uri.startswith('mirror://pypi/'):
         dist_name = src_uri.split('/')[4]
         last_version, hash_date, url = get_latest_regex_package(
-            match, settings, f'https://pypi.org/pypi/{dist_name}/json', r'"version":"([^"]+)"[,\}]',
-            '', devel, restrict_version)
+            match, f'https://pypi.org/pypi/{dist_name}/json', r'"version":"([^"]+)"[,\}]', '',
+            settings)
     elif parsed_uri.hostname == 'files.pythonhosted.org':
         dist_name = src_uri.split('/')[-2]
         last_version, hash_date, url = get_latest_regex_package(
-            match, settings, f'https://pypi.org/pypi/{dist_name}/json', r'"version":"([^"]+)"[,\}]',
-            '', devel, restrict_version)
+            match, f'https://pypi.org/pypi/{dist_name}/json', r'"version":"([^"]+)"[,\}]', '',
+            settings)
     elif (parsed_uri.hostname == 'www.raphnet-tech.com'
           and parsed_uri.path.startswith('/downloads')):
         last_version, hash_date, url = get_latest_regex_package(
-            match, settings,
+            match,
             P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0],
-            (r'\b' + pkg.replace('-', r'[-_]') + r'-([^"]+)\.tar\.gz'), '', devel, restrict_version)
+            (r'\b' + pkg.replace('-', r'[-_]') + r'-([^"]+)\.tar\.gz'),
+            '',
+            settings,
+        )
     elif parsed_uri.hostname == 'download.jetbrains.com':
-        last_version = get_latest_jetbrains_package(match, devel, restrict_version, settings)
+        last_version = get_latest_jetbrains_package(match, settings)
     elif 'gitlab' in parsed_uri.hostname:
-        last_version, top_hash = get_latest_gitlab_package(src_uri, match, devel, restrict_version,
-                                                           settings)
+        last_version, top_hash = get_latest_gitlab_package(src_uri, match, settings)
     elif parsed_uri.hostname == 'cgit.libimobiledevice.org':
         proj = src_uri.split('/')[3]
         last_version, hash_date, url = get_latest_regex_package(
-            match, settings, f'https://cgit.libimobiledevice.org/{proj}/',
-            r"href='/" + re.escape(proj) + r"/tag/\?h=([0-9][^']+)", '', devel, restrict_version)
+            match,
+            f'https://cgit.libimobiledevice.org/{proj}/',
+            r"href='/" + re.escape(proj) + r"/tag/\?h=([0-9][^']+)",
+            '',
+            settings,
+        )
     elif parsed_uri.hostname == 'registry.yarnpkg.com':
         path = ('/'.join(parsed_uri.path.split('/')[1:3])
                 if parsed_uri.path.startswith('/@') else parsed_uri.path.split('/')[1])
         last_version, hash_date, url = get_latest_regex_package(
-            match, settings, f'https://registry.yarnpkg.com/{path}', r'"latest":"([^"]+)",?', '',
-            devel, restrict_version)
+            match,
+            f'https://registry.yarnpkg.com/{path}',
+            r'"latest":"([^"]+)",?',
+            '',
+            settings,
+        )
     elif parsed_uri.hostname == 'pecl.php.net':
-        last_version = get_latest_pecl_package(pkg, match, devel, restrict_version, settings)
+        last_version = get_latest_pecl_package(match, settings)
     elif parsed_uri.hostname == 'metacpan.org' or parsed_uri.hostname == 'cpan':
-        last_version = get_latest_metacpan_package(parsed_uri.path, match, devel, restrict_version,
-                                                   settings)
+        last_version = get_latest_metacpan_package(parsed_uri.path, match, settings)
     elif parsed_uri.hostname == 'rubygems.org':
-        last_version = get_latest_rubygems_package(pkg, match, devel, restrict_version, settings)
+        last_version = get_latest_rubygems_package(match, settings)
     elif 'sourceforge.' in parsed_uri.hostname or 'sf.' in parsed_uri.hostname:
-        last_version = get_latest_sourceforge_package(src_uri, match, devel, restrict_version,
-                                                      settings)
+        last_version = get_latest_sourceforge_package(src_uri, match, settings)
     elif parsed_uri.hostname == 'bitbucket.org':
-        last_version, top_hash = get_latest_bitbucket_package(parsed_uri.path, match, devel,
-                                                              restrict_version, settings)
+        last_version, top_hash = get_latest_bitbucket_package(parsed_uri.path, match, settings)
     else:
         logger.debug(f'Unhandled source: {parsed_uri.hostname}')
         log_unhandled_pkg(catpkg, src_uri)
@@ -176,8 +184,8 @@ def parse_url(repo_root: str, src_uri: str, devel: bool, settings: LivecheckSett
     return last_version, top_hash, hash_date, url
 
 
-def parse_metadata(repo_root: str, devel: bool, settings: LivecheckSettings, match: str,
-                   restrict_version: str) -> tuple[str, str, str, str]:
+def parse_metadata(repo_root: str, match: str,
+                   settings: LivecheckSettings) -> tuple[str, str, str, str]:
     catpkg, _, _, _ = catpkg_catpkgsplit(match)
 
     metadata_file = os.path.join(repo_root, catpkg, "metadata.xml")
@@ -200,16 +208,14 @@ def parse_metadata(repo_root: str, devel: bool, settings: LivecheckSettings, mat
                 if tag_name == 'remote-id':
                     if attribs['type'] == 'github':
                         last_version, top_hash = get_latest_github_package(
-                            f'https://github.com/{text_val}', match, devel, restrict_version,
-                            settings)
+                            f'https://github.com/{text_val}', match, settings)
                     if attribs['type'] == 'bitbucket':
                         last_version, top_hash, hash_date, url = parse_url(
-                            repo_root, f'https://bitbucket.org/{text_val}', devel, settings, match,
-                            restrict_version)
+                            repo_root, f'https://bitbucket.org/{text_val}', match, settings)
                     if 'gitlab' in attribs['type']:
                         uri = GITLAB_HOSTNAMES[attribs['type']]
                         last_version, top_hash = get_latest_gitlab_package(
-                            f'https://{uri}/{text_val}', match, devel, restrict_version, settings)
+                            f'https://{uri}/{text_val}', match, settings)
                     if last_version or top_hash:
                         return last_version, top_hash, hash_date, url
     return '', '', '', ''
@@ -225,15 +231,13 @@ def extract_restrict_version(cp: str) -> tuple[str, str]:
         return cp, ''
 
 
-def get_props(search_dir: str,
-              repo_root: str,
-              settings: LivecheckSettings,
-              names: Sequence[str] | None = None,
-              exclude: Sequence[str] | None = None,
-              *,
-              progress: bool = False,
-              debug: bool = False,
-              development: bool = False) -> Iterator[PropTuple]:
+def get_props(
+    search_dir: str,
+    repo_root: str,
+    settings: LivecheckSettings,
+    names: Sequence[str] | None = None,
+    exclude: Sequence[str] | None = None,
+) -> Iterator[PropTuple]:
     exclude = exclude or []
     try:
         matches_list = sorted(
@@ -250,9 +254,8 @@ def get_props(search_dir: str,
         logger.error('No matches!')
         raise click.Abort
     for match in matches_list:
-        match, restrict_version = extract_restrict_version(match)
+        match, settings.restrict_version_process = extract_restrict_version(match)
         catpkg, cat, pkg, ebuild_version = catpkg_catpkgsplit(match)
-        devel = settings.development.get(catpkg, development)
         if catpkg in exclude or pkg in exclude:
             logger.debug(f'Ignoring {catpkg}')
             continue
@@ -260,7 +263,7 @@ def get_props(search_dir: str,
         if cat.startswith('acct-') or settings.type_packages.get(catpkg) == 'none':
             logger.debug(f'Ignoring {catpkg}')
             continue
-        if debug or progress:
+        if settings.debug_flag or settings.progress_flag:
             logger.info(f'Processing {catpkg} version {ebuild_version}')
         last_version = hash_date = top_hash = url = ''
         if catpkg in settings.sync_version:
@@ -275,8 +278,8 @@ def get_props(search_dir: str,
             last_version = get_latest_davinci_package(pkg)
         elif catpkg in settings.custom_livechecks:
             url, regex, _, version = settings.custom_livechecks[catpkg]
-            last_version, hash_date, url = get_latest_regex_package(
-                match, settings, url, regex, version, devel, restrict_version)
+            last_version, hash_date, url = get_latest_regex_package(match, url, regex, version,
+                                                                    settings)
         elif catpkg in settings.checksum_livechecks:
             manifest_file = Path(search_dir) / catpkg / 'Manifest'
             bn = Path(src_uri).name
@@ -297,22 +300,20 @@ def get_props(search_dir: str,
                         r = requests.get(src_uri, timeout=30)
                         r.raise_for_status()
                         last_version, hash_date, url = get_latest_regex_package(
-                            match, settings,
+                            match,
                             dict(cast(Sequence[tuple[str, str]], chunks(fields_s.split(' '),
                                                                         2)))['SHA512'],
-                            f'data:{hashlib.sha512(r.content).hexdigest()}', r'^[0-9a-f]+$', devel,
-                            restrict_version)
+                            f'data:{hashlib.sha512(r.content).hexdigest()}', r'^[0-9a-f]+$',
+                            settings)
                         break
             except FileNotFoundError:
                 pass
             if not found:
                 log_unhandled_pkg(catpkg, src_uri)
         else:
-            last_version, top_hash, hash_date, url = parse_url(repo_root, src_uri, devel, settings,
-                                                               match, restrict_version)
+            last_version, top_hash, hash_date, url = parse_url(repo_root, src_uri, match, settings)
             if not last_version and not top_hash:
-                last_version, top_hash, hash_date, url = parse_metadata(
-                    repo_root, devel, settings, match, restrict_version)
+                last_version, top_hash, hash_date, url = parse_metadata(repo_root, match, settings)
         if last_version or top_hash:
             logger.debug(f'Inserting {catpkg}: {ebuild_version} -> {last_version}')
             yield (cat, pkg, ebuild_version, last_version, top_hash, hash_date, url)
@@ -413,9 +414,9 @@ def execute_hooks(hook_dir: str | None, action: str, search_dir: str, cp: str, s
                 raise click.Abort
 
 
-def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str, pkg: str,
-            search_dir: str, settings: LivecheckSettings, last_version: str, top_hash: str,
-            hash_date: str, url: str, git: bool, hook_dir: str | None) -> None:
+def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
+            settings: LivecheckSettings, last_version: str, top_hash: str, hash_date: str, url: str,
+            hook_dir: str | None) -> None:
     cp = f'{cat}/{pkg}'
     ebuild = os.path.join(search_dir, cp, f'{pkg}-{ebuild_version}.ebuild')
     old_sha = get_old_sha(ebuild)
@@ -467,7 +468,7 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
         print(f'{cat}/{pkg}: {str_old_version} -> '
               f'{str_new_version}{no_auto_update_str}')
 
-        if auto_update and cp not in settings.no_auto_update:
+        if settings.auto_update_flag and cp not in settings.no_auto_update:
             with open(ebuild, 'r', encoding='utf-8') as f:
                 old_content = content = f.read()
             # Only update the version if it is not a commit
@@ -479,8 +480,8 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
             content = process_submodules(cp, ps_ref, content, url)
             dn = Path(ebuild).parent
             print(f'{ebuild} -> {new_filename}')
-            if settings.keep_old.get(cp, not keep_old):
-                if git:
+            if settings.keep_old.get(cp, not settings.keep_old_flag):
+                if settings.git_flag:
                     try:
                         sp.run(('git', 'mv', ebuild, new_filename), check=True)
                     except sp.CalledProcessError:
@@ -540,7 +541,8 @@ def do_main(*, auto_update: bool, keep_old: bool, cat: str, ebuild_version: str,
                 if not digest_ebuild(new_filename):
                     logger.error(f'Error digesting {new_filename}')
                     return
-            if git and sp.run(('ebuild', new_filename, 'digest'), check=False).returncode == 0:
+            if settings.git_flag and sp.run(
+                ('ebuild', new_filename, 'digest'), check=False).returncode == 0:
                 sp.run(('git', 'add', new_filename), check=True)
                 sp.run(('git', 'add', os.path.join(search_dir, cp, 'Manifest')), check=True)
                 try:
@@ -626,17 +628,18 @@ def main(
             raise click.Abort
     logger.info(f'search_dir={search_dir} repo_root={repo_root} repo_name={repo_name}')
     settings = gather_settings(search_dir)
+
+    # update flags in settings
+    settings.auto_update_flag = auto_update
+    settings.debug_flag = debug
+    settings.development_flag = development
+    settings.git_flag = git
+    settings.keep_old_flag = keep_old
+    settings.progress_flag = progress
+
     package_names = sorted(package_names or [])
     for cat, pkg, ebuild_version, last_version, top_hash, hash_date, url in get_props(
-            search_dir,
-            repo_root,
-            settings,
-            package_names,
-            exclude,
-            progress=progress,
-            debug=debug,
-            development=development):
-
+            search_dir, repo_root, settings, package_names, exclude):
         try:
             do_main(cat=cat,
                     pkg=pkg,
@@ -645,11 +648,8 @@ def main(
                     hash_date=hash_date,
                     url=url,
                     search_dir=repo_root,
-                    auto_update=auto_update,
-                    keep_old=keep_old,
                     settings=settings,
                     ebuild_version=ebuild_version,
-                    git=git,
                     hook_dir=hook_dir)
         except (requests.exceptions.HTTPError, requests.exceptions.SSLError) as e:
             logger.debug(f'Caught error while checking {cat}/{pkg}: {e}')
