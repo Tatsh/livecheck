@@ -148,24 +148,11 @@ def get_repository_root_if_inside(directory: str) -> tuple[str, str]:
                     selected_repo_root = repo_root
                     selected_repo_name = os.path.basename(repo_root)
 
-    if '/local/' in directory and not '/local/' in selected_repo_root:
+    if '/local/' in directory and '/local/' not in selected_repo_root:
         return '', ''
 
     # Return the most specific repository root, if found
     return selected_repo_root, selected_repo_name
-
-
-def is_hash(str: str) -> bool:
-    pattern = {
-        'MD5': r'[0-9a-f]{32}',
-        'SHA1': r'[0-9a-f]{40}',
-        'SHA256': r'[0-9a-f]{64}',
-        'SHA512': r'[0-9a-f]{128}',
-    }
-    for _, value in pattern.items():
-        if re.match(value, str):
-            return True
-    return False
 
 
 def is_version_development(version: str) -> bool:
@@ -174,11 +161,20 @@ def is_version_development(version: str) -> bool:
     return False
 
 
+def remove_initial_match(a: str, b: str) -> str:
+    i = 0
+    while i < len(a) and i < len(b) and a[i] == b[i]:
+        i += 1
+    return a[i:]
+
+
 def extract_version(s: str, repo: str) -> str:
-    s = s.lower().strip()
+    # force convert to string to avoid a int object has no attribute lower
+    s = str(s).lower().strip()
     # check if first word of s is equal to repo and remove repo from s
-    if s.startswith(repo.lower()):
-        s = s[len(repo):].strip()
+
+    s = remove_initial_match(s, repo.lower())
+    s.strip()
 
     m = re.search(r'[-_]?([0-9][0-9\._-].*)', s)
     if m:
@@ -195,6 +191,9 @@ def sanitize_version(ver: str, repo: str = '') -> str:
 
 
 def remove_leading_zeros(ver: str) -> str:
+    # check if a date format like 2022.12.26 or 24.01.12
+    if not re.match(r'\d{4}|\d{2}\.\d{2}\.\d{2}', ver):
+        return ver
     match = re.match(r"(\d+)\.(\d+)(?:\.(\d+))?(.*)", ver)
     if match:
         a, b, c, suffix = match.groups()
@@ -262,16 +261,8 @@ def normalize_version(ver: str) -> str:
         return main
 
 
-def compare_versions(old: str, new: str, development: bool = False, old_sha: str = "") -> bool:
-    if is_hash(new):
-        return old_sha != new
-
-    # check if is a beta, alpa, pre or rc version and not accept this version
-    if not development and is_version_development(new):
-        logger.debug(f'Not permitted development version {new}')
-        return False
-
-    return bool(vercmp(sanitize_version(old), sanitize_version(new), silent=0) == -1)
+def compare_versions(old: str, new: str) -> bool:
+    return bool(vercmp(old, new, silent=0) == -1)
 
 
 def get_distdir() -> str:
@@ -343,7 +334,7 @@ def get_last_version(results: list[dict[str, str]], repo: str, ebuild: str, deve
         if is_version_development(ebuild_version) or (not is_version_development(version)
                                                       or development):
             last = last_version.get('version', '')
-            if not last or bool(vercmp(last, version) == -1):
+            if not last or compare_versions(last, version):
                 last_version = result.copy()
                 last_version['version'] = version
 

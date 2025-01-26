@@ -6,7 +6,8 @@ import tarfile
 from xdg.BaseDirectory import save_cache_path
 from ..utils.portage import unpack_ebuild, get_distdir
 
-__all__ = ("get_project_path", "remove_url_ebuild", "search_ebuild", "build_compress")
+__all__ = ("get_project_path", "remove_url_ebuild", "search_ebuild", "build_compress",
+           "get_archive_extension")
 
 logger = logging.getLogger(__name__)
 
@@ -68,15 +69,7 @@ def build_compress(temp_dir: str, base_dir: str, directory: str, extension: str,
     if not (filename := next(iter(fetchlist.keys()), None)):
         return False
 
-    if filename.endswith('.tar.gz'):
-        archive_ext = '.tar.gz'
-    elif filename.endswith('.tgz'):
-        archive_ext = '.tgz'
-    elif filename.endswith('.tar.xz'):
-        archive_ext = '.xz'
-    elif filename.endswith('.zip'):
-        archive_ext = '.zip'
-    else:
+    if not (archive_ext := get_archive_extension(filename)):
         logger.warning("Invalid extension.")
         return False
 
@@ -96,3 +89,15 @@ def build_compress(temp_dir: str, base_dir: str, directory: str, extension: str,
         tar.add(vendor_dir, arcname=str(relative_path))
 
     return True
+
+
+def get_archive_extension(filename: str) -> str:
+    filename = filename.lower()
+    for ext in [
+            'tar.gz', 'tar.xz', 'tar.bz2', 'tar.lz', 'tar.zst', 'tc.gz', 'tar.z', 'gz', 'xz', 'zip',
+            'tbz2', 'bz2', 'tbz', 'txz', 'tar', 'tgz', 'rar', '7z'
+    ]:
+        if filename.endswith('.' + ext):
+            return '.' + ext
+
+    return ''

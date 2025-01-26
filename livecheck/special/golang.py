@@ -38,7 +38,7 @@ def update_go_ebuild(ebuild: str | Path, pkg: str, version: str, go_sum_uri_temp
                                      dir=ebuild.parent)
     updated = False
     found_closing_bracket = False
-    with ebuild.open('r') as f:
+    with ebuild.open('r', encoding='utf-8') as f:
         for line in f.readlines():
             if line.startswith('EGO_SUM=(') and not updated:
                 logger.debug('Found EGO_SUM=( line.')

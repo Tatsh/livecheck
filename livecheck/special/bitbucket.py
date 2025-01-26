@@ -1,43 +1,57 @@
-import re
-import requests
-
-from loguru import logger
+from ..settings import LivecheckSettings
+from ..utils.portage import get_last_version
+from ..utils import get_content
+from .utils import get_archive_extension
 
 __all__ = ("get_latest_bitbucket_package",)
 
+# doc: https://developer.atlassian.com/cloud/bitbucket/rest/api-group-refs/#api-repositories-workspace-repo-slug-refs-tags-get
+BITBUCKET_TAG_URL = 'https://api.bitbucket.org/2.0/repositories/%s/%s/refs/tags'
+
 # doc: https://developer.atlassian.com/cloud/bitbucket/rest/api-group-downloads/#api-repositories-workspace-repo-slug-downloads-get
-BITBUCKET_URL = 'https://bitbucket.org/api/2.0/%s/%s/downloads?pagelen=100'
+BITBUCKET_DOWNLOAD_URL = 'https://api.bitbucket.org/2.0/repositories/%s/%s/downloads'
 
-MAX_ITERATIONS = 2
+MAX_ITERATIONS = 4
 
 
-def get_latest_bitbucket_package(path: str) -> str:
-    workspace, repository = path.split('/')[-2:]
+def get_latest_bitbucket_package(path: str, ebuild: str, development: bool, restrict_version: str,
+                                 settings: LivecheckSettings) -> tuple[str, str]:
+    workspace, repository = path.strip("/").split('/')[:2]
 
-    session = requests.Session()
+    url = BITBUCKET_TAG_URL % (workspace, repository)
 
-    url = BITBUCKET_URL % (workspace, repository)
-    versions = set()
+    if not (tags_response := get_content(url)):
+        return '', ''
 
-    version_pattern = re.compile(r"(\d+(\.\d+){0,2}(-alpha|-beta)?)")
+    results: list[dict[str, str]] = []
+    for tag in tags_response.json().get("values", []):
+        results.append({
+            "tag": tag.get("name", ""),
+            "id": tag.get("target", {}).get("hash", ""),
+        })
+
+    # The tag may not be created and you need to know the downloads
+    # for the latest versions
+    url = BITBUCKET_DOWNLOAD_URL % (workspace, repository)
     iteration_count = 0
 
     while url and iteration_count < MAX_ITERATIONS:
-        try:
-            response = session.get(url)
-            response.raise_for_status()
-            data = response.json()
-
-            for item in data.get("values", []):
-                file_name = item["name"]
-                match = version_pattern.search(file_name)
-                if match:
-                    versions.add(match.group(1))  # Add the found version to the set
-
-            url = data.get('next')
-            iteration_count += 1
-        except requests.RequestException as e:
-            logger.debug(f"Error accessing the URL: {e}")
+        if not (response := get_content(url)):
             break
+        data = response.json()
 
-    return sorted(versions)[-1] if versions else ''
+        for item in data.get("values", []):
+            if get_archive_extension(item.get('name',)):
+                results.append({
+                    "tag": item.get('name', ''),
+                    "id": '',
+                })
+
+        url = data.get('next')
+        iteration_count += 1
+
+    if last_version := get_last_version(results, repository, ebuild, development, restrict_version,
+                                        settings):
+        return last_version['version'], last_version["id"]
+
+    return '', ''

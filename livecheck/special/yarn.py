@@ -79,7 +79,7 @@ def update_yarn_ebuild(ebuild: str | Path,
                                      delete=False,
                                      dir=ebuild.parent)
     wrote_new_packages = False
-    with ebuild.open('r') as f:
+    with ebuild.open('r', encoding='utf-8') as f:
         for line in f.readlines():
             if line.startswith('YARN_PKGS=('):
                 tf.write(line)
