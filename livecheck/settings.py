@@ -45,14 +45,14 @@ class LivecheckSettings:
     regex_version: dict[str, tuple[str, str]]
     restrict_version: dict[str, str]
     sync_version: dict[str, str]
-    '''Settings from command line flag.'''
+    # Settings from command line flag.
     auto_update_flag: bool = False
     debug_flag: bool = False
     development_flag: bool = False
     git_flag: bool = False
     keep_old_flag: bool = False
     progress_flag: bool = False
-    '''Setting form internal process.'''
+    # Internal settings.
     restrict_version_process: str = ''
 
     def is_devel(self, catpkg: str) -> bool:
