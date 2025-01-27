@@ -9,7 +9,7 @@ import tempfile
 
 import requests
 
-from .utils import create_temp_file, move_temp_file
+from .utils import EbuildTempFile
 from ..utils import unique_justseen
 from ..utils.portage import P, catpkg_catpkgsplit, get_first_src_uri, sort_by_v
 
@@ -69,7 +69,8 @@ def update_dotnet_ebuild(ebuild: str, project_or_solution: str | Path, cp: str) 
         new_src_uri = get_first_src_uri(matches[0])
         archive_out_name = Path(urlparse(new_src_uri).path).name
         archive_out_path = Path(td) / archive_out_name
-        with archive_out_path.open('w+b') as f, requests.get(new_src_uri, stream=True) as r:
+        with archive_out_path.open('w+b') as f, requests.get(new_src_uri, stream=True,
+                                                             timeout=30) as r:
             for data in r.iter_content(chunk_size=512):
                 f.write(data)
         r.raise_for_status()
@@ -84,12 +85,17 @@ def update_dotnet_ebuild(ebuild: str, project_or_solution: str | Path, cp: str) 
         if len(lines) > 1:
             raise TooManyProjects(project_or_solution)
         new_nugets_lines = sorted(dotnet_restore(Path(lines[0]).resolve(strict=True)))
-    last_line_no = len(new_nugets_lines)
-    in_nugets = False
-    with create_temp_file(ebuild) as tf:
-        skip_lines = None
-        nugets_starting_line = None
-        with Path(ebuild).open('r', encoding='utf-8') as f:
+
+    with EbuildTempFile(ebuild) as temp_file:
+        with temp_file.open('w', encoding='utf-8') as tf:
+            last_line_no = len(new_nugets_lines)
+            in_nugets = False
+            skip_lines = None
+            nugets_starting_line = None
+
+            with Path(ebuild).open('r', encoding='utf-8') as f:
+                lines = f.readlines()
+
             for line_no, line in enumerate(f.readlines(), start=1):
                 if line.startswith('NUGETS="'):
                     nugets_starting_line = line_no
@@ -123,5 +129,3 @@ def update_dotnet_ebuild(ebuild: str, project_or_solution: str | Path, cp: str) 
                     in_nugets = False
                 elif line_no > skip_lines or line_no < nugets_starting_line:
                     tf.write(line)
-
-    move_temp_file(ebuild, tf)

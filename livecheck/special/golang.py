@@ -2,7 +2,7 @@ from pathlib import Path
 import logging
 import re
 
-from .utils import create_temp_file, move_temp_file
+from .utils import EbuildTempFile
 from ..utils import get_content
 
 __all__ = ('update_go_ebuild',)
@@ -20,8 +20,10 @@ def update_go_ebuild(ebuild: str, version: str, go_sum_uri_template: str) -> Non
         raise InvalidGoSumURITemplate
     sha = ''
     try:
-        if (first_match :=
-            [re.match(r'^SHA="([^"]+)"', x) for x in Path(ebuild).read_text().splitlines()][0]):
+        if (first_match := [
+                re.match(r'^SHA="([^"]+)"', x)
+                for x in Path(ebuild).read_text(encoding='utf-8').splitlines()
+        ][0]):
             sha = first_match.group(1)
     except IndexError:
         pass
@@ -30,24 +32,23 @@ def update_go_ebuild(ebuild: str, version: str, go_sum_uri_template: str) -> Non
         return
     new_ego_sum_lines = (f'"{line}"'
                          for line in (re.sub(r' h1\:.*$', '', x) for x in r.text.splitlines()))
-    with create_temp_file(ebuild) as tf:
-        updated = False
-        found_closing_bracket = False
-        with Path(ebuild).open('r', encoding='utf-8') as f:
-            for line in f.readlines():
-                if line.startswith('EGO_SUM=(') and not updated:
-                    logger.debug('Found EGO_SUM=( line.')
-                    tf.write('EGO_SUM=(\n')
-                    logger.debug('Writing new EGO_SUM content.')
-                    for pkg in new_ego_sum_lines:
-                        tf.write(f'\t{pkg}\n')
-                    tf.write(')\n')
-                    updated = True
-                elif updated and not found_closing_bracket:
-                    if line.strip() == ')':
-                        logger.debug('Found closing bracket for EGO_SUM.')
-                        found_closing_bracket = True
-                else:
-                    tf.write(line)
-
-    move_temp_file(ebuild, tf)
+    with EbuildTempFile(ebuild) as temp_file:
+        with temp_file.open('w', encoding='utf-8') as tf:
+            updated = False
+            found_closing_bracket = False
+            with Path(ebuild).open('r', encoding='utf-8') as f:
+                for line in f.readlines():
+                    if line.startswith('EGO_SUM=(') and not updated:
+                        logger.debug('Found EGO_SUM=( line.')
+                        tf.write('EGO_SUM=(\n')
+                        logger.debug('Writing new EGO_SUM content.')
+                        for pkg in new_ego_sum_lines:
+                            tf.write(f'\t{pkg}\n')
+                        tf.write(')\n')
+                        updated = True
+                    elif updated and not found_closing_bracket:
+                        if line.strip() == ')':
+                            logger.debug('Found closing bracket for EGO_SUM.')
+                            found_closing_bracket = True
+                    else:
+                        tf.write(line)

@@ -13,8 +13,6 @@ import os
 import xml.etree.ElementTree as ET
 
 from loguru import logger
-from portage.exception import InvalidAtom
-from portage import portdb
 import click
 import requests
 
@@ -46,8 +44,8 @@ from .special.yarn import update_yarn_ebuild
 from .typing import PropTuple
 from .utils import (chunks, is_sha, make_github_grit_commit_re, get_content)
 from .utils.portage import (P, catpkg_catpkgsplit, get_first_src_uri, get_highest_matches,
-                            get_highest_matches2, get_repository_root_if_inside, compare_versions,
-                            digest_ebuild, catpkgsplit)
+                            get_repository_root_if_inside, compare_versions, digest_ebuild,
+                            catpkgsplit)
 
 T = TypeVar('T')
 
@@ -189,13 +187,11 @@ def parse_metadata(repo_root: str, match: str,
     if not os.path.exists(metadata_file):
         return '', '', '', ''
     try:
-        tree = ET.parse(metadata_file)
-        root = tree.getroot()
+        root = ET.parse(metadata_file).getroot()
     except ET.ParseError as e:
         logger.error(f'Error parsing {metadata_file}: {e}')
         return '', '', '', ''
-    upstream_list = root.findall("upstream")
-    if upstream_list:
+    if upstream_list := root.findall("upstream"):
         for upstream in upstream_list:
             for subelem in upstream:
                 tag_name = subelem.tag
@@ -219,8 +215,7 @@ def parse_metadata(repo_root: str, match: str,
 
 
 def extract_restrict_version(cp: str) -> tuple[str, str]:
-    match = re.match(r"(.*?):(\d+):-(.*)", cp)
-    if match:
+    if match := re.match(r"(.*?):(\d+):-(.*)", cp):
         package, slot, version = match.groups()
         cleaned_string = f"{package}-{version}"
         return cleaned_string, slot
@@ -235,16 +230,12 @@ def get_props(
     exclude: Sequence[str] | None = None,
 ) -> Iterator[PropTuple]:
     exclude = exclude or []
-    try:
-        matches_list = sorted(
-            get_highest_matches(search_dir, repo_root, settings)
-            if not names else get_highest_matches2(names, repo_root, settings))
-    except InvalidAtom as e:
-        logger.error(f"Invalid Atom: {e}")
-        return None
-    except Exception as e:
-        logger.error(f"Unexpected error: {e}")
-        return None
+    if not names:
+        names = [
+            f'{path.parent.parent.name}/{path.parent.name}'
+            for path in Path(search_dir).glob('**/*.ebuild')
+        ]
+    matches_list = sorted(get_highest_matches(names, repo_root, settings))
     logger.info(f'Found {len(matches_list)} ebuilds')
     if not matches_list:
         logger.error('No matches!')
@@ -263,7 +254,7 @@ def get_props(
             logger.info(f'Processing {catpkg} version {ebuild_version}')
         last_version = hash_date = top_hash = url = ''
         if catpkg in settings.sync_version:
-            matches_sync = get_highest_matches2([settings.sync_version[catpkg]], '', settings)
+            matches_sync = get_highest_matches([settings.sync_version[catpkg]], '', settings)
             if not matches_sync:
                 logger.error(f'No matches for {catpkg}')
                 continue
@@ -501,7 +492,7 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
             # that do not have thin-Manifests ( metadata/layout.conf -> thin-manifests = true)
             # see: https://devmanual.gentoo.org/general-concepts/manifest/index.html
             digest_ebuild(new_filename)
-            fetchlist = portdb.getFetchMap(f"{cp}-{last_version}")
+            fetchlist = P.getFetchMap(f"{cp}-{last_version}")
             # Stores the content so that it can be recovered because it had to be modified
             old_content = content
             # First pass

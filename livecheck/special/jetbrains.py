@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from loguru import logger
-from .utils import search_ebuild, create_temp_file, move_temp_file
+from .utils import search_ebuild, EbuildTempFile
 
 from ..settings import LivecheckSettings
 from ..utils.portage import get_last_version, catpkg_catpkgsplit
@@ -53,13 +53,12 @@ def update_jetbrains_ebuild(ebuild: str) -> None:
 
     version = version.split('-', 1)[-1]
 
-    with create_temp_file(ebuild) as tf:
-        with Path(ebuild).open('r', encoding='utf-8') as f:
-            for line in f.readlines():
-                if line.startswith('MY_PV='):
-                    logger.debug('Found MY_PV= line.')
-                    tf.write(f'MY_PV="{version}"\n')
-                else:
-                    tf.write(line)
-
-    move_temp_file(ebuild, tf)
+    with EbuildTempFile(ebuild) as temp_file:
+        with temp_file.open('w', encoding='utf-8') as tf:
+            with Path(ebuild).open('r', encoding='utf-8') as f:
+                for line in f.readlines():
+                    if line.startswith('MY_PV='):
+                        logger.debug('Found MY_PV= line.')
+                        tf.write(f'MY_PV="{version}"\n')
+                    else:
+                        tf.write(line)
