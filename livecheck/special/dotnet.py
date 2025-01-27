@@ -9,6 +9,7 @@ import tempfile
 
 import requests
 
+from .utils import create_temp_file, move_temp_file
 from ..utils import unique_justseen
 from ..utils.portage import P, catpkg_catpkgsplit, get_first_src_uri, sort_by_v
 
@@ -56,11 +57,10 @@ class NoNugetsFound(RuntimeError):
         super().__init__('No NUGETS variable found in ebuild')
 
 
-def update_dotnet_ebuild(ebuild: str | Path, project_or_solution: str | Path, cp: str) -> None:
-    ebuild = Path(ebuild)
+def update_dotnet_ebuild(ebuild: str, project_or_solution: str | Path, cp: str) -> None:
     project_or_solution = Path(project_or_solution)
     with tempfile.TemporaryDirectory(prefix='livecheck-dotnet-', ignore_cleanup_errors=True) as td:
-        sp.run(('ebuild', str(ebuild), 'manifest'), check=True)
+        sp.run(('ebuild', ebuild, 'manifest'), check=True)
         matches = list(
             unique_justseen(sorted(set(P.xmatch('match-all', cp)), key=cmp_to_key(sort_by_v)),
                             key=lambda a: catpkg_catpkgsplit(a)[0]))
@@ -86,45 +86,42 @@ def update_dotnet_ebuild(ebuild: str | Path, project_or_solution: str | Path, cp
         new_nugets_lines = sorted(dotnet_restore(Path(lines[0]).resolve(strict=True)))
     last_line_no = len(new_nugets_lines)
     in_nugets = False
-    tf = tempfile.NamedTemporaryFile(mode='w',
-                                     prefix=ebuild.stem,
-                                     suffix=ebuild.suffix,
-                                     delete=False,
-                                     dir=ebuild.parent)
-    skip_lines = None
-    nugets_starting_line = None
-    with ebuild.open('r', encoding='utf-8') as f:
-        for line_no, line in enumerate(f.readlines(), start=1):
-            if line.startswith('NUGETS="'):
-                nugets_starting_line = line_no
-                if in_nugets:
-                    raise RuntimeError
-                in_nugets = True
-            elif in_nugets:
-                if line.endswith('"\n'):
+    with create_temp_file(ebuild) as tf:
+        skip_lines = None
+        nugets_starting_line = None
+        with Path(ebuild).open('r', encoding='utf-8') as f:
+            for line_no, line in enumerate(f.readlines(), start=1):
+                if line.startswith('NUGETS="'):
+                    nugets_starting_line = line_no
+                    if in_nugets:
+                        raise RuntimeError
+                    in_nugets = True
+                elif in_nugets:
+                    if line.endswith('"\n'):
+                        in_nugets = False
+                        skip_lines = line_no
+                        break
+            if not skip_lines:
+                raise NoNugetsEnding
+            if not nugets_starting_line:
+                raise NoNugetsFound
+            f.seek(0)
+            for line_no, line in enumerate(f.readlines(), start=1):
+                if line.startswith('NUGETS="'):
+                    tf.write('NUGETS="')
+                    if in_nugets:
+                        raise RuntimeError
+                    in_nugets = True
+                elif in_nugets:
+                    for new_line_no, pkg in enumerate(new_nugets_lines, start=1):
+                        match new_line_no:
+                            case 1:
+                                tf.write(f'{pkg}\n')
+                            case _:
+                                tf.write(f'\t{pkg}"\n' if last_line_no ==
+                                         new_line_no else f'\t{pkg}\n')
                     in_nugets = False
-                    skip_lines = line_no
-                    break
-        if not skip_lines:
-            raise NoNugetsEnding
-        if not nugets_starting_line:
-            raise NoNugetsFound
-        f.seek(0)
-        for line_no, line in enumerate(f.readlines(), start=1):
-            if line.startswith('NUGETS="'):
-                tf.write('NUGETS="')
-                if in_nugets:
-                    raise RuntimeError
-                in_nugets = True
-            elif in_nugets:
-                for new_line_no, pkg in enumerate(new_nugets_lines, start=1):
-                    match new_line_no:
-                        case 1:
-                            tf.write(f'{pkg}\n')
-                        case _:
-                            tf.write(f'\t{pkg}"\n' if last_line_no == new_line_no else f'\t{pkg}\n')
-                in_nugets = False
-            elif line_no > skip_lines or line_no < nugets_starting_line:
-                tf.write(line)
-    ebuild.unlink()
-    Path(tf.name).rename(ebuild).chmod(0o0644)
+                elif line_no > skip_lines or line_no < nugets_starting_line:
+                    tf.write(line)
+
+    move_temp_file(ebuild, tf)

@@ -44,7 +44,7 @@ from .special.sourceforge import get_latest_sourceforge_package
 from .special.yarn import update_yarn_ebuild
 
 from .typing import PropTuple
-from .utils import (chunks, get_github_api_credentials, is_sha, make_github_grit_commit_re)
+from .utils import (chunks, is_sha, make_github_grit_commit_re, get_content)
 from .utils.portage import (P, catpkg_catpkgsplit, get_first_src_uri, get_highest_matches,
                             get_highest_matches2, get_repository_root_if_inside, compare_versions,
                             digest_ebuild, catpkgsplit)
@@ -65,16 +65,13 @@ def process_submodules(pkg_name: str, ref: str, contents: str, repo_uri: str) ->
             name = item[0]
         else:
             grep_for = f'{Path(item).name.upper().replace("-", "_")}_SHA="'
-        r = requests.get((f'https://api.github.com/repos/{repo_root}/contents/{name}'
-                          f'?ref={ref}'),
-                         headers=dict(Authorization=f'token {get_github_api_credentials()}'),
-                         timeout=30)
-        r.raise_for_status()
-        remote_sha = r.json()['sha']
-        for line in ebuild_lines:
-            if (line.startswith(grep_for)
-                    and (local_sha := line.split('=')[1].replace('"', '').strip()) != remote_sha):
-                contents = contents.replace(local_sha, remote_sha)
+        if (r := get_content(f'https://api.github.com/repos/{repo_root}/contents/{name}'
+                             f'?ref={ref}')):
+            remote_sha = r.json()['sha']
+            for line in ebuild_lines:
+                if (line.startswith(grep_for) and
+                    (local_sha := line.split('=')[1].replace('"', '').strip()) != remote_sha):
+                    contents = contents.replace(local_sha, remote_sha)
     return contents
 
 
@@ -96,8 +93,8 @@ def parse_url(repo_root: str, src_uri: str, match: str,
     if not parsed_uri.hostname:
         return last_version, top_hash, hash_date, url
 
+    logger.debug(f'Parsed URI: {parsed_uri}')
     if 'github.' in parsed_uri.hostname:
-        logger.debug(f'Parsed path: {parsed_uri.path}')
         filename = Path(parsed_uri.path).name
         version = re.split(r'\.(?:tar\.(?:gz|bz2)|zip)$', filename, maxsplit=2)[0]
         if (re.match(r'^[0-9a-f]{7,}$', version) and not re.match('^[0-9a-f]{8}$', version)):
@@ -169,7 +166,7 @@ def parse_url(repo_root: str, src_uri: str, match: str,
         )
     elif parsed_uri.hostname == 'pecl.php.net':
         last_version = get_latest_pecl_package(match, settings)
-    elif parsed_uri.hostname == 'metacpan.org' or parsed_uri.hostname == 'cpan':
+    elif 'metacpan.org' in parsed_uri.hostname or 'cpan' in parsed_uri.hostname:
         last_version = get_latest_metacpan_package(parsed_uri.path, match, settings)
     elif parsed_uri.hostname == 'rubygems.org':
         last_version = get_latest_rubygems_package(match, settings)
@@ -227,8 +224,7 @@ def extract_restrict_version(cp: str) -> tuple[str, str]:
         package, slot, version = match.groups()
         cleaned_string = f"{package}-{version}"
         return cleaned_string, slot
-    else:
-        return cp, ''
+    return cp, ''
 
 
 def get_props(
@@ -297,8 +293,10 @@ def get_props(
                         if filename != bn and not m:
                             continue
                         found = True
-                        r = requests.get(src_uri, timeout=30)
-                        r.raise_for_status()
+                        r = get_content(src_uri)
+                        if not r or r.content:
+                            log_unhandled_pkg(catpkg, src_uri)
+                            continue
                         last_version, hash_date, url = get_latest_regex_package(
                             match,
                             dict(cast(Sequence[tuple[str, str]], chunks(fields_s.split(' '),
@@ -338,18 +336,21 @@ def log_unsupported_sha_source(src: str) -> None:
 
 
 def get_new_sha(src: str) -> str:
+    content = get_content(src)
+    if not content or not content.content:
+        return ''
+    content = content.content.decode()
+
     parsed_src = urlparse(src)
     if (parsed_src.hostname == 'github.com' and src.endswith('.atom')):
-        m = re.search(make_github_grit_commit_re(40 * ' '),
-                      requests.get(src, timeout=30).content.decode())
-        assert m is not None
-        return m.groups()[0]
+        if m := re.search(make_github_grit_commit_re(40 * ' '), content):
+            return m.groups()[0]
     if parsed_src.hostname == 'git.sr.ht' and src.endswith('xml'):
         user_repo = '/'.join(parsed_src.path.split('/')[1:3])
-        m = re.search(rf'<guid>https://git\.sr\.ht/{user_repo}/commit/([a-f0-9]+)</guid>',
-                      requests.get(src, timeout=30).content.decode())
-        assert m is not None
-        return m.groups()[0]
+        if m := re.search(rf'<guid>https://git\.sr\.ht/{user_repo}/commit/([a-f0-9]+)</guid>',
+                          content):
+            return m.groups()[0]
+
     log_unsupported_sha_source(src)
     return ''
 
@@ -374,7 +375,7 @@ def replace_date_in_ebuild(ebuild: str, new_date: str, cp: str) -> str:
         matched_text = match.group(0)
         if len(matched_text) == 8 and matched_text.isdigit():
             return new_date
-        elif len(matched_text) == 6 and matched_text.isdigit():
+        if len(matched_text) == 6 and matched_text.isdigit():
             return short_date
         return matched_text
 
@@ -523,7 +524,7 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
                 update_yarn_ebuild(new_filename, settings.yarn_base_packages[cp], pkg,
                                    settings.yarn_packages.get(cp))
             if cp in settings.go_sum_uri:
-                update_go_ebuild(new_filename, pkg, top_hash, settings.go_sum_uri[cp])
+                update_go_ebuild(new_filename, top_hash, settings.go_sum_uri[cp])
             if cp in settings.dotnet_projects:
                 update_dotnet_ebuild(new_filename, settings.dotnet_projects[cp], cp)
             if cp in settings.jetbrains_packages:

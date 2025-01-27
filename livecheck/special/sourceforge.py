@@ -19,7 +19,7 @@ def extract_repository(url: str, pkg: str) -> str:
         return parsed.path.split('/')[2]
 
     n = parsed.netloc
-    if n == 'downloads.sourceforge.net' or n == 'download.sourceforge.net' or n == 'sf.net':
+    if 'downloads.sourceforge.net' in n or 'download.sourceforge.net' in n or 'sf.net' in n:
         return parsed.path.split('/')[1]
 
     if (m := re.match(r'^([^\.]+)\.(sf|sourceforge)\.(net|io|jp)$', n)):
