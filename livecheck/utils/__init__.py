@@ -1,18 +1,20 @@
 """Utility functions."""
+import re
+
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from functools import lru_cache
 from itertools import groupby
 from typing import TypeVar
 from urllib.parse import urlparse
-from requests import ConnectTimeout, ReadTimeout
-from loguru import logger
-from http import HTTPStatus
 
 import logging
 import operator
-import re
+from http import HTTPStatus
 import requests
+from requests import ConnectTimeout, ReadTimeout
+from loguru import logger
+
 import keyring
 
 __all__ = ('TextDataResponse', 'assert_not_none', 'chunks', 'dash_to_underscore', 'dotize',

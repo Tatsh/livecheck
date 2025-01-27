@@ -30,7 +30,7 @@ def extract_owner_repo(url: str) -> tuple[str, str, str]:
     return '', '', ''
 
 
-def get_latest_github_package(url: str, ebuild: str, development: bool, restrict_version: str,
+def get_latest_github_package(url: str, ebuild: str,
                               settings: LivecheckSettings) -> tuple[str, str]:
     domain, owner, repo = extract_owner_repo(url)
     if not owner or not repo:
@@ -47,8 +47,7 @@ def get_latest_github_package(url: str, ebuild: str, development: bool, restrict
         if tag := (tag_id.split('/')[-1] if tag_id and '/' in tag_id else ''):
             results.append({"tag": tag, "id": tag})
 
-    if last_version := get_last_version(results, repo, ebuild, development, restrict_version,
-                                        settings):
+    if last_version := get_last_version(results, repo, ebuild, settings):
         if not (r := get_content(
                 f"https://api.github.com/repos/{owner}/{repo}/git/refs/tags/{last_version['id']}")):
             return last_version['version'], ''

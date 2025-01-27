@@ -5,13 +5,12 @@ from pathlib import Path
 import json
 from urllib.parse import urlparse
 
+from loguru import logger
 import livecheck.special.handlers as sc
 
 from . import utils
 
 __all__ = ('LivecheckSettings', 'gather_settings')
-
-from loguru import logger
 
 
 @dataclass
@@ -23,8 +22,8 @@ class LivecheckSettings:
     '''Dictionary of catpkg to project or solution file (base name only).'''
     go_sum_uri: dict[str, str]
     '''
-    Dictionary of catpkg to full URI to ``go.sum`` with ``@PV@`` used for where version gets
-    placed.
+    Dictionary of catpkg to full URI to ``go.sum`` with ``@PV@`` used for
+    where version gets placed.
     '''
     type_packages: dict[str, str]
     no_auto_update: set[str]
@@ -46,6 +45,18 @@ class LivecheckSettings:
     regex_version: dict[str, tuple[str, str]]
     restrict_version: dict[str, str]
     sync_version: dict[str, str]
+    # Settings from command line flag.
+    auto_update_flag: bool = False
+    debug_flag: bool = False
+    development_flag: bool = False
+    git_flag: bool = False
+    keep_old_flag: bool = False
+    progress_flag: bool = False
+    # Internal settings.
+    restrict_version_process: str = ''
+
+    def is_devel(self, catpkg: str) -> bool:
+        return self.development.get(catpkg, self.development_flag)
 
 
 class UnknownTransformationFunction(NameError):
@@ -88,7 +99,7 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
             except json.JSONDecodeError as e:
                 logger.error(f"Error parsing file {path}: {e}")
                 continue
-            if settings_parsed.get('type') != None:
+            if settings_parsed.get('type') is not None:
                 if settings_parsed.get('type').lower() == 'none':
                     type_packages[catpkg] = 'none'
                 elif settings_parsed.get('type').lower() == 'regex':
@@ -212,25 +223,25 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
 
 def check_instance(value: int | str | bool | list[str] | None,
                    key: str,
-                   type: str,
+                   dtype: str,
                    path: str | object,
                    specific_value: bool | int | str | None = None) -> None:
     is_type = False
-    if type == 'bool':
+    if dtype == 'bool':
         is_type = isinstance(value, bool)
-    elif type == 'int':
+    elif dtype == 'int':
         is_type = isinstance(value, int)
-    elif type == 'string':
+    elif dtype == 'string':
         is_type = isinstance(value, str)
-    elif type == 'none':
-        is_type = value == None
-    elif type == 'list':
+    elif dtype == 'none':
+        is_type = value is None
+    elif dtype == 'list':
         is_type = isinstance(value, list)
-    elif type == 'url':
+    elif dtype == 'url':
         if isinstance(value, str):
             parsed_url = urlparse(value)
             is_type = all([parsed_url.scheme, parsed_url.netloc])
-    elif type == 'regex':
+    elif dtype == 'regex':
         if isinstance(value, str):
             try:
                 re.compile(value)
@@ -239,7 +250,8 @@ def check_instance(value: int | str | bool | list[str] | None,
                 is_type = False
 
     if not is_type:
-        logger.error(f"Value \"{value}\" in key \"{key}\" is not of type \"{type}\" in file {path}")
+        logger.error(
+            f"Value \"{value}\" in key \"{key}\" is not of type \"{dtype}\" in file {path}")
 
     if specific_value is not None and value != specific_value:
         logger.error(

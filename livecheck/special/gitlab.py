@@ -1,4 +1,3 @@
-import re
 from urllib.parse import urlparse, quote
 
 from ..settings import LivecheckSettings
@@ -22,7 +21,7 @@ def extract_domain_and_namespace(url: str) -> tuple[str, str, str]:
     return parsed.netloc, path, path.split('/')[-1]
 
 
-def get_latest_gitlab_package(url: str, ebuild: str, development: bool, restrict_version: str,
+def get_latest_gitlab_package(url: str, ebuild: str,
                               settings: LivecheckSettings) -> tuple[str, str]:
 
     domain, path_with_namespace, repo = extract_domain_and_namespace(url)
@@ -40,8 +39,7 @@ def get_latest_gitlab_package(url: str, ebuild: str, development: bool, restrict
             "id": tag.get("commit", {}).get("id", ""),
         })
 
-    if last_version := get_last_version(results, repo, ebuild, development, restrict_version,
-                                        settings):
+    if last_version := get_last_version(results, repo, ebuild, settings):
         return last_version['version'], last_version["id"]
 
     return '', ''

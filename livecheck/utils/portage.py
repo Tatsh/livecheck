@@ -7,8 +7,8 @@ import re
 from itertools import chain
 
 from portage.versions import catpkgsplit, vercmp
-from ..settings import LivecheckSettings
 import portage
+from ..settings import LivecheckSettings
 
 __all__ = ('P', 'catpkg_catpkgsplit', 'get_first_src_uri', 'get_highest_matches',
            'get_highest_matches2', 'sort_by_v', 'get_repository_root_if_inside', 'compare_versions',
@@ -245,20 +245,20 @@ def normalize_version(ver: str) -> str:
         if digits and digits != '0':
             return f"{main}_{letters}{digits}"
         return f"{main}_{letters}"
-    else:
-        # Single-letter suffix with no digits -> preserve as lowercase
-        if len(letters) == 1 and not digits:
-            return f"{main}{letters}"
-        # No recognized suffix
-        if not letters and digits:
-            # Just attach the digits directly (e.g. "1.2.3" + "4")
-            return f"{main}{digits}"
-        if letters and not digits and len(letters) == 1:
-            return f"{main}{letters}"
-        # If the version ends with a letter like 1.2.20a (and not recognized),
-        # the requirement says "it is preserved" only if it is exactly a single letter.
-        # For multi-letter unknown suffix -> discard.
-        return main
+
+    # Single-letter suffix with no digits -> preserve as lowercase
+    if len(letters) == 1 and not digits:
+        return f"{main}{letters}"
+    # No recognized suffix
+    if not letters and digits:
+        # Just attach the digits directly (e.g. "1.2.3" + "4")
+        return f"{main}{digits}"
+    if letters and not digits and len(letters) == 1:
+        return f"{main}{letters}"
+    # If the version ends with a letter like 1.2.20a (and not recognized),
+    # the requirement says "it is preserved" only if it is exactly a single letter.
+    # For multi-letter unknown suffix -> discard.
+    return main
 
 
 def compare_versions(old: str, new: str) -> bool:
@@ -303,8 +303,8 @@ def unpack_ebuild(ebuild_path: str) -> str:
     return ''
 
 
-def get_last_version(results: list[dict[str, str]], repo: str, ebuild: str, development: bool,
-                     restrict_version: str, settings: LivecheckSettings) -> dict[str, str]:
+def get_last_version(results: list[dict[str, str]], repo: str, ebuild: str,
+                     settings: LivecheckSettings) -> dict[str, str]:
     logger.debug('Result count: %d', len(results))
 
     catpkg, _, _, ebuild_version = catpkg_catpkgsplit(ebuild)
@@ -329,10 +329,10 @@ def get_last_version(results: list[dict[str, str]], repo: str, ebuild: str, deve
         except ValueError:
             logger.debug("Skip non-version tag: %s", version)
             continue
-        if not version.startswith(restrict_version):
+        if not version.startswith(settings.restrict_version_process):
             continue
         if is_version_development(ebuild_version) or (not is_version_development(version)
-                                                      or development):
+                                                      or settings.is_devel(catpkg)):
             last = last_version.get('version', '')
             if not last or compare_versions(last, version):
                 last_version = result.copy()
