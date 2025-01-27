@@ -2,6 +2,8 @@ from pathlib import Path
 import logging
 import os
 import tarfile
+import tempfile
+from typing import Any
 
 from xdg.BaseDirectory import save_cache_path
 from ..utils.portage import unpack_ebuild, get_distdir
@@ -101,3 +103,32 @@ def get_archive_extension(filename: str) -> str:
             return '.' + ext
 
     return ''
+
+
+def create_temp_file(file: str) -> Any:
+    ebuild = Path(file)
+    with tempfile.NamedTemporaryFile(mode='w',
+                                     prefix=ebuild.stem,
+                                     suffix=ebuild.suffix,
+                                     delete=False,
+                                     dir=ebuild.parent) as tf:
+        yield tf
+
+    return tf.name
+
+
+def move_temp_file(ebuild: str, tf: str) -> bool:
+    if not Path(tf).exists() or Path(tf).stat().st_size == 0:
+        logger.error("The temporary file is empty.")
+        return False
+    Path(ebuild).unlink()
+    # check if unlink was successful
+    if Path(ebuild).exists():
+        logger.error("Error removing the ebuild.")
+        return False
+    Path(tf).rename(Path(ebuild)).chmod(0o0644)
+    # check if rename was successful
+    if not Path(ebuild).exists():
+        logger.error("Error renaming the temporary file.")
+        return False
+    return True
