@@ -335,12 +335,12 @@ def get_new_sha(src: str) -> str:
     parsed_src = urlparse(src)
     if (parsed_src.hostname == 'github.com' and src.endswith('.atom')):
         if m := re.search(make_github_grit_commit_re(40 * ' '), content):
-            return m.groups()[0]
+            return str(m.groups()[0])
     if parsed_src.hostname == 'git.sr.ht' and src.endswith('xml'):
         user_repo = '/'.join(parsed_src.path.split('/')[1:3])
         if m := re.search(rf'<guid>https://git\.sr\.ht/{user_repo}/commit/([a-f0-9]+)</guid>',
                           content):
-            return m.groups()[0]
+            return str(m.groups()[0])
 
     log_unsupported_sha_source(src)
     return ''

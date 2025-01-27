@@ -110,7 +110,7 @@ class EbuildTempFile:
         self.ebuild = Path(ebuild)
         self.temp_file: Optional[Path] = None
 
-    def __enter__(self):
+    def __enter__(self) -> Path:
         self.temp_file = Path(
             tempfile.NamedTemporaryFile(mode='w',
                                         prefix=self.ebuild.stem,
@@ -143,4 +143,4 @@ class EbuildTempFile:
         if self.temp_file and self.temp_file.exists():
             self.temp_file.unlink(missing_ok=True)
 
-        return False
+        return True
