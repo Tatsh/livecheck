@@ -13,7 +13,7 @@
       "module": "pytest",
       "name": "Run tests",
       "request": "launch",
-      "type": "python"
+      "type": "debugpy"
     }
   ],
   "version": "0.2.0"
