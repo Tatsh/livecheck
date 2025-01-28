@@ -280,6 +280,8 @@ def get_last_version(results: list[dict[str, str]], repo: str, ebuild: str,
         else:
             version = sanitize_version(version, repo)
             logger.debug("Convert Tag: %s -> %s", tag, version)
+        if not version:
+            continue
         # skip version extraneous without dots, example Post120ToMaster
         if ebuild_version.count('.') > 1 and version.count('.') == 0:
             logger.debug("Skip version without dots: %s", version)
