@@ -157,8 +157,7 @@ def extract_version(s: str, repo: str) -> str:
     s = remove_initial_match(s, repo.lower())
     s.strip()
 
-    m = re.search(r'[-_]?([0-9][0-9\._-].*)', s)
-    if m:
+    if m := re.search(r'[-_]?([0-9][0-9\._-].*)', s):
         return m.group(1).strip()
 
     m = re.search(r'(?:^|[^-_])(\d.*)', s)
@@ -175,8 +174,7 @@ def remove_leading_zeros(ver: str) -> str:
     # check if a date format like 2022.12.26 or 24.01.12
     if not re.match(r'\d{4}|\d{2}\.\d{2}\.\d{2}', ver):
         return ver
-    match = re.match(r"(\d+)\.(\d+)(?:\.(\d+))?(.*)", ver)
-    if match:
+    if match := re.match(r"(\d+)\.(\d+)(?:\.(\d+))?(.*)", ver):
         a, b, c, suffix = match.groups()
         if c is None:
             return f"{int(a)}.{int(b)}{suffix}"
@@ -196,16 +194,14 @@ def normalize_version(ver: str) -> str:
     main = re.sub(r'[-_]', '.', ver[:i])
     suf = ver[i:]
 
-    main = main.rstrip('.')
-    if main:
+    if not (main := main.rstrip('.')):
         return ver
 
     suf = re.sub(r'[-_\. ]', '', suf)
     if suf.isdigit():
         return f"{main}.{suf}"
 
-    m = re.match(r'^([A-Za-z]+)([0-9]+)?', suf)
-    if m:
+    if m := re.match(r'^([A-Za-z]+)([0-9]+)?', suf):
         letters, digits = m.groups()
     else:
         suf_clean = re.sub(r'[\s.\-_]+', '', suf)
@@ -217,6 +213,8 @@ def normalize_version(ver: str) -> str:
 
     if letters in ('test', 'dev'):
         letters = 'beta'
+    if letters.startswith('pl') or letters.startswith('patchlevel'):
+        letters = 'p'
 
     allowed = ('pre', 'beta', 'rc', 'p', 'alpha', 'post')
 
@@ -234,8 +232,6 @@ def normalize_version(ver: str) -> str:
     if not letters and digits:
         # Just attach the digits directly (e.g. "1.2.3" + "4")
         return f"{main}{digits}"
-    if letters and not digits and len(letters) == 1:
-        return f"{main}{letters}"
     # If the version ends with a letter like 1.2.20a (and not recognized),
     # the requirement says "it is preserved" only if it is exactly a single letter.
     # For multi-letter unknown suffix -> discard.
