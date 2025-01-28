@@ -42,7 +42,7 @@ from .special.sourceforge import get_latest_sourceforge_package
 from .special.yarn import update_yarn_ebuild
 
 from .typing import PropTuple
-from .utils import (chunks, is_sha, make_github_grit_commit_re, get_content)
+from .utils import (chunks, is_sha, make_github_grit_commit_re, get_content, extract_sha)
 from .utils.portage import (P, catpkg_catpkgsplit, get_first_src_uri, get_highest_matches,
                             get_repository_root_if_inside, compare_versions, digest_ebuild,
                             catpkgsplit)
@@ -74,11 +74,11 @@ def process_submodules(pkg_name: str, ref: str, contents: str, repo_uri: str) ->
 
 
 def log_unhandled_pkg(catpkg: str, src_uri: str) -> None:
-    logger.debug(f'Unhandled: {catpkg} SRC_URI: {src_uri}')
+    logger.warning(f'Unhandled: {catpkg} SRC_URI: {src_uri}')
 
 
-def log_unhandled_github_package(catpkg: str) -> None:
-    logger.debug(f'Unhandled GitHub package: {catpkg}')
+def log_unhandled_commit(catpkg: str, src_uri: str) -> None:
+    logger.warning(f'Unhandled commit: {catpkg} SRC_URI: {src_uri}')
 
 
 def parse_url(repo_root: str, src_uri: str, match: str,
@@ -86,40 +86,36 @@ def parse_url(repo_root: str, src_uri: str, match: str,
     catpkg, _, pkg, _ = catpkg_catpkgsplit(match)
 
     parsed_uri = urlparse(src_uri)
-    last_version = top_hash = hash_date = url = ''
+    last_version = top_hash = hash_date = ''
+    url = src_uri
 
     if not parsed_uri.hostname:
         return last_version, top_hash, hash_date, url
 
     logger.debug(f'Parsed URI: {parsed_uri}')
-    if 'github.' in parsed_uri.hostname:
-        filename = Path(parsed_uri.path).name
-        version = re.split(r'\.(?:tar\.(?:gz|bz2)|zip)$', filename, maxsplit=2)[0]
-        if (re.match(r'^[0-9a-f]{7,}$', version) and not re.match('^[0-9a-f]{8}$', version)):
-            branch = settings.branches.get(catpkg, 'master')
-            top_hash, hash_date = get_latest_github_commit(src_uri, branch)
-
-        elif ('/releases/download/' in parsed_uri.path or '/archive/' in parsed_uri.path):
-            last_version, top_hash = get_latest_github_package(src_uri, match, settings)
-        elif re.search(r'/raw/([0-9a-f]+)/', parsed_uri.path):
-            branch = settings.branches.get(catpkg, 'master')
-            top_hash, hash_date = get_latest_github_commit(src_uri, branch)
-        else:
-            log_unhandled_github_package(catpkg)
-    elif parsed_uri.hostname == 'git.sr.ht':
-        user_repo = '/'.join(parsed_uri.path.split('/')[1:3])
-        branch = settings.branches.get(catpkg, 'master')
-        last_version, hash_date, url = get_latest_regex_package(
-            match,
-            f'https://git.sr.ht/{user_repo}/log/{branch}/rss.xml',
-            r'<pubDate>([^<]+)</pubDate>',
-            '',
-            settings,
-        )
-    elif parsed_uri.hostname in GIST_HOSTNAMES:
+    if parsed_uri.hostname in GIST_HOSTNAMES:
         home = P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0]
         last_version, hash_date, url = get_latest_regex_package(
             match, f'{home}/revisions', r'<relative-time datetime="([0-9-]{10})', '', settings)
+    elif 'github.' in parsed_uri.hostname:
+        if is_sha(parsed_uri.path):
+            branch = settings.branches.get(catpkg, 'master')
+            top_hash, hash_date = get_latest_github_commit(src_uri, branch)
+        else:
+            last_version, top_hash = get_latest_github_package(src_uri, match, settings)
+    elif parsed_uri.hostname == 'git.sr.ht':
+        if is_sha(parsed_uri.path):
+            log_unhandled_commit(catpkg, src_uri)
+        else:
+            user_repo = '/'.join(parsed_uri.path.split('/')[1:3])
+            branch = settings.branches.get(catpkg, 'master')
+            last_version, hash_date, url = get_latest_regex_package(
+                match,
+                f'https://git.sr.ht/{user_repo}/log/{branch}/rss.xml',
+                r'<pubDate>([^<]+)</pubDate>',
+                '',
+                settings,
+            )
     elif src_uri.startswith('mirror://pypi/'):
         dist_name = src_uri.split('/')[4]
         last_version, hash_date, url = get_latest_regex_package(
@@ -142,7 +138,10 @@ def parse_url(repo_root: str, src_uri: str, match: str,
     elif parsed_uri.hostname == 'download.jetbrains.com':
         last_version = get_latest_jetbrains_package(match, settings)
     elif 'gitlab' in parsed_uri.hostname:
-        last_version, top_hash = get_latest_gitlab_package(src_uri, match, settings)
+        if is_sha(parsed_uri.path):
+            log_unhandled_commit(catpkg, src_uri)
+        else:
+            last_version, top_hash = get_latest_gitlab_package(src_uri, match, settings)
     elif parsed_uri.hostname == 'cgit.libimobiledevice.org':
         proj = src_uri.split('/')[3]
         last_version, hash_date, url = get_latest_regex_package(
@@ -171,9 +170,11 @@ def parse_url(repo_root: str, src_uri: str, match: str,
     elif 'sourceforge.' in parsed_uri.hostname or 'sf.' in parsed_uri.hostname:
         last_version = get_latest_sourceforge_package(src_uri, match, settings)
     elif parsed_uri.hostname == 'bitbucket.org':
-        last_version, top_hash = get_latest_bitbucket_package(parsed_uri.path, match, settings)
+        if is_sha(parsed_uri.path):
+            log_unhandled_commit(catpkg, src_uri)
+        else:
+            last_version, top_hash = get_latest_bitbucket_package(parsed_uri.path, match, settings)
     else:
-        logger.debug(f'Unhandled source: {parsed_uri.hostname}')
         log_unhandled_pkg(catpkg, src_uri)
 
     return last_version, top_hash, hash_date, url
@@ -304,13 +305,13 @@ def get_props(
             if not last_version and not top_hash:
                 last_version, top_hash, hash_date, url = parse_metadata(repo_root, match, settings)
         if last_version or top_hash:
-            logger.debug(f'Inserting {catpkg}: {ebuild_version} -> {last_version}')
+            logger.debug(f'Inserting {catpkg}: {ebuild_version} -> {last_version} : {top_hash}')
             yield (cat, pkg, ebuild_version, last_version, top_hash, hash_date, url)
         else:
             logger.debug(f'Ignoring {catpkg}, update not available')
 
 
-def get_old_sha(ebuild: str) -> str:
+def get_old_sha(ebuild: str, url: str) -> str:
     sha_pattern = re.compile(r'(SHA|COMMIT|EGIT_COMMIT)=["\']?([a-f0-9]{40})["\']?')
 
     with open(ebuild, 'r', encoding='utf-8') as file:
@@ -319,7 +320,8 @@ def get_old_sha(ebuild: str) -> str:
             if match:
                 return match.group(2)
 
-    return ''
+    last_part = urlparse(url).path.rsplit('/', 1)[-1] if '/' in url else url
+    return extract_sha(last_part)
 
 
 def log_unsupported_sha_source(src: str) -> None:
@@ -413,7 +415,9 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
             hook_dir: str | None) -> None:
     cp = f'{cat}/{pkg}'
     ebuild = os.path.join(search_dir, cp, f'{pkg}-{ebuild_version}.ebuild')
-    old_sha = get_old_sha(ebuild)
+    old_sha = get_old_sha(ebuild, url)
+    if len(old_sha) == 7:
+        top_hash = top_hash[:7]
     if update_sha_too_source := settings.sha_sources.get(cp, None):
         logger.debug('Package also needs a SHA update')
         top_hash = get_new_sha(update_sha_too_source)

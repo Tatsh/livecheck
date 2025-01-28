@@ -17,7 +17,7 @@ import keyring
 
 __all__ = ('TextDataResponse', 'assert_not_none', 'chunks', 'dash_to_underscore', 'dotize',
            'get_github_api_credentials', 'is_sha', 'make_github_grit_commit_re', 'prefix_v',
-           'session_init', 'get_content')
+           'session_init', 'get_content', 'extract_sha')
 
 logger2 = logging.getLogger(__name__)
 T = TypeVar('T')
@@ -45,8 +45,36 @@ LEN_ISO_DATE = 8
 
 
 @lru_cache
-def is_sha(s: str) -> bool:
+def is_sha2(s: str) -> bool:
     return bool((len(s) == LEN_SHA or len(s) > LEN_ISO_DATE) and re.match(r'^[0-9a-f]+$', s))
+
+
+@lru_cache
+def is_sha(url: str) -> int:
+    """
+    Extracts the last part of a URL and checks if it is a valid SHA-1 hash.
+
+    :param url: The input URL string.
+    :return: 7 if it's a short SHA, 40 if it's a full SHA, 0 otherwise.
+    """
+    last_part = urlparse(url).path.rsplit('/', 1)[-1] if '/' in url else url
+
+    if re.match(r'^[0-9a-f]{40}', last_part):
+        return 40
+    if re.match(r'^[0-9a-f]{7}', last_part):
+        return 7
+    return 0
+
+
+def extract_sha(text: str) -> str:
+    """
+    Extracts the first valid SHA-1 hash (7 or 40 characters) found in the given string.
+
+    :param text: The input string to search.
+    :return: A SHA-1 hash (7 or 40 characters) if found, otherwise None.
+    """
+    match = re.search(r'\b[0-9a-f]{7,40}\b', text)
+    return match.group(0) if match else ''
 
 
 def chunks(seq: Sequence[T], n: int) -> Iterator[Sequence[T]]:
