@@ -86,17 +86,17 @@ def update_dotnet_ebuild(ebuild: str, project_or_solution: str | Path, cp: str) 
             raise TooManyProjects(project_or_solution)
         new_nugets_lines = sorted(dotnet_restore(Path(lines[0]).resolve(strict=True)))
 
+    last_line_no = len(new_nugets_lines)
+    in_nugets = False
+    skip_lines = None
+    nugets_starting_line = None
+
     with EbuildTempFile(ebuild) as temp_file:
         with temp_file.open('w', encoding='utf-8') as tf:
-            last_line_no = len(new_nugets_lines)
-            in_nugets = False
-            skip_lines = None
-            nugets_starting_line = None
-
             with Path(ebuild).open('r', encoding='utf-8') as f:
                 lines = f.readlines()
 
-            for line_no, line in enumerate(f.readlines(), start=1):
+            for line_no, line in enumerate(lines, start=1):
                 if line.startswith('NUGETS="'):
                     nugets_starting_line = line_no
                     if in_nugets:
@@ -111,8 +111,8 @@ def update_dotnet_ebuild(ebuild: str, project_or_solution: str | Path, cp: str) 
                 raise NoNugetsEnding
             if not nugets_starting_line:
                 raise NoNugetsFound
-            f.seek(0)
-            for line_no, line in enumerate(f.readlines(), start=1):
+
+            for line_no, line in enumerate(lines, start=1):
                 if line.startswith('NUGETS="'):
                     tf.write('NUGETS="')
                     if in_nugets:
