@@ -26,11 +26,13 @@ def get_latest_pecl_package(ebuild: str, settings: LivecheckSettings) -> str:
     results = []
     for release in etree.fromstring(r.text).findall(f"{NAMESPACE}r"):
         stability = release.find(f"{NAMESPACE}s")
-        stability = stability.text if stability is not None else None
-        if settings.is_devel(catpkg) or stability == 'stable':
+        assert stability is not None
+        assert stability.text is not None
+        if settings.is_devel(catpkg) or stability.text == 'stable':
             version = release.find(f"{NAMESPACE}v")
-            version = version.text if version is not None else None
-            results.append({"tag": version})
+            assert version is not None
+            assert version.text is not None
+            results.append({"tag": version.text})
 
     if last_version := get_last_version(results, '', ebuild, settings):
         return last_version['version']
