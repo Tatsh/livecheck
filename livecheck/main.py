@@ -517,7 +517,7 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
             if cp in settings.go_sum_uri:
                 update_go_ebuild(new_filename, top_hash, settings.go_sum_uri[cp])
             if cp in settings.dotnet_projects:
-                update_dotnet_ebuild(new_filename, settings.dotnet_projects[cp], cp)
+                update_dotnet_ebuild(new_filename, settings.dotnet_projects[cp])
             if cp in settings.jetbrains_packages:
                 update_jetbrains_ebuild(new_filename)
             if cp in settings.nodejs_packages:

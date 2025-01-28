@@ -1,17 +1,10 @@
 from collections.abc import Iterator
-from functools import cmp_to_key
 from pathlib import Path
-from urllib.parse import urlparse
 import re
-import shutil
 import subprocess as sp
 import tempfile
 
-import requests
-
-from .utils import EbuildTempFile
-from ..utils import unique_justseen
-from ..utils.portage import P, catpkg_catpkgsplit, get_first_src_uri, sort_by_v
+from .utils import EbuildTempFile, search_ebuild
 
 __all__ = ('update_dotnet_ebuild',)
 
@@ -57,34 +50,15 @@ class NoNugetsFound(RuntimeError):
         super().__init__('No NUGETS variable found in ebuild')
 
 
-def update_dotnet_ebuild(ebuild: str, project_or_solution: str | Path, cp: str) -> None:
+def update_dotnet_ebuild(ebuild: str, project_or_solution: str | Path) -> None:
+
     project_or_solution = Path(project_or_solution)
-    with tempfile.TemporaryDirectory(prefix='livecheck-dotnet-', ignore_cleanup_errors=True) as td:
-        sp.run(('ebuild', ebuild, 'manifest'), check=True)
-        matches = list(
-            unique_justseen(sorted(set(P.xmatch('match-all', cp)), key=cmp_to_key(sort_by_v)),
-                            key=lambda a: catpkg_catpkgsplit(a)[0]))
-        if not matches:
-            raise NoMatch(cp)
-        new_src_uri = get_first_src_uri(matches[0])
-        archive_out_name = Path(urlparse(new_src_uri).path).name
-        archive_out_path = Path(td) / archive_out_name
-        with archive_out_path.open('w+b') as f, requests.get(new_src_uri, stream=True,
-                                                             timeout=30) as r:
-            for data in r.iter_content(chunk_size=512):
-                f.write(data)
-        r.raise_for_status()
-        shutil.unpack_archive(str(archive_out_path), td)
-        run = sp.run(('find', td, '-maxdepth', '2', '-name', project_or_solution.name),
-                     check=True,
-                     stdout=sp.PIPE,
-                     text=True)
-        lines = run.stdout.splitlines()
-        if not lines:
-            raise ProjectFileNotFound(project_or_solution)
-        if len(lines) > 1:
-            raise TooManyProjects(project_or_solution)
-        new_nugets_lines = sorted(dotnet_restore(Path(lines[0]).resolve(strict=True)))
+    dotnet_path, _ = search_ebuild(ebuild, project_or_solution.name, '')
+    if dotnet_path == "":
+        return
+
+    project = Path(dotnet_path) / project_or_solution
+    new_nugets_lines = sorted(dotnet_restore(project.resolve(strict=True)))
 
     last_line_no = len(new_nugets_lines)
     in_nugets = False

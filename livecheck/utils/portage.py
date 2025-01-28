@@ -9,27 +9,12 @@ from portage.versions import catpkgsplit, vercmp
 import portage
 from ..settings import LivecheckSettings
 
-__all__ = ('P', 'catpkg_catpkgsplit', 'get_first_src_uri', 'get_highest_matches', 'sort_by_v',
+__all__ = ('P', 'catpkg_catpkgsplit', 'get_first_src_uri', 'get_highest_matches',
            'get_repository_root_if_inside', 'compare_versions', 'sanitize_version', 'get_distdir',
            'fetch_ebuild', 'unpack_ebuild', 'get_last_version')
 
 P = portage.db[portage.root]['porttree'].dbapi
 logger = logging.getLogger(__name__)
-
-
-def sort_by_v(a: str, b: str) -> int:
-    cp_a, _, _, version_a = catpkg_catpkgsplit(a)
-    cp_b, _, _, version_b = catpkg_catpkgsplit(b)
-    if cp_a == cp_b:
-        if version_a == version_b:
-            return 0
-        # Sort descending. First is taken with unique_justseen
-        logger.debug(
-            'Found multiple ebuilds of %s. Only the highest version ebuild will be considered.',
-            cp_a,
-        )
-        return vercmp(version_b, version_a, silent=0) or 0
-    return cp_a < cp_b
 
 
 def mask_version(cp: str, version: str, restrict_version: str | None = 'full') -> str:

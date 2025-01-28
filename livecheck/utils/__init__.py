@@ -1,15 +1,13 @@
 """Utility functions."""
 import re
 
-from collections.abc import Callable, Iterable, Iterator, Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from functools import lru_cache
-from itertools import groupby
 from typing import TypeVar
 from urllib.parse import urlparse
 
 import logging
-import operator
 from http import HTTPStatus
 import requests
 from requests import ConnectTimeout, ReadTimeout
@@ -19,7 +17,7 @@ import keyring
 
 __all__ = ('TextDataResponse', 'assert_not_none', 'chunks', 'dash_to_underscore', 'dotize',
            'get_github_api_credentials', 'is_sha', 'make_github_grit_commit_re', 'prefix_v',
-           'unique_justseen', 'session_init', 'get_content')
+           'session_init', 'get_content')
 
 logger2 = logging.getLogger(__name__)
 T = TypeVar('T')
@@ -77,26 +75,6 @@ def get_github_api_credentials(repo: str = 'github.com') -> str | None:
 @lru_cache
 def prefix_v(s: str) -> str:
     return f'v{s}'
-
-
-def unique_justseen(iterable: Iterable[T], key: Callable[[T], T] | None = None) -> Iterator[T]:
-    """
-    Returns an iterator of unique elements, preserving order.
-
-    Parameters
-    ----------
-    iterable : Iterable[T]
-        Iterable.
-
-    key : Callable[[T], T] | None
-        Optional key function.
-
-    Returns
-    -------
-    Iterator[T]
-        Unique iterator of items in ``iterable``.
-    """
-    return (next(x) for x in (operator.itemgetter(1)(y) for y in groupby(iterable, key)))
 
 
 def assert_not_none(x: T | None) -> T:
