@@ -14,7 +14,6 @@ import xml.etree.ElementTree as ET
 
 from loguru import logger
 import click
-import requests
 
 from .constants import (
     GIST_HOSTNAMES,
@@ -649,8 +648,6 @@ def main(
                     settings=settings,
                     ebuild_version=ebuild_version,
                     hook_dir=hook_dir)
-        except (requests.exceptions.HTTPError, requests.exceptions.SSLError) as e:
-            logger.debug(f'Caught error while checking {cat}/{pkg}: {e}')
         except Exception:
             print(f'Exception while checking {cat}/{pkg}', file=sys.stderr)
             raise
