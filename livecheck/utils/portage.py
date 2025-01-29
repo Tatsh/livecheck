@@ -273,6 +273,9 @@ def get_last_version(results: list[dict[str, str]], repo: str, ebuild: str,
 
     for result in results:
         tag = version = result["tag"]
+        if tf := settings.transformations.get(catpkg, None):
+            version = tf(tag)
+            logger.debug('Applying transformation %s -> %s', tag, version)
         if catpkg in settings.regex_version:
             regex, replace = settings.regex_version[catpkg]
             version = re.sub(regex, replace, version)
