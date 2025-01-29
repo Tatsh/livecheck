@@ -41,7 +41,8 @@ from .special.sourceforge import get_latest_sourceforge_package
 from .special.yarn import update_yarn_ebuild
 
 from .typing import PropTuple
-from .utils import (chunks, is_sha, make_github_grit_commit_re, get_content, extract_sha)
+from .utils import (assert_not_none, chunks, is_sha, make_github_grit_commit_re, get_content,
+                    extract_sha)
 from .utils.portage import (P, catpkg_catpkgsplit, get_first_src_uri, get_highest_matches,
                             get_repository_root_if_inside, compare_versions, digest_ebuild,
                             catpkgsplit)
@@ -328,12 +329,9 @@ def log_unsupported_sha_source(src: str) -> None:
 
 
 def get_new_sha(src: str) -> str:
-    content = get_content(src)
-    assert content is not None
-    assert content.content is not None
-    if not content.content:
+    content = assert_not_none(get_content(src))
+    if not content.content or not (content := content.content.decode()):
         return ''
-    content = content.content.decode()
 
     parsed_src = urlparse(src)
     if (parsed_src.hostname == 'github.com' and src.endswith('.atom')):
