@@ -9,7 +9,8 @@ logger = logging.getLogger(__name__)
 
 
 def handle_glabels(s: str) -> str:
-    r = get_content(f'https://github.com/jimevins/glabels-qt/commits/glabels-{s}.atom', timeout=30)
+    r = get_content(f'https://github.com/jimevins/glabels-qt/commits/glabels-{s}.atom')
+    r = assert_not_none(r)
     return ('3.99_p' + assert_not_none(
         assert_not_none(etree.fromstring(r.text).find('entry/updated',
                                                       RSS_NS)).text).split('T')[0].replace('-', ''))
