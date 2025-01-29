@@ -87,6 +87,7 @@ nuanceur
 nugets
 numpy
 nvchecker
+patchlevel
 paren
 parens
 pecl

@@ -350,12 +350,8 @@ def log_unhandled_state(cat: str, pkg: str, url: str, regex: str | None = None) 
     logger.debug(f'Unhandled state: regex={regex}, cat={cat}, pkg={pkg}, url={url}')
 
 
-def str_version(version: str, revision: str, sha: str) -> str:
-    if revision != 'r0':
-        version = version + f'-{revision}'
-    if sha:
-        version = version + f' ({sha})'
-    return version
+def str_version(version: str, sha: str) -> str:
+    return version + f' ({sha})' if sha else version
 
 
 def replace_date_in_ebuild(ebuild: str, new_date: str, cp: str) -> str:
@@ -372,16 +368,8 @@ def replace_date_in_ebuild(ebuild: str, new_date: str, cp: str) -> str:
 
     n = pattern.sub(replace_match, ebuild)
 
-    result = catpkgsplit(f'{cp}-{ebuild}')
-    if not result or len(result) != 4:
-        logger.error(f'Invalid atom: {cp}-{ebuild}')
-        return n
-    _, _, old_version, _ = result
-    result = catpkgsplit(f'{cp}-{n}')
-    if not result or len(result) != 4:
-        logger.error(f'Invalid atom: {cp}-{n}')
-        return n
-    _, _, new_version, _ = result
+    _, _, _, old_version = catpkg_catpkgsplit(f'{cp}-{ebuild}')
+    _, _, _, new_version = catpkg_catpkgsplit(f'{cp}-{n}')
     if old_version != new_version:
         return str(new_version)
     return n
@@ -442,23 +430,15 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
     if compare_versions(ebuild_version, last_version):
         dn = Path(ebuild).parent
         new_filename = f'{dn}/{pkg}-{last_version}.ebuild'
-        result = catpkgsplit(f'{cp}-{last_version}')
-        if not result or len(result) != 4:
-            logger.error(f'Invalid atom: {cp}-{last_version}')
-            return
-        _, _, new_version, new_revision = result
-        result = catpkgsplit(f'{cp}-{ebuild_version}')
-        if not result or len(result) != 4:
-            logger.error(f'Invalid atom: {cp}-{ebuild_version}')
-            return
-        _, _, old_version, old_revision = result
+        _, _, _, new_version = catpkg_catpkgsplit(f'{cp}-{last_version}')
+        _, _, _, old_version = catpkg_catpkgsplit(f'{cp}-{ebuild_version}')
         logger.debug(f'Migrating from {ebuild} to {new_filename}')
         if cp in settings.no_auto_update:
             no_auto_update_str = ' (no_auto_update)'
         else:
             no_auto_update_str = ''
-        str_new_version = str_version(new_version, new_revision, top_hash)
-        str_old_version = str_version(old_version, old_revision, old_sha)
+        str_new_version = str_version(new_version, top_hash)
+        str_old_version = str_version(old_version, old_sha)
         print(f'{cat}/{pkg}: {str_old_version} -> '
               f'{str_new_version}{no_auto_update_str}')
 

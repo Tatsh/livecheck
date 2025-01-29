@@ -40,15 +40,6 @@ def dotize(s: str) -> str:
     return ret
 
 
-LEN_SHA = 7
-LEN_ISO_DATE = 8
-
-
-@lru_cache
-def is_sha2(s: str) -> bool:
-    return bool((len(s) == LEN_SHA or len(s) > LEN_ISO_DATE) and re.match(r'^[0-9a-f]+$', s))
-
-
 @lru_cache
 def is_sha(url: str) -> int:
     """
@@ -176,7 +167,6 @@ def get_content(url: str) -> requests.Response:
         logger.error(f'Caught error {e} attempting to fetch {url}')
         r = requests.Response()
         r.status_code = HTTPStatus.SERVICE_UNAVAILABLE
-        r._content = b""
         return r
     if r.status_code not in (HTTPStatus.OK, HTTPStatus.CREATED, HTTPStatus.ACCEPTED,
                              HTTPStatus.PARTIAL_CONTENT, HTTPStatus.MOVED_PERMANENTLY,
