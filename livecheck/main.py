@@ -41,8 +41,7 @@ from .special.sourceforge import get_latest_sourceforge_package
 from .special.yarn import update_yarn_ebuild
 
 from .typing import PropTuple
-from .utils import (assert_not_none, chunks, is_sha, make_github_grit_commit_re, get_content,
-                    extract_sha)
+from .utils import (chunks, is_sha, make_github_grit_commit_re, get_content, extract_sha)
 from .utils.portage import (P, catpkg_catpkgsplit, get_first_src_uri, get_highest_matches,
                             get_repository_root_if_inside, compare_versions, digest_ebuild,
                             catpkgsplit)
@@ -329,18 +328,18 @@ def log_unsupported_sha_source(src: str) -> None:
 
 
 def get_new_sha(src: str) -> str:
-    content = assert_not_none(get_content(src))
-    if not content.content or not (content := content.content.decode()):
+    content = get_content(src)
+    if not content.text:
         return ''
 
     parsed_src = urlparse(src)
     if (parsed_src.hostname == 'github.com' and src.endswith('.atom')):
-        if m := re.search(make_github_grit_commit_re(40 * ' '), content):
+        if m := re.search(make_github_grit_commit_re(40 * ' '), content.text):
             return str(m.groups()[0])
     if parsed_src.hostname == 'git.sr.ht' and src.endswith('xml'):
         user_repo = '/'.join(parsed_src.path.split('/')[1:3])
         if m := re.search(rf'<guid>https://git\.sr\.ht/{user_repo}/commit/([a-f0-9]+)</guid>',
-                          content):
+                          content.text):
             return str(m.groups()[0])
 
     log_unsupported_sha_source(src)

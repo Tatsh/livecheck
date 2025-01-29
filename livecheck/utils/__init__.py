@@ -150,7 +150,7 @@ def session_init(module: str) -> requests.Session:
     return session
 
 
-def get_content(url: str) -> requests.Response | None:
+def get_content(url: str) -> requests.Response:
     parsed_uri = urlparse(url)
     logger.debug(f'Fetching {url}')
 
@@ -174,12 +174,17 @@ def get_content(url: str) -> requests.Response | None:
             requests.exceptions.SSLError, requests.exceptions.ConnectionError,
             requests.exceptions.MissingSchema, requests.exceptions.ChunkedEncodingError) as e:
         logger.error(f'Caught error {e} attempting to fetch {url}')
-        return None
+        r = requests.Response()
+        r.status_code = HTTPStatus.SERVICE_UNAVAILABLE
+        r._content = b""
+        return r
     if r.status_code not in (HTTPStatus.OK, HTTPStatus.CREATED, HTTPStatus.ACCEPTED,
                              HTTPStatus.PARTIAL_CONTENT, HTTPStatus.MOVED_PERMANENTLY,
                              HTTPStatus.FOUND, HTTPStatus.TEMPORARY_REDIRECT,
                              HTTPStatus.PERMANENT_REDIRECT):
         logger.error(f'Error fetching {url} status_code {r.status_code}')
-        return None
+    else:
+        if not r.text:
+            logger.warning(f'Empty response for {url}')
 
     return r
