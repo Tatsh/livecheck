@@ -2,7 +2,7 @@ import xml.etree.ElementTree as etree
 
 from ..settings import LivecheckSettings
 from ..utils.portage import get_last_version, catpkg_catpkgsplit
-from ..utils import get_content
+from ..utils import assert_not_none, get_content
 
 __all__ = ["get_latest_pecl_package"]
 
@@ -26,13 +26,11 @@ def get_latest_pecl_package(ebuild: str, settings: LivecheckSettings) -> str:
     results = []
     for release in etree.fromstring(r.text).findall(f"{NAMESPACE}r"):
         stability = release.find(f"{NAMESPACE}s")
-        assert stability is not None
-        assert stability.text is not None
-        if settings.is_devel(catpkg) or stability.text == 'stable':
+        stability = assert_not_none(stability)
+        if settings.is_devel(catpkg) or assert_not_none(stability.text) == 'stable':
             version = release.find(f"{NAMESPACE}v")
-            assert version is not None
-            assert version.text is not None
-            results.append({"tag": version.text})
+            version = assert_not_none(version)
+            results.append({"tag": assert_not_none(version.text)})
 
     if last_version := get_last_version(results, '', ebuild, settings):
         return last_version['version']
