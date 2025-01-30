@@ -238,7 +238,7 @@ def get_distdir() -> str:
 def fetch_ebuild(ebuild_path: str) -> bool:
     settings = portage.config(clone=portage.settings)
 
-    return bool(portage.doebuild(ebuild_path, 'fetch', settings=settings, mytree='porttree') == 0)
+    return bool(portage.doebuild(ebuild_path, 'fetch', settings=settings, tree='porttree') == 0)
 
 
 def digest_ebuild(ebuild_path: str) -> bool:
@@ -297,8 +297,7 @@ def get_last_version(results: list[dict[str, str]], repo: str, ebuild: str,
             continue
         if not version.startswith(settings.restrict_version_process):
             continue
-        if is_version_development(ebuild_version) or (not is_version_development(version)
-                                                      or settings.is_devel(catpkg)):
+        if accept_version(ebuild_version, version, catpkg, settings):
             last = last_version.get('version', '')
             if not last or compare_versions(last, version):
                 last_version = result.copy()
@@ -308,3 +307,17 @@ def get_last_version(results: list[dict[str, str]], repo: str, ebuild: str,
         logger.debug("No new update for %s.", ebuild)
 
     return last_version
+
+
+def accept_version(ebuild_version: str, version: str, catpkg: str,
+                   settings: LivecheckSettings) -> bool:
+    stable_version = settings.stable_version.get(catpkg, '')
+    if is_version_development(ebuild_version) or settings.is_devel(catpkg) or (
+            stable_version and re.match(stable_version, version)):
+        return True
+
+    if is_version_development(version) or (stable_version
+                                           and not re.match(stable_version, version)):
+        return False
+
+    return True

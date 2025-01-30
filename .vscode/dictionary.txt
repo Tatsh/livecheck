@@ -17,6 +17,7 @@ commitizen
 cookiecutter
 cpan
 cython
+davinci
 dbapi
 devel
 distdir

@@ -64,11 +64,15 @@ This package can do automated lookups based on commonly used hosts. Currently:
 - GitHub releases
 - Gitlab repositories
 - JetBrains products
-- PyPI
-- Sourceforge
 - PECL
-- RubyGems
 - Perl CPAN
+- PyPI
+- Raphnet
+- RubyGems
+- SourceHut
+- Sourceforge
+- Yarnpkg
+- libimobiledevice.org
 
 This works as long as the version system is usable with Portage's version
 comparison function. For anything else, see [Package configuration](#package-configuration).
@@ -96,20 +100,22 @@ action directory there can be several scripts that are executed in order of name
 ### Configuration keys
 
 - `branch` - string- The GitHub branch name to use for commits.
-- `composer_packages` - boolean - Download composer vendor modules
-- `composer_path` - path - Where is 'composer.json' located (need composer_packages)
+- `composer_packages` - boolean - Download composer vendor modules.
+- `composer_path` - path - Where is 'composer.json' located (need composer_packages).
 - `development` - bool - Include development packages.
+- `gomodule_packages` - boolean - Download go vendor modules.
+- `gomodule_path` - path - Where is 'go.mod' located (need gomodule_packages).
+- `jetbrains_packages` - boolean - Update internal ID.
 - `keep_old` - boolean - Keep old ebuild versions.
 - `no_auto_update` - boolean - Do not allow auto-updating of this package.
+- `nodejs_packages` - boolean - Download nodejs node_modules.
+- `nodejs_path` - path - Where is 'package.json' located (need nodejs_packages).
 - `semver` - bool - When set to `false`, do not allow detection of semantic versioning.
-- `transformation_function` - string - Function to use to transform the version string. Currently
-  only `dotize` is supported. Others are for internal use.
-- `type` - `none`, `regex`, or `checksum`.
-- `gomodule_packages` - boolean - Download go vendor modules
-- `gomodule_path` - path - Where is 'go.mod' located (need gomodule_packages)
-- `jetbrains_packages` - boolean - Update internal ID.
-- `nodejs_packages` - boolean - Download nodejs node_modules
-- `nodejs_path` - path - Where is 'package.json' located (need nodejs_packages)
+- `stable_version`- string - Regular expression to determine if it is a stable version.
+- `sync_version` - string - Category and ebuild with version to sync.
+- `transformation_function` - string - Function to use to transform the version string.
+   Currently only `dotize` is supported. Others are for internal use.
+- `type` - string - Only one `none`, `davinci`, `regex`, or `checksum`.
 
 Use the pattern to adjust the version using a regular expression
 
