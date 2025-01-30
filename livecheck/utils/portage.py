@@ -1,6 +1,5 @@
 from collections.abc import Sequence
 from functools import lru_cache
-from pathlib import Path
 import logging
 import os
 import re
@@ -11,26 +10,11 @@ import portage
 from ..settings import LivecheckSettings
 
 __all__ = ('P', 'catpkg_catpkgsplit', 'get_first_src_uri', 'get_highest_matches',
-           'get_highest_matches2', 'sort_by_v', 'get_repository_root_if_inside', 'compare_versions',
-           'sanitize_version', 'get_distdir', 'fetch_ebuild', 'unpack_ebuild', 'get_last_version')
+           'get_repository_root_if_inside', 'compare_versions', 'sanitize_version', 'get_distdir',
+           'fetch_ebuild', 'unpack_ebuild', 'get_last_version')
 
 P = portage.db[portage.root]['porttree'].dbapi
 logger = logging.getLogger(__name__)
-
-
-def sort_by_v(a: str, b: str) -> int:
-    cp_a, _, _, version_a = catpkg_catpkgsplit(a)
-    cp_b, _, _, version_b = catpkg_catpkgsplit(b)
-    if cp_a == cp_b:
-        if version_a == version_b:
-            return 0
-        # Sort descending. First is taken with unique_justseen
-        logger.debug(
-            'Found multiple ebuilds of %s. Only the highest version ebuild will be considered.',
-            cp_a,
-        )
-        return vercmp(version_b, version_a, silent=0) or 0
-    return cp_a < cp_b
 
 
 def mask_version(cp: str, version: str, restrict_version: str | None = 'full') -> str:
@@ -41,45 +25,29 @@ def mask_version(cp: str, version: str, restrict_version: str | None = 'full') -
     return cp
 
 
-def get_highest_matches(search_dir: str, repo_root: str, settings: LivecheckSettings) -> list[str]:
-    result: dict[str, str] = {}
-    for path in Path(search_dir).glob('**/*.ebuild'):
-        dn = path.parent
-        name = f'{dn.parent.name}/{dn.name}'
-        if matches := P.xmatch('match-all', name):
-            for m in matches:
-                if P.findname2(m)[1] == repo_root:
-                    cp_a, _, _, version_a = catpkg_catpkgsplit(m)
-                    if '9999' in version_a or not cp_a or not version_a:
-                        continue
-                    restrict_version = settings.restrict_version.get(name, 'full')
-                    cp_mask = mask_version(cp_a, version_a, restrict_version)
-                    if cp_mask in result:
-                        if vercmp(version_a, result[cp_mask]):
-                            result[cp_mask] = version_a
-                    else:
-                        result[cp_mask] = version_a
-
-    return [f"{cp}-{version}" for cp, version in result.items()]
-
-
-def get_highest_matches2(names: Sequence[str], repo_root: str,
-                         settings: LivecheckSettings) -> list[str]:
+def get_highest_matches(names: Sequence[str], repo_root: str,
+                        settings: LivecheckSettings) -> list[str]:
     result: dict[str, str] = {}
     for name in names:
-        if matches := P.xmatch('match-all', name):
-            for m in matches:
-                if not repo_root or P.findname2(m)[1] == repo_root:
-                    cp_a, _, _, version_a = catpkg_catpkgsplit(m)
-                    if '9999' in version_a or not cp_a or not version_a:
-                        continue
-                    restrict_version = settings.restrict_version.get(name, 'full')
-                    cp_mask = mask_version(cp_a, version_a, restrict_version)
-                    if cp_mask in result:
-                        if vercmp(version_a, result[cp_mask]):
-                            result[cp_mask] = version_a
-                    else:
-                        result[cp_mask] = version_a
+        if not (matches := P.xmatch('match-all', name)):
+            continue
+        for m in matches:
+            if repo_root and P.findname2(m)[1] != repo_root:
+                continue
+
+            try:
+                cp_a, _, _, version_a = catpkg_catpkgsplit(m)
+            except ValueError:
+                continue
+
+            if '9999' in version_a or not cp_a or not version_a:
+                continue
+
+            restrict_version = settings.restrict_version.get(name, 'full')
+            cp_mask = mask_version(cp_a, version_a, restrict_version)
+
+            if cp_mask not in result or vercmp(version_a, result[cp_mask]):
+                result[cp_mask] = version_a
 
     return [f"{cp}-{version}" for cp, version in result.items()]
 
@@ -106,11 +74,9 @@ def catpkg_catpkgsplit(atom: str) -> tuple[str, str, str, str]:
     cat, pkg, ebuild_version, revision = result
 
     if revision and revision != 'r0':
-        full_version = f'{ebuild_version}-{revision}'
-    else:
-        full_version = ebuild_version
+        return f'{cat}/{pkg}', cat, pkg, f'{ebuild_version}-{revision}'
 
-    return f'{cat}/{pkg}', cat, pkg, full_version
+    return f'{cat}/{pkg}', cat, pkg, ebuild_version
 
 
 def get_first_src_uri(match: str, search_dir: str | None = None) -> str:
@@ -176,8 +142,7 @@ def extract_version(s: str, repo: str) -> str:
     s = remove_initial_match(s, repo.lower())
     s.strip()
 
-    m = re.search(r'[-_]?([0-9][0-9\._-].*)', s)
-    if m:
+    if m := re.search(r'[-_]?([0-9][0-9\._-].*)', s):
         return m.group(1).strip()
 
     m = re.search(r'(?:^|[^-_])(\d.*)', s)
@@ -194,8 +159,7 @@ def remove_leading_zeros(ver: str) -> str:
     # check if a date format like 2022.12.26 or 24.01.12
     if not re.match(r'\d{4}|\d{2}\.\d{2}\.\d{2}', ver):
         return ver
-    match = re.match(r"(\d+)\.(\d+)(?:\.(\d+))?(.*)", ver)
-    if match:
+    if match := re.match(r"(\d+)\.(\d+)(?:\.(\d+))?(.*)", ver):
         a, b, c, suffix = match.groups()
         if c is None:
             return f"{int(a)}.{int(b)}{suffix}"
@@ -215,16 +179,14 @@ def normalize_version(ver: str) -> str:
     main = re.sub(r'[-_]', '.', ver[:i])
     suf = ver[i:]
 
-    main = main.rstrip('.')
-    if not main:
+    if not (main := main.rstrip('.')):
         return ver
 
     suf = re.sub(r'[-_\. ]', '', suf)
     if suf.isdigit():
         return f"{main}.{suf}"
 
-    m = re.match(r'^([A-Za-z]+)([0-9]+)?', suf)
-    if m:
+    if m := re.match(r'^([A-Za-z]+)([0-9]+)?', suf):
         letters, digits = m.groups()
     else:
         suf_clean = re.sub(r'[\s.\-_]+', '', suf)
@@ -236,6 +198,8 @@ def normalize_version(ver: str) -> str:
 
     if letters in ('test', 'dev'):
         letters = 'beta'
+    if letters.startswith('pl') or letters.startswith('patchlevel'):
+        letters = 'p'
 
     allowed = ('pre', 'beta', 'rc', 'p', 'alpha', 'post')
 
@@ -253,8 +217,6 @@ def normalize_version(ver: str) -> str:
     if not letters and digits:
         # Just attach the digits directly (e.g. "1.2.3" + "4")
         return f"{main}{digits}"
-    if letters and not digits and len(letters) == 1:
-        return f"{main}{letters}"
     # If the version ends with a letter like 1.2.20a (and not recognized),
     # the requirement says "it is preserved" only if it is exactly a single letter.
     # For multi-letter unknown suffix -> discard.
@@ -267,8 +229,7 @@ def compare_versions(old: str, new: str) -> bool:
 
 def get_distdir() -> str:
     settings = portage.config(clone=portage.settings)
-    distdir = settings.get('DISTDIR')
-    if distdir:
+    if distdir := settings.get('DISTDIR'):
         return str(distdir)
 
     return '/var/cache/distfiles'
@@ -312,6 +273,9 @@ def get_last_version(results: list[dict[str, str]], repo: str, ebuild: str,
 
     for result in results:
         tag = version = result["tag"]
+        if tf := settings.transformations.get(catpkg, None):
+            version = tf(tag)
+            logger.debug('Applying transformation %s -> %s', tag, version)
         if catpkg in settings.regex_version:
             regex, replace = settings.regex_version[catpkg]
             version = re.sub(regex, replace, version)
@@ -319,6 +283,8 @@ def get_last_version(results: list[dict[str, str]], repo: str, ebuild: str,
         else:
             version = sanitize_version(version, repo)
             logger.debug("Convert Tag: %s -> %s", tag, version)
+        if not version:
+            continue
         # skip version extraneous without dots, example Post120ToMaster
         if ebuild_version.count('.') > 1 and version.count('.') == 0:
             logger.debug("Skip version without dots: %s", version)

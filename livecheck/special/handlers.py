@@ -2,17 +2,16 @@ import logging
 import re
 import xml.etree.ElementTree as etree
 
-import requests
-
 from ..constants import RSS_NS
-from ..utils import assert_not_none
+from ..utils import assert_not_none, get_content
 
 logger = logging.getLogger(__name__)
 
 
 def handle_glabels(s: str) -> str:
-    r = requests.get(f'https://github.com/jimevins/glabels-qt/commits/glabels-{s}.atom', timeout=30)
-    r.raise_for_status()
+    if not (r := get_content(f'https://github.com/jimevins/glabels-qt/commits/{s}.atom')):
+        return s
+    #r = assert_not_none(r)
     return ('3.99_p' + assert_not_none(
         assert_not_none(etree.fromstring(r.text).find('entry/updated',
                                                       RSS_NS)).text).split('T')[0].replace('-', ''))

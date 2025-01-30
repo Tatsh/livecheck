@@ -13,10 +13,7 @@ import os
 import xml.etree.ElementTree as ET
 
 from loguru import logger
-from portage.exception import InvalidAtom
-from portage import portdb
 import click
-import requests
 
 from .constants import (
     GIST_HOSTNAMES,
@@ -44,10 +41,10 @@ from .special.sourceforge import get_latest_sourceforge_package
 from .special.yarn import update_yarn_ebuild
 
 from .typing import PropTuple
-from .utils import (chunks, get_github_api_credentials, is_sha, make_github_grit_commit_re)
+from .utils import (chunks, is_sha, make_github_grit_commit_re, get_content, extract_sha)
 from .utils.portage import (P, catpkg_catpkgsplit, get_first_src_uri, get_highest_matches,
-                            get_highest_matches2, get_repository_root_if_inside, compare_versions,
-                            digest_ebuild, catpkgsplit)
+                            get_repository_root_if_inside, compare_versions, digest_ebuild,
+                            catpkgsplit)
 
 T = TypeVar('T')
 
@@ -65,25 +62,22 @@ def process_submodules(pkg_name: str, ref: str, contents: str, repo_uri: str) ->
             name = item[0]
         else:
             grep_for = f'{Path(item).name.upper().replace("-", "_")}_SHA="'
-        r = requests.get((f'https://api.github.com/repos/{repo_root}/contents/{name}'
-                          f'?ref={ref}'),
-                         headers=dict(Authorization=f'token {get_github_api_credentials()}'),
-                         timeout=30)
-        r.raise_for_status()
-        remote_sha = r.json()['sha']
-        for line in ebuild_lines:
-            if (line.startswith(grep_for)
-                    and (local_sha := line.split('=')[1].replace('"', '').strip()) != remote_sha):
-                contents = contents.replace(local_sha, remote_sha)
+        if (r := get_content(f'https://api.github.com/repos/{repo_root}/contents/{name}'
+                             f'?ref={ref}')):
+            remote_sha = r.json()['sha']
+            for line in ebuild_lines:
+                if (line.startswith(grep_for) and
+                    (local_sha := line.split('=')[1].replace('"', '').strip()) != remote_sha):
+                    contents = contents.replace(local_sha, remote_sha)
     return contents
 
 
 def log_unhandled_pkg(catpkg: str, src_uri: str) -> None:
-    logger.debug(f'Not handled: {catpkg} SRC_URI: {src_uri}')
+    logger.warning(f'Unhandled: {catpkg} SRC_URI: {src_uri}')
 
 
-def log_unhandled_github_package(catpkg: str) -> None:
-    logger.debug(f'Unhandled GitHub package: {catpkg}')
+def log_unhandled_commit(catpkg: str, src_uri: str) -> None:
+    logger.warning(f'Unhandled commit: {catpkg} SRC_URI: {src_uri}')
 
 
 def parse_url(repo_root: str, src_uri: str, match: str,
@@ -91,40 +85,36 @@ def parse_url(repo_root: str, src_uri: str, match: str,
     catpkg, _, pkg, _ = catpkg_catpkgsplit(match)
 
     parsed_uri = urlparse(src_uri)
-    last_version = top_hash = hash_date = url = ''
+    last_version = top_hash = hash_date = ''
+    url = src_uri
 
     if not parsed_uri.hostname:
         return last_version, top_hash, hash_date, url
 
-    if 'github.' in parsed_uri.hostname:
-        logger.debug(f'Parsed path: {parsed_uri.path}')
-        filename = Path(parsed_uri.path).name
-        version = re.split(r'\.(?:tar\.(?:gz|bz2)|zip)$', filename, maxsplit=2)[0]
-        if (re.match(r'^[0-9a-f]{7,}$', version) and not re.match('^[0-9a-f]{8}$', version)):
-            branch = settings.branches.get(catpkg, 'master')
-            top_hash, hash_date = get_latest_github_commit(src_uri, branch)
-
-        elif ('/releases/download/' in parsed_uri.path or '/archive/' in parsed_uri.path):
-            last_version, top_hash = get_latest_github_package(src_uri, match, settings)
-        elif re.search(r'/raw/([0-9a-f]+)/', parsed_uri.path):
-            branch = settings.branches.get(catpkg, 'master')
-            top_hash, hash_date = get_latest_github_commit(src_uri, branch)
-        else:
-            log_unhandled_github_package(catpkg)
-    elif parsed_uri.hostname == 'git.sr.ht':
-        user_repo = '/'.join(parsed_uri.path.split('/')[1:3])
-        branch = settings.branches.get(catpkg, 'master')
-        last_version, hash_date, url = get_latest_regex_package(
-            match,
-            f'https://git.sr.ht/{user_repo}/log/{branch}/rss.xml',
-            r'<pubDate>([^<]+)</pubDate>',
-            '',
-            settings,
-        )
-    elif parsed_uri.hostname in GIST_HOSTNAMES:
+    logger.debug(f'Parsed URI: {parsed_uri}')
+    if parsed_uri.hostname in GIST_HOSTNAMES:
         home = P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0]
         last_version, hash_date, url = get_latest_regex_package(
             match, f'{home}/revisions', r'<relative-time datetime="([0-9-]{10})', '', settings)
+    elif 'github.' in parsed_uri.hostname:
+        if is_sha(parsed_uri.path):
+            branch = settings.branches.get(catpkg, 'master')
+            top_hash, hash_date = get_latest_github_commit(src_uri, branch)
+        else:
+            last_version, top_hash = get_latest_github_package(src_uri, match, settings)
+    elif parsed_uri.hostname == 'git.sr.ht':
+        if is_sha(parsed_uri.path):
+            log_unhandled_commit(catpkg, src_uri)
+        else:
+            user_repo = '/'.join(parsed_uri.path.split('/')[1:3])
+            branch = settings.branches.get(catpkg, 'master')
+            last_version, hash_date, url = get_latest_regex_package(
+                match,
+                f'https://git.sr.ht/{user_repo}/log/{branch}/rss.xml',
+                r'<pubDate>([^<]+)</pubDate>',
+                '',
+                settings,
+            )
     elif src_uri.startswith('mirror://pypi/'):
         dist_name = src_uri.split('/')[4]
         last_version, hash_date, url = get_latest_regex_package(
@@ -147,7 +137,10 @@ def parse_url(repo_root: str, src_uri: str, match: str,
     elif parsed_uri.hostname == 'download.jetbrains.com':
         last_version = get_latest_jetbrains_package(match, settings)
     elif 'gitlab' in parsed_uri.hostname:
-        last_version, top_hash = get_latest_gitlab_package(src_uri, match, settings)
+        if is_sha(parsed_uri.path):
+            log_unhandled_commit(catpkg, src_uri)
+        else:
+            last_version, top_hash = get_latest_gitlab_package(src_uri, match, settings)
     elif parsed_uri.hostname == 'cgit.libimobiledevice.org':
         proj = src_uri.split('/')[3]
         last_version, hash_date, url = get_latest_regex_package(
@@ -169,16 +162,18 @@ def parse_url(repo_root: str, src_uri: str, match: str,
         )
     elif parsed_uri.hostname == 'pecl.php.net':
         last_version = get_latest_pecl_package(match, settings)
-    elif parsed_uri.hostname == 'metacpan.org' or parsed_uri.hostname == 'cpan':
+    elif 'metacpan.org' in parsed_uri.hostname or 'cpan' in parsed_uri.hostname:
         last_version = get_latest_metacpan_package(parsed_uri.path, match, settings)
     elif parsed_uri.hostname == 'rubygems.org':
         last_version = get_latest_rubygems_package(match, settings)
     elif 'sourceforge.' in parsed_uri.hostname or 'sf.' in parsed_uri.hostname:
         last_version = get_latest_sourceforge_package(src_uri, match, settings)
     elif parsed_uri.hostname == 'bitbucket.org':
-        last_version, top_hash = get_latest_bitbucket_package(parsed_uri.path, match, settings)
+        if is_sha(parsed_uri.path):
+            log_unhandled_commit(catpkg, src_uri)
+        else:
+            last_version, top_hash = get_latest_bitbucket_package(parsed_uri.path, match, settings)
     else:
-        logger.debug(f'Unhandled source: {parsed_uri.hostname}')
         log_unhandled_pkg(catpkg, src_uri)
 
     return last_version, top_hash, hash_date, url
@@ -192,13 +187,11 @@ def parse_metadata(repo_root: str, match: str,
     if not os.path.exists(metadata_file):
         return '', '', '', ''
     try:
-        tree = ET.parse(metadata_file)
-        root = tree.getroot()
+        root = ET.parse(metadata_file).getroot()
     except ET.ParseError as e:
         logger.error(f'Error parsing {metadata_file}: {e}')
         return '', '', '', ''
-    upstream_list = root.findall("upstream")
-    if upstream_list:
+    if upstream_list := root.findall("upstream"):
         for upstream in upstream_list:
             for subelem in upstream:
                 tag_name = subelem.tag
@@ -222,13 +215,11 @@ def parse_metadata(repo_root: str, match: str,
 
 
 def extract_restrict_version(cp: str) -> tuple[str, str]:
-    match = re.match(r"(.*?):(\d+):-(.*)", cp)
-    if match:
+    if match := re.match(r"(.*?):(\d+):-(.*)", cp):
         package, slot, version = match.groups()
         cleaned_string = f"{package}-{version}"
         return cleaned_string, slot
-    else:
-        return cp, ''
+    return cp, ''
 
 
 def get_props(
@@ -239,16 +230,12 @@ def get_props(
     exclude: Sequence[str] | None = None,
 ) -> Iterator[PropTuple]:
     exclude = exclude or []
-    try:
-        matches_list = sorted(
-            get_highest_matches(search_dir, repo_root, settings)
-            if not names else get_highest_matches2(names, repo_root, settings))
-    except InvalidAtom as e:
-        logger.error(f"Invalid Atom: {e}")
-        return None
-    except Exception as e:
-        logger.error(f"Unexpected error: {e}")
-        return None
+    if not names:
+        names = [
+            f'{path.parent.parent.name}/{path.parent.name}'
+            for path in Path(search_dir).glob('**/*.ebuild')
+        ]
+    matches_list = sorted(get_highest_matches(names, repo_root, settings))
     logger.info(f'Found {len(matches_list)} ebuilds')
     if not matches_list:
         logger.error('No matches!')
@@ -267,7 +254,7 @@ def get_props(
             logger.info(f'Processing {catpkg} version {ebuild_version}')
         last_version = hash_date = top_hash = url = ''
         if catpkg in settings.sync_version:
-            matches_sync = get_highest_matches2([settings.sync_version[catpkg]], '', settings)
+            matches_sync = get_highest_matches([settings.sync_version[catpkg]], '', settings)
             if not matches_sync:
                 logger.error(f'No matches for {catpkg}')
                 continue
@@ -297,8 +284,10 @@ def get_props(
                         if filename != bn and not m:
                             continue
                         found = True
-                        r = requests.get(src_uri, timeout=30)
-                        r.raise_for_status()
+                        r = get_content(src_uri)
+                        if not r or r.content:
+                            log_unhandled_pkg(catpkg, src_uri)
+                            continue
                         last_version, hash_date, url = get_latest_regex_package(
                             match,
                             dict(cast(Sequence[tuple[str, str]], chunks(fields_s.split(' '),
@@ -315,13 +304,13 @@ def get_props(
             if not last_version and not top_hash:
                 last_version, top_hash, hash_date, url = parse_metadata(repo_root, match, settings)
         if last_version or top_hash:
-            logger.debug(f'Inserting {catpkg}: {ebuild_version} -> {last_version}')
+            logger.debug(f'Inserting {catpkg}: {ebuild_version} -> {last_version} : {top_hash}')
             yield (cat, pkg, ebuild_version, last_version, top_hash, hash_date, url)
         else:
             logger.debug(f'Ignoring {catpkg}, update not available')
 
 
-def get_old_sha(ebuild: str) -> str:
+def get_old_sha(ebuild: str, url: str) -> str:
     sha_pattern = re.compile(r'(SHA|COMMIT|EGIT_COMMIT)=["\']?([a-f0-9]{40})["\']?')
 
     with open(ebuild, 'r', encoding='utf-8') as file:
@@ -330,7 +319,8 @@ def get_old_sha(ebuild: str) -> str:
             if match:
                 return match.group(2)
 
-    return ''
+    last_part = urlparse(url).path.rsplit('/', 1)[-1] if '/' in url else url
+    return extract_sha(last_part)
 
 
 def log_unsupported_sha_source(src: str) -> None:
@@ -338,18 +328,20 @@ def log_unsupported_sha_source(src: str) -> None:
 
 
 def get_new_sha(src: str) -> str:
+    content = get_content(src)
+    if not content.text:
+        return ''
+
     parsed_src = urlparse(src)
     if (parsed_src.hostname == 'github.com' and src.endswith('.atom')):
-        m = re.search(make_github_grit_commit_re(40 * ' '),
-                      requests.get(src, timeout=30).content.decode())
-        assert m is not None
-        return m.groups()[0]
+        if m := re.search(make_github_grit_commit_re(40 * ' '), content.text):
+            return str(m.groups()[0])
     if parsed_src.hostname == 'git.sr.ht' and src.endswith('xml'):
         user_repo = '/'.join(parsed_src.path.split('/')[1:3])
-        m = re.search(rf'<guid>https://git\.sr\.ht/{user_repo}/commit/([a-f0-9]+)</guid>',
-                      requests.get(src, timeout=30).content.decode())
-        assert m is not None
-        return m.groups()[0]
+        if m := re.search(rf'<guid>https://git\.sr\.ht/{user_repo}/commit/([a-f0-9]+)</guid>',
+                          content.text):
+            return str(m.groups()[0])
+
     log_unsupported_sha_source(src)
     return ''
 
@@ -358,12 +350,8 @@ def log_unhandled_state(cat: str, pkg: str, url: str, regex: str | None = None) 
     logger.debug(f'Unhandled state: regex={regex}, cat={cat}, pkg={pkg}, url={url}')
 
 
-def str_version(version: str, revision: str, sha: str) -> str:
-    if revision != 'r0':
-        version = version + f'-{revision}'
-    if sha:
-        version = version + f' ({sha})'
-    return version
+def str_version(version: str, sha: str) -> str:
+    return version + f' ({sha})' if sha else version
 
 
 def replace_date_in_ebuild(ebuild: str, new_date: str, cp: str) -> str:
@@ -374,22 +362,14 @@ def replace_date_in_ebuild(ebuild: str, new_date: str, cp: str) -> str:
         matched_text = match.group(0)
         if len(matched_text) == 8 and matched_text.isdigit():
             return new_date
-        elif len(matched_text) == 6 and matched_text.isdigit():
+        if len(matched_text) == 6 and matched_text.isdigit():
             return short_date
         return matched_text
 
     n = pattern.sub(replace_match, ebuild)
 
-    result = catpkgsplit(f'{cp}-{ebuild}')
-    if not result or len(result) != 4:
-        logger.error(f'Invalid atom: {cp}-{ebuild}')
-        return n
-    _, _, old_version, _ = result
-    result = catpkgsplit(f'{cp}-{n}')
-    if not result or len(result) != 4:
-        logger.error(f'Invalid atom: {cp}-{n}')
-        return n
-    _, _, new_version, _ = result
+    _, _, _, old_version = catpkg_catpkgsplit(f'{cp}-{ebuild}')
+    _, _, _, new_version = catpkg_catpkgsplit(f'{cp}-{n}')
     if old_version != new_version:
         return str(new_version)
     return n
@@ -419,7 +399,9 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
             hook_dir: str | None) -> None:
     cp = f'{cat}/{pkg}'
     ebuild = os.path.join(search_dir, cp, f'{pkg}-{ebuild_version}.ebuild')
-    old_sha = get_old_sha(ebuild)
+    old_sha = get_old_sha(ebuild, url)
+    if len(old_sha) == 7:
+        top_hash = top_hash[:7]
     if update_sha_too_source := settings.sha_sources.get(cp, None):
         logger.debug('Package also needs a SHA update')
         top_hash = get_new_sha(update_sha_too_source)
@@ -448,23 +430,15 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
     if compare_versions(ebuild_version, last_version):
         dn = Path(ebuild).parent
         new_filename = f'{dn}/{pkg}-{last_version}.ebuild'
-        result = catpkgsplit(f'{cp}-{last_version}')
-        if not result or len(result) != 4:
-            logger.error(f'Invalid atom: {cp}-{last_version}')
-            return
-        _, _, new_version, new_revision = result
-        result = catpkgsplit(f'{cp}-{ebuild_version}')
-        if not result or len(result) != 4:
-            logger.error(f'Invalid atom: {cp}-{ebuild_version}')
-            return
-        _, _, old_version, old_revision = result
+        _, _, _, new_version = catpkg_catpkgsplit(f'{cp}-{last_version}')
+        _, _, _, old_version = catpkg_catpkgsplit(f'{cp}-{ebuild_version}')
         logger.debug(f'Migrating from {ebuild} to {new_filename}')
         if cp in settings.no_auto_update:
             no_auto_update_str = ' (no_auto_update)'
         else:
             no_auto_update_str = ''
-        str_new_version = str_version(new_version, new_revision, top_hash)
-        str_old_version = str_version(old_version, old_revision, old_sha)
+        str_new_version = str_version(new_version, top_hash)
+        str_old_version = str_version(old_version, old_sha)
         print(f'{cat}/{pkg}: {str_old_version} -> '
               f'{str_new_version}{no_auto_update_str}')
 
@@ -500,7 +474,7 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
             # that do not have thin-Manifests ( metadata/layout.conf -> thin-manifests = true)
             # see: https://devmanual.gentoo.org/general-concepts/manifest/index.html
             digest_ebuild(new_filename)
-            fetchlist = portdb.getFetchMap(f"{cp}-{last_version}")
+            fetchlist = P.getFetchMap(f"{cp}-{last_version}")
             # Stores the content so that it can be recovered because it had to be modified
             old_content = content
             # First pass
@@ -523,9 +497,9 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
                 update_yarn_ebuild(new_filename, settings.yarn_base_packages[cp], pkg,
                                    settings.yarn_packages.get(cp))
             if cp in settings.go_sum_uri:
-                update_go_ebuild(new_filename, pkg, top_hash, settings.go_sum_uri[cp])
+                update_go_ebuild(new_filename, top_hash, settings.go_sum_uri[cp])
             if cp in settings.dotnet_projects:
-                update_dotnet_ebuild(new_filename, settings.dotnet_projects[cp], cp)
+                update_dotnet_ebuild(new_filename, settings.dotnet_projects[cp])
             if cp in settings.jetbrains_packages:
                 update_jetbrains_ebuild(new_filename)
             if cp in settings.nodejs_packages:
@@ -651,8 +625,6 @@ def main(
                     settings=settings,
                     ebuild_version=ebuild_version,
                     hook_dir=hook_dir)
-        except (requests.exceptions.HTTPError, requests.exceptions.SSLError) as e:
-            logger.debug(f'Caught error while checking {cat}/{pkg}: {e}')
         except Exception:
             print(f'Exception while checking {cat}/{pkg}', file=sys.stderr)
             raise

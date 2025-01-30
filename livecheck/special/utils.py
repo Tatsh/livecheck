@@ -2,12 +2,14 @@ from pathlib import Path
 import logging
 import os
 import tarfile
+import tempfile
+from typing import Any, Optional
 
 from xdg.BaseDirectory import save_cache_path
 from ..utils.portage import unpack_ebuild, get_distdir
 
 __all__ = ("get_project_path", "remove_url_ebuild", "search_ebuild", "build_compress",
-           "get_archive_extension")
+           "get_archive_extension", "EbuildTempFile")
 
 logger = logging.getLogger(__name__)
 
@@ -101,3 +103,44 @@ def get_archive_extension(filename: str) -> str:
             return '.' + ext
 
     return ''
+
+
+class EbuildTempFile:
+    def __init__(self, ebuild: str):
+        self.ebuild = Path(ebuild)
+        self.temp_file: Optional[Path] = None
+
+    def __enter__(self) -> Path:
+        self.temp_file = Path(
+            tempfile.NamedTemporaryFile(mode='w',
+                                        prefix=self.ebuild.stem,
+                                        suffix=self.ebuild.suffix,
+                                        delete=False,
+                                        dir=self.ebuild.parent).name)
+        return self.temp_file
+
+    def __exit__(self, exc_type: Optional[type], exc_value: Optional[BaseException],
+                 traceback: Optional[Any]) -> bool:
+        if exc_type is None:
+            if not self.temp_file or not self.temp_file.exists() or self.temp_file.stat(
+            ).st_size == 0:
+                logger.error("The temporary file is empty or missing.")
+                return False
+
+            self.ebuild.unlink(missing_ok=True)
+
+            if self.ebuild.exists():
+                logger.error("Error removing the original ebuild file.")
+                return False
+
+            self.temp_file.rename(self.ebuild)
+            self.ebuild.chmod(0o0644)
+
+            if not self.ebuild.exists():
+                logger.error("Error renaming the temporary file.")
+                return False
+
+        if self.temp_file and self.temp_file.exists():
+            self.temp_file.unlink(missing_ok=True)
+
+        return True

@@ -1,8 +1,7 @@
-import tempfile
 from pathlib import Path
 
 from loguru import logger
-from .utils import search_ebuild
+from .utils import search_ebuild, EbuildTempFile
 
 from ..settings import LivecheckSettings
 from ..utils.portage import get_last_version, catpkg_catpkgsplit
@@ -46,7 +45,7 @@ def get_latest_jetbrains_package(ebuild: str, settings: LivecheckSettings) -> st
     return ''
 
 
-def update_jetbrains_ebuild(ebuild: str | Path) -> None:
+def update_jetbrains_ebuild(ebuild: str) -> None:
     package_path, _ = search_ebuild(str(ebuild), 'product-info.json')
     if not (version := package_path.split('/')[-1]):
         logger.warning('No version found in the tar.gz file.')
@@ -54,18 +53,12 @@ def update_jetbrains_ebuild(ebuild: str | Path) -> None:
 
     version = version.split('-', 1)[-1]
 
-    ebuild = Path(ebuild)
-    tf = tempfile.NamedTemporaryFile(mode='w',
-                                     prefix=ebuild.stem,
-                                     suffix=ebuild.suffix,
-                                     delete=False,
-                                     dir=ebuild.parent)
-    with ebuild.open('r', encoding='utf-8') as f:
-        for line in f.readlines():
-            if line.startswith('MY_PV='):
-                logger.debug('Found MY_PV= line.')
-                tf.write(f'MY_PV="{version}"\n')
-            else:
-                tf.write(line)
-    ebuild.unlink()
-    Path(tf.name).rename(ebuild).chmod(0o0644)
+    with EbuildTempFile(ebuild) as temp_file:
+        with temp_file.open('w', encoding='utf-8') as tf:
+            with Path(ebuild).open('r', encoding='utf-8') as f:
+                for line in f.readlines():
+                    if line.startswith('MY_PV='):
+                        logger.debug('Found MY_PV= line.')
+                        tf.write(f'MY_PV="{version}"\n')
+                    else:
+                        tf.write(line)

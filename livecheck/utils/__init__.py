@@ -1,15 +1,13 @@
 """Utility functions."""
 import re
 
-from collections.abc import Callable, Iterable, Iterator, Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from functools import lru_cache
-from itertools import groupby
 from typing import TypeVar
 from urllib.parse import urlparse
 
 import logging
-import operator
 from http import HTTPStatus
 import requests
 from requests import ConnectTimeout, ReadTimeout
@@ -19,7 +17,7 @@ import keyring
 
 __all__ = ('TextDataResponse', 'assert_not_none', 'chunks', 'dash_to_underscore', 'dotize',
            'get_github_api_credentials', 'is_sha', 'make_github_grit_commit_re', 'prefix_v',
-           'unique_justseen', 'session_init', 'get_content')
+           'session_init', 'get_content', 'extract_sha')
 
 logger2 = logging.getLogger(__name__)
 T = TypeVar('T')
@@ -42,13 +40,32 @@ def dotize(s: str) -> str:
     return ret
 
 
-LEN_SHA = 7
-LEN_ISO_DATE = 8
-
-
 @lru_cache
-def is_sha(s: str) -> bool:
-    return bool((len(s) == LEN_SHA or len(s) > LEN_ISO_DATE) and re.match(r'^[0-9a-f]+$', s))
+def is_sha(url: str) -> int:
+    """
+    Extracts the last part of a URL and checks if it is a valid SHA-1 hash.
+
+    :param url: The input URL string.
+    :return: 7 if it's a short SHA, 40 if it's a full SHA, 0 otherwise.
+    """
+    last_part = urlparse(url).path.rsplit('/', 1)[-1] if '/' in url else url
+
+    if re.match(r'^[0-9a-f]{40}', last_part):
+        return 40
+    if re.match(r'^[0-9a-f]{7}', last_part):
+        return 7
+    return 0
+
+
+def extract_sha(text: str) -> str:
+    """
+    Extracts the first valid SHA-1 hash (7 or 40 characters) found in the given string.
+
+    :param text: The input string to search.
+    :return: A SHA-1 hash (7 or 40 characters) if found, otherwise None.
+    """
+    match = re.search(r'\b[0-9a-f]{7,40}\b', text)
+    return match.group(0) if match else ''
 
 
 def chunks(seq: Sequence[T], n: int) -> Iterator[Sequence[T]]:
@@ -77,26 +94,6 @@ def get_github_api_credentials(repo: str = 'github.com') -> str | None:
 @lru_cache
 def prefix_v(s: str) -> str:
     return f'v{s}'
-
-
-def unique_justseen(iterable: Iterable[T], key: Callable[[T], T] | None = None) -> Iterator[T]:
-    """
-    Returns an iterator of unique elements, preserving order.
-
-    Parameters
-    ----------
-    iterable : Iterable[T]
-        Iterable.
-
-    key : Callable[[T], T] | None
-        Optional key function.
-
-    Returns
-    -------
-    Iterator[T]
-        Unique iterator of items in ``iterable``.
-    """
-    return (next(x) for x in (operator.itemgetter(1)(y) for y in groupby(iterable, key)))
 
 
 def assert_not_none(x: T | None) -> T:
@@ -144,7 +141,7 @@ def session_init(module: str) -> requests.Session:
     return session
 
 
-def get_content(url: str) -> requests.Response | None:
+def get_content(url: str) -> requests.Response:
     parsed_uri = urlparse(url)
     logger.debug(f'Fetching {url}')
 
@@ -168,12 +165,16 @@ def get_content(url: str) -> requests.Response | None:
             requests.exceptions.SSLError, requests.exceptions.ConnectionError,
             requests.exceptions.MissingSchema, requests.exceptions.ChunkedEncodingError) as e:
         logger.error(f'Caught error {e} attempting to fetch {url}')
-        return None
+        r = requests.Response()
+        r.status_code = HTTPStatus.SERVICE_UNAVAILABLE
+        return r
     if r.status_code not in (HTTPStatus.OK, HTTPStatus.CREATED, HTTPStatus.ACCEPTED,
                              HTTPStatus.PARTIAL_CONTENT, HTTPStatus.MOVED_PERMANENTLY,
                              HTTPStatus.FOUND, HTTPStatus.TEMPORARY_REDIRECT,
                              HTTPStatus.PERMANENT_REDIRECT):
         logger.error(f'Error fetching {url} status_code {r.status_code}')
-        return None
+    else:
+        if not r.text:
+            logger.warning(f'Empty response for {url}')
 
     return r

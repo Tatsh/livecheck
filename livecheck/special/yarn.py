@@ -5,9 +5,8 @@ from typing import Final, NotRequired, TypedDict, cast
 import json
 import re
 import subprocess as sp
-import tempfile
 
-from .utils import get_project_path
+from .utils import get_project_path, EbuildTempFile
 
 CONVERSION_CODE: Final[str] = '''const fs = require('fs');
 const lockfile = require('@yarnpkg/lockfile');
@@ -65,41 +64,38 @@ def yarn_pkgs(project_path: Path) -> Iterator[str]:
         yield f'{dep_name}-{val["version"]}'
 
 
-def update_yarn_ebuild(ebuild: str | Path,
+def update_yarn_ebuild(ebuild: str,
                        yarn_base_package: str,
                        pkg: str,
                        yarn_packages: set[str] | None = None) -> None:
     project_path = create_project(yarn_base_package, yarn_packages)
     package_re = re.compile(r'^' + re.escape(yarn_base_package) + r'-[0-9]+')
-    ebuild = Path(ebuild)
     in_yarn_pkgs = False
-    tf = tempfile.NamedTemporaryFile(mode='w',
-                                     prefix=ebuild.stem,
-                                     suffix=ebuild.suffix,
-                                     delete=False,
-                                     dir=ebuild.parent)
-    wrote_new_packages = False
-    with ebuild.open('r', encoding='utf-8') as f:
-        for line in f.readlines():
-            if line.startswith('YARN_PKGS=('):
-                tf.write(line)
-                if in_yarn_pkgs:
-                    raise RuntimeError
-                in_yarn_pkgs = True
-            elif in_yarn_pkgs:
-                if line.strip() == ')':
-                    in_yarn_pkgs = False
-                    tf.write(line)
-                elif not wrote_new_packages:
-                    for new_pkg in sorted(set(yarn_pkgs(project_path)),
-                                          key=lambda x: -1 if re.match(package_re, x) else 0):
-                        tf.write(f'\t{new_pkg}\n')
-                    wrote_new_packages = True
-            else:
-                tf.write(line)
-    ebuild.unlink()
-    Path(tf.name).rename(ebuild).chmod(0o0644)
-    for item in ('package.json', 'yarn.lock'):
-        target = ebuild.parent / 'files' / f'{Path(pkg).name}-{item}'
-        copyfile(project_path / item, target)
-        target.chmod(0o644)
+    with EbuildTempFile(ebuild) as temp_file:
+        with temp_file.open('w', encoding='utf-8') as tf:
+            wrote_new_packages = False
+            with Path(ebuild).open('r', encoding='utf-8') as f:
+                for line in f.readlines():
+                    if line.startswith('YARN_PKGS=('):
+                        tf.write(line)
+                        if in_yarn_pkgs:
+                            raise RuntimeError
+                        in_yarn_pkgs = True
+                    elif in_yarn_pkgs:
+                        if line.strip() == ')':
+                            in_yarn_pkgs = False
+                            tf.write(line)
+                        elif not wrote_new_packages:
+                            for new_pkg in sorted(set(yarn_pkgs(project_path)),
+                                                  key=lambda x: -1
+                                                  if re.match(package_re, x) else 0):
+                                tf.write(f'\t{new_pkg}\n')
+                            wrote_new_packages = True
+                    else:
+                        tf.write(line)
+
+            if temp_file.exists() and temp_file.stat().st_size > 0:
+                for item in ('package.json', 'yarn.lock'):
+                    target = Path(ebuild).parent / 'files' / f'{Path(pkg).name}-{item}'
+                    copyfile(project_path / item, target)
+                    target.chmod(0o644)
