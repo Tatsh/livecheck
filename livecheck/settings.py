@@ -45,6 +45,7 @@ class LivecheckSettings:
     regex_version: dict[str, tuple[str, str]]
     restrict_version: dict[str, str]
     sync_version: dict[str, str]
+    stable_version: dict[str, str]
     # Settings from command line flag.
     auto_update_flag: bool = False
     debug_flag: bool = False
@@ -89,6 +90,7 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
     regex_version: dict[str, tuple[str, str]] = {}
     restrict_version: dict[str, str] = {}
     sync_version: dict[str, str] = {}
+    stable_version: dict[str, str] = {}
     for path in Path(search_dir).glob('**/livecheck.json'):
         logger.debug(f"Opening {path}")
         with path.open() as f:
@@ -212,13 +214,16 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
             if 'sync_version' in settings_parsed:
                 check_instance(settings_parsed['sync_version'], 'sync_version', 'string', path)
                 sync_version[catpkg] = settings_parsed['sync_version']
+            if 'stable_version' in settings_parsed:
+                check_instance(settings_parsed['stable_version'], 'stable_version', 'regex', path)
+                stable_version[catpkg] = settings_parsed['stable_version']
 
     return LivecheckSettings(branches, checksum_livechecks, custom_livechecks, dotnet_projects,
                              golang_packages, type_packages, no_auto_update, semver, sha_sources,
                              transformations, yarn_base_packages, yarn_packages, jetbrains_packages,
                              keep_old, gomodule_packages, gomodule_path, nodejs_packages,
                              nodejs_path, development, composer_packages, composer_path,
-                             regex_version, restrict_version, sync_version)
+                             regex_version, restrict_version, sync_version, stable_version)
 
 
 def check_instance(value: int | str | bool | list[str] | None,
