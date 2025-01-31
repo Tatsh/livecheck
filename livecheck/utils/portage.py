@@ -32,22 +32,23 @@ def get_highest_matches(names: Sequence[str], repo_root: str,
         if not (matches := P.xmatch('match-all', name)):
             continue
         for m in matches:
-            if repo_root and P.findname2(m)[1] != repo_root:
-                continue
-
+            # Check if the package structure is valid
             try:
-                cp_a, _, _, version_a = catpkg_catpkgsplit(m)
+                cp_a, _, _, version = catpkg_catpkgsplit(m)
             except ValueError:
                 continue
 
-            if '9999' in version_a or not cp_a or not version_a:
+            if repo_root and P.findname2(m)[1] != repo_root:
+                continue
+
+            if '9999' in version or not cp_a or not version:
                 continue
 
             restrict_version = settings.restrict_version.get(name, 'full')
-            cp_mask = mask_version(cp_a, version_a, restrict_version)
+            cp_mask = mask_version(cp_a, version, restrict_version)
 
-            if cp_mask not in result or vercmp(version_a, result[cp_mask]):
-                result[cp_mask] = version_a
+            if cp_mask not in result or vercmp(version, result[cp_mask]):
+                result[cp_mask] = version
 
     return [f"{cp}-{version}" for cp, version in result.items()]
 
@@ -224,7 +225,7 @@ def normalize_version(ver: str) -> str:
 
 
 def compare_versions(old: str, new: str) -> bool:
-    return bool(vercmp(old, new, silent=0) == -1)
+    return bool(vercmp(old, new) == -1)
 
 
 def get_distdir() -> str:
@@ -291,7 +292,7 @@ def get_last_version(results: list[dict[str, str]], repo: str, ebuild: str,
             continue
         # Check valid version
         try:
-            _, _, _, _ = catpkg_catpkgsplit(ebuild)
+            _, _, _, _ = catpkg_catpkgsplit(f'{catpkg}-{version}')
         except ValueError:
             logger.debug("Skip non-version tag: %s", version)
             continue
