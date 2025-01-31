@@ -9,7 +9,7 @@ from portage.versions import catpkgsplit, vercmp
 import portage
 from ..settings import LivecheckSettings
 
-__all__ = ('P', 'catpkg_catpkgsplit', 'get_first_src_uri', 'get_highest_matches',
+__all__ = ('P', 'catpkg_catpkgsplit', 'catpkgsplit2', 'get_first_src_uri', 'get_highest_matches',
            'get_repository_root_if_inside', 'compare_versions', 'sanitize_version', 'get_distdir',
            'fetch_ebuild', 'unpack_ebuild', 'get_last_version')
 
@@ -54,7 +54,7 @@ def get_highest_matches(names: Sequence[str], repo_root: str,
 
 
 @lru_cache
-def catpkg_catpkgsplit(atom: str) -> tuple[str, str, str, str]:
+def catpkgsplit2(atom: str) -> tuple[str, str, str, str]:
     """
     Split an atom string. This function always returns a four-string tuple.
 
@@ -72,7 +72,12 @@ def catpkg_catpkgsplit(atom: str) -> tuple[str, str, str, str]:
     if not result or len(result) != 4:
         raise ValueError(f'Invalid atom: {atom}')
 
-    cat, pkg, ebuild_version, revision = result
+    return result
+
+
+@lru_cache
+def catpkg_catpkgsplit(atom: str) -> tuple[str, str, str, str]:
+    cat, pkg, ebuild_version, revision = catpkgsplit2(atom)
 
     if revision and revision != 'r0':
         return f'{cat}/{pkg}', cat, pkg, f'{ebuild_version}-{revision}'
