@@ -44,7 +44,7 @@ from .typing import PropTuple
 from .utils import (chunks, is_sha, make_github_grit_commit_re, get_content, extract_sha)
 from .utils.portage import (P, catpkg_catpkgsplit, get_first_src_uri, get_highest_matches,
                             get_repository_root_if_inside, compare_versions, digest_ebuild,
-                            catpkgsplit)
+                            catpkgsplit2)
 
 T = TypeVar('T')
 
@@ -415,11 +415,7 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
     if not last_version:
         last_version = ebuild_version
     if last_version == ebuild_version and old_sha != top_hash and old_sha and top_hash:
-        result = catpkgsplit(f'{cp}-{last_version}')
-        if not result or len(result) != 4:
-            logger.error(f'Invalid atom: {cp}-{last_version}')
-            return
-        _, _, new_version, new_revision = result
+        _, _, new_version, new_revision = catpkgsplit2(f'{cp}-{last_version}')
         new_revision = 'r' + str(int(new_revision[1:]) + 1)
         logger.debug(f'Incrementing revision to {new_revision}')
         last_version = f'{new_version}-{new_revision}'
