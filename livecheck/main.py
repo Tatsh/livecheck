@@ -24,21 +24,21 @@ from .constants import (
 from .settings import LivecheckSettings, gather_settings
 
 from .special.bitbucket import get_latest_bitbucket_package
-from .special.composer import update_composer_ebuild, remove_composer_url
+from .special.composer import update_composer_ebuild, remove_composer_url, check_composer_requirements
 from .special.davinci import get_latest_davinci_package
-from .special.dotnet import update_dotnet_ebuild
+from .special.dotnet import update_dotnet_ebuild, check_dotnet_requirements
 from .special.github import get_latest_github_package, get_latest_github_commit
 from .special.gitlab import get_latest_gitlab_package
 from .special.golang import update_go_ebuild
-from .special.gomodule import update_gomodule_ebuild, remove_gomodule_url
+from .special.gomodule import update_gomodule_ebuild, remove_gomodule_url, check_gomodule_requirements
 from .special.jetbrains import get_latest_jetbrains_package, update_jetbrains_ebuild
 from .special.metacpan import get_latest_metacpan_package
-from .special.nodejs import update_nodejs_ebuild, remove_nodejs_url
+from .special.nodejs import update_nodejs_ebuild, remove_nodejs_url, check_nodejs_requirements
 from .special.pecl import get_latest_pecl_package
 from .special.regex import get_latest_regex_package
 from .special.rubygems import get_latest_rubygems_package
 from .special.sourceforge import get_latest_sourceforge_package
-from .special.yarn import update_yarn_ebuild
+from .special.yarn import update_yarn_ebuild, check_yarn_requirements
 
 from .typing import PropTuple
 from .utils import (chunks, is_sha, make_github_grit_commit_re, get_content, extract_sha)
@@ -439,6 +439,15 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
               f'{str_new_version}{no_auto_update_str}')
 
         if settings.auto_update_flag and cp not in settings.no_auto_update:
+            # First check requirements before update
+            if (cp in settings.dotnet_projects and not check_dotnet_requirements()) or (
+                    cp in settings.composer_packages and not check_composer_requirements()
+            ) or (cp in settings.yarn_base_packages and not check_yarn_requirements()) or (
+                    cp in settings.nodejs_packages
+                    and not check_nodejs_requirements()) or (cp in settings.gomodule_packages
+                                                             and not check_gomodule_requirements()):
+                logger.warning('Update is not possible')
+                return
             with open(ebuild, 'r', encoding='utf-8') as f:
                 old_content = content = f.read()
             # Only update the version if it is not a commit

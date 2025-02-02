@@ -2,8 +2,9 @@ import subprocess as sp
 
 from loguru import logger
 from .utils import remove_url_ebuild, search_ebuild, build_compress
+from ..utils import check_program
 
-__all__ = ("update_composer_ebuild", "remove_composer_url")
+__all__ = ("update_composer_ebuild", "remove_composer_url", "check_composer_requirements")
 
 
 def remove_composer_url(ebuild_content: str) -> str:
@@ -24,3 +25,10 @@ def update_composer_ebuild(ebuild: str, path: str | None, fetchlist: dict[str, s
         return
 
     build_compress(temp_dir, composer_path, 'vendor', "-vendor.tar.xz", fetchlist)
+
+
+def check_composer_requirements() -> bool:
+    if not check_program('composer', '', '1'):
+        logger.error('composer is not installed')
+        return False
+    return True

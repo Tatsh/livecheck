@@ -2,8 +2,9 @@ import subprocess as sp
 from loguru import logger
 
 from .utils import remove_url_ebuild, search_ebuild, build_compress
+from ..utils import check_program
 
-__all__ = ("update_gomodule_ebuild", "remove_gomodule_url")
+__all__ = ("update_gomodule_ebuild", "remove_gomodule_url", "check_gomodule_requirements")
 
 
 def remove_gomodule_url(ebuild_content: str) -> str:
@@ -22,3 +23,10 @@ def update_gomodule_ebuild(ebuild: str, path: str | None, fetchlist: dict[str, s
         return
 
     build_compress(temp_dir, go_mod_path, 'vendor', "-vendor.tar.xz", fetchlist)
+
+
+def check_gomodule_requirements() -> bool:
+    if not check_program('go', '', ''):
+        logger.error('go is not installed')
+        return False
+    return True

@@ -7,8 +7,10 @@ from functools import lru_cache
 from typing import TypeVar
 from urllib.parse import urlparse
 
+import subprocess
 import logging
 from http import HTTPStatus
+from packaging.version import Version
 import requests
 from requests import ConnectTimeout, ReadTimeout
 from loguru import logger
@@ -17,7 +19,7 @@ import keyring
 
 __all__ = ('TextDataResponse', 'assert_not_none', 'chunks', 'dash_to_underscore', 'dotize',
            'get_github_api_credentials', 'is_sha', 'make_github_grit_commit_re', 'prefix_v',
-           'session_init', 'get_content', 'extract_sha')
+           'session_init', 'get_content', 'extract_sha', 'check_program')
 
 logger2 = logging.getLogger(__name__)
 T = TypeVar('T')
@@ -178,3 +180,27 @@ def get_content(url: str) -> requests.Response:
             logger.warning(f'Empty response for {url}')
 
     return r
+
+
+def check_program(cmd: str, args: str = '', min_version: str | None = None) -> bool:
+    """
+    Check if a program is installed and optionally check if the installed version is at least
+    the specified minimum version.
+
+    :param cmd: The command to check.
+    :param args: The arguments to pass to the command.
+    :param min_version: The minimum version required.
+    :return: True if the program is installed and the version is at least the minimum version.
+    """
+    try:
+        output = subprocess.check_output([cmd, *args], stderr=subprocess.STDOUT, text=True)
+    except FileNotFoundError:
+        return False
+
+    try:
+        if min_version and Version(output.strip()) < Version(min_version):
+            return False
+    except ValueError:
+        return False
+
+    return True

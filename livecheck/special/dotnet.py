@@ -4,9 +4,11 @@ import re
 import subprocess as sp
 import tempfile
 
+from loguru import logger
 from .utils import EbuildTempFile, search_ebuild
+from ..utils import check_program
 
-__all__ = ('update_dotnet_ebuild',)
+__all__ = ('update_dotnet_ebuild', 'check_dotnet_requirements')
 
 
 def dotnet_restore(project_or_solution: str | Path) -> Iterator[str]:
@@ -51,7 +53,6 @@ class NoNugetsFound(RuntimeError):
 
 
 def update_dotnet_ebuild(ebuild: str, project_or_solution: str | Path) -> None:
-
     project_or_solution = Path(project_or_solution)
     dotnet_path, _ = search_ebuild(ebuild, project_or_solution.name, '')
     if dotnet_path == "":
@@ -103,3 +104,10 @@ def update_dotnet_ebuild(ebuild: str, project_or_solution: str | Path) -> None:
                     in_nugets = False
                 elif line_no > skip_lines or line_no < nugets_starting_line:
                     tf.write(line)
+
+
+def check_dotnet_requirements() -> bool:
+    if not check_program('dotnet', '--version', '10.0.0'):
+        logger.error('dotnet is not installed or version is less than 9.0.0')
+        return False
+    return True

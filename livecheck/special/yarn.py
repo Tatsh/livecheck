@@ -6,12 +6,16 @@ import json
 import re
 import subprocess as sp
 
+from loguru import logger
 from .utils import get_project_path, EbuildTempFile
+from ..utils import check_program
 
 CONVERSION_CODE: Final[str] = '''const fs = require('fs');
 const lockfile = require('@yarnpkg/lockfile');
 console.log(
     JSON.stringify(lockfile.parse(fs.readFileSync(process.argv[3], 'utf8'))['object']));'''
+
+__all__ = ("update_yarn_ebuild", "check_yarn_requirements")
 
 
 class LockfilePackage(TypedDict):
@@ -99,3 +103,13 @@ def update_yarn_ebuild(ebuild: str,
                     target = Path(ebuild).parent / 'files' / f'{Path(pkg).name}-{item}'
                     copyfile(project_path / item, target)
                     target.chmod(0o644)
+
+
+def check_yarn_requirements() -> bool:
+    if not check_program('yarn', '', ''):
+        logger.error('yarn is not installed')
+        return False
+    if not check_program('node', '', ''):
+        logger.error('yarn is not installed')
+        return False
+    return True
