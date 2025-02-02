@@ -85,7 +85,7 @@ def parse_npm_package_name(s: str) -> tuple[str, str | None, str | None]:
 
 
 @lru_cache
-def get_github_api_credentials(repo: str = 'github.com') -> str | None:
+def get_api_credentials(repo: str) -> str | None:
     if not (token := keyring.get_password(repo, 'livecheck')):
         logger.warning(f"No {repo} API token found in your secret store")
     return token
@@ -119,7 +119,7 @@ class TextDataResponse:
 def session_init(module: str) -> requests.Session:
     session = requests.Session()
     if module == 'github':
-        token = get_github_api_credentials()
+        token = get_api_credentials('github.com')
         if token:
             session.headers['Authorization'] = f'Bearer {token}'
         session.headers['Accept'] = 'application/vnd.github.v3+json'
@@ -128,12 +128,12 @@ def session_init(module: str) -> requests.Session:
     elif module == 'json':
         session.headers['Accept'] = 'application/json'
     elif module == 'gitlab':
-        token = get_github_api_credentials('gitlab.com')
+        token = get_api_credentials('gitlab.com')
         if token:
             session.headers['Authorization'] = f'Bearer {token}'
         session.headers['Accept'] = 'application/json'
     elif module == 'bitbucket':
-        token = get_github_api_credentials('api.bitbucket.org')
+        token = get_api_credentials('bitbucket.org')
         if token:
             session.headers['Authorization'] = f'Bearer {token}'
         session.headers['Accept'] = 'application/json'
@@ -147,7 +147,7 @@ def get_content(url: str) -> requests.Response:
 
     if parsed_uri.hostname == 'api.github.com':
         session = session_init('github')
-    elif parsed_uri.hostname == 'gitlab.com':
+    elif parsed_uri.hostname == 'api.gitlab.com':
         session = session_init('gitlab')
     elif parsed_uri.hostname == 'api.bitbucket.org':
         session = session_init('bitbucket')
