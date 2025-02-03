@@ -13,7 +13,7 @@ def handle_glabels(s: str) -> str:
     _, hash_date = get_latest_github_commit2('jimevins', 'glabels-qt', 'master')
     if not hash_date:
         return s
-    return ('3.99_p' + hash_date)
+    return '3.99_p' + hash_date
 
 
 def handle_re(s: str) -> str:
