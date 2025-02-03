@@ -1,25 +1,22 @@
 """Utility functions."""
-import re
-
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from functools import lru_cache
+from http import HTTPStatus
 from typing import TypeVar
 from urllib.parse import urlparse
-
-import subprocess
 import logging
-from http import HTTPStatus
-from packaging.version import Version
-import requests
-from requests import ConnectTimeout, ReadTimeout
-from loguru import logger
+import re
+import subprocess
 
+from loguru import logger
+from packaging.version import Version
+from requests import ConnectTimeout, ReadTimeout
 import keyring
+import requests
 
 __all__ = ('TextDataResponse', 'assert_not_none', 'chunks', 'dash_to_underscore', 'dotize',
-           'get_github_api_credentials', 'is_sha', 'prefix_v', 'session_init', 'get_content',
-           'extract_sha', 'check_program')
+           'is_sha', 'prefix_v', 'session_init', 'get_content', 'extract_sha', 'check_program')
 
 logger2 = logging.getLogger(__name__)
 T = TypeVar('T')
@@ -147,7 +144,7 @@ def get_content(url: str) -> requests.Response:
         session = session_init('gitlab')
     elif parsed_uri.hostname == 'api.bitbucket.org':
         session = session_init('bitbucket')
-    elif url.endswith('.atom') or url.endswith('.xml'):
+    elif url.endswith(('.atom', '.xml')):
         session = session_init('xml')
     elif url.endswith('.json'):
         session = session_init('json')
@@ -169,9 +166,8 @@ def get_content(url: str) -> requests.Response:
                              HTTPStatus.FOUND, HTTPStatus.TEMPORARY_REDIRECT,
                              HTTPStatus.PERMANENT_REDIRECT):
         logger.error(f'Error fetching {url} status_code {r.status_code}')
-    else:
-        if not r.text:
-            logger.warning(f'Empty response for {url}')
+    elif not r.text:
+        logger.warning(f'Empty response for {url}')
 
     return r
 

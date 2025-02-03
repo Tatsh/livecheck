@@ -1,6 +1,6 @@
+from functools import lru_cache
 import logging
 import re
-from functools import lru_cache
 
 from ..utils import assert_not_none
 from .github import get_latest_github_commit2

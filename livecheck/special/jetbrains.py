@@ -2,11 +2,11 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from loguru import logger
-from .utils import search_ebuild, EbuildTempFile
 
 from ..settings import LivecheckSettings
-from ..utils.portage import get_last_version, catpkg_catpkgsplit
 from ..utils import get_content
+from ..utils.portage import catpkg_catpkgsplit, get_last_version
+from .utils import EbuildTempFile, search_ebuild
 
 __all__ = ("get_latest_jetbrains_package", "update_jetbrains_ebuild", "is_jetbrains")
 
@@ -54,15 +54,14 @@ def update_jetbrains_ebuild(ebuild: str) -> None:
 
     version = version.split('-', 1)[-1]
 
-    with EbuildTempFile(ebuild) as temp_file:
-        with temp_file.open('w', encoding='utf-8') as tf:
-            with Path(ebuild).open('r', encoding='utf-8') as f:
-                for line in f.readlines():
-                    if line.startswith('MY_PV='):
-                        logger.debug('Found MY_PV= line.')
-                        tf.write(f'MY_PV="{version}"\n')
-                    else:
-                        tf.write(line)
+    with EbuildTempFile(ebuild) as temp_file, temp_file.open('w', encoding='utf-8') as tf:
+        with Path(ebuild).open('r', encoding='utf-8') as f:
+            for line in f.readlines():
+                if line.startswith('MY_PV='):
+                    logger.debug('Found MY_PV= line.')
+                    tf.write(f'MY_PV="{version}"\n')
+                else:
+                    tf.write(line)
 
 
 def is_jetbrains(url: str) -> bool:

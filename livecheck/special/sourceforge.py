@@ -1,11 +1,11 @@
+from urllib.parse import urlparse
 import os
 import re
 import xml.etree.ElementTree as etree
-from urllib.parse import urlparse
 
 from ..settings import LivecheckSettings
-from ..utils.portage import get_last_version
 from ..utils import get_content
+from ..utils.portage import get_last_version
 from .utils import get_archive_extension
 
 __all__ = ("get_latest_sourceforge_package", "is_sourceforge")

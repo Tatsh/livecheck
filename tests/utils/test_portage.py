@@ -1,8 +1,9 @@
 import pytest
+
 from livecheck.utils.portage import sanitize_version
 
 
-@pytest.mark.parametrize("version, expected",
+@pytest.mark.parametrize(("version", "expected"),
                          [(0, "0"), ("", ""), ("v1.2.3", "1.2.3"), ("s1.2.3", "1.2.3"),
                           ("1.2.3", "1.2.3"), ("1.2.3a", "1.2.3a"), ("1.2.3-alpha", "1.2.3_alpha"),
                           ("1.2.3-alpha0", "1.2.3_alpha"), ("1.2.3-beta1", "1.2.3_beta1"),

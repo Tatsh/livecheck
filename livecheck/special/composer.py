@@ -1,8 +1,9 @@
 import subprocess as sp
 
 from loguru import logger
-from .utils import remove_url_ebuild, search_ebuild, build_compress
+
 from ..utils import check_program
+from .utils import build_compress, remove_url_ebuild, search_ebuild
 
 __all__ = ("update_composer_ebuild", "remove_composer_url", "check_composer_requirements")
 

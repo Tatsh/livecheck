@@ -1,13 +1,12 @@
+from datetime import datetime
 from urllib.parse import urlparse
 import re
 import xml.etree.ElementTree as etree
-from datetime import datetime
-
-from ..settings import LivecheckSettings
-from ..utils.portage import get_last_version, catpkg_catpkgsplit
-from ..utils import is_sha, get_content
 
 from ..constants import RSS_NS
+from ..settings import LivecheckSettings
+from ..utils import get_content, is_sha
+from ..utils.portage import catpkg_catpkgsplit, get_last_version
 
 __all__ = ("get_latest_github_package", "get_latest_github_commit", "get_latest_github_commit2",
            "is_github", "get_latest_github")

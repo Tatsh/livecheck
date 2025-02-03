@@ -1,8 +1,8 @@
 import xml.etree.ElementTree as etree
 
 from ..settings import LivecheckSettings
-from ..utils.portage import get_last_version, catpkg_catpkgsplit
 from ..utils import assert_not_none, get_content
+from ..utils.portage import catpkg_catpkgsplit, get_last_version
 
 __all__ = ["get_latest_pecl_package"]
 

@@ -2,14 +2,15 @@
 from collections.abc import Iterator, Sequence
 from os import chdir
 from pathlib import Path
-from typing import TypeVar, cast, Match
+from re import Match
+from typing import TypeVar, cast
 from urllib.parse import urlparse
 import hashlib
 import logging
+import os
 import re
 import subprocess as sp
 import sys
-import os
 import xml.etree.ElementTree as ET
 
 from loguru import logger
@@ -22,30 +23,43 @@ from .constants import (
     TAG_NAME_FUNCTIONS,
 )
 from .settings import LivecheckSettings, gather_settings
-
 from .special.bitbucket import get_latest_bitbucket_package
-from .special.composer import update_composer_ebuild, remove_composer_url, check_composer_requirements
+from .special.composer import (
+    check_composer_requirements,
+    remove_composer_url,
+    update_composer_ebuild,
+)
 from .special.davinci import get_latest_davinci_package
-from .special.dotnet import update_dotnet_ebuild, check_dotnet_requirements
-from .special.github import get_latest_github_package, get_latest_github, is_github
+from .special.dotnet import check_dotnet_requirements, update_dotnet_ebuild
+from .special.github import get_latest_github, get_latest_github_package, is_github
 from .special.gitlab import get_latest_gitlab_package
 from .special.golang import update_go_ebuild
-from .special.gomodule import update_gomodule_ebuild, remove_gomodule_url, check_gomodule_requirements
-from .special.jetbrains import get_latest_jetbrains_package, update_jetbrains_ebuild, is_jetbrains
+from .special.gomodule import (
+    check_gomodule_requirements,
+    remove_gomodule_url,
+    update_gomodule_ebuild,
+)
+from .special.jetbrains import get_latest_jetbrains_package, is_jetbrains, update_jetbrains_ebuild
 from .special.metacpan import get_latest_metacpan_package
-from .special.nodejs import update_nodejs_ebuild, remove_nodejs_url, check_nodejs_requirements
+from .special.nodejs import check_nodejs_requirements, remove_nodejs_url, update_nodejs_ebuild
 from .special.pecl import get_latest_pecl_package
 from .special.regex import get_latest_regex_package
 from .special.rubygems import get_latest_rubygems_package
 from .special.sourceforge import get_latest_sourceforge_package, is_sourceforge
-from .special.sourcehut import get_latest_sourcehut_package, get_latest_sourcehut, is_sourcehut
-from .special.yarn import update_yarn_ebuild, check_yarn_requirements
-
+from .special.sourcehut import get_latest_sourcehut, get_latest_sourcehut_package, is_sourcehut
+from .special.yarn import check_yarn_requirements, update_yarn_ebuild
 from .typing import PropTuple
-from .utils import (chunks, is_sha, get_content, extract_sha)
-from .utils.portage import (P, catpkg_catpkgsplit, get_first_src_uri, get_highest_matches,
-                            get_repository_root_if_inside, compare_versions, digest_ebuild,
-                            catpkgsplit2)
+from .utils import chunks, extract_sha, get_content, is_sha
+from .utils.portage import (
+    P,
+    catpkg_catpkgsplit,
+    catpkgsplit2,
+    compare_versions,
+    digest_ebuild,
+    get_first_src_uri,
+    get_highest_matches,
+    get_repository_root_if_inside,
+)
 
 T = TypeVar('T')
 
@@ -263,7 +277,7 @@ def get_props(
             bn = Path(src_uri).name
             found = False
             try:
-                with open(manifest_file, 'r', encoding='utf-8') as f:
+                with open(manifest_file, encoding='utf-8') as f:
                     for line in f.readlines():
                         if not line.startswith('DIST '):
                             continue
@@ -304,7 +318,7 @@ def get_props(
 def get_old_sha(ebuild: str, url: str) -> str:
     sha_pattern = re.compile(r'(SHA|COMMIT|EGIT_COMMIT)=["\']?([a-f0-9]{40})["\']?')
 
-    with open(ebuild, 'r', encoding='utf-8') as file:
+    with open(ebuild, encoding='utf-8') as file:
         for line in file:
             match = sha_pattern.search(line)
             if match:
@@ -399,10 +413,7 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
         _, _, _, new_version = catpkg_catpkgsplit(f'{cp}-{last_version}')
         _, _, _, old_version = catpkg_catpkgsplit(f'{cp}-{ebuild_version}')
         logger.debug(f'Migrating from {ebuild} to {new_filename}')
-        if cp in settings.no_auto_update:
-            no_auto_update_str = ' (no_auto_update)'
-        else:
-            no_auto_update_str = ''
+        no_auto_update_str = ' (no_auto_update)' if cp in settings.no_auto_update else ''
         str_new_version = str_version(new_version, top_hash)
         str_old_version = str_version(old_version, old_sha)
         print(f'{cat}/{pkg}: {str_old_version} -> '
@@ -418,7 +429,7 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
                                                              and not check_gomodule_requirements()):
                 logger.warning('Update is not possible')
                 return
-            with open(ebuild, 'r', encoding='utf-8') as f:
+            with open(ebuild, encoding='utf-8') as f:
                 old_content = content = f.read()
             # Only update the version if it is not a commit
             if top_hash and old_sha:

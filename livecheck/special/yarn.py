@@ -7,8 +7,9 @@ import re
 import subprocess as sp
 
 from loguru import logger
-from .utils import get_project_path, EbuildTempFile
+
 from ..utils import check_program
+from .utils import EbuildTempFile, get_project_path
 
 CONVERSION_CODE: Final[str] = '''const fs = require('fs');
 const lockfile = require('@yarnpkg/lockfile');
@@ -75,34 +76,33 @@ def update_yarn_ebuild(ebuild: str,
     project_path = create_project(yarn_base_package, yarn_packages)
     package_re = re.compile(r'^' + re.escape(yarn_base_package) + r'-[0-9]+')
     in_yarn_pkgs = False
-    with EbuildTempFile(ebuild) as temp_file:
-        with temp_file.open('w', encoding='utf-8') as tf:
-            wrote_new_packages = False
-            with Path(ebuild).open('r', encoding='utf-8') as f:
-                for line in f.readlines():
-                    if line.startswith('YARN_PKGS=('):
+    with EbuildTempFile(ebuild) as temp_file, temp_file.open('w', encoding='utf-8') as tf:
+        wrote_new_packages = False
+        with Path(ebuild).open('r', encoding='utf-8') as f:
+            for line in f.readlines():
+                if line.startswith('YARN_PKGS=('):
+                    tf.write(line)
+                    if in_yarn_pkgs:
+                        raise RuntimeError
+                    in_yarn_pkgs = True
+                elif in_yarn_pkgs:
+                    if line.strip() == ')':
+                        in_yarn_pkgs = False
                         tf.write(line)
-                        if in_yarn_pkgs:
-                            raise RuntimeError
-                        in_yarn_pkgs = True
-                    elif in_yarn_pkgs:
-                        if line.strip() == ')':
-                            in_yarn_pkgs = False
-                            tf.write(line)
-                        elif not wrote_new_packages:
-                            for new_pkg in sorted(set(yarn_pkgs(project_path)),
-                                                  key=lambda x: -1
-                                                  if re.match(package_re, x) else 0):
-                                tf.write(f'\t{new_pkg}\n')
-                            wrote_new_packages = True
-                    else:
-                        tf.write(line)
+                    elif not wrote_new_packages:
+                        for new_pkg in sorted(set(yarn_pkgs(project_path)),
+                                              key=lambda x: -1
+                                              if re.match(package_re, x) else 0):
+                            tf.write(f'\t{new_pkg}\n')
+                        wrote_new_packages = True
+                else:
+                    tf.write(line)
 
-            if temp_file.exists() and temp_file.stat().st_size > 0:
-                for item in ('package.json', 'yarn.lock'):
-                    target = Path(ebuild).parent / 'files' / f'{Path(pkg).name}-{item}'
-                    copyfile(project_path / item, target)
-                    target.chmod(0o644)
+        if temp_file.exists() and temp_file.stat().st_size > 0:
+            for item in ('package.json', 'yarn.lock'):
+                target = Path(ebuild).parent / 'files' / f'{Path(pkg).name}-{item}'
+                copyfile(project_path / item, target)
+                target.chmod(0o644)
 
 
 def check_yarn_requirements() -> bool:

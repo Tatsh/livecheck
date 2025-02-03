@@ -1,8 +1,9 @@
 import subprocess as sp
 
 from loguru import logger
-from .utils import remove_url_ebuild, search_ebuild, build_compress
+
 from ..utils import check_program
+from .utils import build_compress, remove_url_ebuild, search_ebuild
 
 __all__ = ("update_nodejs_ebuild", "remove_nodejs_url", "check_nodejs_requirements")
 

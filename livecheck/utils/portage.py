@@ -1,12 +1,13 @@
 from collections.abc import Sequence
 from functools import lru_cache
+from itertools import chain
 import logging
 import os
 import re
-from itertools import chain
 
 from portage.versions import catpkgsplit, vercmp
 import portage
+
 from ..settings import LivecheckSettings
 
 __all__ = ('P', 'catpkg_catpkgsplit', 'catpkgsplit2', 'get_first_src_uri', 'get_highest_matches',
@@ -128,9 +129,7 @@ def get_repository_root_if_inside(directory: str) -> tuple[str, str]:
 
 
 def is_version_development(version: str) -> bool:
-    if re.search(r'(alpha|beta|pre|dev|rc)', version, re.IGNORECASE):
-        return True
-    return False
+    return bool(re.search('(alpha|beta|pre|dev|rc)', version, re.IGNORECASE))
 
 
 def remove_initial_match(a: str, b: str) -> str:
@@ -204,7 +203,7 @@ def normalize_version(ver: str) -> str:
 
     if letters in ('test', 'dev'):
         letters = 'beta'
-    if letters.startswith('pl') or letters.startswith('patchlevel'):
+    if letters.startswith(('pl', 'patchlevel')):
         letters = 'p'
 
     allowed = ('pre', 'beta', 'rc', 'p', 'alpha', 'post')
@@ -322,8 +321,5 @@ def accept_version(ebuild_version: str, version: str, catpkg: str,
             stable_version and re.match(stable_version, version)):
         return True
 
-    if is_version_development(version) or (stable_version
-                                           and not re.match(stable_version, version)):
-        return False
-
-    return True
+    return not (is_version_development(version)
+                or stable_version and not re.match(stable_version, version))

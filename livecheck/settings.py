@@ -1,9 +1,9 @@
-import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-import json
 from urllib.parse import urlparse
+import json
+import re
 
 from loguru import logger
 
@@ -248,13 +248,12 @@ def check_instance(value: int | str | bool | list[str] | None,
         if isinstance(value, str):
             parsed_url = urlparse(value)
             is_type = all([parsed_url.scheme, parsed_url.netloc])
-    elif dtype == 'regex':
-        if isinstance(value, str):
-            try:
-                re.compile(value)
-                is_type = True
-            except re.error:
-                is_type = False
+    elif dtype == 'regex' and isinstance(value, str):
+        try:
+            re.compile(value)
+            is_type = True
+        except re.error:
+            is_type = False
 
     if not is_type:
         logger.error(

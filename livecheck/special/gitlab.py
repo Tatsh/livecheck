@@ -1,8 +1,8 @@
-from urllib.parse import urlparse, quote
+from urllib.parse import quote, urlparse
 
 from ..settings import LivecheckSettings
-from ..utils.portage import get_last_version
 from ..utils import get_content
+from ..utils.portage import get_last_version
 
 __all__ = ("get_latest_gitlab_package",)
 

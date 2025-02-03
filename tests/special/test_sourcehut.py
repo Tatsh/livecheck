@@ -1,6 +1,5 @@
-import pytest
-from livecheck.special.sourcehut import extract_owner_repo, get_branch
 from livecheck.settings import LivecheckSettings
+from livecheck.special.sourcehut import extract_owner_repo, get_branch
 
 ebuild = "app-portage/livecheck-1.0"
 settings = LivecheckSettings(branches={},
