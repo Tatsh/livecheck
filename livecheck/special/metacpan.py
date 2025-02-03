@@ -16,15 +16,15 @@ def get_latest_metacpan_package(path: str, ebuild: str, settings: LivecheckSetti
     package_name = extract_perl_package(path)
 
     results = []
-    if response := get_content(
+    if r := get_content(
             f"https://fastapi.metacpan.org/v1/release/_search?q=distribution:{package_name}"):
-        for hit in response.json().get("hits", {}).get("hits", []):
+        for hit in r.json().get("hits", {}).get("hits", []):
             results.append({"tag": hit["_source"]["version"]})
 
     # Many times it does not exist as in the previous list,
     # that is why the latest version is checked again.
-    if response := get_content(f"https://fastapi.metacpan.org/v1/release/{package_name}"):
-        results.append({"tag": response.json().get('version')})
+    if r := get_content(f"https://fastapi.metacpan.org/v1/release/{package_name}"):
+        results.append({"tag": r.json().get('version')})
 
     last_version = get_last_version(results, package_name, ebuild, settings)
     if last_version:

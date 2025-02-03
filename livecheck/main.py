@@ -31,13 +31,13 @@ from .special.github import get_latest_github_package, get_latest_github, is_git
 from .special.gitlab import get_latest_gitlab_package
 from .special.golang import update_go_ebuild
 from .special.gomodule import update_gomodule_ebuild, remove_gomodule_url, check_gomodule_requirements
-from .special.jetbrains import get_latest_jetbrains_package, update_jetbrains_ebuild
+from .special.jetbrains import get_latest_jetbrains_package, update_jetbrains_ebuild, is_jetbrains
 from .special.metacpan import get_latest_metacpan_package
 from .special.nodejs import update_nodejs_ebuild, remove_nodejs_url, check_nodejs_requirements
 from .special.pecl import get_latest_pecl_package
 from .special.regex import get_latest_regex_package
 from .special.rubygems import get_latest_rubygems_package
-from .special.sourceforge import get_latest_sourceforge_package
+from .special.sourceforge import get_latest_sourceforge_package, is_sourceforge
 from .special.sourcehut import get_latest_sourcehut_package, get_latest_sourcehut, is_sourcehut
 from .special.yarn import update_yarn_ebuild, check_yarn_requirements
 
@@ -120,7 +120,7 @@ def parse_url(repo_root: str, src_uri: str, match: str,
             '',
             settings,
         )
-    elif parsed_uri.hostname == 'download.jetbrains.com':
+    elif is_jetbrains(src_uri):
         last_version = get_latest_jetbrains_package(match, settings)
     elif 'gitlab' in parsed_uri.hostname:
         if is_sha(parsed_uri.path):
@@ -152,7 +152,7 @@ def parse_url(repo_root: str, src_uri: str, match: str,
         last_version = get_latest_metacpan_package(parsed_uri.path, match, settings)
     elif parsed_uri.hostname == 'rubygems.org':
         last_version = get_latest_rubygems_package(match, settings)
-    elif 'sourceforge.' in parsed_uri.hostname or 'sf.' in parsed_uri.hostname:
+    elif is_sourceforge(src_uri):
         last_version = get_latest_sourceforge_package(src_uri, match, settings)
     elif parsed_uri.hostname == 'bitbucket.org':
         if is_sha(parsed_uri.path):

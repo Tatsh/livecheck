@@ -29,11 +29,11 @@ def get_latest_gitlab_package(url: str, ebuild: str,
 
     url = GITLAB_TAG_URL % (domain, encoded_path, VERSIONS)
 
-    if not (tags_response := get_content(url)):
+    if not (r := get_content(url)):
         return '', ''
 
     results: list[dict[str, str]] = []
-    for tag in tags_response.json():
+    for tag in r.json():
         results.append({
             "tag": tag.get("name", ""),
             "id": tag.get("commit", {}).get("id", ""),

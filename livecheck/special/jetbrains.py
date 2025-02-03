@@ -1,4 +1,5 @@
 from pathlib import Path
+from urllib.parse import urlparse
 
 from loguru import logger
 from .utils import search_ebuild, EbuildTempFile
@@ -7,7 +8,7 @@ from ..settings import LivecheckSettings
 from ..utils.portage import get_last_version, catpkg_catpkgsplit
 from ..utils import get_content
 
-__all__ = ("get_latest_jetbrains_package", "update_jetbrains_ebuild")
+__all__ = ("get_latest_jetbrains_package", "update_jetbrains_ebuild", "is_jetbrains")
 
 JETBRAINS_TAG_URL = 'https://data.services.jetbrains.com/products'
 
@@ -24,13 +25,13 @@ def get_latest_jetbrains_package(ebuild: str, settings: LivecheckSettings) -> st
 
     catpkg, _, product_code, _ = catpkg_catpkgsplit(ebuild)
 
-    if not (response := get_content(JETBRAINS_TAG_URL)):
+    if not (r := get_content(JETBRAINS_TAG_URL)):
         return ''
 
     product_code = product_name.get(product_code, product_code)
 
     results: list[dict[str, str]] = []
-    for product in response.json():
+    for product in r.json():
         if product['name'] == product_code:
             for release in product['releases']:
                 if (release['type'] == 'eap'
@@ -62,3 +63,7 @@ def update_jetbrains_ebuild(ebuild: str) -> None:
                         tf.write(f'MY_PV="{version}"\n')
                     else:
                         tf.write(line)
+
+
+def is_jetbrains(url: str) -> bool:
+    return 'download.jetbrains.com' in urlparse(url).netloc

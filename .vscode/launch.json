@@ -1,7 +1,7 @@
 {
   "configurations": [
     {
-      "args": ["-x"],
+      "args": ["-W", "/usr/portage/local/tatsh-overlay/app-office/glabels/", "-p", "-k"],
       "autoReload": {
         "enable": true
       },
@@ -10,7 +10,7 @@
         "_PYTEST_RAISE": "1"
       },
       "justMyCode": true,
-      "module": "pytest",
+      "module": "livecheck",
       "name": "Run tests",
       "request": "launch",
       "type": "debugpy"
