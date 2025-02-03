@@ -58,6 +58,7 @@ inlinevar
 intelli
 isort
 jetbrains
+jimevins
 jinja
 jssy
 justseen
@@ -125,6 +126,7 @@ sirit
 softfloat
 soundtouch
 sourceforge
+sourcehut
 spdlog
 spirv
 subclassing

@@ -6,7 +6,6 @@ import json
 from urllib.parse import urlparse
 
 from loguru import logger
-import livecheck.special.handlers as sc
 
 from . import utils
 
@@ -66,6 +65,9 @@ class UnknownTransformationFunction(NameError):
 
 
 def gather_settings(search_dir: str) -> LivecheckSettings:
+    # Prevent circular import.
+    import livecheck.special.handlers as sc
+
     branches: dict[str, str] = {}
     checksum_livechecks: set[str] = set()
     custom_livechecks: dict[str, tuple[str, str, bool, str]] = {}

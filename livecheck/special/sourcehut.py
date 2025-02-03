@@ -32,19 +32,6 @@ def get_latest_sourcehut_package(url: str, ebuild: str, settings: LivecheckSetti
         return ''
 
     results: list[dict[str, str]] = []
-    """
-    for tag_id_element in etree.fromstring(r.text).findall('channel/item'):
-        guid = tag_id_element.find('guid')
-        #assert guid
-        # get last path from url guid
-        a = guid.text
-        b = a.split('/')[-1]
-
-        #t = t.text
-        if (title := tag_id_element.find('title')):
-            assert title.text
-            results.append({"tag": title.text})
-"""
     for item in etree.fromstring(r.text).findall('channel/item'):
         guid = item.find("guid")
         if version := guid.text.split('/')[-1] if guid is not None and guid.text else '':
@@ -71,10 +58,10 @@ def get_latest_sourcehut_commit(url: str, branch: str = 'master') -> tuple[str, 
     date = pubdate.text if pubdate is not None and pubdate.text else ''
 
     try:
-        dt = datetime.fromisoformat(date.replace("Z", "+00:00"))
+        dt = datetime.strptime(date, "%a, %d %b %Y %H:%M:%S %z")
         formatted_date = dt.strftime("%Y%m%d")
     except ValueError:
-        formatted_date = date[:10]
+        formatted_date = ''
     return commit, formatted_date
 
 

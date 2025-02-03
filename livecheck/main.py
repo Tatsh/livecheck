@@ -42,7 +42,7 @@ from .special.sourcehut import get_latest_sourcehut_package, get_latest_sourcehu
 from .special.yarn import update_yarn_ebuild, check_yarn_requirements
 
 from .typing import PropTuple
-from .utils import (chunks, is_sha, make_github_grit_commit_re, get_content, extract_sha)
+from .utils import (chunks, is_sha, get_content, extract_sha)
 from .utils.portage import (P, catpkg_catpkgsplit, get_first_src_uri, get_highest_matches,
                             get_repository_root_if_inside, compare_versions, digest_ebuild,
                             catpkgsplit2)
@@ -101,19 +101,6 @@ def parse_url(repo_root: str, src_uri: str, match: str,
         last_version, top_hash, hash_date = get_latest_github(src_uri, match, settings)
     elif is_sourcehut(src_uri):
         last_version, top_hash, hash_date = get_latest_sourcehut(src_uri, match, settings)
-    elif parsed_uri.hostname == 'git.sr.ht':
-        if is_sha(parsed_uri.path):
-            log_unhandled_commit(catpkg, src_uri)
-        else:
-            user_repo = '/'.join(parsed_uri.path.split('/')[1:3])
-            branch = settings.branches.get(catpkg, 'master')
-            last_version, hash_date, url = get_latest_regex_package(
-                match,
-                f'https://git.sr.ht/{user_repo}/log/{branch}/rss.xml',
-                r'<pubDate>([^<]+)</pubDate>',
-                '',
-                settings,
-            )
     elif src_uri.startswith('mirror://pypi/'):
         dist_name = src_uri.split('/')[4]
         last_version, hash_date, url = get_latest_regex_package(
@@ -194,10 +181,10 @@ def parse_metadata(repo_root: str, match: str,
         for upstream in upstream_list:
             for subelem in upstream:
                 tag_name = subelem.tag
-                text_val = subelem.text.strip() if subelem.text else ""
-                attribs = subelem.attrib
                 last_version = top_hash = hash_date = url = ''
                 if tag_name == 'remote-id':
+                    text_val = subelem.text.strip() if subelem.text else ""
+                    attribs = subelem.attrib
                     if attribs['type'] == 'github':
                         last_version, top_hash = get_latest_github_package(
                             f'https://github.com/{text_val}', match, settings)
@@ -208,6 +195,11 @@ def parse_metadata(repo_root: str, match: str,
                         uri = GITLAB_HOSTNAMES[attribs['type']]
                         last_version, top_hash = get_latest_gitlab_package(
                             f'https://{uri}/{text_val}', match, settings)
+                    if 'sourcehut' in attribs['type']:
+                        if not (last_version := get_latest_sourcehut_package(
+                                f'https://git.sr.ht/{text_val}', match, settings)):
+                            last_version = get_latest_sourcehut_package(
+                                f'https://hg.sr.ht/{text_val}', match, settings)
                     if last_version or top_hash:
                         return last_version, top_hash, hash_date, url
     return '', '', '', ''
@@ -322,29 +314,6 @@ def get_old_sha(ebuild: str, url: str) -> str:
     return extract_sha(last_part)
 
 
-def log_unsupported_sha_source(src: str) -> None:
-    logger.debug(f'Unsupported SHA source: {src}')
-
-
-def get_new_sha(src: str) -> str:
-    content = get_content(src)
-    if not content.text:
-        return ''
-
-    parsed_src = urlparse(src)
-    if (parsed_src.hostname == 'github.com' and src.endswith('.atom')):
-        if m := re.search(make_github_grit_commit_re(40 * ' '), content.text):
-            return str(m.groups()[0])
-    if parsed_src.hostname == 'git.sr.ht' and src.endswith('xml'):
-        user_repo = '/'.join(parsed_src.path.split('/')[1:3])
-        if m := re.search(rf'<guid>https://git\.sr\.ht/{user_repo}/commit/([a-f0-9]+)</guid>',
-                          content.text):
-            return str(m.groups()[0])
-
-    log_unsupported_sha_source(src)
-    return ''
-
-
 def log_unhandled_state(cat: str, pkg: str, url: str, regex: str | None = None) -> None:
     logger.debug(f'Unhandled state: regex={regex}, cat={cat}, pkg={pkg}, url={url}')
 
@@ -403,7 +372,6 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
         top_hash = top_hash[:7]
     if update_sha_too_source := settings.sha_sources.get(cp, None):
         logger.debug('Package also needs a SHA update')
-        #top_hash = get_new_sha(update_sha_too_source)
         _, top_hash, hash_date, _ = parse_url(search_dir, update_sha_too_source,
                                               f'{cp}-{last_version}', settings)
 

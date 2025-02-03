@@ -9,8 +9,8 @@ from ..utils import is_sha, get_content
 
 from ..constants import RSS_NS
 
-__all__ = ("get_latest_github_package", "get_latest_github_commit", "is_github",
-           "get_latest_github")
+__all__ = ("get_latest_github_package", "get_latest_github_commit", "get_latest_github_commit2",
+           "is_github", "get_latest_github")
 
 GITHUB_DOWNLOAD_URL = '%s/tags.atom'
 GITHUB_COMMIT_URL = 'https://api.github.com/repos/%s/%s/branches/%s'
@@ -61,11 +61,15 @@ def get_latest_github_package(url: str, ebuild: str,
     return '', ''
 
 
-def get_latest_github_commit(url: str, branch: str = 'master') -> tuple[str, str]:
+def get_latest_github_commit(url: str, branch: str) -> tuple[str, str]:
     _, owner, repo = extract_owner_repo(url)
     if not owner or not repo:
         return '', ''
 
+    return get_latest_github_commit2(owner, repo, branch)
+
+
+def get_latest_github_commit2(owner: str, repo: str, branch: str) -> tuple[str, str]:
     url = GITHUB_COMMIT_URL % (owner, repo, branch)
     if not (r := get_content(url)):
         return '', ''

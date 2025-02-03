@@ -18,8 +18,8 @@ from loguru import logger
 import keyring
 
 __all__ = ('TextDataResponse', 'assert_not_none', 'chunks', 'dash_to_underscore', 'dotize',
-           'get_github_api_credentials', 'is_sha', 'make_github_grit_commit_re', 'prefix_v',
-           'session_init', 'get_content', 'extract_sha', 'check_program')
+           'get_github_api_credentials', 'is_sha', 'prefix_v', 'session_init', 'get_content',
+           'extract_sha', 'check_program')
 
 logger2 = logging.getLogger(__name__)
 T = TypeVar('T')
@@ -27,12 +27,6 @@ T = TypeVar('T')
 # https://github.com/egoist/parse-package-name/blob/main/src/index.ts
 RE_SCOPED = r'^(@[^\/]+\/[^@\/]+)(?:@([^\/]+))?(\/.*)?$'
 RE_NON_SCOPED = r'^([^@\/]+)(?:@([^\/]+))?(\/.*)?$'
-
-
-@lru_cache
-def make_github_grit_commit_re(version: str) -> str:
-    return (r'<id>tag:github.com,2008:Grit::Commit/([0-9a-f]{' + str(len(version)) +
-            r'})[0-9a-f]*</id>')
 
 
 @lru_cache
