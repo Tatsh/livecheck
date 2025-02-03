@@ -27,7 +27,7 @@ from .special.bitbucket import get_latest_bitbucket_package
 from .special.composer import update_composer_ebuild, remove_composer_url, check_composer_requirements
 from .special.davinci import get_latest_davinci_package
 from .special.dotnet import update_dotnet_ebuild, check_dotnet_requirements
-from .special.github import get_latest_github_package, get_latest_github_commit
+from .special.github import get_latest_github_package, get_latest_github, is_github
 from .special.gitlab import get_latest_gitlab_package
 from .special.golang import update_go_ebuild
 from .special.gomodule import update_gomodule_ebuild, remove_gomodule_url, check_gomodule_requirements
@@ -38,6 +38,7 @@ from .special.pecl import get_latest_pecl_package
 from .special.regex import get_latest_regex_package
 from .special.rubygems import get_latest_rubygems_package
 from .special.sourceforge import get_latest_sourceforge_package
+from .special.sourcehut import get_latest_sourcehut_package, get_latest_sourcehut, is_sourcehut
 from .special.yarn import update_yarn_ebuild, check_yarn_requirements
 
 from .typing import PropTuple
@@ -96,12 +97,10 @@ def parse_url(repo_root: str, src_uri: str, match: str,
         home = P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0]
         last_version, hash_date, url = get_latest_regex_package(
             match, f'{home}/revisions', r'<relative-time datetime="([0-9-]{10})', '', settings)
-    elif 'github.' in parsed_uri.hostname:
-        if is_sha(parsed_uri.path):
-            branch = settings.branches.get(catpkg, 'master')
-            top_hash, hash_date = get_latest_github_commit(src_uri, branch)
-        else:
-            last_version, top_hash = get_latest_github_package(src_uri, match, settings)
+    elif is_github(src_uri):
+        last_version, top_hash, hash_date = get_latest_github(src_uri, match, settings)
+    elif is_sourcehut(src_uri):
+        last_version, top_hash, hash_date = get_latest_sourcehut(src_uri, match, settings)
     elif parsed_uri.hostname == 'git.sr.ht':
         if is_sha(parsed_uri.path):
             log_unhandled_commit(catpkg, src_uri)
@@ -404,7 +403,10 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
         top_hash = top_hash[:7]
     if update_sha_too_source := settings.sha_sources.get(cp, None):
         logger.debug('Package also needs a SHA update')
-        top_hash = get_new_sha(update_sha_too_source)
+        #top_hash = get_new_sha(update_sha_too_source)
+        _, top_hash, hash_date, _ = parse_url(search_dir, update_sha_too_source,
+                                              f'{cp}-{last_version}', settings)
+
         # if empty, it means that the source is not supported
         if not top_hash:
             logger.warning(f'Could not get new SHA for {update_sha_too_source}')

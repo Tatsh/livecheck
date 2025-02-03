@@ -4,12 +4,17 @@ import xml.etree.ElementTree as etree
 from datetime import datetime
 
 from ..settings import LivecheckSettings
-from ..utils.portage import get_last_version
-from ..utils import get_content
+from ..utils.portage import get_last_version, catpkg_catpkgsplit
+from ..utils import is_sha, get_content
 
 from ..constants import RSS_NS
 
-__all__ = ("get_latest_github_package", "get_latest_github_commit")
+__all__ = ("get_latest_github_package", "get_latest_github_commit", "is_github",
+           "get_latest_github")
+
+GITHUB_DOWNLOAD_URL = '%s/tags.atom'
+GITHUB_COMMIT_URL = 'https://api.github.com/repos/%s/%s/branches/%s'
+GITHUB_DATE_URL = 'https://api.github.com/repos/%s/%s/git/refs/tags/%s'
 
 
 def extract_owner_repo(url: str) -> tuple[str, str, str]:
@@ -36,7 +41,8 @@ def get_latest_github_package(url: str, ebuild: str,
     if not owner or not repo:
         return '', ''
 
-    if not (r := get_content(f"{domain}/tags.atom")):
+    url = GITHUB_DOWNLOAD_URL % (domain)
+    if not (r := get_content(url)):
         return '', ''
 
     results: list[dict[str, str]] = []
@@ -48,8 +54,8 @@ def get_latest_github_package(url: str, ebuild: str,
             results.append({"tag": tag, "id": tag})
 
     if last_version := get_last_version(results, repo, ebuild, settings):
-        if not (r := get_content(
-                f"https://api.github.com/repos/{owner}/{repo}/git/refs/tags/{last_version['id']}")):
+        url = GITHUB_DATE_URL % (owner, repo, last_version['id'])
+        if not (r := get_content(url)):
             return last_version['version'], ''
         return last_version['version'], r.json()["object"]["sha"]
     return '', ''
@@ -60,7 +66,8 @@ def get_latest_github_commit(url: str, branch: str = 'master') -> tuple[str, str
     if not owner or not repo:
         return '', ''
 
-    if not (r := get_content(f"https://api.github.com/repos/{owner}/{repo}/branches/{branch}")):
+    url = GITHUB_COMMIT_URL % (owner, repo, branch)
+    if not (r := get_content(url)):
         return '', ''
     d = r.json()["commit"]["commit"]["committer"]["date"][:10]
     try:
@@ -69,3 +76,37 @@ def get_latest_github_commit(url: str, branch: str = 'master') -> tuple[str, str
     except ValueError:
         formatted_date = d[:10]
     return r.json()["commit"]["sha"], formatted_date
+
+
+def is_github(url: str) -> bool:
+    return bool(extract_owner_repo(url)[0])
+
+
+def get_branch(url: str, ebuild: str, settings: LivecheckSettings) -> str:
+    catpkg, _, _, _ = catpkg_catpkgsplit(ebuild)
+
+    # get branch from url
+    parts = url.strip("/").split("/")
+    if len(parts) >= 2 and parts[-2] == "commits":
+        return parts[-1].replace(".atom", "")
+
+    # get branch from settings
+    if (branch := settings.branches.get(catpkg, '')):
+        return branch
+
+    # default branch is master
+    if is_sha(urlparse(url).path):
+        return 'master'
+
+    return ''
+
+
+def get_latest_github(url: str, ebuild: str, settings: LivecheckSettings) -> tuple[str, str, str]:
+    last_version = top_hash = hash_date = ''
+
+    if (branch := get_branch(url, ebuild, settings)):
+        top_hash, hash_date = get_latest_github_commit(url, branch)
+    else:
+        last_version, top_hash = get_latest_github_package(url, ebuild, settings)
+
+    return last_version, top_hash, hash_date
