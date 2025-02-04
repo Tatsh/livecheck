@@ -15,7 +15,7 @@ def extract_perl_package(path: str) -> str:
 def get_latest_metacpan_package(path: str, ebuild: str, settings: LivecheckSettings) -> str:
     package_name = extract_perl_package(path)
 
-    results = []
+    results: list[dict[str, str]] = []
     if r := get_content(
             f"https://fastapi.metacpan.org/v1/release/_search?q=distribution:{package_name}"):
         for hit in r.json().get("hits", {}).get("hits", []):

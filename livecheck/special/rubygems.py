@@ -15,7 +15,7 @@ def get_latest_rubygems_package(ebuild: str, settings: LivecheckSettings) -> str
     if not (response := get_content(url)):
         return ''
 
-    results = []
+    results: list[dict[str, str]] = []
     for release in response.json():
         if settings.is_devel(catpkg) or not release.get("prerelease", False):
             results.append({"tag": release.get("number", "")})

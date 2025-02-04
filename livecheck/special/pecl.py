@@ -23,7 +23,7 @@ def get_latest_pecl_package(ebuild: str, settings: LivecheckSettings) -> str:
     if not (r := get_content(url)):
         return ''
 
-    results = []
+    results: list[dict[str, str]] = []
     for release in etree.fromstring(r.text).findall(f"{NAMESPACE}r"):
         stability = release.find(f"{NAMESPACE}s")
         stability = assert_not_none(stability)

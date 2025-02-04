@@ -1,5 +1,5 @@
+from pathlib import Path
 from urllib.parse import urlparse
-import os
 import re
 import xml.etree.ElementTree as etree
 
@@ -17,9 +17,10 @@ def extract_repository(url: str) -> str:
     parsed = urlparse(url)
     n = parsed.netloc
     if n in {'downloads.sourceforge.net', 'download.sourceforge.net', 'sf.net'}:
-        if '/projects/' in parsed.path or '/project/' in parsed.path:
-            return parsed.path.split('/')[2]
-        return parsed.path.split('/')[1]
+        path = parsed.path.split('/')
+        if 'projects' in path[1] or 'project' in path[1]:
+            return path[2]
+        return path[1]
 
     if (m := re.match(r'^([^\.]+)\.(sf|sourceforge)\.(net|io|jp)$', n)):
         return m.group(1)
@@ -38,7 +39,7 @@ def get_latest_sourceforge_package(src_uri: str, ebuild: str, settings: Livechec
 
     for item in etree.fromstring(r.text).findall(".//item"):
         title = item.find("title")
-        version = os.path.basename(title.text) if title is not None and title.text else ''
+        version = Path(title.text).name if title is not None and title.text else ''
         if version and get_archive_extension(version):
             results.append({"tag": version})
 
