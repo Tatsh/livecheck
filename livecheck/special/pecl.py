@@ -1,12 +1,15 @@
+from urllib.parse import urlparse
 import xml.etree.ElementTree as etree
 
 from ..settings import LivecheckSettings
 from ..utils import assert_not_none, get_content
 from ..utils.portage import catpkg_catpkgsplit, get_last_version
 
-__all__ = ["get_latest_pecl_package"]
+__all__ = ("get_latest_pecl_package", "is_pecl", "PECL_METADATA")
 
 PECL_DOWNLOAD_URL = 'https://pecl.php.net/rest/r/%s/allreleases.xml'
+
+PECL_METADATA = 'pecl'
 
 NAMESPACE = "{http://pear.php.net/dtd/rest.allreleases}"
 
@@ -36,3 +39,7 @@ def get_latest_pecl_package(ebuild: str, settings: LivecheckSettings) -> str:
         return last_version['version']
 
     return ''
+
+
+def is_pecl(url: str) -> bool:
+    return urlparse(url).netloc == 'pecl.php.net'

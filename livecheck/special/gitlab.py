@@ -5,9 +5,10 @@ from ..settings import LivecheckSettings
 from ..utils import get_content
 from ..utils.portage import get_last_version
 
-__all__ = ("get_latest_gitlab_package", "is_gitlab")
+__all__ = ("get_latest_gitlab_package", "is_gitlab", "GITLAB_METADATA")
 
 GITLAB_TAG_URL = 'https://%s/api/v4/projects/%s/repository/tags?per_page=%s'
+GITLAB_METADATA = 'gitlab'
 
 # Number of versions to fetch from GitLab
 VERSIONS = 40
@@ -36,12 +37,10 @@ def get_latest_gitlab_package(url: str, ebuild: str,
     if not (r := get_content(url)):
         return '', ''
 
-    results: list[dict[str, str]] = []
-    for tag in r.json():
-        results.append({
-            "tag": tag.get("name", ""),
-            "id": tag.get("commit", {}).get("id", ""),
-        })
+    results: list[dict[str, str]] = [{
+        "tag": tag.get("name", ""),
+        "id": tag.get("commit", {}).get("id", ""),
+    } for tag in r.json()]
 
     if last_version := get_last_version(results, repo, ebuild, settings):
         return last_version['version'], last_version["id"]

@@ -54,15 +54,15 @@ def update_jetbrains_ebuild(ebuild: str) -> None:
 
     version = version.split('-', 1)[-1]
 
-    with EbuildTempFile(ebuild) as temp_file, temp_file.open('w', encoding='utf-8') as tf:
-        with Path(ebuild).open('r', encoding='utf-8') as f:
-            for line in f.readlines():
-                if line.startswith('MY_PV='):
-                    logger.debug('Found MY_PV= line.')
-                    tf.write(f'MY_PV="{version}"\n')
-                else:
-                    tf.write(line)
+    with EbuildTempFile(ebuild) as temp_file, temp_file.open(
+            'w', encoding='utf-8') as tf, Path(ebuild).open('r', encoding='utf-8') as f:
+        for line in f.readlines():
+            if line.startswith('MY_PV='):
+                logger.debug('Found MY_PV= line.')
+                tf.write(f'MY_PV="{version}"\n')
+            else:
+                tf.write(line)
 
 
 def is_jetbrains(url: str) -> bool:
-    return 'download.jetbrains.com' in urlparse(url).netloc
+    return urlparse(url).netloc == 'download.jetbrains.com'

@@ -9,11 +9,12 @@ from ..utils import get_content, is_sha
 from ..utils.portage import catpkg_catpkgsplit, get_last_version
 
 __all__ = ("get_latest_github_package", "get_latest_github_commit", "get_latest_github_commit2",
-           "is_github", "get_latest_github")
+           "is_github", "get_latest_github", "GITHUB_METADATA")
 
 GITHUB_DOWNLOAD_URL = '%s/tags.atom'
 GITHUB_COMMIT_URL = 'https://api.github.com/repos/%s/%s/branches/%s'
 GITHUB_DATE_URL = 'https://api.github.com/repos/%s/%s/git/refs/tags/%s'
+GITHUB_METADATA = 'github'
 
 
 def extract_owner_repo(url: str) -> tuple[str, str, str]:

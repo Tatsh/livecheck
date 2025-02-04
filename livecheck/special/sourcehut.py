@@ -8,10 +8,11 @@ from ..utils import get_content, is_sha
 from ..utils.portage import catpkg_catpkgsplit, get_last_version
 
 __all__ = ("get_latest_sourcehut_package", "get_latest_sourcehut_commit", "is_sourcehut",
-           "get_latest_sourcehut")
+           "get_latest_sourcehut", "SOURCEHUT_METADATA")
 
 SOURCEHUT_DOWNLOAD_URL = 'https://%s/%s/%s/refs/rss.xml'
 SOURCEHUT_COMMIT_URL = 'https://%s/%s/%s/log/%s/rss.xml'
+SOURCEHUT_METADATA = 'sourcehut'
 
 
 def extract_owner_repo(url: str) -> tuple[str, str, str]:

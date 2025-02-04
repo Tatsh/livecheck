@@ -23,7 +23,7 @@ from .constants import (
     TAG_NAME_FUNCTIONS,
 )
 from .settings import LivecheckSettings, gather_settings
-from .special.bitbucket import get_latest_bitbucket_package
+from .special.bitbucket import BITBUCKET_METADATA, get_latest_bitbucket_package, is_bitbucket
 from .special.composer import (
     check_composer_requirements,
     remove_composer_url,
@@ -31,8 +31,8 @@ from .special.composer import (
 )
 from .special.davinci import get_latest_davinci_package
 from .special.dotnet import check_dotnet_requirements, update_dotnet_ebuild
-from .special.github import get_latest_github, get_latest_github_package, is_github
-from .special.gitlab import get_latest_gitlab_package, is_gitlab
+from .special.github import GITHUB_METADATA, get_latest_github, get_latest_github_package, is_github
+from .special.gitlab import GITLAB_METADATA, get_latest_gitlab_package, is_gitlab
 from .special.golang import update_go_ebuild
 from .special.gomodule import (
     check_gomodule_requirements,
@@ -40,13 +40,18 @@ from .special.gomodule import (
     update_gomodule_ebuild,
 )
 from .special.jetbrains import get_latest_jetbrains_package, is_jetbrains, update_jetbrains_ebuild
-from .special.metacpan import get_latest_metacpan_package
+from .special.metacpan import get_latest_metacpan_package, is_metacpan
 from .special.nodejs import check_nodejs_requirements, remove_nodejs_url, update_nodejs_ebuild
-from .special.pecl import get_latest_pecl_package
+from .special.pecl import get_latest_pecl_package, is_pecl
 from .special.regex import get_latest_regex_package
-from .special.rubygems import get_latest_rubygems_package
+from .special.rubygems import get_latest_rubygems_package, is_rubygems
 from .special.sourceforge import get_latest_sourceforge_package, is_sourceforge
-from .special.sourcehut import get_latest_sourcehut, get_latest_sourcehut_package, is_sourcehut
+from .special.sourcehut import (
+    SOURCEHUT_METADATA,
+    get_latest_sourcehut,
+    get_latest_sourcehut_package,
+    is_sourcehut,
+)
 from .special.yarn import check_yarn_requirements, update_yarn_ebuild
 from .typing import PropTuple
 from .utils import chunks, extract_sha, get_content, is_sha
@@ -160,15 +165,15 @@ def parse_url(repo_root: str, src_uri: str, match: str,
             '',
             settings,
         )
-    elif parsed_uri.hostname == 'pecl.php.net':
+    elif is_pecl(src_uri):
         last_version = get_latest_pecl_package(match, settings)
-    elif 'metacpan.org' in parsed_uri.hostname or 'cpan' in parsed_uri.hostname:
+    elif is_metacpan(src_uri):
         last_version = get_latest_metacpan_package(parsed_uri.path, match, settings)
-    elif parsed_uri.hostname == 'rubygems.org':
+    elif is_rubygems(src_uri):
         last_version = get_latest_rubygems_package(match, settings)
     elif is_sourceforge(src_uri):
         last_version = get_latest_sourceforge_package(src_uri, match, settings)
-    elif parsed_uri.hostname == 'bitbucket.org':
+    elif is_bitbucket(src_uri):
         if is_sha(parsed_uri.path):
             log_unhandled_commit(catpkg, src_uri)
         else:
@@ -199,17 +204,17 @@ def parse_metadata(repo_root: str, match: str,
                 if tag_name == 'remote-id':
                     text_val = subelem.text.strip() if subelem.text else ""
                     attribs = subelem.attrib
-                    if attribs['type'] == 'github':
+                    if GITHUB_METADATA in attribs['type']:
                         last_version, top_hash = get_latest_github_package(
                             f'https://github.com/{text_val}', match, settings)
-                    if attribs['type'] == 'bitbucket':
+                    if BITBUCKET_METADATA in attribs['type']:
                         last_version, top_hash, hash_date, url = parse_url(
                             repo_root, f'https://bitbucket.org/{text_val}', match, settings)
-                    if 'gitlab' in attribs['type']:
+                    if GITLAB_METADATA in attribs['type']:
                         uri = GITLAB_HOSTNAMES[attribs['type']]
                         last_version, top_hash = get_latest_gitlab_package(
                             f'https://{uri}/{text_val}', match, settings)
-                    if 'sourcehut' in attribs['type']:
+                    if SOURCEHUT_METADATA in attribs['type']:
                         if not (last_version := get_latest_sourcehut_package(
                                 f'https://git.sr.ht/{text_val}', match, settings)):
                             last_version = get_latest_sourcehut_package(

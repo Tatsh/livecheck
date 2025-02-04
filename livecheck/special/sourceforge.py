@@ -8,9 +8,10 @@ from ..utils import get_content
 from ..utils.portage import get_last_version
 from .utils import get_archive_extension
 
-__all__ = ("get_latest_sourceforge_package", "is_sourceforge")
+__all__ = ("get_latest_sourceforge_package", "is_sourceforge", "SOURCEFORGE_METADATA")
 
 SOURCEFORGE_DOWNLOAD_URL = 'https://sourceforge.net/projects/%s/rss'
+SOURCEFORGE_METADATA = 'sourceforge'
 
 
 def extract_repository(url: str) -> str:
@@ -35,8 +36,7 @@ def get_latest_sourceforge_package(src_uri: str, ebuild: str, settings: Livechec
     if not (r := get_content(url)):
         return ''
 
-    results = []
-
+    results: list[dict[str, str]] = []
     for item in etree.fromstring(r.text).findall(".//item"):
         title = item.find("title")
         version = Path(title.text).name if title is not None and title.text else ''
