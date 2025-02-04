@@ -1,10 +1,11 @@
 from urllib.parse import quote, urlparse
+import re
 
 from ..settings import LivecheckSettings
 from ..utils import get_content
 from ..utils.portage import get_last_version
 
-__all__ = ("get_latest_gitlab_package",)
+__all__ = ("get_latest_gitlab_package", "is_gitlab")
 
 GITLAB_TAG_URL = 'https://%s/api/v4/projects/%s/repository/tags?per_page=%s'
 
@@ -14,6 +15,9 @@ VERSIONS = 40
 
 def extract_domain_and_namespace(url: str) -> tuple[str, str, str]:
     parsed = urlparse(url)
+    if not re.search(r"^gitlab\.(com$|.*\.)", parsed.netloc):
+        return '', '', ''
+
     path = parsed.path.strip('/')
     if '/-/' in path:
         path = path.split('/-/')[0]
@@ -43,3 +47,7 @@ def get_latest_gitlab_package(url: str, ebuild: str,
         return last_version['version'], last_version["id"]
 
     return '', ''
+
+
+def is_gitlab(url: str) -> bool:
+    return bool(extract_domain_and_namespace(url)[0])

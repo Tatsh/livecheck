@@ -32,7 +32,7 @@ from .special.composer import (
 from .special.davinci import get_latest_davinci_package
 from .special.dotnet import check_dotnet_requirements, update_dotnet_ebuild
 from .special.github import get_latest_github, get_latest_github_package, is_github
-from .special.gitlab import get_latest_gitlab_package
+from .special.gitlab import get_latest_gitlab_package, is_gitlab
 from .special.golang import update_go_ebuild
 from .special.gomodule import (
     check_gomodule_requirements,
@@ -136,7 +136,7 @@ def parse_url(repo_root: str, src_uri: str, match: str,
         )
     elif is_jetbrains(src_uri):
         last_version = get_latest_jetbrains_package(match, settings)
-    elif 'gitlab' in parsed_uri.hostname:
+    elif is_gitlab(src_uri):
         if is_sha(parsed_uri.path):
             log_unhandled_commit(catpkg, src_uri)
         else:
