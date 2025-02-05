@@ -2,10 +2,11 @@ from urllib.parse import urlparse
 
 from ..settings import LivecheckSettings
 from ..utils import get_content
-from ..utils.portage import get_last_version
-from .utils import get_archive_extension
+from ..utils.portage import get_last_version, is_sha
+from .utils import get_archive_extension, log_unhandled_commit
 
-__all__ = ("get_latest_bitbucket_package", "is_bitbucket", "BITBUCKET_METADATA")
+__all__ = ("get_latest_bitbucket_package", "is_bitbucket", "BITBUCKET_METADATA",
+           "get_latest_bitbucket")
 
 # doc: https://developer.atlassian.com/cloud/bitbucket/rest/api-group-refs/#api-repositories-workspace-repo-slug-refs-tags-get
 BITBUCKET_TAG_URL = 'https://api.bitbucket.org/2.0/repositories/%s/%s/refs/tags'
@@ -51,6 +52,18 @@ def get_latest_bitbucket_package(path: str, ebuild: str,
         return last_version['version'], last_version["id"]
 
     return '', ''
+
+
+def get_latest_bitbucket(url: str, ebuild: str,
+                         settings: LivecheckSettings) -> tuple[str, str, str]:
+    last_version = top_hash = hash_date = ''
+
+    if is_sha(urlparse(url).path):
+        log_unhandled_commit(ebuild, url)
+    else:
+        last_version, top_hash = get_latest_bitbucket_package(url, ebuild, settings)
+
+    return last_version, top_hash, hash_date
 
 
 def is_bitbucket(url: str) -> bool:

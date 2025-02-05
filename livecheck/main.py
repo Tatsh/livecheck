@@ -23,7 +23,7 @@ from .constants import (
     TAG_NAME_FUNCTIONS,
 )
 from .settings import LivecheckSettings, gather_settings
-from .special.bitbucket import BITBUCKET_METADATA, get_latest_bitbucket_package, is_bitbucket
+from .special.bitbucket import BITBUCKET_METADATA, get_latest_bitbucket, is_bitbucket
 from .special.composer import (
     check_composer_requirements,
     remove_composer_url,
@@ -32,7 +32,7 @@ from .special.composer import (
 from .special.davinci import get_latest_davinci_package
 from .special.dotnet import check_dotnet_requirements, update_dotnet_ebuild
 from .special.github import GITHUB_METADATA, get_latest_github, get_latest_github_package, is_github
-from .special.gitlab import GITLAB_METADATA, get_latest_gitlab_package, is_gitlab
+from .special.gitlab import GITLAB_METADATA, get_latest_gitlab, get_latest_gitlab_package, is_gitlab
 from .special.golang import update_go_ebuild
 from .special.gomodule import (
     check_gomodule_requirements,
@@ -96,10 +96,6 @@ def log_unhandled_pkg(catpkg: str, src_uri: str) -> None:
     logger.warning(f'Unhandled: {catpkg} SRC_URI: {src_uri}')
 
 
-def log_unhandled_commit(catpkg: str, src_uri: str) -> None:
-    logger.warning(f'Unhandled commit: {catpkg} SRC_URI: {src_uri}')
-
-
 def parse_url(repo_root: str, src_uri: str, match: str,
               settings: LivecheckSettings) -> tuple[str, str, str, str]:
     catpkg, _, pkg, _ = catpkg_catpkgsplit(match)
@@ -142,10 +138,7 @@ def parse_url(repo_root: str, src_uri: str, match: str,
     elif is_jetbrains(src_uri):
         last_version = get_latest_jetbrains_package(match, settings)
     elif is_gitlab(src_uri):
-        if is_sha(parsed_uri.path):
-            log_unhandled_commit(catpkg, src_uri)
-        else:
-            last_version, top_hash = get_latest_gitlab_package(src_uri, match, settings)
+        last_version, top_hash, hash_date = get_latest_gitlab(src_uri, match, settings)
     elif parsed_uri.hostname == 'cgit.libimobiledevice.org':
         proj = src_uri.split('/')[3]
         last_version, hash_date, url = get_latest_regex_package(
@@ -174,10 +167,7 @@ def parse_url(repo_root: str, src_uri: str, match: str,
     elif is_sourceforge(src_uri):
         last_version = get_latest_sourceforge_package(src_uri, match, settings)
     elif is_bitbucket(src_uri):
-        if is_sha(parsed_uri.path):
-            log_unhandled_commit(catpkg, src_uri)
-        else:
-            last_version, top_hash = get_latest_bitbucket_package(parsed_uri.path, match, settings)
+        last_version, top_hash, hash_date = get_latest_bitbucket(parsed_uri.path, match, settings)
     else:
         log_unhandled_pkg(catpkg, src_uri)
 
@@ -250,8 +240,8 @@ def get_props(
     if not matches_list:
         logger.error('No matches!')
         raise click.Abort
-    for match in matches_list:
-        match, settings.restrict_version_process = extract_restrict_version(match)
+    for _match in matches_list:
+        match, settings.restrict_version_process = extract_restrict_version(_match)
         catpkg, cat, pkg, ebuild_version = catpkg_catpkgsplit(match)
         if catpkg in exclude or pkg in exclude:
             logger.debug(f'Ignoring {catpkg}')
@@ -333,10 +323,6 @@ def get_old_sha(ebuild: str, url: str) -> str:
     return extract_sha(last_part)
 
 
-def log_unhandled_state(cat: str, pkg: str, url: str, regex: str | None = None) -> None:
-    logger.debug(f'Unhandled state: regex={regex}, cat={cat}, pkg={pkg}, url={url}')
-
-
 def str_version(version: str, sha: str) -> str:
     return version + f' ({sha})' if sha else version
 
@@ -357,9 +343,7 @@ def replace_date_in_ebuild(ebuild: str, new_date: str, cp: str) -> str:
 
     _, _, _, old_version = catpkg_catpkgsplit(f'{cp}-{ebuild}')
     _, _, _, new_version = catpkg_catpkgsplit(f'{cp}-{n}')
-    if old_version != new_version:
-        return str(new_version)
-    return n
+    return str(new_version) if old_version != new_version else n
 
 
 def execute_hooks(hook_dir: str | None, action: str, search_dir: str, cp: str, str_old_version: str,

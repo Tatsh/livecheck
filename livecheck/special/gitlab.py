@@ -2,10 +2,11 @@ from urllib.parse import quote, urlparse
 import re
 
 from ..settings import LivecheckSettings
-from ..utils import get_content
+from ..utils import get_content, is_sha
 from ..utils.portage import get_last_version
+from .utils import log_unhandled_commit
 
-__all__ = ("get_latest_gitlab_package", "is_gitlab", "GITLAB_METADATA")
+__all__ = ("get_latest_gitlab_package", "is_gitlab", "GITLAB_METADATA", "get_latest_gitlab")
 
 GITLAB_TAG_URL = 'https://%s/api/v4/projects/%s/repository/tags?per_page=%s'
 GITLAB_METADATA = 'gitlab'
@@ -46,6 +47,17 @@ def get_latest_gitlab_package(url: str, ebuild: str,
         return last_version['version'], last_version["id"]
 
     return '', ''
+
+
+def get_latest_gitlab(url: str, ebuild: str, settings: LivecheckSettings) -> tuple[str, str, str]:
+    last_version = top_hash = hash_date = ''
+
+    if is_sha(urlparse(url).path):
+        log_unhandled_commit(ebuild, url)
+    else:
+        last_version, top_hash = get_latest_gitlab_package(url, ebuild, settings)
+
+    return last_version, top_hash, hash_date
 
 
 def is_gitlab(url: str) -> bool:

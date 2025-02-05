@@ -145,3 +145,7 @@ class EbuildTempFile:
             self.temp_file.unlink(missing_ok=True)
 
         return True
+
+
+def log_unhandled_commit(catpkg: str, src_uri: str) -> None:
+    logger.warning('Unhandled commit: %s SRC_URI: %s', catpkg, src_uri)
