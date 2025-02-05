@@ -17,8 +17,8 @@ def extract_project(url: str) -> str:
     if parsed.netloc in ('pypi', 'pypi.org', 'pypi.io', 'files.pythonhosted.org') and len(path) > 3:
         if path[2] == 'source':
             return path[4]
-        if m := re.search(r'[-_]?([0-9][0-9\._-].*)', path[-1]):
-            return m.group(0).strip()
+        if m := re.search(r'(.*)[-_]?[0-9][0-9\._-].*', path[-1]):
+            return m.group(1).strip()
 
     return ''
 
