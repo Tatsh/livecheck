@@ -9,7 +9,7 @@ from ..utils import get_content, is_sha
 from ..utils.portage import catpkg_catpkgsplit, get_last_version
 
 __all__ = ("get_latest_github_package", "get_latest_github_commit", "get_latest_github_commit2",
-           "is_github", "get_latest_github", "GITHUB_METADATA")
+           "is_github", "get_latest_github", "GITHUB_METADATA", "get_latest_github_metadata")
 
 GITHUB_DOWNLOAD_URL = '%s/tags.atom'
 GITHUB_COMMIT_URL = 'https://api.github.com/repos/%s/%s/branches/%s'
@@ -114,3 +114,8 @@ def get_latest_github(url: str, ebuild: str, settings: LivecheckSettings) -> tup
         last_version, top_hash = get_latest_github_package(url, ebuild, settings)
 
     return last_version, top_hash, hash_date
+
+
+def get_latest_github_metadata(remote: str, ebuild: str,
+                               settings: LivecheckSettings) -> tuple[str, str]:
+    return get_latest_github_package(f'https://github.com/{remote}', ebuild, settings)

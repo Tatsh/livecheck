@@ -8,7 +8,7 @@ from ..utils import get_content, is_sha
 from ..utils.portage import catpkg_catpkgsplit, get_last_version
 
 __all__ = ("get_latest_sourcehut_package", "get_latest_sourcehut_commit", "is_sourcehut",
-           "get_latest_sourcehut", "SOURCEHUT_METADATA")
+           "get_latest_sourcehut", "SOURCEHUT_METADATA", "get_latest_sourcehut_metadata")
 
 SOURCEHUT_DOWNLOAD_URL = 'https://%s/%s/%s/refs/rss.xml'
 SOURCEHUT_COMMIT_URL = 'https://%s/%s/%s/log/%s/rss.xml'
@@ -99,3 +99,11 @@ def get_latest_sourcehut(url: str, ebuild: str,
         last_version = get_latest_sourcehut_package(url, ebuild, settings)
 
     return last_version, top_hash, hash_date
+
+
+def get_latest_sourcehut_metadata(remote: str, ebuild: str, settings: LivecheckSettings) -> str:
+    if not (last_version := get_latest_sourcehut_package(f'https://git.sr.ht/{remote}', ebuild,
+                                                         settings)):
+        last_version = get_latest_sourcehut_package(f'https://hg.sr.ht/{remote}', ebuild, settings)
+
+    return last_version

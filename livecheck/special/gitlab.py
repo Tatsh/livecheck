@@ -1,3 +1,5 @@
+from collections.abc import Mapping
+from typing import Final
 from urllib.parse import quote, urlparse
 import re
 
@@ -6,10 +8,16 @@ from ..utils import get_content, is_sha
 from ..utils.portage import get_last_version
 from .utils import log_unhandled_commit
 
-__all__ = ("get_latest_gitlab_package", "is_gitlab", "GITLAB_METADATA", "get_latest_gitlab")
+__all__ = ("get_latest_gitlab_package", "is_gitlab", "GITLAB_METADATA", "get_latest_gitlab",
+           "get_latest_gitlab_metadata")
 
 GITLAB_TAG_URL = 'https://%s/api/v4/projects/%s/repository/tags?per_page=%s'
 GITLAB_METADATA = 'gitlab'
+GITLAB_HOSTNAMES: Final[Mapping[str, str]] = {
+    'gitlab': 'gitlab.com',
+    'gnome-gitlab': 'gitlab.gnome.org',
+    'freedesktop-gitlab': 'gitlab.freedesktop.org'
+}
 
 # Number of versions to fetch from GitLab
 VERSIONS = 40
@@ -62,3 +70,9 @@ def get_latest_gitlab(url: str, ebuild: str, settings: LivecheckSettings) -> tup
 
 def is_gitlab(url: str) -> bool:
     return bool(extract_domain_and_namespace(url)[0])
+
+
+def get_latest_gitlab_metadata(remote: str, _type: str, ebuild: str,
+                               settings: LivecheckSettings) -> tuple[str, str]:
+    uri = GITLAB_HOSTNAMES[_type]
+    return get_latest_gitlab_package(f'https://{uri}/{remote}', ebuild, settings)

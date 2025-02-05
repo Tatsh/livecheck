@@ -18,12 +18,16 @@ import click
 
 from .constants import (
     GIST_HOSTNAMES,
-    GITLAB_HOSTNAMES,
     SUBMODULES,
     TAG_NAME_FUNCTIONS,
 )
 from .settings import LivecheckSettings, gather_settings
-from .special.bitbucket import BITBUCKET_METADATA, get_latest_bitbucket, is_bitbucket
+from .special.bitbucket import (
+    BITBUCKET_METADATA,
+    get_latest_bitbucket,
+    get_latest_bitbucket_metadata,
+    is_bitbucket,
+)
 from .special.composer import (
     check_composer_requirements,
     remove_composer_url,
@@ -31,8 +35,18 @@ from .special.composer import (
 )
 from .special.davinci import get_latest_davinci_package
 from .special.dotnet import check_dotnet_requirements, update_dotnet_ebuild
-from .special.github import GITHUB_METADATA, get_latest_github, get_latest_github_package, is_github
-from .special.gitlab import GITLAB_METADATA, get_latest_gitlab, get_latest_gitlab_package, is_gitlab
+from .special.github import (
+    GITHUB_METADATA,
+    get_latest_github,
+    get_latest_github_metadata,
+    is_github,
+)
+from .special.gitlab import (
+    GITLAB_METADATA,
+    get_latest_gitlab,
+    get_latest_gitlab_metadata,
+    is_gitlab,
+)
 from .special.golang import update_go_ebuild
 from .special.gomodule import (
     check_gomodule_requirements,
@@ -40,16 +54,32 @@ from .special.gomodule import (
     update_gomodule_ebuild,
 )
 from .special.jetbrains import get_latest_jetbrains_package, is_jetbrains, update_jetbrains_ebuild
-from .special.metacpan import get_latest_metacpan_package, is_metacpan
+from .special.metacpan import (
+    METACPAN_METADATA,
+    get_latest_metacpan_metadata,
+    get_latest_metacpan_package,
+    is_metacpan,
+)
 from .special.nodejs import check_nodejs_requirements, remove_nodejs_url, update_nodejs_ebuild
-from .special.pecl import get_latest_pecl_package, is_pecl
+from .special.pecl import PECL_METADATA, get_latest_pecl_metadata, get_latest_pecl_package, is_pecl
+from .special.pypi import PYPI_METADATA, get_latest_pypi_metadata, get_latest_pypi_package, is_pypi
 from .special.regex import get_latest_regex_package
-from .special.rubygems import get_latest_rubygems_package, is_rubygems
-from .special.sourceforge import get_latest_sourceforge_package, is_sourceforge
+from .special.rubygems import (
+    RUBYGEMS_METADATA,
+    get_latest_rubygems_metadata,
+    get_latest_rubygems_package,
+    is_rubygems,
+)
+from .special.sourceforge import (
+    SOURCEFORGE_METADATA,
+    get_latest_sourceforge_metadata,
+    get_latest_sourceforge_package,
+    is_sourceforge,
+)
 from .special.sourcehut import (
     SOURCEHUT_METADATA,
     get_latest_sourcehut,
-    get_latest_sourcehut_package,
+    get_latest_sourcehut_metadata,
     is_sourcehut,
 )
 from .special.yarn import check_yarn_requirements, update_yarn_ebuild
@@ -116,16 +146,8 @@ def parse_url(repo_root: str, src_uri: str, match: str,
         last_version, top_hash, hash_date = get_latest_github(src_uri, match, settings)
     elif is_sourcehut(src_uri):
         last_version, top_hash, hash_date = get_latest_sourcehut(src_uri, match, settings)
-    elif src_uri.startswith('mirror://pypi/'):
-        dist_name = src_uri.split('/')[4]
-        last_version, hash_date, url = get_latest_regex_package(
-            match, f'https://pypi.org/pypi/{dist_name}/json', r'"version":"([^"]+)"[,\}]', '',
-            settings)
-    elif parsed_uri.hostname == 'files.pythonhosted.org':
-        dist_name = src_uri.split('/')[-2]
-        last_version, hash_date, url = get_latest_regex_package(
-            match, f'https://pypi.org/pypi/{dist_name}/json', r'"version":"([^"]+)"[,\}]', '',
-            settings)
+    elif is_pypi(src_uri):
+        last_version = get_latest_pypi_package(src_uri, match, settings)
     elif (parsed_uri.hostname == 'www.raphnet-tech.com'
           and parsed_uri.path.startswith('/downloads')):
         last_version, hash_date, url = get_latest_regex_package(
@@ -178,8 +200,8 @@ def parse_metadata(repo_root: str, match: str,
                    settings: LivecheckSettings) -> tuple[str, str, str, str]:
     catpkg, _, _, _ = catpkg_catpkgsplit(match)
 
-    metadata_file = os.path.join(repo_root, catpkg, "metadata.xml")
-    if not os.path.exists(metadata_file):
+    metadata_file = Path(repo_root) / catpkg / "metadata.xml"
+    if not metadata_file.exists():
         return '', '', '', ''
     try:
         root = ET.parse(metadata_file).getroot()
@@ -192,23 +214,29 @@ def parse_metadata(repo_root: str, match: str,
                 tag_name = subelem.tag
                 last_version = top_hash = hash_date = url = ''
                 if tag_name == 'remote-id':
-                    text_val = subelem.text.strip() if subelem.text else ""
-                    attribs = subelem.attrib
-                    if GITHUB_METADATA in attribs['type']:
-                        last_version, top_hash = get_latest_github_package(
-                            f'https://github.com/{text_val}', match, settings)
-                    if BITBUCKET_METADATA in attribs['type']:
-                        last_version, top_hash, hash_date, url = parse_url(
-                            repo_root, f'https://bitbucket.org/{text_val}', match, settings)
-                    if GITLAB_METADATA in attribs['type']:
-                        uri = GITLAB_HOSTNAMES[attribs['type']]
-                        last_version, top_hash = get_latest_gitlab_package(
-                            f'https://{uri}/{text_val}', match, settings)
-                    if SOURCEHUT_METADATA in attribs['type']:
-                        if not (last_version := get_latest_sourcehut_package(
-                                f'https://git.sr.ht/{text_val}', match, settings)):
-                            last_version = get_latest_sourcehut_package(
-                                f'https://hg.sr.ht/{text_val}', match, settings)
+                    if not (remote := subelem.text.strip() if subelem.text else ""):
+                        continue
+                    _type = subelem.attrib["type"]
+                    if GITHUB_METADATA in _type:
+                        last_version, top_hash = get_latest_github_metadata(remote, match, settings)
+                    if BITBUCKET_METADATA in _type:
+                        last_version, top_hash = get_latest_bitbucket_metadata(
+                            remote, match, settings)
+                    if GITLAB_METADATA in _type:
+                        last_version, top_hash = get_latest_gitlab_metadata(
+                            remote, _type, match, settings)
+                    if SOURCEHUT_METADATA in _type:
+                        last_version = get_latest_sourcehut_metadata(remote, match, settings)
+                    if METACPAN_METADATA in _type:
+                        last_version = get_latest_metacpan_metadata(remote, match, settings)
+                    if PECL_METADATA in _type:
+                        last_version = get_latest_pecl_metadata(remote, match, settings)
+                    if RUBYGEMS_METADATA in _type:
+                        last_version = get_latest_rubygems_metadata(remote, match, settings)
+                    if SOURCEFORGE_METADATA in _type:
+                        last_version = get_latest_sourceforge_metadata(remote, match, settings)
+                    if PYPI_METADATA in _type:
+                        last_version = get_latest_pypi_metadata(remote, match, settings)
                     if last_version or top_hash:
                         return last_version, top_hash, hash_date, url
     return '', '', '', ''
@@ -268,7 +296,7 @@ def get_props(
             last_version, hash_date, url = get_latest_regex_package(match, url, regex, version,
                                                                     settings)
         elif catpkg in settings.checksum_livechecks:
-            manifest_file = Path(search_dir) / catpkg / 'Manifest'
+            manifest_file = Path(repo_root) / catpkg / 'Manifest'
             bn = Path(src_uri).name
             found = False
             try:
@@ -369,8 +397,8 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
             settings: LivecheckSettings, last_version: str, top_hash: str, hash_date: str, url: str,
             hook_dir: str | None) -> None:
     cp = f'{cat}/{pkg}'
-    ebuild = os.path.join(search_dir, cp, f'{pkg}-{ebuild_version}.ebuild')
-    old_sha = get_old_sha(ebuild, url)
+    ebuild = Path(search_dir) / cp / f'{pkg}-{ebuild_version}.ebuild'
+    old_sha = get_old_sha(str(ebuild), url)
     if len(old_sha) == 7:
         top_hash = top_hash[:7]
     if update_sha_too_source := settings.sha_sources.get(cp, None):
@@ -493,9 +521,9 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
             if settings.git_flag and sp.run(
                 ('ebuild', new_filename, 'digest'), check=False).returncode == 0:
                 sp.run(('git', 'add', new_filename), check=True)
-                sp.run(('git', 'add', os.path.join(search_dir, cp, 'Manifest')), check=True)
+                sp.run(('git', 'add', Path(search_dir) / cp / 'Manifest'), check=True)
                 try:
-                    sp.run(('pkgdev', 'commit'), cwd=os.path.join(search_dir, cp), check=True)
+                    sp.run(('pkgdev', 'commit'), cwd=Path(search_dir) / cp, check=True)
                 except sp.CalledProcessError:
                     logger.error(f'Error committing {new_filename}')
             execute_hooks(hook_dir, 'post', search_dir, cp, ebuild_version, last_version, old_sha,
@@ -564,7 +592,7 @@ def main(
         if not auto_update:
             logger.error('Git option requires --auto-update')
             raise click.Abort
-        if not os.path.isdir(os.path.join(repo_root, '.git')):
+        if not Path(repo_root, '.git').is_dir():
             logger.error(f'Directory {repo_root} is not a git repository')
             raise click.Abort
         # Check if git is installed

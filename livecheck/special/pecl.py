@@ -5,7 +5,7 @@ from ..settings import LivecheckSettings
 from ..utils import assert_not_none, get_content
 from ..utils.portage import catpkg_catpkgsplit, get_last_version
 
-__all__ = ("get_latest_pecl_package", "is_pecl", "PECL_METADATA")
+__all__ = ("get_latest_pecl_package", "is_pecl", "PECL_METADATA", "get_latest_pecl_metadata")
 
 PECL_DOWNLOAD_URL = 'https://pecl.php.net/rest/r/%s/allreleases.xml'
 
@@ -15,11 +15,16 @@ NAMESPACE = "{http://pear.php.net/dtd/rest.allreleases}"
 
 
 def get_latest_pecl_package(ebuild: str, settings: LivecheckSettings) -> str:
-    catpkg, _, program_name, _ = catpkg_catpkgsplit(ebuild)
+    _, _, program_name, _ = catpkg_catpkgsplit(ebuild)
 
     # Remove 'pecl-' prefix if present
     if program_name.startswith('pecl-'):
         program_name = program_name.replace('pecl-', '', 1)
+    return get_latest_pecl_package2(program_name, ebuild, settings)
+
+
+def get_latest_pecl_package2(program_name: str, ebuild: str, settings: LivecheckSettings) -> str:
+    catpkg, _, _, _ = catpkg_catpkgsplit(ebuild)
 
     url = PECL_DOWNLOAD_URL % (program_name)
 
@@ -43,3 +48,7 @@ def get_latest_pecl_package(ebuild: str, settings: LivecheckSettings) -> str:
 
 def is_pecl(url: str) -> bool:
     return urlparse(url).netloc == 'pecl.php.net'
+
+
+def get_latest_pecl_metadata(remote: str, ebuild: str, settings: LivecheckSettings) -> str:
+    return get_latest_pecl_package2(remote, ebuild, settings)

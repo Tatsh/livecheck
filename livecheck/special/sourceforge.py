@@ -8,7 +8,8 @@ from ..utils import get_content
 from ..utils.portage import get_last_version
 from .utils import get_archive_extension
 
-__all__ = ("get_latest_sourceforge_package", "is_sourceforge", "SOURCEFORGE_METADATA")
+__all__ = ("get_latest_sourceforge_package", "is_sourceforge", "SOURCEFORGE_METADATA",
+           "get_latest_sourceforge_metadata")
 
 SOURCEFORGE_DOWNLOAD_URL = 'https://sourceforge.net/projects/%s/rss'
 SOURCEFORGE_METADATA = 'sourceforge'
@@ -31,6 +32,11 @@ def extract_repository(url: str) -> str:
 
 def get_latest_sourceforge_package(src_uri: str, ebuild: str, settings: LivecheckSettings) -> str:
     repository = extract_repository(src_uri)
+    return get_latest_sourceforge_package2(repository, ebuild, settings)
+
+
+def get_latest_sourceforge_package2(repository: str, ebuild: str,
+                                    settings: LivecheckSettings) -> str:
     url = SOURCEFORGE_DOWNLOAD_URL % (repository)
 
     if not (r := get_content(url)):
@@ -51,3 +57,7 @@ def get_latest_sourceforge_package(src_uri: str, ebuild: str, settings: Livechec
 
 def is_sourceforge(url: str) -> bool:
     return bool(extract_repository(url))
+
+
+def get_latest_sourceforge_metadata(remote: str, ebuild: str, settings: LivecheckSettings) -> str:
+    return get_latest_sourceforge_package2(remote, ebuild, settings)
