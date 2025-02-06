@@ -279,6 +279,7 @@ def unpack_ebuild(ebuild_path: str) -> str:
 
 def get_last_version(results: list[dict[str, str]], repo: str, ebuild: str,
                      settings: LivecheckSettings) -> dict[str, str]:
+    # TODO: Solve when 0.7 is greater than 0.69 (guru/dev-python/yams)
     logger.debug('Result count: %d', len(results))
 
     catpkg, _, _, ebuild_version = catpkg_catpkgsplit(ebuild)

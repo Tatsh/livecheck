@@ -35,6 +35,11 @@ test_cases = [{
 }, {
     "url": "mirror://pypi/project/source/s/someproject/1.0.0/",
     "expected": "someproject"
+}, {
+    "url":
+        "https://files.pythonhosted.org/packages/15/1f/ca74b65b19798895d63a6e92874162f44233467c9e7c1ed8afd19016ebe9/chevron-0.14.0.tar.gz",
+    "expected":
+        "chevron"
 }]
 
 

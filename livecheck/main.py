@@ -147,7 +147,7 @@ def parse_url(repo_root: str, src_uri: str, match: str,
     elif is_sourcehut(src_uri):
         last_version, top_hash, hash_date = get_latest_sourcehut(src_uri, match, settings)
     elif is_pypi(src_uri):
-        last_version = get_latest_pypi_package(src_uri, match, settings)
+        last_version, url = get_latest_pypi_package(src_uri, match, settings)
     elif (parsed_uri.hostname == 'www.raphnet-tech.com'
           and parsed_uri.path.startswith('/downloads')):
         last_version, hash_date, url = get_latest_regex_package(
@@ -236,7 +236,7 @@ def parse_metadata(repo_root: str, match: str,
                     if SOURCEFORGE_METADATA in _type:
                         last_version = get_latest_sourceforge_metadata(remote, match, settings)
                     if PYPI_METADATA in _type:
-                        last_version = get_latest_pypi_metadata(remote, match, settings)
+                        last_version, url = get_latest_pypi_metadata(remote, match, settings)
                     if last_version or top_hash:
                         return last_version, top_hash, hash_date, url
     return '', '', '', ''
@@ -339,6 +339,7 @@ def get_props(
 
 
 def get_old_sha(ebuild: str, url: str) -> str:
+    # TODO: Support mix of SHA and COMMIT (example guru/dev-python/tempy/tempy-1.4.0.ebuild)
     sha_pattern = re.compile(r'(SHA|COMMIT|EGIT_COMMIT)=["\']?([a-f0-9]{40})["\']?')
 
     with open(ebuild, encoding='utf-8') as file:
@@ -398,6 +399,7 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
             hook_dir: str | None) -> None:
     cp = f'{cat}/{pkg}'
     ebuild = Path(search_dir) / cp / f'{pkg}-{ebuild_version}.ebuild'
+    # TODO: files.pythonhosted.org use diferent path structure /xx/yy/sha/archive... for replace
     old_sha = get_old_sha(str(ebuild), url)
     if len(old_sha) == 7:
         top_hash = top_hash[:7]
