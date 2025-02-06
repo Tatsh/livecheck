@@ -84,7 +84,7 @@ from .special.sourcehut import (
 )
 from .special.yarn import check_yarn_requirements, update_yarn_ebuild
 from .typing import PropTuple
-from .utils import chunks, extract_sha, get_content, is_sha
+from .utils import check_program, chunks, extract_sha, get_content, is_sha
 from .utils.portage import (
     P,
     catpkg_catpkgsplit,
@@ -596,11 +596,11 @@ def main(
             logger.error(f'Directory {repo_root} is not a git repository')
             raise click.Abort
         # Check if git is installed
-        if sp.run(('git', '--version'), stdout=sp.PIPE, check=False).returncode != 0:
+        if not check_program('git', '--version'):
             logger.error('Git is not installed')
             raise click.Abort
         # Check if pkgdev is installed
-        if sp.run(('pkgdev', '--version'), stdout=sp.PIPE, check=False).returncode != 0:
+        if not check_program('pkgdev', '--version'):
             logger.error('pkgdev is not installed')
             raise click.Abort
     logger.info(f'search_dir={search_dir} repo_root={repo_root} repo_name={repo_name}')

@@ -91,8 +91,7 @@ def update_yarn_ebuild(ebuild: str,
                         tf.write(line)
                     elif not wrote_new_packages:
                         for new_pkg in sorted(set(yarn_pkgs(project_path)),
-                                              key=lambda x: -1
-                                              if re.match(package_re, x) else 0):
+                                              key=lambda x: -1 if re.match(package_re, x) else 0):
                             tf.write(f'\t{new_pkg}\n')
                         wrote_new_packages = True
                 else:
@@ -106,10 +105,10 @@ def update_yarn_ebuild(ebuild: str,
 
 
 def check_yarn_requirements() -> bool:
-    if not check_program('yarn', '', ''):
+    if not check_program('yarn', '--version'):
         logger.error('yarn is not installed')
         return False
-    if not check_program('node', '', ''):
+    if not check_program('node', '--version'):
         logger.error('yarn is not installed')
         return False
     return True

@@ -32,7 +32,7 @@ def update_nodejs_ebuild(ebuild: str, path: str | None, fetchlist: dict[str, str
 
 
 def check_nodejs_requirements() -> bool:
-    if not check_program('npm', '', ''):
+    if not check_program('npm', '--version'):
         logger.error('npm is not installed')
         return False
     return True

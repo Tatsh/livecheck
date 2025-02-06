@@ -29,7 +29,7 @@ def update_composer_ebuild(ebuild: str, path: str | None, fetchlist: dict[str, s
 
 
 def check_composer_requirements() -> bool:
-    if not check_program('composer', '', '1'):
+    if not check_program('composer', '--version'):
         logger.error('composer is not installed')
         return False
     return True
