@@ -146,7 +146,7 @@ def get_content(url: str) -> requests.Response:
         session = session_init('bitbucket')
     elif url.endswith(('.atom', '.xml')):
         session = session_init('xml')
-    elif url.endswith('.json'):
+    elif url.endswith('json'):
         session = session_init('json')
     else:
         session = session_init('')
