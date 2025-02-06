@@ -27,7 +27,7 @@ def update_gomodule_ebuild(ebuild: str, path: str | None, fetchlist: dict[str, s
 
 
 def check_gomodule_requirements() -> bool:
-    if not check_program('go', '', ''):
+    if not check_program('go', 'version', ''):
         logger.error('go is not installed')
         return False
     return True

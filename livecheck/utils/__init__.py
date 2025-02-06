@@ -183,7 +183,7 @@ def check_program(cmd: str, args: str = '', min_version: str | None = None) -> b
     :return: True if the program is installed and the version is at least the minimum version.
     """
     try:
-        output = subprocess.check_output([cmd, *args], stderr=subprocess.STDOUT, text=True)
+        output = subprocess.check_output([cmd, args], stderr=subprocess.STDOUT, text=True)
     except FileNotFoundError:
         return False
 
