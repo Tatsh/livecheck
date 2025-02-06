@@ -70,10 +70,10 @@ def catpkgsplit2(atom: str) -> tuple[str, str, str, str]:
         Tuple consisting of four strings.
     """
     result = catpkgsplit(atom)
-    if not result or len(result) != 4:
+    if result is None or len(result) != 4:
         raise ValueError(f'Invalid atom: {atom}')
 
-    return result
+    return result[0], result[1], result[2], result[3]
 
 
 @lru_cache
@@ -201,6 +201,14 @@ def normalize_version(ver: str) -> str:
         else:
             letters, digits = '', ''
 
+    if digits == '0':
+        digits = ''
+    if digits:
+        if letters == 'a':
+            letters = 'alpha'
+        if letters == 'b':
+            letters = 'beta'
+
     if letters in ('test', 'dev'):
         letters = 'beta'
     if letters.startswith(('pl', 'patchlevel')):
@@ -211,7 +219,7 @@ def normalize_version(ver: str) -> str:
     if letters in allowed:
         if letters in ('post'):
             letters = 'p'
-        if digits and digits != '0':
+        if digits:
             return f"{main}_{letters}{digits}"
         return f"{main}_{letters}"
 
