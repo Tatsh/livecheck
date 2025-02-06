@@ -2,7 +2,8 @@ from urllib.parse import urlparse
 import re
 
 from ..settings import LivecheckSettings
-from .regex import get_latest_regex_package
+from ..utils import get_content
+from ..utils.portage import get_last_version
 
 __all__ = ("get_latest_pypi_package", "is_pypi", "PYPI_METADATA", "get_latest_pypi_metadata")
 
@@ -31,9 +32,15 @@ def get_latest_pypi_package(src_uri: str, ebuild: str, settings: LivecheckSettin
 def get_latest_pypi_package2(project_name: str, ebuild: str, settings: LivecheckSettings) -> str:
     url = PYPI_DOWNLOAD_URL % (project_name)
 
-    last_version, _, _ = get_latest_regex_package(ebuild, url, r'"version":"([^"]+)"[,\}]', '',
-                                                  settings)
-    return last_version
+    results: list[dict[str, str]] = []
+    if r := get_content(url):
+        for release in r.json().get("releases", {}):
+            results.extend([{"tag": release}])
+
+        if last_version := get_last_version(results, '', ebuild, settings):
+            return last_version['version']
+
+    return ''
 
 
 def is_pypi(url: str) -> bool:
