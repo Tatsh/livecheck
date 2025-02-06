@@ -34,6 +34,7 @@ from .special.composer import (
     update_composer_ebuild,
 )
 from .special.davinci import get_latest_davinci_package
+from .special.directory import get_latest_directory_package
 from .special.dotnet import check_dotnet_requirements, update_dotnet_ebuild
 from .special.github import (
     GITHUB_METADATA,
@@ -281,6 +282,8 @@ def get_props(
         if settings.debug_flag or settings.progress_flag:
             logger.info(f'Processing {catpkg} version {ebuild_version}')
         last_version = hash_date = top_hash = url = ''
+        last_version = get_latest_directory_package(src_uri, match, settings)
+
         if catpkg in settings.sync_version:
             matches_sync = get_highest_matches([settings.sync_version[catpkg]], '', settings)
             if not matches_sync:
