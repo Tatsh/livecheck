@@ -151,15 +151,6 @@ def parse_url(repo_root: str, src_uri: str, ebuild: str,
         last_version = get_latest_jetbrains_package(ebuild, settings)
     elif is_gitlab(src_uri):
         last_version, top_hash, hash_date = get_latest_gitlab(src_uri, ebuild, settings)
-    elif parsed_uri.hostname == 'cgit.libimobiledevice.org':
-        proj = src_uri.split('/')[3]
-        last_version, hash_date, url = get_latest_regex_package(
-            ebuild,
-            f'https://cgit.libimobiledevice.org/{proj}/',
-            r"href='/" + re.escape(proj) + r"/tag/\?h=([0-9][^']+)",
-            '',
-            settings,
-        )
     elif parsed_uri.hostname == 'registry.yarnpkg.com':
         path = ('/'.join(parsed_uri.path.split('/')[1:3])
                 if parsed_uri.path.startswith('/@') else parsed_uri.path.split('/')[1])
