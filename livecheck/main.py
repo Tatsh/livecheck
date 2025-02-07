@@ -123,14 +123,12 @@ def process_submodules(pkg_name: str, ref: str, contents: str, repo_uri: str) ->
     return contents
 
 
-def log_unhandled_pkg(catpkg: str, src_uri: str) -> None:
-    logger.warning(f'Unhandled: {catpkg} SRC_URI: {src_uri}')
+def log_unhandled_pkg(ebuild: str, src_uri: str) -> None:
+    logger.warning(f'Unhandled: {ebuild} SRC_URI: {src_uri}')
 
 
-def parse_url(repo_root: str, src_uri: str, match: str,
+def parse_url(repo_root: str, src_uri: str, ebuild: str,
               settings: LivecheckSettings) -> tuple[str, str, str, str]:
-    catpkg, _, pkg, _ = catpkg_catpkgsplit(match)
-
     parsed_uri = urlparse(src_uri)
     last_version = top_hash = hash_date = ''
     url = src_uri
@@ -140,32 +138,23 @@ def parse_url(repo_root: str, src_uri: str, match: str,
 
     logger.debug(f'Parsed URI: {parsed_uri}')
     if parsed_uri.hostname in GIST_HOSTNAMES:
-        home = P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0]
+        home = P.aux_get(ebuild, ['HOMEPAGE'], mytree=repo_root)[0]
         last_version, hash_date, url = get_latest_regex_package(
-            match, f'{home}/revisions', r'<relative-time datetime="([0-9-]{10})', '', settings)
+            ebuild, f'{home}/revisions', r'<relative-time datetime="([0-9-]{10})', '', settings)
     elif is_github(src_uri):
-        last_version, top_hash, hash_date = get_latest_github(src_uri, match, settings)
+        last_version, top_hash, hash_date = get_latest_github(src_uri, ebuild, settings)
     elif is_sourcehut(src_uri):
-        last_version, top_hash, hash_date = get_latest_sourcehut(src_uri, match, settings)
+        last_version, top_hash, hash_date = get_latest_sourcehut(src_uri, ebuild, settings)
     elif is_pypi(src_uri):
-        last_version, url = get_latest_pypi_package(src_uri, match, settings)
-    elif (parsed_uri.hostname == 'www.raphnet-tech.com'
-          and parsed_uri.path.startswith('/downloads')):
-        last_version, hash_date, url = get_latest_regex_package(
-            match,
-            P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0],
-            (r'\b' + pkg.replace('-', r'[-_]') + r'-([^"]+)\.tar\.gz'),
-            '',
-            settings,
-        )
+        last_version, url = get_latest_pypi_package(src_uri, ebuild, settings)
     elif is_jetbrains(src_uri):
-        last_version = get_latest_jetbrains_package(match, settings)
+        last_version = get_latest_jetbrains_package(ebuild, settings)
     elif is_gitlab(src_uri):
-        last_version, top_hash, hash_date = get_latest_gitlab(src_uri, match, settings)
+        last_version, top_hash, hash_date = get_latest_gitlab(src_uri, ebuild, settings)
     elif parsed_uri.hostname == 'cgit.libimobiledevice.org':
         proj = src_uri.split('/')[3]
         last_version, hash_date, url = get_latest_regex_package(
-            match,
+            ebuild,
             f'https://cgit.libimobiledevice.org/{proj}/',
             r"href='/" + re.escape(proj) + r"/tag/\?h=([0-9][^']+)",
             '',
@@ -175,31 +164,31 @@ def parse_url(repo_root: str, src_uri: str, match: str,
         path = ('/'.join(parsed_uri.path.split('/')[1:3])
                 if parsed_uri.path.startswith('/@') else parsed_uri.path.split('/')[1])
         last_version, hash_date, url = get_latest_regex_package(
-            match,
+            ebuild,
             f'https://registry.yarnpkg.com/{path}',
             r'"latest":"([^"]+)",?',
             '',
             settings,
         )
     elif is_pecl(src_uri):
-        last_version = get_latest_pecl_package(match, settings)
+        last_version = get_latest_pecl_package(ebuild, settings)
     elif is_metacpan(src_uri):
-        last_version = get_latest_metacpan_package(parsed_uri.path, match, settings)
+        last_version = get_latest_metacpan_package(parsed_uri.path, ebuild, settings)
     elif is_rubygems(src_uri):
-        last_version = get_latest_rubygems_package(match, settings)
+        last_version = get_latest_rubygems_package(ebuild, settings)
     elif is_sourceforge(src_uri):
-        last_version = get_latest_sourceforge_package(src_uri, match, settings)
+        last_version = get_latest_sourceforge_package(src_uri, ebuild, settings)
     elif is_bitbucket(src_uri):
-        last_version, top_hash, hash_date = get_latest_bitbucket(parsed_uri.path, match, settings)
-    else:
-        log_unhandled_pkg(catpkg, src_uri)
+        last_version, top_hash, hash_date = get_latest_bitbucket(parsed_uri.path, ebuild, settings)
+    elif not (last_version := get_latest_directory_package(src_uri, ebuild, settings)):
+        log_unhandled_pkg(ebuild, src_uri)
 
     return last_version, top_hash, hash_date, url
 
 
-def parse_metadata(repo_root: str, match: str,
+def parse_metadata(repo_root: str, ebuild: str,
                    settings: LivecheckSettings) -> tuple[str, str, str, str]:
-    catpkg, _, _, _ = catpkg_catpkgsplit(match)
+    catpkg, _, _, _ = catpkg_catpkgsplit(ebuild)
 
     metadata_file = Path(repo_root) / catpkg / "metadata.xml"
     if not metadata_file.exists():
@@ -219,25 +208,26 @@ def parse_metadata(repo_root: str, match: str,
                         continue
                     _type = subelem.attrib["type"]
                     if GITHUB_METADATA in _type:
-                        last_version, top_hash = get_latest_github_metadata(remote, match, settings)
+                        last_version, top_hash = get_latest_github_metadata(
+                            remote, ebuild, settings)
                     if BITBUCKET_METADATA in _type:
                         last_version, top_hash = get_latest_bitbucket_metadata(
-                            remote, match, settings)
+                            remote, ebuild, settings)
                     if GITLAB_METADATA in _type:
                         last_version, top_hash = get_latest_gitlab_metadata(
-                            remote, _type, match, settings)
+                            remote, _type, ebuild, settings)
                     if SOURCEHUT_METADATA in _type:
-                        last_version = get_latest_sourcehut_metadata(remote, match, settings)
+                        last_version = get_latest_sourcehut_metadata(remote, ebuild, settings)
                     if METACPAN_METADATA in _type:
-                        last_version = get_latest_metacpan_metadata(remote, match, settings)
+                        last_version = get_latest_metacpan_metadata(remote, ebuild, settings)
                     if PECL_METADATA in _type:
-                        last_version = get_latest_pecl_metadata(remote, match, settings)
+                        last_version = get_latest_pecl_metadata(remote, ebuild, settings)
                     if RUBYGEMS_METADATA in _type:
-                        last_version = get_latest_rubygems_metadata(remote, match, settings)
+                        last_version = get_latest_rubygems_metadata(remote, ebuild, settings)
                     if SOURCEFORGE_METADATA in _type:
-                        last_version = get_latest_sourceforge_metadata(remote, match, settings)
+                        last_version = get_latest_sourceforge_metadata(remote, ebuild, settings)
                     if PYPI_METADATA in _type:
-                        last_version, url = get_latest_pypi_metadata(remote, match, settings)
+                        last_version, url = get_latest_pypi_metadata(remote, ebuild, settings)
                     if last_version or top_hash:
                         return last_version, top_hash, hash_date, url
     return '', '', '', ''
@@ -282,8 +272,6 @@ def get_props(
         if settings.debug_flag or settings.progress_flag:
             logger.info(f'Processing {catpkg} version {ebuild_version}')
         last_version = hash_date = top_hash = url = ''
-        last_version = get_latest_directory_package(src_uri, match, settings)
-
         if catpkg in settings.sync_version:
             matches_sync = get_highest_matches([settings.sync_version[catpkg]], '', settings)
             if not matches_sync:
@@ -402,14 +390,14 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
             hook_dir: str | None) -> None:
     cp = f'{cat}/{pkg}'
     ebuild = Path(search_dir) / cp / f'{pkg}-{ebuild_version}.ebuild'
-    # TODO: files.pythonhosted.org use diferent path structure /xx/yy/sha/archive... for replace
+    # TODO: files.pythonhosted.org use different path structure /xx/yy/sha/archive... for replace
     old_sha = get_old_sha(str(ebuild), url)
     if len(old_sha) == 7:
         top_hash = top_hash[:7]
     if update_sha_too_source := settings.sha_sources.get(cp, None):
         logger.debug('Package also needs a SHA update')
         _, top_hash, hash_date, _ = parse_url(search_dir, update_sha_too_source,
-                                              f'{cp}-{last_version}', settings)
+                                              f'{cp}-{ebuild_version}', settings)
 
         # if empty, it means that the source is not supported
         if not top_hash:

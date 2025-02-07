@@ -1,45 +1,34 @@
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
-import os
 import re
-import xml.etree.ElementTree as etree
+
+from bs4 import BeautifulSoup
 
 from ..settings import LivecheckSettings
 from ..utils import get_content
 from ..utils.portage import get_last_version
+from .utils import get_archive_extension
 
 __all__ = ("get_latest_directory_package",)
 
 
 def get_latest_directory_package(url: str, ebuild: str, settings: LivecheckSettings) -> str:
-    # remove archive from the url
-    directory = re.sub(r'/[^/]+$', '', url)
+    if m := re.search(r'^(.*?)(?=-\d)', Path(url).name):
+        directory = re.sub(r'/[^/]+$', '', url) + '/'
+        if not (r := get_content(directory)):
+            return ''
 
-    # get archive from the url
-    repository = Path(url).name
-
-    if not (r := get_content(directory)):
-        return ''
-
-    if m := re.search(r'^(.*?)(?=-\d)', repository):
         archive = m.group(1).strip()
-    else:
-        return ''
 
-    results: list[dict[str, str]] = []
-    # get all tags a from the directory in xml format and check if a href is a start with name
+        results: list[dict[str, str]] = []
+        for item in BeautifulSoup(r.text, 'html.parser').find_all('a', href=True):
+            if (href := item["href"]) and get_archive_extension(href):
+                file = urlparse(urljoin(directory, href)).path
+                name = Path(file).name
+                if name.startswith(archive):
+                    results.append({"tag": name})
 
-    for item in etree.fromstring(r.text).findall(".//a"):
-        if href := item.get("href"):
-            link = urljoin(url, href)
-            file = urlparse(link).path
-            name = os.path.basename(file)
-            if name.startswith(archive):
-                # remove name from the file
-                version = name[len(archive) + 1:]
-                results.append({"tag": version})
-
-    if last_version := get_last_version(results, repository, ebuild, settings):
-        return last_version['version']
+        if last_version := get_last_version(results, archive, ebuild, settings):
+            return last_version['version']
 
     return ''
