@@ -27,6 +27,7 @@ loguru = "^0.7.3"
 pyxdg = "^0.28"
 requests = "^2.32.3"
 keyring = ">=25.5.0"
+beautifulsoup4 = ">=4.12.0"
 
 [tool.poetry.group.dev]
 optional = true
@@ -35,12 +36,13 @@ optional = true
 commitizen = ">=3.13,<5.0"
 mypy = "^1.15.0"
 portage = { git = "https://github.com/gentoo/portage.git" }
-portage-types = ">=0.0.2"
+portage-stubs = ">=0.0.3"
 rope = "^1.13.0"
 ruff = ">=0.5.0,<0.10.0"
 types-requests = "^2.32.0.20241016"
 types-toml = "^0.10.8.20240310"
 yapf = ">=0.40.2,<0.44.0"
+types-beautifulsoup4 = ">=4.12.0.20250204"
 
 [tool.poetry.group.docs]
 optional = true

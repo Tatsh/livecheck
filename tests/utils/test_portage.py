@@ -1,8 +1,9 @@
 import pytest
+
 from livecheck.utils.portage import sanitize_version
 
 
-@pytest.mark.parametrize("version, expected",
+@pytest.mark.parametrize(("version", "expected"),
                          [(0, "0"), ("", ""), ("v1.2.3", "1.2.3"), ("s1.2.3", "1.2.3"),
                           ("1.2.3", "1.2.3"), ("1.2.3a", "1.2.3a"), ("1.2.3-alpha", "1.2.3_alpha"),
                           ("1.2.3-alpha0", "1.2.3_alpha"), ("1.2.3-beta1", "1.2.3_beta1"),
@@ -25,6 +26,7 @@ from livecheck.utils.portage import sanitize_version
                           ("build_420", "420"), ("glabels", ""), ("NewBuild25rc1", "25_rc1"),
                           ("v1.12.post318", "1.12_p318"), ("1.002", "1.002"),
                           ("1.3.0-build.4", "1.3.0"), ("0.2.tar.gz", "0.2"),
-                          ("0.8.1-pl5", "0.8.1_p5"), ("0.8 patchlevel   6", "0.8_p6")])
+                          ("0.8.1-pl5", "0.8.1_p5"), ("0.8 patchlevel   6", "0.8_p6"),
+                          ("0.0.8b2", "0.0.8_beta2"), ("0.0.8a5", "0.0.8_alpha5")])
 def test_sanitize_version(version: str, expected: str) -> None:
     assert sanitize_version(version) == expected

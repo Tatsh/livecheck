@@ -1,12 +1,13 @@
 from pathlib import Path
+from typing import Any
 import logging
 import os
 import tarfile
 import tempfile
-from typing import Any, Optional
 
 from xdg.BaseDirectory import save_cache_path
-from ..utils.portage import unpack_ebuild, get_distdir
+
+from ..utils.portage import get_distdir, unpack_ebuild
 
 __all__ = ("get_project_path", "remove_url_ebuild", "search_ebuild", "build_compress",
            "get_archive_extension", "EbuildTempFile")
@@ -108,7 +109,7 @@ def get_archive_extension(filename: str) -> str:
 class EbuildTempFile:
     def __init__(self, ebuild: str):
         self.ebuild = Path(ebuild)
-        self.temp_file: Optional[Path] = None
+        self.temp_file: Path | None = None
 
     def __enter__(self) -> Path:
         self.temp_file = Path(
@@ -119,8 +120,8 @@ class EbuildTempFile:
                                         dir=self.ebuild.parent).name)
         return self.temp_file
 
-    def __exit__(self, exc_type: Optional[type], exc_value: Optional[BaseException],
-                 traceback: Optional[Any]) -> bool:
+    def __exit__(self, exc_type: type | None, exc_value: BaseException | None,
+                 traceback: Any | None) -> bool:
         if exc_type is None:
             if not self.temp_file or not self.temp_file.exists() or self.temp_file.stat(
             ).st_size == 0:
@@ -144,3 +145,7 @@ class EbuildTempFile:
             self.temp_file.unlink(missing_ok=True)
 
         return True
+
+
+def log_unhandled_commit(catpkg: str, src_uri: str) -> None:
+    logger.warning('Unhandled commit: %s SRC_URI: %s', catpkg, src_uri)

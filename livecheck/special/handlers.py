@@ -1,20 +1,19 @@
+from functools import lru_cache
 import logging
 import re
-import xml.etree.ElementTree as etree
 
-from ..constants import RSS_NS
-from ..utils import assert_not_none, get_content
+from ..utils import assert_not_none
+from .github import get_latest_github_commit2
 
 logger = logging.getLogger(__name__)
 
 
+@lru_cache
 def handle_glabels(s: str) -> str:
-    if not (r := get_content(f'https://github.com/jimevins/glabels-qt/commits/{s}.atom')):
+    _, hash_date = get_latest_github_commit2('jimevins', 'glabels-qt', 'master')
+    if not hash_date:
         return s
-    #r = assert_not_none(r)
-    return ('3.99_p' + assert_not_none(
-        assert_not_none(etree.fromstring(r.text).find('entry/updated',
-                                                      RSS_NS)).text).split('T')[0].replace('-', ''))
+    return '3.99_p' + hash_date
 
 
 def handle_re(s: str) -> str:

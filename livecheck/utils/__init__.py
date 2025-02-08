@@ -1,23 +1,22 @@
 """Utility functions."""
-import re
-
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from functools import lru_cache
+from http import HTTPStatus
 from typing import TypeVar
 from urllib.parse import urlparse
-
 import logging
-from http import HTTPStatus
-import requests
-from requests import ConnectTimeout, ReadTimeout
-from loguru import logger
+import re
+import subprocess
 
+from loguru import logger
+from packaging.version import Version
+from requests import ConnectTimeout, ReadTimeout
 import keyring
+import requests
 
 __all__ = ('TextDataResponse', 'assert_not_none', 'chunks', 'dash_to_underscore', 'dotize',
-           'get_github_api_credentials', 'is_sha', 'make_github_grit_commit_re', 'prefix_v',
-           'session_init', 'get_content', 'extract_sha')
+           'is_sha', 'prefix_v', 'session_init', 'get_content', 'extract_sha', 'check_program')
 
 logger2 = logging.getLogger(__name__)
 T = TypeVar('T')
@@ -25,12 +24,6 @@ T = TypeVar('T')
 # https://github.com/egoist/parse-package-name/blob/main/src/index.ts
 RE_SCOPED = r'^(@[^\/]+\/[^@\/]+)(?:@([^\/]+))?(\/.*)?$'
 RE_NON_SCOPED = r'^([^@\/]+)(?:@([^\/]+))?(\/.*)?$'
-
-
-@lru_cache
-def make_github_grit_commit_re(version: str) -> str:
-    return (r'<id>tag:github.com,2008:Grit::Commit/([0-9a-f]{' + str(len(version)) +
-            r'})[0-9a-f]*</id>')
 
 
 @lru_cache
@@ -151,9 +144,9 @@ def get_content(url: str) -> requests.Response:
         session = session_init('gitlab')
     elif parsed_uri.hostname == 'api.bitbucket.org':
         session = session_init('bitbucket')
-    elif url.endswith('.atom') or url.endswith('.xml'):
+    elif url.endswith(('.atom', '.xml')):
         session = session_init('xml')
-    elif url.endswith('.json'):
+    elif url.endswith('json'):
         session = session_init('json')
     else:
         session = session_init('')
@@ -173,8 +166,36 @@ def get_content(url: str) -> requests.Response:
                              HTTPStatus.FOUND, HTTPStatus.TEMPORARY_REDIRECT,
                              HTTPStatus.PERMANENT_REDIRECT):
         logger.error(f'Error fetching {url} status_code {r.status_code}')
-    else:
-        if not r.text:
-            logger.warning(f'Empty response for {url}')
+    elif not r.text:
+        logger.warning(f'Empty response for {url}')
 
     return r
+
+
+def check_program(cmd: str, args: str = '', min_version: str | None = None) -> bool:
+    """
+    Check if a program is installed and optionally check if the installed version is at least
+    the specified minimum version.
+
+    :param cmd: The command to check.
+    :param args: The arguments to pass to the command.
+    :param min_version: The minimum version required.
+    :return: True if the program is installed and the version is at least the minimum version.
+    """
+    try:
+        result = subprocess.run([cmd, args],
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT,
+                                text=True,
+                                check=False)
+        if result.returncode != 0:
+            return False
+    except FileNotFoundError:
+        return False
+    try:
+        if min_version and Version(result.stdout.strip()) < Version(min_version):
+            return False
+    except ValueError:
+        return False
+
+    return True

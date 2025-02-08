@@ -1,12 +1,13 @@
 from collections.abc import Sequence
 from functools import lru_cache
+from itertools import chain
 import logging
 import os
 import re
-from itertools import chain
 
 from portage.versions import catpkgsplit, vercmp
 import portage
+
 from ..settings import LivecheckSettings
 
 __all__ = ('P', 'catpkg_catpkgsplit', 'catpkgsplit2', 'get_first_src_uri', 'get_highest_matches',
@@ -69,10 +70,10 @@ def catpkgsplit2(atom: str) -> tuple[str, str, str, str]:
         Tuple consisting of four strings.
     """
     result = catpkgsplit(atom)
-    if not result or len(result) != 4:
+    if result is None or len(result) != 4:
         raise ValueError(f'Invalid atom: {atom}')
 
-    return result
+    return result[0], result[1], result[2], result[3]
 
 
 @lru_cache
@@ -128,9 +129,7 @@ def get_repository_root_if_inside(directory: str) -> tuple[str, str]:
 
 
 def is_version_development(version: str) -> bool:
-    if re.search(r'(alpha|beta|pre|dev|rc)', version, re.IGNORECASE):
-        return True
-    return False
+    return bool(re.search('(alpha|beta|pre|dev|rc)', version, re.IGNORECASE))
 
 
 def remove_initial_match(a: str, b: str) -> str:
@@ -202,9 +201,17 @@ def normalize_version(ver: str) -> str:
         else:
             letters, digits = '', ''
 
+    if digits == '0':
+        digits = ''
+    if digits:
+        if letters == 'a':
+            letters = 'alpha'
+        if letters == 'b':
+            letters = 'beta'
+
     if letters in ('test', 'dev'):
         letters = 'beta'
-    if letters.startswith('pl') or letters.startswith('patchlevel'):
+    if letters.startswith(('pl', 'patchlevel')):
         letters = 'p'
 
     allowed = ('pre', 'beta', 'rc', 'p', 'alpha', 'post')
@@ -212,7 +219,7 @@ def normalize_version(ver: str) -> str:
     if letters in allowed:
         if letters in ('post'):
             letters = 'p'
-        if digits and digits != '0':
+        if digits:
             return f"{main}_{letters}{digits}"
         return f"{main}_{letters}"
 
@@ -272,6 +279,7 @@ def unpack_ebuild(ebuild_path: str) -> str:
 
 def get_last_version(results: list[dict[str, str]], repo: str, ebuild: str,
                      settings: LivecheckSettings) -> dict[str, str]:
+    # TODO: Solve when 0.7 is greater than 0.69 (guru/dev-python/yams)
     logger.debug('Result count: %d', len(results))
 
     catpkg, _, _, ebuild_version = catpkg_catpkgsplit(ebuild)
@@ -322,8 +330,5 @@ def accept_version(ebuild_version: str, version: str, catpkg: str,
             stable_version and re.match(stable_version, version)):
         return True
 
-    if is_version_development(version) or (stable_version
-                                           and not re.match(stable_version, version)):
-        return False
-
-    return True
+    return not (is_version_development(version)
+                or stable_version and not re.match(stable_version, version))

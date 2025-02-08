@@ -2,14 +2,15 @@
 from collections.abc import Iterator, Sequence
 from os import chdir
 from pathlib import Path
-from typing import TypeVar, cast, Match
+from re import Match
+from typing import TypeVar, cast
 from urllib.parse import urlparse
 import hashlib
 import logging
+import os
 import re
 import subprocess as sp
 import sys
-import os
 import xml.etree.ElementTree as ET
 
 from loguru import logger
@@ -17,34 +18,84 @@ import click
 
 from .constants import (
     GIST_HOSTNAMES,
-    GITLAB_HOSTNAMES,
     SUBMODULES,
     TAG_NAME_FUNCTIONS,
 )
 from .settings import LivecheckSettings, gather_settings
-
-from .special.bitbucket import get_latest_bitbucket_package
-from .special.composer import update_composer_ebuild, remove_composer_url
+from .special.bitbucket import (
+    BITBUCKET_METADATA,
+    get_latest_bitbucket,
+    get_latest_bitbucket_metadata,
+    is_bitbucket,
+)
+from .special.composer import (
+    check_composer_requirements,
+    remove_composer_url,
+    update_composer_ebuild,
+)
 from .special.davinci import get_latest_davinci_package
-from .special.dotnet import update_dotnet_ebuild
-from .special.github import get_latest_github_package, get_latest_github_commit
-from .special.gitlab import get_latest_gitlab_package
+from .special.directory import get_latest_directory_package
+from .special.dotnet import check_dotnet_requirements, update_dotnet_ebuild
+from .special.github import (
+    GITHUB_METADATA,
+    get_latest_github,
+    get_latest_github_metadata,
+    is_github,
+)
+from .special.gitlab import (
+    GITLAB_METADATA,
+    get_latest_gitlab,
+    get_latest_gitlab_metadata,
+    is_gitlab,
+)
 from .special.golang import update_go_ebuild
-from .special.gomodule import update_gomodule_ebuild, remove_gomodule_url
-from .special.jetbrains import get_latest_jetbrains_package, update_jetbrains_ebuild
-from .special.metacpan import get_latest_metacpan_package
-from .special.nodejs import update_nodejs_ebuild, remove_nodejs_url
-from .special.pecl import get_latest_pecl_package
+from .special.gomodule import (
+    check_gomodule_requirements,
+    remove_gomodule_url,
+    update_gomodule_ebuild,
+)
+from .special.jetbrains import get_latest_jetbrains_package, is_jetbrains, update_jetbrains_ebuild
+from .special.metacpan import (
+    METACPAN_METADATA,
+    get_latest_metacpan_metadata,
+    get_latest_metacpan_package,
+    is_metacpan,
+)
+from .special.nodejs import check_nodejs_requirements, remove_nodejs_url, update_nodejs_ebuild
+from .special.pecl import PECL_METADATA, get_latest_pecl_metadata, get_latest_pecl_package, is_pecl
+from .special.pypi import PYPI_METADATA, get_latest_pypi_metadata, get_latest_pypi_package, is_pypi
 from .special.regex import get_latest_regex_package
-from .special.rubygems import get_latest_rubygems_package
-from .special.sourceforge import get_latest_sourceforge_package
-from .special.yarn import update_yarn_ebuild
-
+from .special.rubygems import (
+    RUBYGEMS_METADATA,
+    get_latest_rubygems_metadata,
+    get_latest_rubygems_package,
+    is_rubygems,
+)
+from .special.sourceforge import (
+    SOURCEFORGE_METADATA,
+    get_latest_sourceforge_metadata,
+    get_latest_sourceforge_package,
+    is_sourceforge,
+)
+from .special.sourcehut import (
+    SOURCEHUT_METADATA,
+    get_latest_sourcehut,
+    get_latest_sourcehut_metadata,
+    is_sourcehut,
+)
+from .special.yarn import check_yarn_requirements, update_yarn_ebuild
 from .typing import PropTuple
-from .utils import (chunks, is_sha, make_github_grit_commit_re, get_content, extract_sha)
-from .utils.portage import (P, catpkg_catpkgsplit, get_first_src_uri, get_highest_matches,
-                            get_repository_root_if_inside, compare_versions, digest_ebuild,
-                            catpkgsplit2)
+from .utils import check_program, chunks, extract_sha, get_content, is_sha
+from .utils.portage import (
+    P,
+    catpkg_catpkgsplit,
+    catpkgsplit2,
+    compare_versions,
+    digest_ebuild,
+    get_first_src_uri,
+    get_highest_matches,
+    get_repository_root_if_inside,
+)
 
 T = TypeVar('T')
 
@@ -72,18 +123,12 @@ def process_submodules(pkg_name: str, ref: str, contents: str, repo_uri: str) ->
     return contents
 
 
-def log_unhandled_pkg(catpkg: str, src_uri: str) -> None:
-    logger.warning(f'Unhandled: {catpkg} SRC_URI: {src_uri}')
+def log_unhandled_pkg(ebuild: str, src_uri: str) -> None:
+    logger.warning(f'Unhandled: {ebuild} SRC_URI: {src_uri}')
 
 
-def log_unhandled_commit(catpkg: str, src_uri: str) -> None:
-    logger.warning(f'Unhandled commit: {catpkg} SRC_URI: {src_uri}')
-
-
-def parse_url(repo_root: str, src_uri: str, match: str,
+def parse_url(repo_root: str, src_uri: str, ebuild: str,
               settings: LivecheckSettings) -> tuple[str, str, str, str]:
-    catpkg, _, pkg, _ = catpkg_catpkgsplit(match)
-
     parsed_uri = urlparse(src_uri)
     last_version = top_hash = hash_date = ''
     url = src_uri
@@ -93,98 +138,51 @@ def parse_url(repo_root: str, src_uri: str, match: str,
 
     logger.debug(f'Parsed URI: {parsed_uri}')
     if parsed_uri.hostname in GIST_HOSTNAMES:
-        home = P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0]
+        home = P.aux_get(ebuild, ['HOMEPAGE'], mytree=repo_root)[0]
         last_version, hash_date, url = get_latest_regex_package(
-            match, f'{home}/revisions', r'<relative-time datetime="([0-9-]{10})', '', settings)
-    elif 'github.' in parsed_uri.hostname:
-        if is_sha(parsed_uri.path):
-            branch = settings.branches.get(catpkg, 'master')
-            top_hash, hash_date = get_latest_github_commit(src_uri, branch)
-        else:
-            last_version, top_hash = get_latest_github_package(src_uri, match, settings)
-    elif parsed_uri.hostname == 'git.sr.ht':
-        if is_sha(parsed_uri.path):
-            log_unhandled_commit(catpkg, src_uri)
-        else:
-            user_repo = '/'.join(parsed_uri.path.split('/')[1:3])
-            branch = settings.branches.get(catpkg, 'master')
-            last_version, hash_date, url = get_latest_regex_package(
-                match,
-                f'https://git.sr.ht/{user_repo}/log/{branch}/rss.xml',
-                r'<pubDate>([^<]+)</pubDate>',
-                '',
-                settings,
-            )
-    elif src_uri.startswith('mirror://pypi/'):
-        dist_name = src_uri.split('/')[4]
-        last_version, hash_date, url = get_latest_regex_package(
-            match, f'https://pypi.org/pypi/{dist_name}/json', r'"version":"([^"]+)"[,\}]', '',
-            settings)
-    elif parsed_uri.hostname == 'files.pythonhosted.org':
-        dist_name = src_uri.split('/')[-2]
-        last_version, hash_date, url = get_latest_regex_package(
-            match, f'https://pypi.org/pypi/{dist_name}/json', r'"version":"([^"]+)"[,\}]', '',
-            settings)
-    elif (parsed_uri.hostname == 'www.raphnet-tech.com'
-          and parsed_uri.path.startswith('/downloads')):
-        last_version, hash_date, url = get_latest_regex_package(
-            match,
-            P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)[0],
-            (r'\b' + pkg.replace('-', r'[-_]') + r'-([^"]+)\.tar\.gz'),
-            '',
-            settings,
-        )
-    elif parsed_uri.hostname == 'download.jetbrains.com':
-        last_version = get_latest_jetbrains_package(match, settings)
-    elif 'gitlab' in parsed_uri.hostname:
-        if is_sha(parsed_uri.path):
-            log_unhandled_commit(catpkg, src_uri)
-        else:
-            last_version, top_hash = get_latest_gitlab_package(src_uri, match, settings)
-    elif parsed_uri.hostname == 'cgit.libimobiledevice.org':
-        proj = src_uri.split('/')[3]
-        last_version, hash_date, url = get_latest_regex_package(
-            match,
-            f'https://cgit.libimobiledevice.org/{proj}/',
-            r"href='/" + re.escape(proj) + r"/tag/\?h=([0-9][^']+)",
-            '',
-            settings,
-        )
+            ebuild, f'{home}/revisions', r'<relative-time datetime="([0-9-]{10})', '', settings)
+    elif is_github(src_uri):
+        last_version, top_hash, hash_date = get_latest_github(src_uri, ebuild, settings)
+    elif is_sourcehut(src_uri):
+        last_version, top_hash, hash_date = get_latest_sourcehut(src_uri, ebuild, settings)
+    elif is_pypi(src_uri):
+        last_version, url = get_latest_pypi_package(src_uri, ebuild, settings)
+    elif is_jetbrains(src_uri):
+        last_version = get_latest_jetbrains_package(ebuild, settings)
+    elif is_gitlab(src_uri):
+        last_version, top_hash, hash_date = get_latest_gitlab(src_uri, ebuild, settings)
     elif parsed_uri.hostname == 'registry.yarnpkg.com':
         path = ('/'.join(parsed_uri.path.split('/')[1:3])
                 if parsed_uri.path.startswith('/@') else parsed_uri.path.split('/')[1])
         last_version, hash_date, url = get_latest_regex_package(
-            match,
+            ebuild,
             f'https://registry.yarnpkg.com/{path}',
             r'"latest":"([^"]+)",?',
             '',
             settings,
         )
-    elif parsed_uri.hostname == 'pecl.php.net':
-        last_version = get_latest_pecl_package(match, settings)
-    elif 'metacpan.org' in parsed_uri.hostname or 'cpan' in parsed_uri.hostname:
-        last_version = get_latest_metacpan_package(parsed_uri.path, match, settings)
-    elif parsed_uri.hostname == 'rubygems.org':
-        last_version = get_latest_rubygems_package(match, settings)
-    elif 'sourceforge.' in parsed_uri.hostname or 'sf.' in parsed_uri.hostname:
-        last_version = get_latest_sourceforge_package(src_uri, match, settings)
-    elif parsed_uri.hostname == 'bitbucket.org':
-        if is_sha(parsed_uri.path):
-            log_unhandled_commit(catpkg, src_uri)
-        else:
-            last_version, top_hash = get_latest_bitbucket_package(parsed_uri.path, match, settings)
-    else:
-        log_unhandled_pkg(catpkg, src_uri)
+    elif is_pecl(src_uri):
+        last_version = get_latest_pecl_package(ebuild, settings)
+    elif is_metacpan(src_uri):
+        last_version = get_latest_metacpan_package(parsed_uri.path, ebuild, settings)
+    elif is_rubygems(src_uri):
+        last_version = get_latest_rubygems_package(ebuild, settings)
+    elif is_sourceforge(src_uri):
+        last_version = get_latest_sourceforge_package(src_uri, ebuild, settings)
+    elif is_bitbucket(src_uri):
+        last_version, top_hash, hash_date = get_latest_bitbucket(parsed_uri.path, ebuild, settings)
+    elif not (last_version := get_latest_directory_package(src_uri, ebuild, settings)):
+        log_unhandled_pkg(ebuild, src_uri)
 
     return last_version, top_hash, hash_date, url
 
 
-def parse_metadata(repo_root: str, match: str,
+def parse_metadata(repo_root: str, ebuild: str,
                    settings: LivecheckSettings) -> tuple[str, str, str, str]:
-    catpkg, _, _, _ = catpkg_catpkgsplit(match)
+    catpkg, _, _, _ = catpkg_catpkgsplit(ebuild)
 
-    metadata_file = os.path.join(repo_root, catpkg, "metadata.xml")
-    if not os.path.exists(metadata_file):
+    metadata_file = Path(repo_root) / catpkg / "metadata.xml"
+    if not metadata_file.exists():
         return '', '', '', ''
     try:
         root = ET.parse(metadata_file).getroot()
@@ -195,20 +193,32 @@ def parse_metadata(repo_root: str, match: str,
         for upstream in upstream_list:
             for subelem in upstream:
                 tag_name = subelem.tag
-                text_val = subelem.text.strip() if subelem.text else ""
-                attribs = subelem.attrib
                 last_version = top_hash = hash_date = url = ''
                 if tag_name == 'remote-id':
-                    if attribs['type'] == 'github':
-                        last_version, top_hash = get_latest_github_package(
-                            f'https://github.com/{text_val}', match, settings)
-                    if attribs['type'] == 'bitbucket':
-                        last_version, top_hash, hash_date, url = parse_url(
-                            repo_root, f'https://bitbucket.org/{text_val}', match, settings)
-                    if 'gitlab' in attribs['type']:
-                        uri = GITLAB_HOSTNAMES[attribs['type']]
-                        last_version, top_hash = get_latest_gitlab_package(
-                            f'https://{uri}/{text_val}', match, settings)
+                    if not (remote := subelem.text.strip() if subelem.text else ""):
+                        continue
+                    _type = subelem.attrib["type"]
+                    if GITHUB_METADATA in _type:
+                        last_version, top_hash = get_latest_github_metadata(
+                            remote, ebuild, settings)
+                    if BITBUCKET_METADATA in _type:
+                        last_version, top_hash = get_latest_bitbucket_metadata(
+                            remote, ebuild, settings)
+                    if GITLAB_METADATA in _type:
+                        last_version, top_hash = get_latest_gitlab_metadata(
+                            remote, _type, ebuild, settings)
+                    if SOURCEHUT_METADATA in _type:
+                        last_version = get_latest_sourcehut_metadata(remote, ebuild, settings)
+                    if METACPAN_METADATA in _type:
+                        last_version = get_latest_metacpan_metadata(remote, ebuild, settings)
+                    if PECL_METADATA in _type:
+                        last_version = get_latest_pecl_metadata(remote, ebuild, settings)
+                    if RUBYGEMS_METADATA in _type:
+                        last_version = get_latest_rubygems_metadata(remote, ebuild, settings)
+                    if SOURCEFORGE_METADATA in _type:
+                        last_version = get_latest_sourceforge_metadata(remote, ebuild, settings)
+                    if PYPI_METADATA in _type:
+                        last_version, url = get_latest_pypi_metadata(remote, ebuild, settings)
                     if last_version or top_hash:
                         return last_version, top_hash, hash_date, url
     return '', '', '', ''
@@ -240,8 +250,8 @@ def get_props(
     if not matches_list:
         logger.error('No matches!')
         raise click.Abort
-    for match in matches_list:
-        match, settings.restrict_version_process = extract_restrict_version(match)
+    for _match in matches_list:
+        match, settings.restrict_version_process = extract_restrict_version(_match)
         catpkg, cat, pkg, ebuild_version = catpkg_catpkgsplit(match)
         if catpkg in exclude or pkg in exclude:
             logger.debug(f'Ignoring {catpkg}')
@@ -268,11 +278,11 @@ def get_props(
             last_version, hash_date, url = get_latest_regex_package(match, url, regex, version,
                                                                     settings)
         elif catpkg in settings.checksum_livechecks:
-            manifest_file = Path(search_dir) / catpkg / 'Manifest'
+            manifest_file = Path(repo_root) / catpkg / 'Manifest'
             bn = Path(src_uri).name
             found = False
             try:
-                with open(manifest_file, 'r', encoding='utf-8') as f:
+                with open(manifest_file, encoding='utf-8') as f:
                     for line in f.readlines():
                         if not line.startswith('DIST '):
                             continue
@@ -311,9 +321,10 @@ def get_props(
 
 
 def get_old_sha(ebuild: str, url: str) -> str:
+    # TODO: Support mix of SHA and COMMIT (example guru/dev-python/tempy/tempy-1.4.0.ebuild)
     sha_pattern = re.compile(r'(SHA|COMMIT|EGIT_COMMIT)=["\']?([a-f0-9]{40})["\']?')
 
-    with open(ebuild, 'r', encoding='utf-8') as file:
+    with open(ebuild, encoding='utf-8') as file:
         for line in file:
             match = sha_pattern.search(line)
             if match:
@@ -321,33 +332,6 @@ def get_old_sha(ebuild: str, url: str) -> str:
 
     last_part = urlparse(url).path.rsplit('/', 1)[-1] if '/' in url else url
     return extract_sha(last_part)
-
-
-def log_unsupported_sha_source(src: str) -> None:
-    logger.debug(f'Unsupported SHA source: {src}')
-
-
-def get_new_sha(src: str) -> str:
-    content = get_content(src)
-    if not content.text:
-        return ''
-
-    parsed_src = urlparse(src)
-    if (parsed_src.hostname == 'github.com' and src.endswith('.atom')):
-        if m := re.search(make_github_grit_commit_re(40 * ' '), content.text):
-            return str(m.groups()[0])
-    if parsed_src.hostname == 'git.sr.ht' and src.endswith('xml'):
-        user_repo = '/'.join(parsed_src.path.split('/')[1:3])
-        if m := re.search(rf'<guid>https://git\.sr\.ht/{user_repo}/commit/([a-f0-9]+)</guid>',
-                          content.text):
-            return str(m.groups()[0])
-
-    log_unsupported_sha_source(src)
-    return ''
-
-
-def log_unhandled_state(cat: str, pkg: str, url: str, regex: str | None = None) -> None:
-    logger.debug(f'Unhandled state: regex={regex}, cat={cat}, pkg={pkg}, url={url}')
 
 
 def str_version(version: str, sha: str) -> str:
@@ -370,9 +354,7 @@ def replace_date_in_ebuild(ebuild: str, new_date: str, cp: str) -> str:
 
     _, _, _, old_version = catpkg_catpkgsplit(f'{cp}-{ebuild}')
     _, _, _, new_version = catpkg_catpkgsplit(f'{cp}-{n}')
-    if old_version != new_version:
-        return str(new_version)
-    return n
+    return str(new_version) if old_version != new_version else n
 
 
 def execute_hooks(hook_dir: str | None, action: str, search_dir: str, cp: str, str_old_version: str,
@@ -398,13 +380,16 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
             settings: LivecheckSettings, last_version: str, top_hash: str, hash_date: str, url: str,
             hook_dir: str | None) -> None:
     cp = f'{cat}/{pkg}'
-    ebuild = os.path.join(search_dir, cp, f'{pkg}-{ebuild_version}.ebuild')
-    old_sha = get_old_sha(ebuild, url)
+    ebuild = Path(search_dir) / cp / f'{pkg}-{ebuild_version}.ebuild'
+    # TODO: files.pythonhosted.org use different path structure /xx/yy/sha/archive... for replace
+    old_sha = get_old_sha(str(ebuild), url)
     if len(old_sha) == 7:
         top_hash = top_hash[:7]
     if update_sha_too_source := settings.sha_sources.get(cp, None):
         logger.debug('Package also needs a SHA update')
-        top_hash = get_new_sha(update_sha_too_source)
+        _, top_hash, hash_date, _ = parse_url(search_dir, update_sha_too_source,
+                                              f'{cp}-{ebuild_version}', settings)
+
         # if empty, it means that the source is not supported
         if not top_hash:
             logger.warning(f'Could not get new SHA for {update_sha_too_source}')
@@ -429,17 +414,23 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
         _, _, _, new_version = catpkg_catpkgsplit(f'{cp}-{last_version}')
         _, _, _, old_version = catpkg_catpkgsplit(f'{cp}-{ebuild_version}')
         logger.debug(f'Migrating from {ebuild} to {new_filename}')
-        if cp in settings.no_auto_update:
-            no_auto_update_str = ' (no_auto_update)'
-        else:
-            no_auto_update_str = ''
+        no_auto_update_str = ' (no_auto_update)' if cp in settings.no_auto_update else ''
         str_new_version = str_version(new_version, top_hash)
         str_old_version = str_version(old_version, old_sha)
         print(f'{cat}/{pkg}: {str_old_version} -> '
               f'{str_new_version}{no_auto_update_str}')
 
         if settings.auto_update_flag and cp not in settings.no_auto_update:
-            with open(ebuild, 'r', encoding='utf-8') as f:
+            # First check requirements before update
+            if (cp in settings.dotnet_projects and not check_dotnet_requirements()) or (
+                    cp in settings.composer_packages and not check_composer_requirements()
+            ) or (cp in settings.yarn_base_packages and not check_yarn_requirements()) or (
+                    cp in settings.nodejs_packages
+                    and not check_nodejs_requirements()) or (cp in settings.gomodule_packages
+                                                             and not check_gomodule_requirements()):
+                logger.warning('Update is not possible')
+                return
+            with open(ebuild, encoding='utf-8') as f:
                 old_content = content = f.read()
             # Only update the version if it is not a commit
             if top_hash and old_sha:
@@ -514,9 +505,9 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
             if settings.git_flag and sp.run(
                 ('ebuild', new_filename, 'digest'), check=False).returncode == 0:
                 sp.run(('git', 'add', new_filename), check=True)
-                sp.run(('git', 'add', os.path.join(search_dir, cp, 'Manifest')), check=True)
+                sp.run(('git', 'add', Path(search_dir) / cp / 'Manifest'), check=True)
                 try:
-                    sp.run(('pkgdev', 'commit'), cwd=os.path.join(search_dir, cp), check=True)
+                    sp.run(('pkgdev', 'commit'), cwd=Path(search_dir) / cp, check=True)
                 except sp.CalledProcessError:
                     logger.error(f'Error committing {new_filename}')
             execute_hooks(hook_dir, 'post', search_dir, cp, ebuild_version, last_version, old_sha,
@@ -585,15 +576,15 @@ def main(
         if not auto_update:
             logger.error('Git option requires --auto-update')
             raise click.Abort
-        if not os.path.isdir(os.path.join(repo_root, '.git')):
+        if not Path(repo_root, '.git').is_dir():
             logger.error(f'Directory {repo_root} is not a git repository')
             raise click.Abort
         # Check if git is installed
-        if sp.run(('git', '--version'), stdout=sp.PIPE, check=False).returncode != 0:
+        if not check_program('git', '--version'):
             logger.error('Git is not installed')
             raise click.Abort
         # Check if pkgdev is installed
-        if sp.run(('pkgdev', '--version'), stdout=sp.PIPE, check=False).returncode != 0:
+        if not check_program('pkgdev', '--version'):
             logger.error('pkgdev is not installed')
             raise click.Abort
     logger.info(f'search_dir={search_dir} repo_root={repo_root} repo_name={repo_name}')

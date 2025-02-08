@@ -1,12 +1,11 @@
-import re
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-import json
 from urllib.parse import urlparse
+import json
+import re
 
 from loguru import logger
-import livecheck.special.handlers as sc
 
 from . import utils
 
@@ -15,37 +14,37 @@ __all__ = ('LivecheckSettings', 'gather_settings')
 
 @dataclass
 class LivecheckSettings:
-    branches: dict[str, str]
-    checksum_livechecks: set[str]
-    custom_livechecks: dict[str, tuple[str, str, bool, str]]
-    dotnet_projects: dict[str, str]
+    branches: dict[str, str] = field(default_factory=dict)
+    checksum_livechecks: set[str] = field(default_factory=set)
+    custom_livechecks: dict[str, tuple[str, str, bool, str]] = field(default_factory=dict)
+    dotnet_projects: dict[str, str] = field(default_factory=dict)
     '''Dictionary of catpkg to project or solution file (base name only).'''
-    go_sum_uri: dict[str, str]
+    go_sum_uri: dict[str, str] = field(default_factory=dict)
     '''
     Dictionary of catpkg to full URI to ``go.sum`` with ``@PV@`` used for
     where version gets placed.
     '''
-    type_packages: dict[str, str]
-    no_auto_update: set[str]
-    semver: dict[str, bool]
+    type_packages: dict[str, str] = field(default_factory=dict)
+    no_auto_update: set[str] = field(default_factory=set)
+    semver: dict[str, bool] = field(default_factory=dict)
     '''Disable auto-detection of semantic versioning.'''
-    sha_sources: dict[str, str]
-    transformations: Mapping[str, Callable[[str], str]]
-    yarn_base_packages: dict[str, str]
-    yarn_packages: dict[str, set[str]]
-    jetbrains_packages: dict[str, bool]
-    keep_old: dict[str, bool]
-    gomodule_packages: dict[str, bool]
-    gomodule_path: dict[str, str]
-    nodejs_packages: dict[str, bool]
-    nodejs_path: dict[str, str]
-    development: dict[str, bool]
-    composer_packages: dict[str, bool]
-    composer_path: dict[str, str]
-    regex_version: dict[str, tuple[str, str]]
-    restrict_version: dict[str, str]
-    sync_version: dict[str, str]
-    stable_version: dict[str, str]
+    sha_sources: dict[str, str] = field(default_factory=dict)
+    transformations: Mapping[str, Callable[[str], str]] = field(default_factory=dict)
+    yarn_base_packages: dict[str, str] = field(default_factory=dict)
+    yarn_packages: dict[str, set[str]] = field(default_factory=dict)
+    jetbrains_packages: dict[str, bool] = field(default_factory=dict)
+    keep_old: dict[str, bool] = field(default_factory=dict)
+    gomodule_packages: dict[str, bool] = field(default_factory=dict)
+    gomodule_path: dict[str, str] = field(default_factory=dict)
+    nodejs_packages: dict[str, bool] = field(default_factory=dict)
+    nodejs_path: dict[str, str] = field(default_factory=dict)
+    development: dict[str, bool] = field(default_factory=dict)
+    composer_packages: dict[str, bool] = field(default_factory=dict)
+    composer_path: dict[str, str] = field(default_factory=dict)
+    regex_version: dict[str, tuple[str, str]] = field(default_factory=dict)
+    restrict_version: dict[str, str] = field(default_factory=dict)
+    sync_version: dict[str, str] = field(default_factory=dict)
+    stable_version: dict[str, str] = field(default_factory=dict)
     # Settings from command line flag.
     auto_update_flag: bool = False
     debug_flag: bool = False
@@ -66,6 +65,9 @@ class UnknownTransformationFunction(NameError):
 
 
 def gather_settings(search_dir: str) -> LivecheckSettings:
+    # Prevent circular import.
+    import livecheck.special.handlers as sc
+
     branches: dict[str, str] = {}
     checksum_livechecks: set[str] = set()
     custom_livechecks: dict[str, tuple[str, str, bool, str]] = {}
@@ -91,6 +93,7 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
     restrict_version: dict[str, str] = {}
     sync_version: dict[str, str] = {}
     stable_version: dict[str, str] = {}
+
     for path in Path(search_dir).glob('**/livecheck.json'):
         logger.debug(f"Opening {path}")
         with path.open() as f:
@@ -246,13 +249,12 @@ def check_instance(value: int | str | bool | list[str] | None,
         if isinstance(value, str):
             parsed_url = urlparse(value)
             is_type = all([parsed_url.scheme, parsed_url.netloc])
-    elif dtype == 'regex':
-        if isinstance(value, str):
-            try:
-                re.compile(value)
-                is_type = True
-            except re.error:
-                is_type = False
+    elif dtype == 'regex' and isinstance(value, str):
+        try:
+            re.compile(value)
+            is_type = True
+        except re.error:
+            is_type = False
 
     if not is_type:
         logger.error(

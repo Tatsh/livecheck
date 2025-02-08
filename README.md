@@ -72,7 +72,7 @@ This package can do automated lookups based on commonly used hosts. Currently:
 - SourceHut
 - Sourceforge
 - Yarnpkg
-- libimobiledevice.org
+- Search in a url directory
 
 This works as long as the version system is usable with Portage's version
 comparison function. For anything else, see [Package configuration](#package-configuration).
@@ -114,7 +114,7 @@ action directory there can be several scripts that are executed in order of name
 - `stable_version`- string - Regular expression to determine if it is a stable version.
 - `sync_version` - string - Category and ebuild with version to sync.
 - `transformation_function` - string - Function to use to transform the version string.
-   Currently only `dotize` is supported. Others are for internal use.
+  Currently only `dotize` is supported. Others are for internal use.
 - `type` - string - Only one `none`, `davinci`, `regex`, or `checksum`.
 
 Use the pattern to adjust the version using a regular expression
