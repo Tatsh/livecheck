@@ -225,7 +225,7 @@ def parse_metadata(repo_root: str, ebuild: str,
 
 
 def extract_restrict_version(cp: str) -> tuple[str, str]:
-    if match := re.match(r"(.*?):(\d+):-(.*)", cp):
+    if match := re.match(r"(.*?):(.*):-(.*)", cp):
         package, slot, version = match.groups()
         cleaned_string = f"{package}-{version}"
         return cleaned_string, slot
@@ -263,6 +263,10 @@ def get_props(
         if settings.debug_flag or settings.progress_flag:
             logger.info(f'Processing {catpkg} version {ebuild_version}')
         last_version = hash_date = top_hash = url = ''
+        ebuild = Path(repo_root) / catpkg / f'{pkg}-{ebuild_version}.ebuild'
+        egit, branch = get_egit_repo(ebuild)
+        if branch:
+            settings.branches[catpkg] = branch
         if catpkg in settings.sync_version:
             matches_sync = get_highest_matches([settings.sync_version[catpkg]], '', settings)
             if not matches_sync:
@@ -310,7 +314,13 @@ def get_props(
             if not found:
                 log_unhandled_pkg(catpkg, src_uri)
         else:
-            last_version, top_hash, hash_date, url = parse_url(repo_root, src_uri, match, settings)
+            if egit:
+                old_sha = get_old_sha(ebuild, '')
+                egit = egit + '/commit/' + old_sha
+                last_version, top_hash, hash_date, url = parse_url(repo_root, egit, match, settings)
+            if not last_version and not top_hash:
+                last_version, top_hash, hash_date, url = parse_url(repo_root, src_uri, match,
+                                                                   settings)
             if not last_version and not top_hash:
                 last_version, top_hash, hash_date, url = parse_metadata(repo_root, match, settings)
         if last_version or top_hash:
@@ -320,18 +330,28 @@ def get_props(
             logger.debug(f'Ignoring {catpkg}, update not available')
 
 
-def get_old_sha(ebuild: str, url: str) -> str:
+def get_old_sha(ebuild: Path, url: str) -> str:
     # TODO: Support mix of SHA and COMMIT (example guru/dev-python/tempy/tempy-1.4.0.ebuild)
-    sha_pattern = re.compile(r'(SHA|COMMIT|EGIT_COMMIT)=["\']?([a-f0-9]{40})["\']?')
+    sha_pattern = re.compile(r'(SHA|COMMIT|EGIT_COMMIT)=["\']?([a-f0-9]{40})')
 
     with open(ebuild, encoding='utf-8') as file:
         for line in file:
-            match = sha_pattern.search(line)
-            if match:
+            if match := sha_pattern.search(line):
                 return match.group(2)
 
     last_part = urlparse(url).path.rsplit('/', 1)[-1] if '/' in url else url
     return extract_sha(last_part)
+
+
+def get_egit_repo(ebuild: Path) -> tuple[str, str]:
+    egit = branch = ''
+    with open(ebuild, encoding='utf-8') as file:
+        for line in file:
+            if match := re.compile(r'^EGIT_REPO_URI=(["\'])?(.*)\1').search(line):
+                egit = match.group(2)
+            if match := re.compile(r'^EGIT_BRANCH=(["\'])?(.*)\1').search(line):
+                branch = match.group(2)
+    return egit, branch
 
 
 def str_version(version: str, sha: str) -> str:
@@ -382,7 +402,7 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
     cp = f'{cat}/{pkg}'
     ebuild = Path(search_dir) / cp / f'{pkg}-{ebuild_version}.ebuild'
     # TODO: files.pythonhosted.org use different path structure /xx/yy/sha/archive... for replace
-    old_sha = get_old_sha(str(ebuild), url)
+    old_sha = get_old_sha(ebuild, url)
     if len(old_sha) == 7:
         top_hash = top_hash[:7]
     if update_sha_too_source := settings.sha_sources.get(cp, None):
