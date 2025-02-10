@@ -62,6 +62,7 @@ from .special.metacpan import (
     is_metacpan,
 )
 from .special.nodejs import check_nodejs_requirements, remove_nodejs_url, update_nodejs_ebuild
+from .special.package import get_latest_package, is_package
 from .special.pecl import PECL_METADATA, get_latest_pecl_metadata, get_latest_pecl_package, is_pecl
 from .special.pypi import PYPI_METADATA, get_latest_pypi_metadata, get_latest_pypi_package, is_pypi
 from .special.regex import get_latest_regex_package
@@ -151,16 +152,8 @@ def parse_url(repo_root: str, src_uri: str, ebuild: str,
         last_version = get_latest_jetbrains_package(ebuild, settings)
     elif is_gitlab(src_uri):
         last_version, top_hash, hash_date = get_latest_gitlab(src_uri, ebuild, settings)
-    elif parsed_uri.hostname == 'registry.yarnpkg.com':
-        path = ('/'.join(parsed_uri.path.split('/')[1:3])
-                if parsed_uri.path.startswith('/@') else parsed_uri.path.split('/')[1])
-        last_version, hash_date, url = get_latest_regex_package(
-            ebuild,
-            f'https://registry.yarnpkg.com/{path}',
-            r'"latest":"([^"]+)",?',
-            '',
-            settings,
-        )
+    elif is_package(src_uri):
+        last_version = get_latest_package(src_uri, ebuild, settings)
     elif is_pecl(src_uri):
         last_version = get_latest_pecl_package(ebuild, settings)
     elif is_metacpan(src_uri):
