@@ -20,9 +20,9 @@ logger = logging.getLogger(__name__)
 
 def mask_version(cp: str, version: str, restrict_version: str | None = 'full') -> str:
     if restrict_version == 'major':
-        return cp + ':' + re.sub(r'\.\d+', '', version) + ':'
+        return cp + ':' + re.sub(r'^(\d+).*', r'\1', version) + ':'
     if restrict_version == 'minor':
-        return cp + ':' + re.sub(r'\.\d+\.\d+', '', version) + ':'
+        return cp + ':' + re.sub(r'^(\d+\.\d+).*', r'\1', version) + ':'
     return cp
 
 
