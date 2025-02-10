@@ -71,7 +71,7 @@ This package can do automated lookups based on commonly used hosts. Currently:
 - RubyGems
 - SourceHut
 - Sourceforge
-- Yarnpkg
+- Packages from Yarnpkg and Npmjs
 - Search in a url directory
 
 This works as long as the version system is usable with Portage's version
