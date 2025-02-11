@@ -36,4 +36,4 @@ def get_latest_package(src_uri: str, ebuild: str, settings: LivecheckSettings) -
 
 
 def is_package(url: str) -> bool:
-    return bool(extract_project(url))
+    return bool(extract_project(url)[0])
