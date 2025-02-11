@@ -6,7 +6,7 @@ from ..utils.portage import get_last_version
 
 __all__ = ("get_latest_package", "is_package")
 
-PYPI_DOWNLOAD_URL = 'https://%s//%s'
+PACKAGE_DOWNLOAD_URL = 'https://%s//%s'
 
 
 def extract_project(url: str) -> tuple[str, str]:
@@ -22,7 +22,7 @@ def extract_project(url: str) -> tuple[str, str]:
 def get_latest_package(src_uri: str, ebuild: str, settings: LivecheckSettings) -> str:
     domain, project = extract_project(src_uri)
 
-    url = PYPI_DOWNLOAD_URL % (domain, project)
+    url = PACKAGE_DOWNLOAD_URL % (domain, project)
 
     results: list[dict[str, str]] = []
     if r := get_content(url):

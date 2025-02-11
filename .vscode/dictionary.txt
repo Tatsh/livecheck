@@ -118,6 +118,7 @@ raphnet
 rdparty
 readlink
 refs
+repology
 rpcs
 rstcheck
 rtfd
@@ -131,6 +132,7 @@ sourceforge
 sourcehut
 spdlog
 spirv
+srcname
 subclassing
 subelem
 sudachi

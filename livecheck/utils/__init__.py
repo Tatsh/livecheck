@@ -144,6 +144,9 @@ def get_content(url: str) -> requests.Response:
         session = session_init('gitlab')
     elif parsed_uri.hostname == 'api.bitbucket.org':
         session = session_init('bitbucket')
+    elif parsed_uri.hostname == 'repology.org':
+        session = session_init('json')
+        session.headers['User-Agent'] = 'DistroWatch'
     elif url.endswith(('.atom', '.xml')):
         session = session_init('xml')
     elif url.endswith('json'):
