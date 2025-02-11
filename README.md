@@ -59,20 +59,22 @@ Options:
 This package can do automated lookups based on commonly used hosts. Currently:
 
 - Bitbucket
+- Davinci products
 - GitHub archives
 - GitHub commit hashes
 - GitHub releases
-- Gitlab repositories
+- Gitlab releases
 - JetBrains products
 - PECL
+- Packages from Yarnpkg and Npmjs
 - Perl CPAN
 - PyPI
 - Raphnet
+- Repology
 - RubyGems
-- SourceHut
-- Sourceforge
-- Packages from Yarnpkg and Npmjs
 - Search in a url directory
+- SourceHut releases / commit hashes
+- Sourceforge
 
 This works as long as the version system is usable with Portage's version
 comparison function. For anything else, see [Package configuration](#package-configuration).

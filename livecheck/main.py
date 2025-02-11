@@ -66,6 +66,7 @@ from .special.package import get_latest_package, is_package
 from .special.pecl import PECL_METADATA, get_latest_pecl_metadata, get_latest_pecl_package, is_pecl
 from .special.pypi import PYPI_METADATA, get_latest_pypi_metadata, get_latest_pypi_package, is_pypi
 from .special.regex import get_latest_regex_package
+from .special.repology import get_latest_repology
 from .special.rubygems import (
     RUBYGEMS_METADATA,
     get_latest_rubygems_metadata,
@@ -316,6 +317,8 @@ def get_props(
                                                                    settings)
             if not last_version and not top_hash:
                 last_version, top_hash, hash_date, url = parse_metadata(repo_root, match, settings)
+            if not last_version and not top_hash:
+                last_version = get_latest_repology(match, settings)
         if last_version or top_hash:
             logger.debug(f'Inserting {catpkg}: {ebuild_version} -> {last_version} : {top_hash}')
             yield (cat, pkg, ebuild_version, last_version, top_hash, hash_date, url)
