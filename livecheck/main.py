@@ -21,7 +21,17 @@ from .constants import (
     SUBMODULES,
     TAG_NAME_FUNCTIONS,
 )
-from .settings import LivecheckSettings, gather_settings
+from .settings import (
+    TYPE_CHECKSUM,
+    TYPE_DAVINCI,
+    TYPE_DIRECTORY,
+    TYPE_METADATA,
+    TYPE_NONE,
+    TYPE_REGEX,
+    TYPE_REPOLOGY,
+    LivecheckSettings,
+    gather_settings,
+)
 from .special.bitbucket import (
     BITBUCKET_METADATA,
     get_latest_bitbucket,
@@ -251,7 +261,7 @@ def get_props(
             logger.debug(f'Ignoring {catpkg}')
             continue
         src_uri = get_first_src_uri(match, repo_root)
-        if cat.startswith('acct-') or settings.type_packages.get(catpkg) == 'none':
+        if cat.startswith('acct-') or settings.type_packages.get(catpkg) == TYPE_NONE:
             logger.debug(f'Ignoring {catpkg}')
             continue
         if settings.debug_flag or settings.progress_flag:
@@ -269,13 +279,21 @@ def get_props(
             _, _, _, last_version = catpkg_catpkgsplit(matches_sync[0])
             # remove -r* from version
             last_version = re.sub(r'-r\d+$', '', last_version)
-        if settings.type_packages.get(catpkg) == 'davinci':
+        if settings.type_packages.get(catpkg) == TYPE_DAVINCI:
             last_version = get_latest_davinci_package(pkg)
-        elif catpkg in settings.custom_livechecks:
+        elif settings.type_packages.get(catpkg) == TYPE_METADATA:
+            last_version, top_hash, hash_date, url = parse_metadata(repo_root, match, settings)
+        elif settings.type_packages.get(catpkg) == TYPE_DIRECTORY:
+            url, _, _, _ = settings.custom_livechecks[catpkg]
+            last_version = get_latest_directory_package(url, match, settings)
+        elif settings.type_packages.get(catpkg) == TYPE_REPOLOGY:
+            pkg, _, _, _ = settings.custom_livechecks[catpkg]
+            last_version = get_latest_repology(pkg, settings)
+        elif settings.type_packages.get(catpkg) == TYPE_REGEX:
             url, regex, _, version = settings.custom_livechecks[catpkg]
             last_version, hash_date, url = get_latest_regex_package(match, url, regex, version,
                                                                     settings)
-        elif catpkg in settings.checksum_livechecks:
+        elif settings.type_packages.get(catpkg) == TYPE_CHECKSUM:
             manifest_file = Path(repo_root) / catpkg / 'Manifest'
             bn = Path(src_uri).name
             found = False
