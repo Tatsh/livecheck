@@ -53,7 +53,6 @@ class LivecheckSettings:
     '''
     type_packages: dict[str, str] = field(default_factory=dict)
     no_auto_update: set[str] = field(default_factory=set)
-    semver: dict[str, bool] = field(default_factory=dict)
     '''Disable auto-detection of semantic versioning.'''
     sha_sources: dict[str, str] = field(default_factory=dict)
     transformations: Mapping[str, Callable[[str], str]] = field(default_factory=dict)
@@ -101,7 +100,6 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
     golang_packages: dict[str, str] = {}
     type_packages: dict[str, str] = {}
     no_auto_update: set[str] = set()
-    semver: dict[str, bool] = {}
     sha_sources: dict[str, str] = {}
     transformations: dict[str, Callable[[str], str]] = {}
     yarn_base_packages: dict[str, str] = {}
@@ -192,9 +190,6 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
             if settings_parsed.get('dotnet_project'):
                 check_instance(settings_parsed['dotnet_project'], 'dotnet_project', 'string', path)
                 dotnet_projects[catpkg] = settings_parsed['dotnet_project']
-            if 'semver' in settings_parsed:
-                check_instance(settings_parsed['semver'], 'semver', 'bool', path)
-                semver[catpkg] = settings_parsed['semver']
             if 'jetbrains' in settings_parsed:
                 check_instance(settings_parsed['jetbrains'], 'jetbrains', 'bool', path)
                 jetbrains_packages[catpkg] = settings_parsed['jetbrains']
@@ -254,7 +249,7 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
                 stable_version[catpkg] = settings_parsed['stable_version']
 
     return LivecheckSettings(branches, custom_livechecks, dotnet_projects, golang_packages,
-                             type_packages, no_auto_update, semver, sha_sources, transformations,
+                             type_packages, no_auto_update, sha_sources, transformations,
                              yarn_base_packages, yarn_packages, jetbrains_packages, keep_old,
                              gomodule_packages, gomodule_path, nodejs_packages, nodejs_path,
                              development, composer_packages, composer_path, regex_version,
