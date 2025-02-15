@@ -175,8 +175,10 @@ def parse_url(repo_root: str, src_uri: str, ebuild: str,
         last_version = get_latest_sourceforge_package(src_uri, ebuild, settings)
     elif is_bitbucket(src_uri):
         last_version, top_hash, hash_date = get_latest_bitbucket(parsed_uri.path, ebuild, settings)
-    elif not (last_version := get_latest_directory_package(src_uri, ebuild, settings)):
-        log_unhandled_pkg(ebuild, src_uri)
+    else:
+        last_version, url = get_latest_directory_package(src_uri, ebuild, settings)
+        if not last_version:
+            log_unhandled_pkg(ebuild, src_uri)
 
     return last_version, top_hash, hash_date, url
 
@@ -285,7 +287,7 @@ def get_props(
             last_version, top_hash, hash_date, url = parse_metadata(repo_root, match, settings)
         elif settings.type_packages.get(catpkg) == TYPE_DIRECTORY:
             url, _, _, _ = settings.custom_livechecks[catpkg]
-            last_version = get_latest_directory_package(url, match, settings)
+            last_version, url = get_latest_directory_package(url, match, settings)
         elif settings.type_packages.get(catpkg) == TYPE_REPOLOGY:
             pkg, _, _, _ = settings.custom_livechecks[catpkg]
             last_version = get_latest_repology(pkg, settings)

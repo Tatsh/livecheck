@@ -12,11 +12,12 @@ from .utils import get_archive_extension
 __all__ = ("get_latest_directory_package",)
 
 
-def get_latest_directory_package(url: str, ebuild: str, settings: LivecheckSettings) -> str:
+def get_latest_directory_package(url: str, ebuild: str,
+                                 settings: LivecheckSettings) -> tuple[str, str]:
     if m := re.search(r'^(.*?)(?=-\d)', Path(url).name):
         directory = re.sub(r'/[^/]+$', '', url) + '/'
         if not (r := get_content(directory)):
-            return ''
+            return '', ''
 
         archive = m.group(1).strip()
 
@@ -26,9 +27,9 @@ def get_latest_directory_package(url: str, ebuild: str, settings: LivecheckSetti
                 file = urlparse(urljoin(directory, href)).path
                 name = Path(file).name
                 if name.startswith(archive):
-                    results.append({"tag": name})
+                    results.append({"tag": name, "url": file})
 
         if last_version := get_last_version(results, archive, ebuild, settings):
-            return last_version['version']
+            return last_version['version'], last_version['url']
 
-    return ''
+    return '', ''
