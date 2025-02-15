@@ -23,6 +23,7 @@ from .constants import (
 )
 from .settings import (
     TYPE_CHECKSUM,
+    TYPE_COMMIT,
     TYPE_DAVINCI,
     TYPE_DIRECTORY,
     TYPE_METADATA,
@@ -271,6 +272,9 @@ def get_props(
         last_version = hash_date = top_hash = url = ''
         ebuild = Path(repo_root) / catpkg / f'{pkg}-{ebuild_version}.ebuild'
         egit, branch = get_egit_repo(ebuild)
+        if egit:
+            old_sha = get_old_sha(ebuild, '')
+            egit = egit + '/commit/' + old_sha
         if branch:
             settings.branches[catpkg] = branch
         if catpkg in settings.sync_version:
@@ -327,10 +331,10 @@ def get_props(
                 pass
             if not found:
                 log_unhandled_pkg(catpkg, src_uri)
+        elif settings.type_packages.get(catpkg) == TYPE_COMMIT:
+            last_version, top_hash, hash_date, url = parse_url(repo_root, egit, match, settings)
         else:
             if egit:
-                old_sha = get_old_sha(ebuild, '')
-                egit = egit + '/commit/' + old_sha
                 last_version, top_hash, hash_date, url = parse_url(repo_root, egit, match, settings)
             if not last_version and not top_hash:
                 last_version, top_hash, hash_date, url = parse_url(repo_root, src_uri, match,

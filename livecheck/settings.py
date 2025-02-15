@@ -11,17 +11,19 @@ from . import utils
 
 __all__ = (
     'LivecheckSettings',
-    'gather_settings',
     'TYPE_CHECKSUM',
+    'TYPE_COMMIT',
     'TYPE_DAVINCI',
     'TYPE_DIRECTORY',
     'TYPE_METADATA',
     'TYPE_NONE',
     'TYPE_REGEX',
     'TYPE_REPOLOGY',
+    'gather_settings',
 )
 
 TYPE_CHECKSUM = 'checksum'
+TYPE_COMMIT = 'commit'
 TYPE_DAVINCI = 'davinci'
 TYPE_DIRECTORY = 'directory'
 TYPE_METADATA = 'metadata'
@@ -31,6 +33,7 @@ TYPE_REPOLOGY = 'repology'
 
 SETTINGS_TYPES = {
     TYPE_CHECKSUM,
+    TYPE_COMMIT,
     TYPE_DAVINCI,
     TYPE_DIRECTORY,
     TYPE_METADATA,
