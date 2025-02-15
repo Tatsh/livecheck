@@ -144,12 +144,12 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
                     if settings_parsed.get('package') is None:
                         logger.error(f'No "package" in {path}')
                         continue
-                    custom_livechecks[catpkg] = (settings_parsed.get('package'))
+                    custom_livechecks[catpkg] = (settings_parsed.get('package'), '', False, '')
                 if _type == TYPE_DIRECTORY:
                     if settings_parsed.get('url') is None:
                         logger.error(f'No "url" in {path}')
                         continue
-                    custom_livechecks[catpkg] = (settings_parsed.get('url'))
+                    custom_livechecks[catpkg] = (settings_parsed.get('url'), '', False, '')
                 if _type not in SETTINGS_TYPES:
                     logger.error(f'Unknown "type" in {path}')
                 else:

@@ -289,8 +289,8 @@ def get_props(
             url, _, _, _ = settings.custom_livechecks[catpkg]
             last_version, url = get_latest_directory_package(url, match, settings)
         elif settings.type_packages.get(catpkg) == TYPE_REPOLOGY:
-            pkg, _, _, _ = settings.custom_livechecks[catpkg]
-            last_version = get_latest_repology(pkg, settings)
+            package, _, _, _ = settings.custom_livechecks[catpkg]
+            last_version = get_latest_repology(match, settings, package)
         elif settings.type_packages.get(catpkg) == TYPE_REGEX:
             url, regex, _, version = settings.custom_livechecks[catpkg]
             last_version, hash_date, url = get_latest_regex_package(match, url, regex, version,
