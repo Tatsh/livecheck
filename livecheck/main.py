@@ -335,6 +335,15 @@ def get_props(
                                                                    settings)
             if not last_version and not top_hash:
                 last_version, top_hash, hash_date, url = parse_metadata(repo_root, match, settings)
+            # Try check for homepage
+            homes = [
+                x for x in ' '.join(P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)).split(' ')
+                if x
+            ]
+            for home in homes:
+                if not last_version and not top_hash:
+                    last_version, top_hash, hash_date, url = parse_url(
+                        repo_root, home, match, settings)
             if not last_version and not top_hash:
                 last_version = get_latest_repology(match, settings)
         if last_version or top_hash:
