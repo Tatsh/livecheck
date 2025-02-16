@@ -9,13 +9,43 @@ from loguru import logger
 
 from . import utils
 
-__all__ = ('LivecheckSettings', 'gather_settings')
+__all__ = (
+    'LivecheckSettings',
+    'TYPE_CHECKSUM',
+    'TYPE_COMMIT',
+    'TYPE_DAVINCI',
+    'TYPE_DIRECTORY',
+    'TYPE_METADATA',
+    'TYPE_NONE',
+    'TYPE_REGEX',
+    'TYPE_REPOLOGY',
+    'gather_settings',
+)
+
+TYPE_CHECKSUM = 'checksum'
+TYPE_COMMIT = 'commit'
+TYPE_DAVINCI = 'davinci'
+TYPE_DIRECTORY = 'directory'
+TYPE_METADATA = 'metadata'
+TYPE_NONE = 'none'
+TYPE_REGEX = 'regex'
+TYPE_REPOLOGY = 'repology'
+
+SETTINGS_TYPES = {
+    TYPE_CHECKSUM,
+    TYPE_COMMIT,
+    TYPE_DAVINCI,
+    TYPE_DIRECTORY,
+    TYPE_METADATA,
+    TYPE_NONE,
+    TYPE_REGEX,
+    TYPE_REPOLOGY,
+}
 
 
 @dataclass
 class LivecheckSettings:
     branches: dict[str, str] = field(default_factory=dict)
-    checksum_livechecks: set[str] = field(default_factory=set)
     custom_livechecks: dict[str, tuple[str, str, bool, str]] = field(default_factory=dict)
     dotnet_projects: dict[str, str] = field(default_factory=dict)
     '''Dictionary of catpkg to project or solution file (base name only).'''
@@ -26,7 +56,6 @@ class LivecheckSettings:
     '''
     type_packages: dict[str, str] = field(default_factory=dict)
     no_auto_update: set[str] = field(default_factory=set)
-    semver: dict[str, bool] = field(default_factory=dict)
     '''Disable auto-detection of semantic versioning.'''
     sha_sources: dict[str, str] = field(default_factory=dict)
     transformations: Mapping[str, Callable[[str], str]] = field(default_factory=dict)
@@ -69,13 +98,11 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
     import livecheck.special.handlers as sc
 
     branches: dict[str, str] = {}
-    checksum_livechecks: set[str] = set()
     custom_livechecks: dict[str, tuple[str, str, bool, str]] = {}
     dotnet_projects: dict[str, str] = {}
     golang_packages: dict[str, str] = {}
     type_packages: dict[str, str] = {}
     no_auto_update: set[str] = set()
-    semver: dict[str, bool] = {}
     sha_sources: dict[str, str] = {}
     transformations: dict[str, Callable[[str], str]] = {}
     yarn_base_packages: dict[str, str] = {}
@@ -105,9 +132,8 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
                 logger.error(f"Error parsing file {path}: {e}")
                 continue
             if settings_parsed.get('type') is not None:
-                if settings_parsed.get('type').lower() == 'none':
-                    type_packages[catpkg] = 'none'
-                elif settings_parsed.get('type').lower() == 'regex':
+                _type = settings_parsed.get('type').lower()
+                if _type == TYPE_REGEX:
                     if settings_parsed.get('url') is None:
                         logger.error(f'No "url" in {path}')
                         continue
@@ -117,14 +143,21 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
                     custom_livechecks[catpkg] = (settings_parsed['url'], settings_parsed['regex'],
                                                  settings_parsed.get('use_vercmp', True),
                                                  settings_parsed.get('version', ''))
-                elif settings_parsed.get('type').lower() == 'checksum':
-                    checksum_livechecks.add(catpkg)
-                elif settings_parsed.get('type').lower() == 'davinci':
-                    type_packages[catpkg] = 'davinci'
+                if _type == TYPE_REPOLOGY:
+                    if settings_parsed.get('package') is None:
+                        logger.error(f'No "package" in {path}')
+                        continue
+                    custom_livechecks[catpkg] = (settings_parsed.get('package'), '', False, '')
+                if _type == TYPE_DIRECTORY:
+                    if settings_parsed.get('url') is None:
+                        logger.error(f'No "url" in {path}')
+                        continue
+                    custom_livechecks[catpkg] = (settings_parsed.get('url'), '', False, '')
+                if _type not in SETTINGS_TYPES:
+                    logger.error(f'Unknown "type" in {path}')
                 else:
-                    logger.error(
-                        f'Unknown "type" in {path}, only "none", "regex", "davinci" and "checksum" are supported.'
-                    )
+                    type_packages[catpkg] = _type
+
             if settings_parsed.get('branch'):
                 check_instance(settings_parsed['branch'], 'branch', 'string', path)
                 branches[catpkg] = settings_parsed['branch']
@@ -160,9 +193,6 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
             if settings_parsed.get('dotnet_project'):
                 check_instance(settings_parsed['dotnet_project'], 'dotnet_project', 'string', path)
                 dotnet_projects[catpkg] = settings_parsed['dotnet_project']
-            if 'semver' in settings_parsed:
-                check_instance(settings_parsed['semver'], 'semver', 'bool', path)
-                semver[catpkg] = settings_parsed['semver']
             if 'jetbrains' in settings_parsed:
                 check_instance(settings_parsed['jetbrains'], 'jetbrains', 'bool', path)
                 jetbrains_packages[catpkg] = settings_parsed['jetbrains']
@@ -221,12 +251,12 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
                 check_instance(settings_parsed['stable_version'], 'stable_version', 'regex', path)
                 stable_version[catpkg] = settings_parsed['stable_version']
 
-    return LivecheckSettings(branches, checksum_livechecks, custom_livechecks, dotnet_projects,
-                             golang_packages, type_packages, no_auto_update, semver, sha_sources,
-                             transformations, yarn_base_packages, yarn_packages, jetbrains_packages,
-                             keep_old, gomodule_packages, gomodule_path, nodejs_packages,
-                             nodejs_path, development, composer_packages, composer_path,
-                             regex_version, restrict_version, sync_version, stable_version)
+    return LivecheckSettings(branches, custom_livechecks, dotnet_projects, golang_packages,
+                             type_packages, no_auto_update, sha_sources, transformations,
+                             yarn_base_packages, yarn_packages, jetbrains_packages, keep_old,
+                             gomodule_packages, gomodule_path, nodejs_packages, nodejs_path,
+                             development, composer_packages, composer_path, regex_version,
+                             restrict_version, sync_version, stable_version)
 
 
 def check_instance(value: int | str | bool | list[str] | None,

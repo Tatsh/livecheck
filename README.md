@@ -112,7 +112,6 @@ action directory there can be several scripts that are executed in order of name
 - `no_auto_update` - boolean - Do not allow auto-updating of this package.
 - `nodejs_packages` - boolean - Download nodejs node_modules.
 - `nodejs_path` - path - Where is 'package.json' located (need nodejs_packages).
-- `semver` - bool - When set to `false`, do not allow detection of semantic versioning.
 - `stable_version`- string - Regular expression to determine if it is a stable version.
 - `sync_version` - string - Category and ebuild with version to sync.
 - `transformation_function` - string - Function to use to transform the version string.

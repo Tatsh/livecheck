@@ -201,13 +201,13 @@ def normalize_version(ver: str) -> str:
         else:
             letters, digits = '', ''
 
-    if digits == '0':
-        digits = ''
     if digits:
         if letters == 'a':
             letters = 'alpha'
         if letters == 'b':
             letters = 'beta'
+    if digits == '0':
+        digits = ''
 
     if letters in ('test', 'dev'):
         letters = 'beta'

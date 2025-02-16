@@ -21,7 +21,18 @@ from .constants import (
     SUBMODULES,
     TAG_NAME_FUNCTIONS,
 )
-from .settings import LivecheckSettings, gather_settings
+from .settings import (
+    TYPE_CHECKSUM,
+    TYPE_COMMIT,
+    TYPE_DAVINCI,
+    TYPE_DIRECTORY,
+    TYPE_METADATA,
+    TYPE_NONE,
+    TYPE_REGEX,
+    TYPE_REPOLOGY,
+    LivecheckSettings,
+    gather_settings,
+)
 from .special.bitbucket import (
     BITBUCKET_METADATA,
     get_latest_bitbucket,
@@ -165,8 +176,10 @@ def parse_url(repo_root: str, src_uri: str, ebuild: str,
         last_version = get_latest_sourceforge_package(src_uri, ebuild, settings)
     elif is_bitbucket(src_uri):
         last_version, top_hash, hash_date = get_latest_bitbucket(parsed_uri.path, ebuild, settings)
-    elif not (last_version := get_latest_directory_package(src_uri, ebuild, settings)):
-        log_unhandled_pkg(ebuild, src_uri)
+    else:
+        last_version, url = get_latest_directory_package(src_uri, ebuild, settings)
+        if not last_version:
+            log_unhandled_pkg(ebuild, src_uri)
 
     return last_version, top_hash, hash_date, url
 
@@ -251,7 +264,7 @@ def get_props(
             logger.debug(f'Ignoring {catpkg}')
             continue
         src_uri = get_first_src_uri(match, repo_root)
-        if cat.startswith('acct-') or settings.type_packages.get(catpkg) == 'none':
+        if cat.startswith('acct-') or settings.type_packages.get(catpkg) == TYPE_NONE:
             logger.debug(f'Ignoring {catpkg}')
             continue
         if settings.debug_flag or settings.progress_flag:
@@ -259,6 +272,9 @@ def get_props(
         last_version = hash_date = top_hash = url = ''
         ebuild = Path(repo_root) / catpkg / f'{pkg}-{ebuild_version}.ebuild'
         egit, branch = get_egit_repo(ebuild)
+        if egit:
+            old_sha = get_old_sha(ebuild, '')
+            egit = egit + '/commit/' + old_sha
         if branch:
             settings.branches[catpkg] = branch
         if catpkg in settings.sync_version:
@@ -269,13 +285,21 @@ def get_props(
             _, _, _, last_version = catpkg_catpkgsplit(matches_sync[0])
             # remove -r* from version
             last_version = re.sub(r'-r\d+$', '', last_version)
-        if settings.type_packages.get(catpkg) == 'davinci':
+        if settings.type_packages.get(catpkg) == TYPE_DAVINCI:
             last_version = get_latest_davinci_package(pkg)
-        elif catpkg in settings.custom_livechecks:
+        elif settings.type_packages.get(catpkg) == TYPE_METADATA:
+            last_version, top_hash, hash_date, url = parse_metadata(repo_root, match, settings)
+        elif settings.type_packages.get(catpkg) == TYPE_DIRECTORY:
+            url, _, _, _ = settings.custom_livechecks[catpkg]
+            last_version, url = get_latest_directory_package(url, match, settings)
+        elif settings.type_packages.get(catpkg) == TYPE_REPOLOGY:
+            package, _, _, _ = settings.custom_livechecks[catpkg]
+            last_version = get_latest_repology(match, settings, package)
+        elif settings.type_packages.get(catpkg) == TYPE_REGEX:
             url, regex, _, version = settings.custom_livechecks[catpkg]
             last_version, hash_date, url = get_latest_regex_package(match, url, regex, version,
                                                                     settings)
-        elif catpkg in settings.checksum_livechecks:
+        elif settings.type_packages.get(catpkg) == TYPE_CHECKSUM:
             manifest_file = Path(repo_root) / catpkg / 'Manifest'
             bn = Path(src_uri).name
             found = False
@@ -307,16 +331,25 @@ def get_props(
                 pass
             if not found:
                 log_unhandled_pkg(catpkg, src_uri)
+        elif settings.type_packages.get(catpkg) == TYPE_COMMIT:
+            last_version, top_hash, hash_date, url = parse_url(repo_root, egit, match, settings)
         else:
             if egit:
-                old_sha = get_old_sha(ebuild, '')
-                egit = egit + '/commit/' + old_sha
                 last_version, top_hash, hash_date, url = parse_url(repo_root, egit, match, settings)
             if not last_version and not top_hash:
                 last_version, top_hash, hash_date, url = parse_url(repo_root, src_uri, match,
                                                                    settings)
             if not last_version and not top_hash:
                 last_version, top_hash, hash_date, url = parse_metadata(repo_root, match, settings)
+            # Try check for homepage
+            homes = [
+                x for x in ' '.join(P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)).split(' ')
+                if x
+            ]
+            for home in homes:
+                if not last_version and not top_hash:
+                    last_version, top_hash, hash_date, url = parse_url(
+                        repo_root, home, match, settings)
             if not last_version and not top_hash:
                 last_version = get_latest_repology(match, settings)
         if last_version or top_hash:
