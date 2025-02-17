@@ -36,9 +36,9 @@ def get_latest_bitbucket_package(path: str, ebuild: str,
     iteration_count = 0
 
     while url and iteration_count < MAX_ITERATIONS:
-        if not (response := get_content(url)):
+        if not (r := get_content(url)):
             break
-        data = response.json()
+        data = r.json()
 
         results.extend({
             "tag": item.get('name', ''),
