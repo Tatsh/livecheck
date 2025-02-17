@@ -35,8 +35,8 @@
     "gen-manpage": "poetry run sphinx-build -T -E -b man -d docs/_build/doctrees -D language=en docs man && mv man/livecheck.1 man/livecheck.1",
     "mypy": "poetry run mypy .",
     "qa": "yarn mypy && yarn ruff && yarn check-spelling && yarn check-formatting",
-    "ruff": "poetry run ruff .",
-    "ruff:fix": "poetry run ruff --fix .",
+    "ruff": "poetry run ruff check .",
+    "ruff:fix": "poetry run ruff check --fix .",
     "test": "poetry run pytest"
   },
   "version": "0.0.13"
