@@ -17,7 +17,6 @@ from loguru import logger
 import click
 
 from .constants import (
-    GIST_HOSTNAMES,
     SUBMODULES,
     TAG_NAME_FUNCTIONS,
 )
@@ -47,6 +46,7 @@ from .special.composer import (
 from .special.davinci import get_latest_davinci_package
 from .special.directory import get_latest_directory_package
 from .special.dotnet import check_dotnet_requirements, update_dotnet_ebuild
+from .special.gist import get_latest_gist_package, is_gist
 from .special.github import (
     GITHUB_METADATA,
     get_latest_github,
@@ -150,10 +150,8 @@ def parse_url(repo_root: str, src_uri: str, ebuild: str,
         return last_version, top_hash, hash_date, url
 
     logger.debug(f'Parsed URI: {parsed_uri}')
-    if parsed_uri.hostname in GIST_HOSTNAMES:
-        home = P.aux_get(ebuild, ['HOMEPAGE'], mytree=repo_root)[0]
-        last_version, hash_date, url = get_latest_regex_package(
-            ebuild, f'{home}/revisions', r'<relative-time datetime="([0-9-]{10})', '', settings)
+    if is_gist(src_uri):
+        top_hash, hash_date = get_latest_gist_package(src_uri)
     elif is_github(src_uri):
         last_version, top_hash, hash_date = get_latest_github(src_uri, ebuild, settings)
     elif is_sourcehut(src_uri):
