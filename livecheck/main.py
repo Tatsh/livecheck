@@ -288,15 +288,14 @@ def get_props(
         elif settings.type_packages.get(catpkg) == TYPE_METADATA:
             last_version, top_hash, hash_date, url = parse_metadata(repo_root, match, settings)
         elif settings.type_packages.get(catpkg) == TYPE_DIRECTORY:
-            url, _, _, _ = settings.custom_livechecks[catpkg]
+            url, _ = settings.custom_livechecks[catpkg]
             last_version, url = get_latest_directory_package(url, match, settings)
         elif settings.type_packages.get(catpkg) == TYPE_REPOLOGY:
-            package, _, _, _ = settings.custom_livechecks[catpkg]
+            package, _ = settings.custom_livechecks[catpkg]
             last_version = get_latest_repology(match, settings, package)
         elif settings.type_packages.get(catpkg) == TYPE_REGEX:
-            url, regex, _, version = settings.custom_livechecks[catpkg]
-            last_version, hash_date, url = get_latest_regex_package(match, url, regex, version,
-                                                                    settings)
+            url, regex = settings.custom_livechecks[catpkg]
+            last_version, hash_date, url = get_latest_regex_package(match, url, regex, settings)
         elif settings.type_packages.get(catpkg) == TYPE_CHECKSUM:
             manifest_file = Path(repo_root) / catpkg / 'Manifest'
             bn = Path(src_uri).name
@@ -322,8 +321,7 @@ def get_props(
                             match,
                             dict(cast(Sequence[tuple[str, str]], chunks(fields_s.split(' '),
                                                                         2)))['SHA512'],
-                            f'data:{hashlib.sha512(r.content).hexdigest()}', r'^[0-9a-f]+$',
-                            settings)
+                            f'data:{hashlib.sha512(r.content).hexdigest()}', settings)
                         break
             except FileNotFoundError:
                 pass

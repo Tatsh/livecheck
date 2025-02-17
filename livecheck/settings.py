@@ -46,7 +46,7 @@ SETTINGS_TYPES = {
 @dataclass
 class LivecheckSettings:
     branches: dict[str, str] = field(default_factory=dict)
-    custom_livechecks: dict[str, tuple[str, str, bool, str]] = field(default_factory=dict)
+    custom_livechecks: dict[str, tuple[str, str]] = field(default_factory=dict)
     dotnet_projects: dict[str, str] = field(default_factory=dict)
     '''Dictionary of catpkg to project or solution file (base name only).'''
     go_sum_uri: dict[str, str] = field(default_factory=dict)
@@ -98,7 +98,7 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
     import livecheck.special.handlers as sc
 
     branches: dict[str, str] = {}
-    custom_livechecks: dict[str, tuple[str, str, bool, str]] = {}
+    custom_livechecks: dict[str, tuple[str, str]] = {}
     dotnet_projects: dict[str, str] = {}
     golang_packages: dict[str, str] = {}
     type_packages: dict[str, str] = {}
@@ -140,19 +140,17 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
                     if settings_parsed.get('regex') is None:
                         logger.error(f'No "regex" in {path}')
                         continue
-                    custom_livechecks[catpkg] = (settings_parsed['url'], settings_parsed['regex'],
-                                                 settings_parsed.get('use_vercmp', True),
-                                                 settings_parsed.get('version', ''))
+                    custom_livechecks[catpkg] = (settings_parsed['url'], settings_parsed['regex'])
                 if _type == TYPE_REPOLOGY:
                     if settings_parsed.get('package') is None:
                         logger.error(f'No "package" in {path}')
                         continue
-                    custom_livechecks[catpkg] = (settings_parsed.get('package'), '', False, '')
+                    custom_livechecks[catpkg] = (settings_parsed.get('package'), '')
                 if _type == TYPE_DIRECTORY:
                     if settings_parsed.get('url') is None:
                         logger.error(f'No "url" in {path}')
                         continue
-                    custom_livechecks[catpkg] = (settings_parsed.get('url'), '', False, '')
+                    custom_livechecks[catpkg] = (settings_parsed.get('url'), '')
                 if _type not in SETTINGS_TYPES:
                     logger.error(f'Unknown "type" in {path}')
                 else:

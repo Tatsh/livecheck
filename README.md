@@ -116,19 +116,25 @@ action directory there can be several scripts that are executed in order of name
 - `sync_version` - string - Category and ebuild with version to sync.
 - `transformation_function` - string - Function to use to transform the version string.
   Currently only `dotize` is supported. Others are for internal use.
-- `type` - string - Only one `none`, `davinci`, `regex`, or `checksum`.
+- `type` - string - Only one `none`, `davinci`, `regex`, `directory`, `commit`,
+  `repology` or `checksum`.
 
 Use the pattern to adjust the version using a regular expression
 
 - `pattern_version` - string - The pattern string
 - `replace_version` - string - The replace string
 
-Only then `type` is `regex`
+Only then `type` is `regex` or `directory`
 
 - `url` - URL of the document to run regular expressions against. Required
+
+Only then `type` is `regex`
+
 - `regex` - string - The regular expression to use. Required
-- `use_vercmp` - boolean - if `vercmp` from Portage should be used. Default: `true`.
-- `version` - string - Version of package. Default: `None`.
+
+Only then `type` is `repology`
+
+- `package` - string - The package to search in repology. Required
 
 ## Development use
 
