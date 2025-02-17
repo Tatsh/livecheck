@@ -1,5 +1,4 @@
 from datetime import datetime
-from urllib.parse import urlparse
 import re
 
 from ..utils import get_content
@@ -13,14 +12,7 @@ def extract_id(url: str) -> str:
     m = re.search(r'https?://gist\.github\.com/(?:[^/]+/)?([a-f0-9]+)', url)
     if not m:
         m = re.search(r'https?://gist\.githubusercontent\.com/[^/]+/([a-f0-9]+)/', url)
-    gist_id = m.group(1) if m else ''
-    if not gist_id:
-        p = urlparse(url)
-        for part in reversed(p.path.rstrip("/").split("/")):
-            if re.fullmatch(r"[a-f0-9]{5,}", part):
-                gist_id = part
-                break
-    return gist_id
+    return m.group(1) if m else ''
 
 
 def get_latest_gist_package(url: str) -> tuple[str, str]:
