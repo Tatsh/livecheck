@@ -3,9 +3,8 @@ from collections.abc import Iterator, Sequence
 from os import chdir
 from pathlib import Path
 from re import Match
-from typing import TypeVar, cast
+from typing import TypeVar
 from urllib.parse import urlparse
-import hashlib
 import logging
 import os
 import re
@@ -38,6 +37,7 @@ from .special.bitbucket import (
     get_latest_bitbucket_metadata,
     is_bitbucket,
 )
+from .special.checksum import get_latest_checksum_package
 from .special.composer import (
     check_composer_requirements,
     remove_composer_url,
@@ -98,7 +98,7 @@ from .special.sourcehut import (
 )
 from .special.yarn import check_yarn_requirements, update_yarn_ebuild
 from .typing import PropTuple
-from .utils import check_program, chunks, extract_sha, get_content, is_sha
+from .utils import check_program, extract_sha, get_content, is_sha
 from .utils.portage import (
     P,
     catpkg_catpkgsplit,
@@ -297,36 +297,7 @@ def get_props(
             url, regex = settings.custom_livechecks[catpkg]
             last_version, hash_date, url = get_latest_regex_package(match, url, regex, settings)
         elif settings.type_packages.get(catpkg) == TYPE_CHECKSUM:
-            manifest_file = Path(repo_root) / catpkg / 'Manifest'
-            bn = Path(src_uri).name
-            found = False
-            try:
-                with open(manifest_file, encoding='utf-8') as f:
-                    for line in f.readlines():
-                        if not line.startswith('DIST '):
-                            continue
-                        fields_s = ' '.join(line.strip().split(' ')[-4:])
-                        rest = line.replace(fields_s, '').strip()
-                        filename = rest.replace(f' {rest.strip().split(" ")[-1]}', '')[5:]
-                        m = re.match(f'^{pkg}-[0-9\\.]+(?:_(?:alpha|beta|p)[0-9]+)?(tar\\.gz|zip)',
-                                     filename)
-                        if filename != bn and not m:
-                            continue
-                        found = True
-                        r = get_content(src_uri)
-                        if not r or r.content:
-                            log_unhandled_pkg(catpkg, src_uri)
-                            continue
-                        last_version, hash_date, url = get_latest_regex_package(
-                            match,
-                            dict(cast(Sequence[tuple[str, str]], chunks(fields_s.split(' '),
-                                                                        2)))['SHA512'],
-                            f'data:{hashlib.sha512(r.content).hexdigest()}', settings)
-                        break
-            except FileNotFoundError:
-                pass
-            if not found:
-                log_unhandled_pkg(catpkg, src_uri)
+            last_version, hash_date = get_latest_checksum_package(src_uri, match, repo_root)
         elif settings.type_packages.get(catpkg) == TYPE_COMMIT:
             last_version, top_hash, hash_date, url = parse_url(repo_root, egit, match, settings)
         else:

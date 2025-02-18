@@ -1,10 +1,12 @@
 """Utility functions."""
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
+from email.utils import parsedate_to_datetime
 from functools import lru_cache
 from http import HTTPStatus
 from typing import TypeVar
 from urllib.parse import urlparse
+import hashlib
 import logging
 import re
 import subprocess
@@ -202,3 +204,40 @@ def check_program(cmd: str, args: str = '', min_version: str | None = None) -> b
         return False
 
     return True
+
+
+@lru_cache
+def hash_url(url: str) -> tuple[str, str]:
+    h_blake2b = hashlib.blake2b()
+    h_sha512 = hashlib.sha512()
+    try:
+        with requests.get(url, stream=True, timeout=30) as r:
+            r.raise_for_status()
+            for chunk in r.iter_content(chunk_size=8192):
+                if chunk:
+                    h_blake2b.update(chunk)
+                    h_sha512.update(chunk)
+        return h_blake2b.hexdigest(), h_sha512.hexdigest()
+    except (ReadTimeout, ConnectTimeout, requests.exceptions.HTTPError,
+            requests.exceptions.SSLError, requests.exceptions.ConnectionError,
+            requests.exceptions.MissingSchema, requests.exceptions.ChunkedEncodingError) as e:
+        logger.error(f'Error hashing URL {url}: {e}')
+
+    return "", ""
+
+
+@lru_cache
+def get_last_modified(url: str) -> str:
+    try:
+        with requests.head(url, timeout=30) as r:
+            r.raise_for_status()
+            if last_modified := r.headers['last-modified']:
+                dt = parsedate_to_datetime(last_modified)
+                return dt.strftime("%Y%m%d")
+
+    except (ReadTimeout, ConnectTimeout, requests.exceptions.HTTPError,
+            requests.exceptions.SSLError, requests.exceptions.ConnectionError,
+            requests.exceptions.MissingSchema, requests.exceptions.ChunkedEncodingError) as e:
+        logger.error(f'Error fetching last modified header for {url}: {e}')
+
+    return ""
