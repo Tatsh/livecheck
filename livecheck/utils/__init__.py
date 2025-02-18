@@ -207,9 +207,10 @@ def check_program(cmd: str, args: str = '', min_version: str | None = None) -> b
 
 
 @lru_cache
-def hash_url(url: str) -> tuple[str, str]:
+def hash_url(url: str) -> tuple[str, str, int]:
     h_blake2b = hashlib.blake2b()
     h_sha512 = hashlib.sha512()
+    size = 0
     try:
         with requests.get(url, stream=True, timeout=30) as r:
             r.raise_for_status()
@@ -217,13 +218,14 @@ def hash_url(url: str) -> tuple[str, str]:
                 if chunk:
                     h_blake2b.update(chunk)
                     h_sha512.update(chunk)
-        return h_blake2b.hexdigest(), h_sha512.hexdigest()
+                    size += len(chunk)
+        return h_blake2b.hexdigest(), h_sha512.hexdigest(), size
     except (ReadTimeout, ConnectTimeout, requests.exceptions.HTTPError,
             requests.exceptions.SSLError, requests.exceptions.ConnectionError,
             requests.exceptions.MissingSchema, requests.exceptions.ChunkedEncodingError) as e:
         logger.error(f'Error hashing URL {url}: {e}')
 
-    return "", ""
+    return "", "", 0
 
 
 @lru_cache

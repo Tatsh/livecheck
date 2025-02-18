@@ -37,7 +37,7 @@ from .special.bitbucket import (
     get_latest_bitbucket_metadata,
     is_bitbucket,
 )
-from .special.checksum import get_latest_checksum_package
+from .special.checksum import get_latest_checksum_package, update_checksum_metadata
 from .special.composer import (
     check_composer_requirements,
     remove_composer_url,
@@ -297,7 +297,7 @@ def get_props(
             url, regex = settings.custom_livechecks[catpkg]
             last_version, hash_date, url = get_latest_regex_package(match, url, regex, settings)
         elif settings.type_packages.get(catpkg) == TYPE_CHECKSUM:
-            last_version, hash_date = get_latest_checksum_package(src_uri, match, repo_root)
+            last_version, hash_date, url = get_latest_checksum_package(src_uri, match, repo_root)
         elif settings.type_packages.get(catpkg) == TYPE_COMMIT:
             last_version, top_hash, hash_date, url = parse_url(repo_root, egit, match, settings)
         else:
@@ -397,7 +397,7 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
             hook_dir: str | None) -> None:
     cp = f'{cat}/{pkg}'
     ebuild = Path(search_dir) / cp / f'{pkg}-{ebuild_version}.ebuild'
-    # TODO: files.pythonhosted.org use different path structure /xx/yy/sha/archive... for replace
+    # TODO: files.pythonhosted.org use different path structure /xx/yy/sha/archive... for replace in url
     old_sha = get_old_sha(ebuild, url)
     if len(old_sha) == 7:
         top_hash = top_hash[:7]
@@ -499,6 +499,8 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
             if cp in settings.yarn_base_packages:
                 update_yarn_ebuild(new_filename, settings.yarn_base_packages[cp], pkg,
                                    settings.yarn_packages.get(cp))
+            if settings.type_packages.get(cp) == TYPE_CHECKSUM:
+                update_checksum_metadata(f'{cp}-{last_version}', url)
             if cp in settings.go_sum_uri:
                 update_go_ebuild(new_filename, top_hash, settings.go_sum_uri[cp])
             if cp in settings.dotnet_projects:
