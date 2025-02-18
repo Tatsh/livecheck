@@ -624,6 +624,10 @@ def main(
         if not Path(repo_root, '.git').is_dir():
             logger.error(f'Directory {repo_root} is not a git repository')
             raise click.Abort
+        # Check if .git is a writeable directory
+        if not os.access(Path(repo_root, '.git'), os.W_OK):
+            logger.error(f'Directory {repo_root}/.git is not writable')
+            raise click.Abort
         # Check if git is installed
         if not check_program('git', '--version'):
             logger.error('Git is not installed')
