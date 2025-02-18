@@ -4,7 +4,7 @@ from livecheck.special.gitlab import extract_domain_and_namespace
 
 
 @pytest.mark.parametrize(
-    "url, expected",
+    ("url", "expected"),
     [("https://gitlab.com/group/project", ("gitlab.com", "group/project", "project")),
      ("https://notgitlab.com/group/project", ("", "", "")),
      ("https://gitlab.es/group/project", ("", "", "")),

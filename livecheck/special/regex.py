@@ -11,7 +11,7 @@ from ..utils.portage import catpkg_catpkgsplit, get_last_version
 __all__ = ('get_latest_regex_package',)
 
 
-def get_latest_regex_package(ebuild: str, url: str, regex: str, version: str,
+def get_latest_regex_package(ebuild: str, url: str, regex: str,
                              settings: LivecheckSettings) -> tuple[str, str, str]:
 
     _, _, _, ebuild_version = catpkg_catpkgsplit(ebuild)

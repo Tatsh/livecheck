@@ -3,18 +3,9 @@ from typing import Final
 
 from .utils import prefix_v
 
-__all__ = ('GIST_HOSTNAMES', 'PREFIX_RE', 'RSS_NS', 'SEMVER_RE', 'SUBMODULES', 'TAG_NAME_FUNCTIONS')
+__all__ = ('RSS_NS', 'SUBMODULES', 'TAG_NAME_FUNCTIONS')
 
-GIST_HOSTNAMES = {'gist.github.com', 'gist.githubusercontent.com'}
-
-PREFIX_RE: Final[str] = r'(^[^0-9]+)[0-9]'
 RSS_NS = {'': 'http://www.w3.org/2005/Atom'}
-SEMVER_RE: Final[str] = (r'^(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.'
-                         r'(?P<patch>0|[1-9]\d*)(?:-(?P<prerelease>(?:0|[1-9]'
-                         r'\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|'
-                         r'\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+'
-                         r'(?P<buildmetadata>[0-9a-zA-Z-]+'
-                         r'(?:\.[0-9a-zA-Z-]+)*))?$')
 
 SUBMODULES: Final[Mapping[str, set[str | tuple[str, str]]]] = {
     'app-misc/tasksh': {'src/libshared'},

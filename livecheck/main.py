@@ -17,7 +17,6 @@ from loguru import logger
 import click
 
 from .constants import (
-    GIST_HOSTNAMES,
     SUBMODULES,
     TAG_NAME_FUNCTIONS,
 )
@@ -47,6 +46,7 @@ from .special.composer import (
 from .special.davinci import get_latest_davinci_package
 from .special.directory import get_latest_directory_package
 from .special.dotnet import check_dotnet_requirements, update_dotnet_ebuild
+from .special.gist import get_latest_gist_package, is_gist
 from .special.github import (
     GITHUB_METADATA,
     get_latest_github,
@@ -150,10 +150,8 @@ def parse_url(repo_root: str, src_uri: str, ebuild: str,
         return last_version, top_hash, hash_date, url
 
     logger.debug(f'Parsed URI: {parsed_uri}')
-    if parsed_uri.hostname in GIST_HOSTNAMES:
-        home = P.aux_get(ebuild, ['HOMEPAGE'], mytree=repo_root)[0]
-        last_version, hash_date, url = get_latest_regex_package(
-            ebuild, f'{home}/revisions', r'<relative-time datetime="([0-9-]{10})', '', settings)
+    if is_gist(src_uri):
+        top_hash, hash_date = get_latest_gist_package(src_uri)
     elif is_github(src_uri):
         last_version, top_hash, hash_date = get_latest_github(src_uri, ebuild, settings)
     elif is_sourcehut(src_uri):
@@ -290,15 +288,14 @@ def get_props(
         elif settings.type_packages.get(catpkg) == TYPE_METADATA:
             last_version, top_hash, hash_date, url = parse_metadata(repo_root, match, settings)
         elif settings.type_packages.get(catpkg) == TYPE_DIRECTORY:
-            url, _, _, _ = settings.custom_livechecks[catpkg]
+            url, _ = settings.custom_livechecks[catpkg]
             last_version, url = get_latest_directory_package(url, match, settings)
         elif settings.type_packages.get(catpkg) == TYPE_REPOLOGY:
-            package, _, _, _ = settings.custom_livechecks[catpkg]
+            package, _ = settings.custom_livechecks[catpkg]
             last_version = get_latest_repology(match, settings, package)
         elif settings.type_packages.get(catpkg) == TYPE_REGEX:
-            url, regex, _, version = settings.custom_livechecks[catpkg]
-            last_version, hash_date, url = get_latest_regex_package(match, url, regex, version,
-                                                                    settings)
+            url, regex = settings.custom_livechecks[catpkg]
+            last_version, hash_date, url = get_latest_regex_package(match, url, regex, settings)
         elif settings.type_packages.get(catpkg) == TYPE_CHECKSUM:
             manifest_file = Path(repo_root) / catpkg / 'Manifest'
             bn = Path(src_uri).name
@@ -324,8 +321,7 @@ def get_props(
                             match,
                             dict(cast(Sequence[tuple[str, str]], chunks(fields_s.split(' '),
                                                                         2)))['SHA512'],
-                            f'data:{hashlib.sha512(r.content).hexdigest()}', r'^[0-9a-f]+$',
-                            settings)
+                            f'data:{hashlib.sha512(r.content).hexdigest()}', settings)
                         break
             except FileNotFoundError:
                 pass
@@ -627,6 +623,10 @@ def main(
             raise click.Abort
         if not Path(repo_root, '.git').is_dir():
             logger.error(f'Directory {repo_root} is not a git repository')
+            raise click.Abort
+        # Check if .git is a writeable directory
+        if not os.access(Path(repo_root, '.git'), os.W_OK):
+            logger.error(f'Directory {repo_root}/.git is not writable')
             raise click.Abort
         # Check if git is installed
         if not check_program('git', '--version'):

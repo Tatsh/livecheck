@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Any
 import logging
 import os
 import tarfile
@@ -47,7 +46,7 @@ def search_ebuild(ebuild: str, archive: str, path: str | None = None) -> tuple[s
 
     if path:
         # Search first directory in temp_dir
-        for root, _, files in os.walk(temp_dir):
+        for root, _, _ in os.walk(temp_dir):
             # check if relative path is in the root
             if path in root:
                 return root, temp_dir
@@ -120,8 +119,8 @@ class EbuildTempFile:
                                         dir=self.ebuild.parent).name)
         return self.temp_file
 
-    def __exit__(self, exc_type: type | None, exc_value: BaseException | None,
-                 traceback: Any | None) -> bool:
+    def __exit__(self, exc_type: object, exc_value: BaseException | None,
+                 traceback: object) -> bool:
         if exc_type is None:
             if not self.temp_file or not self.temp_file.exists() or self.temp_file.stat(
             ).st_size == 0:
