@@ -368,8 +368,8 @@ def replace_date_in_ebuild(ebuild: str, new_date: str, cp: str) -> str:
 
     n = pattern.sub(replace_match, ebuild)
 
-    _, _, _, old_version = catpkg_catpkgsplit(f'{cp}-{ebuild}')
-    _, _, _, new_version = catpkg_catpkgsplit(f'{cp}-{n}')
+    _, _, old_version, _ = catpkgsplit2(f'{cp}-{ebuild}')
+    _, _, new_version, _ = catpkgsplit2(f'{cp}-{n}')
     return str(new_version) if old_version != new_version else n
 
 
@@ -410,11 +410,10 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
         if not top_hash:
             logger.warning(f'Could not get new SHA for {update_sha_too_source}')
             return
-    if hash_date and not last_version:
-        last_version = replace_date_in_ebuild(ebuild_version, hash_date, cp)
-        hash_date = ''
     if not last_version:
         last_version = ebuild_version
+    if hash_date:
+        last_version = replace_date_in_ebuild(last_version, hash_date, cp)
     if last_version == ebuild_version and old_sha != top_hash and old_sha and top_hash:
         _, _, new_version, new_revision = catpkgsplit2(f'{cp}-{last_version}')
         new_revision = 'r' + str(int(new_revision[1:]) + 1)
@@ -500,7 +499,7 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
                 update_yarn_ebuild(new_filename, settings.yarn_base_packages[cp], pkg,
                                    settings.yarn_packages.get(cp))
             if settings.type_packages.get(cp) == TYPE_CHECKSUM:
-                update_checksum_metadata(f'{cp}-{last_version}', url)
+                update_checksum_metadata(f'{cp}-{last_version}', url, search_dir)
             if cp in settings.go_sum_uri:
                 update_go_ebuild(new_filename, top_hash, settings.go_sum_uri[cp])
             if cp in settings.dotnet_projects:
