@@ -39,6 +39,6 @@ def update_checksum_metadata(ebuild: str, url: str, repo_root: str) -> None:
         for line in f.readlines():
             m = PATTERN.match(line)
             if m and m.group('file') == bn:
-                tf.write(f'DIST {bn} {size} BLAKE2B {blake2} SHA512 {sha512}"\n')
+                tf.write(f'DIST {bn} {size} BLAKE2B {blake2} SHA512 {sha512}\n')
             else:
                 tf.write(line)
