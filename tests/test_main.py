@@ -31,14 +31,14 @@ def test_replace_date_in_ebuild_invalid_date() -> None:
     assert result == "2023"
 
 
-def test_replace_date_in_ebuild_invalid_date() -> None:
+def test_replace_date_in_ebuild_invalid_date2() -> None:
     ebuild = "12.0.1_p231124"
     new_date = "20240102"
     result = replace_date_in_ebuild(ebuild, new_date, CP)
     assert result == "12.0.1_p240102"
 
 
-def test_replace_date_in_ebuild_invalid_date() -> None:
+def test_replace_date_in_ebuild_invalid_date3() -> None:
     ebuild = "231124"
     new_date = "20240102"
     result = replace_date_in_ebuild(ebuild, new_date, CP)
