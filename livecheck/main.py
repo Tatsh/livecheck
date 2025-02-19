@@ -141,8 +141,7 @@ def log_unhandled_pkg(ebuild: str, src_uri: str) -> None:
     logger.warning(f'Unhandled: {ebuild} SRC_URI: {src_uri}')
 
 
-def parse_url(repo_root: str, src_uri: str, ebuild: str,
-              settings: LivecheckSettings) -> tuple[str, str, str, str]:
+def parse_url(src_uri: str, ebuild: str, settings: LivecheckSettings) -> tuple[str, str, str, str]:
     parsed_uri = urlparse(src_uri)
     last_version = top_hash = hash_date = ''
     url = src_uri
@@ -300,13 +299,12 @@ def get_props(
         elif settings.type_packages.get(catpkg) == TYPE_CHECKSUM:
             last_version, hash_date, url = get_latest_checksum_package(src_uri, match, repo_root)
         elif settings.type_packages.get(catpkg) == TYPE_COMMIT:
-            last_version, top_hash, hash_date, url = parse_url(repo_root, egit, match, settings)
+            last_version, top_hash, hash_date, url = parse_url(egit, match, settings)
         else:
             if egit:
-                last_version, top_hash, hash_date, url = parse_url(repo_root, egit, match, settings)
+                last_version, top_hash, hash_date, url = parse_url(egit, match, settings)
             if not last_version and not top_hash:
-                last_version, top_hash, hash_date, url = parse_url(repo_root, src_uri, match,
-                                                                   settings)
+                last_version, top_hash, hash_date, url = parse_url(src_uri, match, settings)
             if not last_version and not top_hash:
                 last_version, top_hash, hash_date, url = parse_metadata(repo_root, match, settings)
             # Try check for homepage
@@ -316,8 +314,7 @@ def get_props(
             ]
             for home in homes:
                 if not last_version and not top_hash:
-                    last_version, top_hash, hash_date, url = parse_url(
-                        repo_root, home, match, settings)
+                    last_version, top_hash, hash_date, url = parse_url(home, match, settings)
             if not last_version and not top_hash:
                 last_version = get_latest_repology(match, settings)
         if last_version or top_hash:
@@ -404,8 +401,8 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
         top_hash = top_hash[:7]
     if update_sha_too_source := settings.sha_sources.get(cp, None):
         logger.debug('Package also needs a SHA update')
-        _, top_hash, hash_date, _ = parse_url(search_dir, update_sha_too_source,
-                                              f'{cp}-{ebuild_version}', settings)
+        _, top_hash, hash_date, _ = parse_url(update_sha_too_source, f'{cp}-{ebuild_version}',
+                                              settings)
 
         # if empty, it means that the source is not supported
         if not top_hash:
