@@ -108,6 +108,7 @@ from .utils.portage import (
     get_first_src_uri,
     get_highest_matches,
     get_repository_root_if_inside,
+    remove_leading_zeros,
 )
 
 T = TypeVar('T')
@@ -420,6 +421,10 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
         logger.debug(f'Incrementing revision to {new_revision}')
         last_version = f'{new_version}-{new_revision}'
     logger.debug(f'top_hash = {last_version}')
+
+    # Remove leading zeros to prevent issues with version comparison
+    last_version = remove_leading_zeros(last_version)
+    ebuild_version = remove_leading_zeros(ebuild_version)
 
     logger.debug(
         f'Comparing current ebuild version {ebuild_version} with live version {last_version}')
