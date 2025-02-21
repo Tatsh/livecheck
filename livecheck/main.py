@@ -194,38 +194,34 @@ def parse_metadata(repo_root: str, ebuild: str,
     except ET.ParseError as e:
         logger.error(f'Error parsing {metadata_file}: {e}')
         return '', '', '', ''
-    if upstream_list := root.findall("upstream"):
-        for upstream in upstream_list:
-            for subelem in upstream:
-                tag_name = subelem.tag
-                last_version = top_hash = hash_date = url = ''
-                if tag_name == 'remote-id':
-                    if not (remote := subelem.text.strip() if subelem.text else ""):
-                        continue
-                    _type = subelem.attrib["type"]
-                    if GITHUB_METADATA in _type:
-                        last_version, top_hash = get_latest_github_metadata(
-                            remote, ebuild, settings)
-                    if BITBUCKET_METADATA in _type:
-                        last_version, top_hash = get_latest_bitbucket_metadata(
-                            remote, ebuild, settings)
-                    if GITLAB_METADATA in _type:
-                        last_version, top_hash = get_latest_gitlab_metadata(
-                            remote, _type, ebuild, settings)
-                    if SOURCEHUT_METADATA in _type:
-                        last_version = get_latest_sourcehut_metadata(remote, ebuild, settings)
-                    if METACPAN_METADATA in _type:
-                        last_version = get_latest_metacpan_metadata(remote, ebuild, settings)
-                    if PECL_METADATA in _type:
-                        last_version = get_latest_pecl_metadata(remote, ebuild, settings)
-                    if RUBYGEMS_METADATA in _type:
-                        last_version = get_latest_rubygems_metadata(remote, ebuild, settings)
-                    if SOURCEFORGE_METADATA in _type:
-                        last_version = get_latest_sourceforge_metadata(remote, ebuild, settings)
-                    if PYPI_METADATA in _type:
-                        last_version, url = get_latest_pypi_metadata(remote, ebuild, settings)
-                    if last_version or top_hash:
-                        return last_version, top_hash, hash_date, url
+    for upstream in root.findall("upstream"):
+        for subelem in upstream:
+            last_version = top_hash = hash_date = url = ''
+            if subelem.tag == 'remote-id':
+                if not (remote := subelem.text.strip() if subelem.text else ""):
+                    continue
+                _type = subelem.attrib["type"]
+                if GITHUB_METADATA in _type:
+                    last_version, top_hash = get_latest_github_metadata(remote, ebuild, settings)
+                if BITBUCKET_METADATA in _type:
+                    last_version, top_hash = get_latest_bitbucket_metadata(remote, ebuild, settings)
+                if GITLAB_METADATA in _type:
+                    last_version, top_hash = get_latest_gitlab_metadata(
+                        remote, _type, ebuild, settings)
+                if SOURCEHUT_METADATA in _type:
+                    last_version = get_latest_sourcehut_metadata(remote, ebuild, settings)
+                if METACPAN_METADATA in _type:
+                    last_version = get_latest_metacpan_metadata(remote, ebuild, settings)
+                if PECL_METADATA in _type:
+                    last_version = get_latest_pecl_metadata(remote, ebuild, settings)
+                if RUBYGEMS_METADATA in _type:
+                    last_version = get_latest_rubygems_metadata(remote, ebuild, settings)
+                if SOURCEFORGE_METADATA in _type:
+                    last_version = get_latest_sourceforge_metadata(remote, ebuild, settings)
+                if PYPI_METADATA in _type:
+                    last_version, url = get_latest_pypi_metadata(remote, ebuild, settings)
+                if last_version or top_hash:
+                    return last_version, top_hash, hash_date, url
     return '', '', '', ''
 
 
