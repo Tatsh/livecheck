@@ -12,7 +12,7 @@ from ..settings import LivecheckSettings
 
 __all__ = ('P', 'catpkg_catpkgsplit', 'catpkgsplit2', 'get_first_src_uri', 'get_highest_matches',
            'get_repository_root_if_inside', 'compare_versions', 'sanitize_version', 'get_distdir',
-           'fetch_ebuild', 'unpack_ebuild', 'get_last_version')
+           'fetch_ebuild', 'unpack_ebuild', 'get_last_version', 'remove_leading_zeros')
 
 P = portage.db[portage.root]['porttree'].dbapi
 logger = logging.getLogger(__name__)

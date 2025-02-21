@@ -3,9 +3,8 @@ from collections.abc import Iterator, Sequence
 from os import chdir
 from pathlib import Path
 from re import Match
-from typing import TypeVar, cast
+from typing import TypeVar
 from urllib.parse import urlparse
-import hashlib
 import logging
 import os
 import re
@@ -38,6 +37,7 @@ from .special.bitbucket import (
     get_latest_bitbucket_metadata,
     is_bitbucket,
 )
+from .special.checksum import get_latest_checksum_package, update_checksum_metadata
 from .special.composer import (
     check_composer_requirements,
     remove_composer_url,
@@ -98,7 +98,7 @@ from .special.sourcehut import (
 )
 from .special.yarn import check_yarn_requirements, update_yarn_ebuild
 from .typing import PropTuple
-from .utils import check_program, chunks, extract_sha, get_content, is_sha
+from .utils import check_program, extract_sha, get_content, is_sha
 from .utils.portage import (
     P,
     catpkg_catpkgsplit,
@@ -108,6 +108,7 @@ from .utils.portage import (
     get_first_src_uri,
     get_highest_matches,
     get_repository_root_if_inside,
+    remove_leading_zeros,
 )
 
 T = TypeVar('T')
@@ -140,8 +141,7 @@ def log_unhandled_pkg(ebuild: str, src_uri: str) -> None:
     logger.warning(f'Unhandled: {ebuild} SRC_URI: {src_uri}')
 
 
-def parse_url(repo_root: str, src_uri: str, ebuild: str,
-              settings: LivecheckSettings) -> tuple[str, str, str, str]:
+def parse_url(src_uri: str, ebuild: str, settings: LivecheckSettings) -> tuple[str, str, str, str]:
     parsed_uri = urlparse(src_uri)
     last_version = top_hash = hash_date = ''
     url = src_uri
@@ -194,38 +194,34 @@ def parse_metadata(repo_root: str, ebuild: str,
     except ET.ParseError as e:
         logger.error(f'Error parsing {metadata_file}: {e}')
         return '', '', '', ''
-    if upstream_list := root.findall("upstream"):
-        for upstream in upstream_list:
-            for subelem in upstream:
-                tag_name = subelem.tag
-                last_version = top_hash = hash_date = url = ''
-                if tag_name == 'remote-id':
-                    if not (remote := subelem.text.strip() if subelem.text else ""):
-                        continue
-                    _type = subelem.attrib["type"]
-                    if GITHUB_METADATA in _type:
-                        last_version, top_hash = get_latest_github_metadata(
-                            remote, ebuild, settings)
-                    if BITBUCKET_METADATA in _type:
-                        last_version, top_hash = get_latest_bitbucket_metadata(
-                            remote, ebuild, settings)
-                    if GITLAB_METADATA in _type:
-                        last_version, top_hash = get_latest_gitlab_metadata(
-                            remote, _type, ebuild, settings)
-                    if SOURCEHUT_METADATA in _type:
-                        last_version = get_latest_sourcehut_metadata(remote, ebuild, settings)
-                    if METACPAN_METADATA in _type:
-                        last_version = get_latest_metacpan_metadata(remote, ebuild, settings)
-                    if PECL_METADATA in _type:
-                        last_version = get_latest_pecl_metadata(remote, ebuild, settings)
-                    if RUBYGEMS_METADATA in _type:
-                        last_version = get_latest_rubygems_metadata(remote, ebuild, settings)
-                    if SOURCEFORGE_METADATA in _type:
-                        last_version = get_latest_sourceforge_metadata(remote, ebuild, settings)
-                    if PYPI_METADATA in _type:
-                        last_version, url = get_latest_pypi_metadata(remote, ebuild, settings)
-                    if last_version or top_hash:
-                        return last_version, top_hash, hash_date, url
+    for upstream in root.findall("upstream"):
+        for subelem in upstream:
+            last_version = top_hash = hash_date = url = ''
+            if subelem.tag == 'remote-id':
+                if not (remote := subelem.text.strip() if subelem.text else ""):
+                    continue
+                _type = subelem.attrib["type"]
+                if GITHUB_METADATA in _type:
+                    last_version, top_hash = get_latest_github_metadata(remote, ebuild, settings)
+                if BITBUCKET_METADATA in _type:
+                    last_version, top_hash = get_latest_bitbucket_metadata(remote, ebuild, settings)
+                if GITLAB_METADATA in _type:
+                    last_version, top_hash = get_latest_gitlab_metadata(
+                        remote, _type, ebuild, settings)
+                if SOURCEHUT_METADATA in _type:
+                    last_version = get_latest_sourcehut_metadata(remote, ebuild, settings)
+                if METACPAN_METADATA in _type:
+                    last_version = get_latest_metacpan_metadata(remote, ebuild, settings)
+                if PECL_METADATA in _type:
+                    last_version = get_latest_pecl_metadata(remote, ebuild, settings)
+                if RUBYGEMS_METADATA in _type:
+                    last_version = get_latest_rubygems_metadata(remote, ebuild, settings)
+                if SOURCEFORGE_METADATA in _type:
+                    last_version = get_latest_sourceforge_metadata(remote, ebuild, settings)
+                if PYPI_METADATA in _type:
+                    last_version, url = get_latest_pypi_metadata(remote, ebuild, settings)
+                if last_version or top_hash:
+                    return last_version, top_hash, hash_date, url
     return '', '', '', ''
 
 
@@ -297,44 +293,14 @@ def get_props(
             url, regex = settings.custom_livechecks[catpkg]
             last_version, hash_date, url = get_latest_regex_package(match, url, regex, settings)
         elif settings.type_packages.get(catpkg) == TYPE_CHECKSUM:
-            manifest_file = Path(repo_root) / catpkg / 'Manifest'
-            bn = Path(src_uri).name
-            found = False
-            try:
-                with open(manifest_file, encoding='utf-8') as f:
-                    for line in f.readlines():
-                        if not line.startswith('DIST '):
-                            continue
-                        fields_s = ' '.join(line.strip().split(' ')[-4:])
-                        rest = line.replace(fields_s, '').strip()
-                        filename = rest.replace(f' {rest.strip().split(" ")[-1]}', '')[5:]
-                        m = re.match(f'^{pkg}-[0-9\\.]+(?:_(?:alpha|beta|p)[0-9]+)?(tar\\.gz|zip)',
-                                     filename)
-                        if filename != bn and not m:
-                            continue
-                        found = True
-                        r = get_content(src_uri)
-                        if not r or r.content:
-                            log_unhandled_pkg(catpkg, src_uri)
-                            continue
-                        last_version, hash_date, url = get_latest_regex_package(
-                            match,
-                            dict(cast(Sequence[tuple[str, str]], chunks(fields_s.split(' '),
-                                                                        2)))['SHA512'],
-                            f'data:{hashlib.sha512(r.content).hexdigest()}', settings)
-                        break
-            except FileNotFoundError:
-                pass
-            if not found:
-                log_unhandled_pkg(catpkg, src_uri)
+            last_version, hash_date, url = get_latest_checksum_package(src_uri, match, repo_root)
         elif settings.type_packages.get(catpkg) == TYPE_COMMIT:
-            last_version, top_hash, hash_date, url = parse_url(repo_root, egit, match, settings)
+            last_version, top_hash, hash_date, url = parse_url(egit, match, settings)
         else:
             if egit:
-                last_version, top_hash, hash_date, url = parse_url(repo_root, egit, match, settings)
+                last_version, top_hash, hash_date, url = parse_url(egit, match, settings)
             if not last_version and not top_hash:
-                last_version, top_hash, hash_date, url = parse_url(repo_root, src_uri, match,
-                                                                   settings)
+                last_version, top_hash, hash_date, url = parse_url(src_uri, match, settings)
             if not last_version and not top_hash:
                 last_version, top_hash, hash_date, url = parse_metadata(repo_root, match, settings)
             # Try check for homepage
@@ -344,8 +310,7 @@ def get_props(
             ]
             for home in homes:
                 if not last_version and not top_hash:
-                    last_version, top_hash, hash_date, url = parse_url(
-                        repo_root, home, match, settings)
+                    last_version, top_hash, hash_date, url = parse_url(home, match, settings)
             if not last_version and not top_hash:
                 last_version = get_latest_repology(match, settings)
         if last_version or top_hash:
@@ -397,8 +362,8 @@ def replace_date_in_ebuild(ebuild: str, new_date: str, cp: str) -> str:
 
     n = pattern.sub(replace_match, ebuild)
 
-    _, _, _, old_version = catpkg_catpkgsplit(f'{cp}-{ebuild}')
-    _, _, _, new_version = catpkg_catpkgsplit(f'{cp}-{n}')
+    _, _, old_version, _ = catpkgsplit2(f'{cp}-{ebuild}')
+    _, _, new_version, _ = catpkgsplit2(f'{cp}-{n}')
     return str(new_version) if old_version != new_version else n
 
 
@@ -426,30 +391,33 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
             hook_dir: str | None) -> None:
     cp = f'{cat}/{pkg}'
     ebuild = Path(search_dir) / cp / f'{pkg}-{ebuild_version}.ebuild'
-    # TODO: files.pythonhosted.org use different path structure /xx/yy/sha/archive... for replace
+    # TODO: files.pythonhosted.org use different path structure /xx/yy/sha/archive... for replace in url
     old_sha = get_old_sha(ebuild, url)
     if len(old_sha) == 7:
         top_hash = top_hash[:7]
     if update_sha_too_source := settings.sha_sources.get(cp, None):
         logger.debug('Package also needs a SHA update')
-        _, top_hash, hash_date, _ = parse_url(search_dir, update_sha_too_source,
-                                              f'{cp}-{ebuild_version}', settings)
+        _, top_hash, hash_date, _ = parse_url(update_sha_too_source, f'{cp}-{ebuild_version}',
+                                              settings)
 
         # if empty, it means that the source is not supported
         if not top_hash:
             logger.warning(f'Could not get new SHA for {update_sha_too_source}')
             return
-    if hash_date and not last_version:
-        last_version = replace_date_in_ebuild(ebuild_version, hash_date, cp)
-        hash_date = ''
     if not last_version:
         last_version = ebuild_version
+    if hash_date:
+        last_version = replace_date_in_ebuild(last_version, hash_date, cp)
     if last_version == ebuild_version and old_sha != top_hash and old_sha and top_hash:
         _, _, new_version, new_revision = catpkgsplit2(f'{cp}-{last_version}')
         new_revision = 'r' + str(int(new_revision[1:]) + 1)
         logger.debug(f'Incrementing revision to {new_revision}')
         last_version = f'{new_version}-{new_revision}'
     logger.debug(f'top_hash = {last_version}')
+
+    # Remove leading zeros to prevent issues with version comparison
+    last_version = remove_leading_zeros(last_version)
+    ebuild_version = remove_leading_zeros(ebuild_version)
 
     logger.debug(
         f'Comparing current ebuild version {ebuild_version} with live version {last_version}')
@@ -528,6 +496,8 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
             if cp in settings.yarn_base_packages:
                 update_yarn_ebuild(new_filename, settings.yarn_base_packages[cp], pkg,
                                    settings.yarn_packages.get(cp))
+            if settings.type_packages.get(cp) == TYPE_CHECKSUM:
+                update_checksum_metadata(f'{cp}-{last_version}', url, search_dir)
             if cp in settings.go_sum_uri:
                 update_go_ebuild(new_filename, top_hash, settings.go_sum_uri[cp])
             if cp in settings.dotnet_projects:

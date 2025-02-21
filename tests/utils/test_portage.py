@@ -1,6 +1,6 @@
 import pytest
 
-from livecheck.utils.portage import sanitize_version
+from livecheck.utils.portage import remove_leading_zeros, sanitize_version
 
 
 @pytest.mark.parametrize(("version", "expected"),
@@ -31,3 +31,19 @@ from livecheck.utils.portage import sanitize_version
                           ("0.1.8b0", "0.1.8_beta")])
 def test_sanitize_version(version: str, expected: str) -> None:
     assert sanitize_version(version) == expected
+
+
+@pytest.mark.parametrize(("version", "expected"), [
+    ("2022.01.06", "2022.1.6"),
+    ("24.01.12", "24.1.12"),
+    ("0.0.3", "0.0.3"),
+    ("1.0.3-r1", "1.0.3-r1"),
+    ("2022-12-26", "2022-12-26"),
+    ("1.0.3", "1.0.3"),
+    ("1.2", "1.2"),
+    ("1", "1"),
+    ("0.1.2", "0.1.2"),
+    ("24.01.02", "24.1.2"),
+])
+def test_remove_leading_zeros(version: str, expected: str) -> None:
+    assert remove_leading_zeros(version) == expected
