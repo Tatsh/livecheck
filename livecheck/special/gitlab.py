@@ -14,9 +14,10 @@ __all__ = ("get_latest_gitlab_package", "is_gitlab", "GITLAB_METADATA", "get_lat
 GITLAB_TAG_URL = 'https://%s/api/v4/projects/%s/repository/tags?per_page=%s'
 GITLAB_METADATA = 'gitlab'
 GITLAB_HOSTNAMES: Final[Mapping[str, str]] = {
+    'freedesktop-gitlab': 'gitlab.freedesktop.org',
     'gitlab': 'gitlab.com',
     'gnome-gitlab': 'gitlab.gnome.org',
-    'freedesktop-gitlab': 'gitlab.freedesktop.org'
+    'manjaro-gitlab': 'gitlab.manjaro.org'
 }
 
 # Number of versions to fetch from GitLab
