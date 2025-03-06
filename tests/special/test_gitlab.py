@@ -15,6 +15,16 @@ test_cases = {
         "expected": ("", "", ""),
         "is_gitlab": False
     },
+    "invalid_gitlab_url2": {
+        "url": "https://gitlab.com",
+        "expected": ("", "", ""),
+        "is_gitlab": False
+    },
+    "invalid_gitlab_url3": {
+        "url": "https://gitlab.com/group/",
+        "expected": ("", "", ""),
+        "is_gitlab": False
+    },
     "gitlab_es_url": {
         "url": "https://gitlab.es/group/project",
         "expected": ("", "", ""),
@@ -45,11 +55,18 @@ test_cases = {
         "expected": ("gitlab.com", "group/subgroup/project", "project"),
         "is_gitlab": True
     },
-    "manjaro": {
+    "sys-apps/udev-usb-sync": {
         "url": "https://gitlab.manjaro.org/fhdk/udev-usb-sync",
         "expected": ("gitlab.manjaro.org", "fhdk/udev-usb-sync", "udev-usb-sync"),
         "is_gitlab": True
-    }
+    },
+    "x11-misc/xdg-utils": {
+        "url":
+            "https://gitlab.freedesktop.org/xdg/xdg-utils/-/archive/v1.2.1/xdg-utils-1.2.1.tar.bz2",
+        "expected": ("gitlab.freedesktop.org", "xdg/xdg-utils", "xdg-utils"),
+        "is_gitlab":
+            True
+    },
 }
 
 
