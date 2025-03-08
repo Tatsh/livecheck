@@ -16,9 +16,20 @@ BITBUCKET_METADATA = 'bitbucket'
 MAX_ITERATIONS = 4
 
 
-def get_latest_bitbucket_package(path: str, ebuild: str,
+def extract_workspace_and_repository(url: str) -> tuple[str, str]:
+    parsed = urlparse(url)
+
+    if parsed.netloc != 'bitbucket.org' or len(parsed.path.strip("/").split('/')) < 2:
+        return '', ''
+
+    workspace, repository = parsed.path.strip("/").split('/')[:2]
+
+    return workspace, repository.replace('.git', '')
+
+
+def get_latest_bitbucket_package(url: str, ebuild: str,
                                  settings: LivecheckSettings) -> tuple[str, str]:
-    workspace, repository = path.strip("/").split('/')[:2]
+    workspace, repository = extract_workspace_and_repository(url)
 
     url = BITBUCKET_TAG_URL % (workspace, repository)
 
@@ -67,7 +78,7 @@ def get_latest_bitbucket(url: str, ebuild: str,
 
 
 def is_bitbucket(url: str) -> bool:
-    return urlparse(url).netloc in 'bitbucket.org'
+    return extract_workspace_and_repository(url)[0] != ''
 
 
 def get_latest_bitbucket_metadata(remote: str, ebuild: str,
