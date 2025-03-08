@@ -13,13 +13,17 @@ METACPAN_DOWNLOAD_URL1 = 'https://fastapi.metacpan.org/v1/release/_search?q=dist
 METACPAN_DOWNLOAD_URL2 = 'https://fastapi.metacpan.org/v1/release/%s'
 
 
-def extract_perl_package(path: str) -> str:
-    match = re.search(r'/([^/]+)-[\d.]+\.*', path)
+def extract_perl_package(url: str) -> str:
+    parsed = urlparse(url)
+    if parsed.netloc not in {'metacpan.org', 'cpan'}:
+        return ''
+
+    match = re.search(r'/([^/]+)-[\d.]+\.*', parsed.path)
     return match.group(1) if match else ''
 
 
-def get_latest_metacpan_package(path: str, ebuild: str, settings: LivecheckSettings) -> str:
-    package_name = extract_perl_package(path)
+def get_latest_metacpan_package(url: str, ebuild: str, settings: LivecheckSettings) -> str:
+    package_name = extract_perl_package(url)
     return get_latest_metacpan_package2(package_name, ebuild, settings)
 
 
@@ -45,7 +49,7 @@ def get_latest_metacpan_package2(package_name: str, ebuild: str,
 
 
 def is_metacpan(url: str) -> bool:
-    return urlparse(url).netloc in {'metacpan.org', 'cpan'}
+    return extract_perl_package(url) != ''
 
 
 def get_latest_metacpan_metadata(remote: str, ebuild: str, settings: LivecheckSettings) -> str:

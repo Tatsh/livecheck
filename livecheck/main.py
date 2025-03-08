@@ -167,7 +167,7 @@ def parse_url(src_uri: str, ebuild: str, settings: LivecheckSettings) -> tuple[s
     elif is_pecl(src_uri):
         last_version = get_latest_pecl_package(ebuild, settings)
     elif is_metacpan(src_uri):
-        last_version = get_latest_metacpan_package(parsed_uri.path, ebuild, settings)
+        last_version = get_latest_metacpan_package(src_uri, ebuild, settings)
     elif is_rubygems(src_uri):
         last_version = get_latest_rubygems_package(ebuild, settings)
     elif is_sourceforge(src_uri):
