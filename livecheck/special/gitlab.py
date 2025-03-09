@@ -33,6 +33,9 @@ def extract_domain_and_namespace(url: str) -> tuple[str, str, str]:
     if '/-/' in path:
         path = path.split('/-/')[0]
 
+    if not path or path.count('/') < 1:
+        return '', '', ''
+
     return parsed.netloc, path, path.split('/')[-1]
 
 

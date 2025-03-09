@@ -11,9 +11,9 @@ PACKAGE_DOWNLOAD_URL = 'https://%s//%s'
 
 def extract_project(url: str) -> tuple[str, str]:
     parsed = urlparse(url)
-    if parsed.netloc in ('registry.npmjs.org', 'registry.yarnpkg.com'):
-        path = parsed.path
-        project = ('/'.join(path.split('/')[1:3]) if path.startswith('/@') else path.split('/')[1])
+    if parsed.netloc in ('registry.npmjs.org', 'registry.yarnpkg.com') and (project := (
+            '/'.join(parsed.path.split('/')[1:3])
+            if parsed.path.startswith('/@') else parsed.path.split('/')[1])):
         return parsed.netloc, project
 
     return '', ''

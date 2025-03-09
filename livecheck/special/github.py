@@ -20,13 +20,14 @@ GITHUB_METADATA = 'github'
 def extract_owner_repo(url: str) -> tuple[str, str, str]:
     u = urlparse(url)
     d = n = u.netloc
-    m = re.match(r'^([^\.]+)\.github\.(io|com)$', n)
-    if m:
+
+    if (m := re.match(r'^([^\.]+)\.github\.(io|com)$', n)):
         p = [x for x in u.path.split('/') if x]
         if not p:
             return '', '', ''
         return f"https://{d}/{p[0]}", m.group(1), p[0]
-    if 'github.' in n:
+    # check if uri start with github. and has at least 3 parts
+    if (m := re.match(r'^github\.(io|com)$', n)):
         p = [x for x in u.path.split('/') if x]
         if len(p) < 2:
             return '', '', ''
