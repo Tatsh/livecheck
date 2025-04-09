@@ -138,7 +138,7 @@ def process_submodules(pkg_name: str, ref: str, contents: str, repo_uri: str) ->
 
 
 def log_unhandled_pkg(ebuild: str, src_uri: str) -> None:
-    logger.warning(f'Unhandled: {ebuild} SRC_URI: {src_uri}')
+    logger.debug(f'Unhandled: {ebuild} SRC_URI: {src_uri}')
 
 
 def parse_url(src_uri: str, ebuild: str, settings: LivecheckSettings) -> tuple[str, str, str, str]:
@@ -175,9 +175,7 @@ def parse_url(src_uri: str, ebuild: str, settings: LivecheckSettings) -> tuple[s
     elif is_bitbucket(src_uri):
         last_version, top_hash, hash_date = get_latest_bitbucket(src_uri, ebuild, settings)
     else:
-        last_version, url = get_latest_directory_package(src_uri, ebuild, settings)
-        if not last_version:
-            log_unhandled_pkg(ebuild, src_uri)
+        log_unhandled_pkg(ebuild, src_uri)
 
     return last_version, top_hash, hash_date, url
 
@@ -313,6 +311,13 @@ def get_props(
                     last_version, top_hash, hash_date, url = parse_url(home, match, settings)
             if not last_version and not top_hash:
                 last_version = get_latest_repology(match, settings)
+            # Only check directory if no other method was found
+            if not last_version and not top_hash:
+                last_version, url = get_latest_directory_package(src_uri, match, settings)
+                for home in homes:
+                    if not last_version and not top_hash:
+                        last_version, url = get_latest_directory_package(home, match, settings)
+
         if last_version or top_hash:
             logger.debug(f'Inserting {catpkg}: {ebuild_version} -> {last_version} : {top_hash}')
             yield (cat, pkg, ebuild_version, last_version, top_hash, hash_date, url)
