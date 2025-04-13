@@ -1,4 +1,4 @@
-<!-- markdownlint-disable MD024 -->
+<!-- markdownlint-configure-file {"MD024": { "siblings_only": true } } -->
 
 # Changelog
 
@@ -43,14 +43,11 @@ and this project adheres to
 - Added support for packages using `yarn.eclass`. The package URI must be the first `SRC_URI``
 (first in`YARN_PKGS`).
 - Added gitlab.gentoo.org to `GITLAB_HOSTNAMES`
+- Added help text to CLI options.
 
 ### Changed
 
 - Bumped dependencies
-
-### Added
-
-- Added help text to CLI options.
 
 ## [0.0.4] - 2023-09-05
 
