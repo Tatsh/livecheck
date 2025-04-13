@@ -8,6 +8,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [unreleased]
+
+### Added
+
+- Added back Python 3.10 support
+- Support for URIs from BitBucket, Composer, CPAN, Davinci, PECL, Repology, Rubygems, SourceForge, SourceHut.
+  Thanks to @inode64
+
+### Changed
+
+- Updated man page to not have unnecessary API docs
+
 ## [0.0.9]
 
 ### Added
@@ -66,3 +78,5 @@ and this project adheres to
 ### Fixed
 
 - When multiple ebuilds are in the same directory, only the latest one will be considered for updating.
+
+[unreleased]: https://github.com/Tatsh/livecheck/-/compare/v0.0.13...HEAD
