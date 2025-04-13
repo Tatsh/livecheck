@@ -1622,7 +1622,7 @@ version = "3.0.68"
 description = "Portage is the package management and distribution system for Gentoo"
 optional = false
 python-versions = ">=3.9"
-groups = ["dev"]
+groups = ["main"]
 files = []
 develop = false
 
@@ -1631,6 +1631,18 @@ type = "git"
 url = "https://github.com/gentoo/portage.git"
 reference = "HEAD"
 resolved_reference = "d1e2605d020a02259e2ca14f2b97fb4a35aea48a"
+
+[[package]]
+name = "portage-types"
+version = "0.0.2"
+description = "Typing stubs for Portage"
+optional = false
+python-versions = ">=3.10,<4"
+groups = ["dev"]
+files = [
+    {file = "portage_types-0.0.2-py3-none-any.whl", hash = "sha256:4a8bf4b6b025e7e4936d3ffc72aaacc8751133f6c8254adc9fc4f4f669cb3bac"},
+    {file = "portage_types-0.0.2.tar.gz", hash = "sha256:c876e0808222623d3fdb676bf712e298fcf1d2bfb13df28a7944b8290c6e36bb"},
+]
 
 [[package]]
 name = "prompt-toolkit"
@@ -3147,4 +3159,4 @@ erdantic = ["erdantic"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.14"
-content-hash = "84944e9f93a17ae736aecef122418e5914f87cafdea6bbe5a7ab3457cbb655d3"
+content-hash = "91a1bc2f449c0da36090f7b78f2cd21241b1297d9574e345fed16a86b45c77bb"

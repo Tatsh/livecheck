@@ -56,17 +56,18 @@ local utils = import 'utils.libjsonnet';
       },
       poetry+: {
         dependencies+: {
+          beautifulsoup4: '>=4.12.0',
           click: '^8.1.8',
           keyring: '^25.5.0',
           loguru: '^0.7.3',
+          portage: { git: 'https://github.com/gentoo/portage.git' },
           pyxdg: '^0.28',
           requests: '^2.32.3',
-          beautifulsoup4: '>=4.12.0',
         },
         group+: {
           dev+: {
             dependencies+: {
-              portage: { git: 'https://github.com/gentoo/portage.git' },
+              'portage-types': '^0',
               'types-requests': '^2.32.0.20250328',
               'types-beautifulsoup4': '>=4.12.0.20250204',
             },

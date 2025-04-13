@@ -100,6 +100,9 @@ pyxdg = "^0.28"
 requests = "^2.32.3"
 typing-extensions = "^4.13.1"
 
+[tool.poetry.dependencies.portage]
+git = "https://github.com/gentoo/portage.git"
+
 [tool.poetry.group]
 
 [tool.poetry.group.dev]
@@ -109,13 +112,11 @@ optional = true
 commitizen = "^4.5.0"
 djlint = "^1.36.4"
 mypy = ">=1.12,<1.16"
+portage-types = "^0"
 ruff = "^0.11.2"
 types-beautifulsoup4 = ">=4.12.0.20250204"
 types-requests = "^2.32.0.20250328"
 yapf = "^0.43.0"
-
-[tool.poetry.group.dev.dependencies.portage]
-git = "https://github.com/gentoo/portage.git"
 
 [tool.poetry.group.docs]
 optional = true
