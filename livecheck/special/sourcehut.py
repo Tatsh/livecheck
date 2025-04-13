@@ -1,14 +1,14 @@
 from datetime import datetime
 from urllib.parse import urlparse
 import re
-import xml.etree.ElementTree as etree
+import xml.etree.ElementTree as ET
 
-from ..settings import LivecheckSettings
-from ..utils import get_content, is_sha
-from ..utils.portage import catpkg_catpkgsplit, get_last_version
+from livecheck.settings import LivecheckSettings
+from livecheck.utils import get_content, is_sha
+from livecheck.utils.portage import catpkg_catpkgsplit, get_last_version
 
-__all__ = ("get_latest_sourcehut_package", "get_latest_sourcehut_commit", "is_sourcehut",
-           "get_latest_sourcehut", "SOURCEHUT_METADATA", "get_latest_sourcehut_metadata")
+__all__ = ('SOURCEHUT_METADATA', 'get_latest_sourcehut', 'get_latest_sourcehut_commit',
+           'get_latest_sourcehut_metadata', 'get_latest_sourcehut_package', 'is_sourcehut')
 
 SOURCEHUT_DOWNLOAD_URL = 'https://%s/%s/%s/refs/rss.xml'
 SOURCEHUT_COMMIT_URL = 'https://%s/%s/%s/log/%s/rss.xml'
@@ -33,10 +33,10 @@ def get_latest_sourcehut_package(url: str, ebuild: str, settings: LivecheckSetti
         return ''
 
     results: list[dict[str, str]] = []
-    for item in etree.fromstring(r.text).findall('channel/item'):
-        guid = item.find("guid")
+    for item in ET.fromstring(r.text).findall('channel/item'):
+        guid = item.find('guid')
         if version := guid.text.split('/')[-1] if guid is not None and guid.text else '':
-            results.append({"tag": version})
+            results.append({'tag': version})
 
     if last_version := get_last_version(results, repo, ebuild, settings):
         return last_version['version']
@@ -53,14 +53,14 @@ def get_latest_sourcehut_commit(url: str, branch: str = 'master') -> tuple[str, 
     if not (r := get_content(url)):
         return '', ''
 
-    guid = etree.fromstring(r.text).find("channel/item/guid")
-    pubdate = etree.fromstring(r.text).find("channel/item/pubDate")
+    guid = ET.fromstring(r.text).find('channel/item/guid')
+    pubdate = ET.fromstring(r.text).find('channel/item/pubDate')
     commit = guid.text.split('/')[-1] if guid is not None and guid.text else ''
     date = pubdate.text if pubdate is not None and pubdate.text else ''
 
     try:
-        dt = datetime.strptime(date, "%a, %d %b %Y %H:%M:%S %z")
-        formatted_date = dt.strftime("%Y%m%d")
+        dt = datetime.strptime(date, '%a, %d %b %Y %H:%M:%S %z')
+        formatted_date = dt.strftime('%Y%m%d')
     except ValueError:
         formatted_date = ''
     return commit, formatted_date
@@ -74,8 +74,8 @@ def get_branch(url: str, ebuild: str, settings: LivecheckSettings) -> str:
     catpkg, _, _, _ = catpkg_catpkgsplit(ebuild)
 
     # get branch from url
-    parts = url.strip("/").split("/")
-    if len(parts) >= 3 and parts[-3] == "log":
+    parts = url.strip('/').split('/')
+    if len(parts) >= 3 and parts[-3] == 'log':
         return parts[-2]
 
     # get branch from settings

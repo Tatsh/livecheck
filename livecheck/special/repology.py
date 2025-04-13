@@ -1,8 +1,8 @@
-from ..settings import LivecheckSettings
-from ..utils import get_content
-from ..utils.portage import catpkg_catpkgsplit, get_last_version
+from livecheck.settings import LivecheckSettings
+from livecheck.utils import get_content
+from livecheck.utils.portage import catpkg_catpkgsplit, get_last_version
 
-__all__ = ("get_latest_repology",)
+__all__ = ('get_latest_repology',)
 
 REPOLOGY_DOWNLOAD_URL = 'https://repology.org/api/v1/project/%s'
 
@@ -23,7 +23,7 @@ def get_latest_repology(ebuild: str, settings: LivecheckSettings, package: str =
     for release in r.json():
         if release.get('srcname') == pkg and (release.get('status') != 'devel'
                                               or settings.is_devel(catpkg)):
-            results.extend([{"tag": release.get('version')}])
+            results.extend([{'tag': release.get('version')}])
 
     if last_version := get_last_version(results, '', ebuild, settings):
         return last_version['version']

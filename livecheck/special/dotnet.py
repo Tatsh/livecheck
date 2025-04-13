@@ -6,10 +6,11 @@ import tempfile
 
 from loguru import logger
 
-from ..utils import check_program
+from livecheck.utils import check_program
+
 from .utils import EbuildTempFile, search_ebuild
 
-__all__ = ('update_dotnet_ebuild', 'check_dotnet_requirements')
+__all__ = ('check_dotnet_requirements', 'update_dotnet_ebuild')
 
 
 def dotnet_restore(project_or_solution: str | Path) -> Iterator[str]:
@@ -56,7 +57,7 @@ class NoNugetsFound(RuntimeError):
 def update_dotnet_ebuild(ebuild: str, project_or_solution: str | Path) -> None:
     project_or_solution = Path(project_or_solution)
     dotnet_path, _ = search_ebuild(ebuild, project_or_solution.name, '')
-    if dotnet_path == "":
+    if not dotnet_path:
         return
 
     project = Path(dotnet_path) / project_or_solution

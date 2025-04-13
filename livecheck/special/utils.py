@@ -6,22 +6,22 @@ import tempfile
 
 from xdg.BaseDirectory import save_cache_path
 
-from ..utils.portage import get_distdir, unpack_ebuild
+from livecheck.utils.portage import get_distdir, unpack_ebuild
 
-__all__ = ("get_project_path", "remove_url_ebuild", "search_ebuild", "build_compress",
-           "get_archive_extension", "EbuildTempFile")
+__all__ = ('EbuildTempFile', 'build_compress', 'get_archive_extension', 'get_project_path',
+           'remove_url_ebuild', 'search_ebuild')
 
 logger = logging.getLogger(__name__)
 
 
 def get_project_path(package_name: str) -> Path:
-    return Path(save_cache_path(f"livecheck/{package_name}"))
+    return Path(save_cache_path(f'livecheck/{package_name}'))
 
 
 def remove_url_ebuild(ebuild: str, remove: str) -> str:
     lines = ebuild.split('\n')
     filtered_lines = []
-    for _, line in enumerate(lines):
+    for line in lines:
         original_line = line
         stripped_line = line.strip()
         if not stripped_line or stripped_line.startswith('#'):
@@ -40,9 +40,9 @@ def remove_url_ebuild(ebuild: str, remove: str) -> str:
 
 def search_ebuild(ebuild: str, archive: str, path: str | None = None) -> tuple[str, str]:
     temp_dir = unpack_ebuild(ebuild)
-    if temp_dir == "":
-        logger.warning("Error unpacking the ebuild.")
-        return "", ""
+    if not temp_dir:
+        logger.warning('Error unpacking the ebuild.')
+        return '', ''
 
     if path:
         # Search first directory in temp_dir
@@ -55,9 +55,9 @@ def search_ebuild(ebuild: str, archive: str, path: str | None = None) -> tuple[s
             if archive in files:
                 return root, temp_dir
 
-    logger.error("Error searching the \"{archive}\" inside package.")
+    logger.error('Error searching the "{archive}" inside package.')
 
-    return "", ""
+    return '', ''
 
 
 def build_compress(temp_dir: str, base_dir: str, directory: str, extension: str,
@@ -65,21 +65,21 @@ def build_compress(temp_dir: str, base_dir: str, directory: str, extension: str,
 
     vendor_dir = os.path.join(base_dir, directory)
     if not os.path.exists(vendor_dir):
-        logger.warning("The directory vendor was not created.")
+        logger.warning('The directory vendor was not created.')
         return False
 
     if not (filename := next(iter(fetchlist.keys()), None)):
         return False
 
     if not (archive_ext := get_archive_extension(filename)):
-        logger.warning("Invalid extension.")
+        logger.warning('Invalid extension.')
         return False
 
     if extension in filename:
         vendor_archive_name = filename
     else:
         base_name = filename[:-len(archive_ext)]
-        vendor_archive_name = f"{base_name}{extension}"
+        vendor_archive_name = f'{base_name}{extension}'
     vendor_archive_path = os.path.join(get_distdir(), vendor_archive_name)
 
     vendor_path = Path(base_dir).resolve()
@@ -87,7 +87,7 @@ def build_compress(temp_dir: str, base_dir: str, directory: str, extension: str,
 
     relative_path = os.path.join(vendor_path.relative_to(base_path), directory)
 
-    with tarfile.open(vendor_archive_path, "w:xz") as tar:
+    with tarfile.open(vendor_archive_path, 'w:xz') as tar:
         tar.add(vendor_dir, arcname=str(relative_path))
 
     return True
@@ -106,7 +106,7 @@ def get_archive_extension(filename: str) -> str:
 
 
 class EbuildTempFile:
-    def __init__(self, ebuild: str):
+    def __init__(self, ebuild: str) -> None:
         self.ebuild = Path(ebuild)
         self.temp_file: Path | None = None
 
@@ -116,7 +116,8 @@ class EbuildTempFile:
                                         prefix=self.ebuild.stem,
                                         suffix=self.ebuild.suffix,
                                         delete=False,
-                                        dir=self.ebuild.parent).name)
+                                        dir=self.ebuild.parent,
+                                        encoding='utf-8').name)
         return self.temp_file
 
     def __exit__(self, exc_type: object, exc_value: BaseException | None,
@@ -124,20 +125,20 @@ class EbuildTempFile:
         if exc_type is None:
             if not self.temp_file or not self.temp_file.exists() or self.temp_file.stat(
             ).st_size == 0:
-                logger.error("The temporary file is empty or missing.")
+                logger.error('The temporary file is empty or missing.')
                 return False
 
             self.ebuild.unlink(missing_ok=True)
 
             if self.ebuild.exists():
-                logger.error("Error removing the original ebuild file.")
+                logger.error('Error removing the original ebuild file.')
                 return False
 
             self.temp_file.rename(self.ebuild)
             self.ebuild.chmod(0o0644)
 
             if not self.ebuild.exists():
-                logger.error("Error renaming the temporary file.")
+                logger.error('Error renaming the temporary file.')
                 return False
 
         if self.temp_file and self.temp_file.exists():

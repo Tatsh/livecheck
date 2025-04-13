@@ -1,12 +1,12 @@
 from urllib.parse import urlparse
 import re
 
-from ..settings import LivecheckSettings
-from ..utils import get_content
-from ..utils.portage import get_last_version
+from livecheck.settings import LivecheckSettings
+from livecheck.utils import get_content
+from livecheck.utils.portage import get_last_version
 
-__all__ = ("get_latest_metacpan_package", "is_metacpan", "METACPAN_METADATA",
-           "get_latest_metacpan_metadata")
+__all__ = ('METACPAN_METADATA', 'get_latest_metacpan_metadata', 'get_latest_metacpan_package',
+           'is_metacpan')
 
 METACPAN_METADATA = 'cpan'
 METACPAN_DOWNLOAD_URL1 = 'https://fastapi.metacpan.org/v1/release/_search?q=distribution:%s'
@@ -32,14 +32,14 @@ def get_latest_metacpan_package2(package_name: str, ebuild: str,
     results: list[dict[str, str]] = []
     url = METACPAN_DOWNLOAD_URL1 % (package_name)
     if r := get_content(url):
-        for hit in r.json().get("hits", {}).get("hits", []):
-            results.extend([{"tag": hit["_source"]["version"]}])
+        for hit in r.json().get('hits', {}).get('hits', []):
+            results.extend([{'tag': hit['_source']['version']}])
 
     # Many times it does not exist as in the previous list,
     # that is why the latest version is checked again.
     url = METACPAN_DOWNLOAD_URL2 % (package_name)
     if r := get_content(url):
-        results.append({"tag": r.json().get('version')})
+        results.append({'tag': r.json().get('version')})
 
     last_version = get_last_version(results, package_name, ebuild, settings)
     if last_version:

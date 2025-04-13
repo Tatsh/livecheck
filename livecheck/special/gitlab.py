@@ -3,13 +3,14 @@ from typing import Final
 from urllib.parse import quote, urlparse
 import re
 
-from ..settings import LivecheckSettings
-from ..utils import get_content, is_sha
-from ..utils.portage import get_last_version
+from livecheck.settings import LivecheckSettings
+from livecheck.utils import get_content, is_sha
+from livecheck.utils.portage import get_last_version
+
 from .utils import log_unhandled_commit
 
-__all__ = ("get_latest_gitlab_package", "is_gitlab", "GITLAB_METADATA", "get_latest_gitlab",
-           "get_latest_gitlab_metadata")
+__all__ = ('GITLAB_METADATA', 'get_latest_gitlab', 'get_latest_gitlab_metadata',
+           'get_latest_gitlab_package', 'is_gitlab')
 
 GITLAB_TAG_URL = 'https://%s/api/v4/projects/%s/repository/tags?per_page=%s'
 GITLAB_METADATA = 'gitlab'
@@ -26,7 +27,7 @@ VERSIONS = 40
 
 def extract_domain_and_namespace(url: str) -> tuple[str, str, str]:
     parsed = urlparse(url)
-    if not re.search(r"^gitlab\.(com$|.*\.)", parsed.netloc):
+    if not re.search(r'^gitlab\.(com$|.*\.)', parsed.netloc):
         return '', '', ''
 
     path = parsed.path.strip('/')
@@ -51,12 +52,12 @@ def get_latest_gitlab_package(url: str, ebuild: str,
         return '', ''
 
     results: list[dict[str, str]] = [{
-        "tag": tag.get("name", ""),
-        "id": tag.get("commit", {}).get("id", ""),
+        'tag': tag.get('name', ''),
+        'id': tag.get('commit', {}).get('id', ''),
     } for tag in r.json()]
 
     if last_version := get_last_version(results, repo, ebuild, settings):
-        return last_version['version'], last_version["id"]
+        return last_version['version'], last_version['id']
 
     return '', ''
 

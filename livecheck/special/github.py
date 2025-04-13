@@ -1,15 +1,16 @@
 from datetime import datetime
 from urllib.parse import urlparse
 import re
-import xml.etree.ElementTree as etree
+import xml.etree.ElementTree as ET
 
-from ..constants import RSS_NS
-from ..settings import LivecheckSettings
-from ..utils import get_content, is_sha
-from ..utils.portage import catpkg_catpkgsplit, get_last_version
+from livecheck.constants import RSS_NS
+from livecheck.settings import LivecheckSettings
+from livecheck.utils import get_content, is_sha
+from livecheck.utils.portage import catpkg_catpkgsplit, get_last_version
 
-__all__ = ("get_latest_github_package", "get_latest_github_commit", "get_latest_github_commit2",
-           "is_github", "get_latest_github", "GITHUB_METADATA", "get_latest_github_metadata")
+__all__ = ('GITHUB_METADATA', 'get_latest_github', 'get_latest_github_commit',
+           'get_latest_github_commit2', 'get_latest_github_metadata', 'get_latest_github_package',
+           'is_github')
 
 GITHUB_DOWNLOAD_URL = '%s/tags.atom'
 GITHUB_COMMIT_URL = 'https://api.github.com/repos/%s/%s/branches/%s'
@@ -25,14 +26,14 @@ def extract_owner_repo(url: str) -> tuple[str, str, str]:
         p = [x for x in u.path.split('/') if x]
         if not p:
             return '', '', ''
-        return f"https://{d}/{p[0]}", m.group(1), p[0]
+        return f'https://{d}/{p[0]}', m.group(1), p[0]
     # check if uri start with github. and has at least 3 parts
     if (m := re.match(r'^github\.(io|com)$', n)):
         p = [x for x in u.path.split('/') if x]
         if len(p) < 2:
             return '', '', ''
         r = p[1].replace('.git', '')
-        return f"https://{d}/{p[0]}/{r}", p[0], r
+        return f'https://{d}/{p[0]}/{r}', p[0], r
     return '', '', ''
 
 
@@ -47,18 +48,18 @@ def get_latest_github_package(url: str, ebuild: str,
         return '', ''
 
     results: list[dict[str, str]] = []
-    for tag_id_element in etree.fromstring(r.text).findall('entry/id', RSS_NS):
+    for tag_id_element in ET.fromstring(r.text).findall('entry/id', RSS_NS):
         tag_id = tag_id_element.text
 
         tag = tag_id.split('/')[-1] if tag_id and '/' in tag_id else ''
         if tag := (tag_id.split('/')[-1] if tag_id and '/' in tag_id else ''):
-            results.append({"tag": tag, "id": tag})
+            results.append({'tag': tag, 'id': tag})
 
     if last_version := get_last_version(results, repo, ebuild, settings):
         url = GITHUB_DATE_URL % (owner, repo, last_version['id'])
         if not (r := get_content(url)):
             return last_version['version'], ''
-        return last_version['version'], r.json()["object"]["sha"]
+        return last_version['version'], r.json()['object']['sha']
     return '', ''
 
 
@@ -74,13 +75,13 @@ def get_latest_github_commit2(owner: str, repo: str, branch: str) -> tuple[str, 
     url = GITHUB_COMMIT_URL % (owner, repo, branch)
     if not (r := get_content(url)):
         return '', ''
-    d = r.json()["commit"]["commit"]["committer"]["date"][:10]
+    d = r.json()['commit']['commit']['committer']['date'][:10]
     try:
-        dt = datetime.fromisoformat(d.replace("Z", "+00:00"))
-        formatted_date = dt.strftime("%Y%m%d")
+        dt = datetime.fromisoformat(d.replace('Z', '+00:00'))
+        formatted_date = dt.strftime('%Y%m%d')
     except ValueError:
         formatted_date = d[:10]
-    return r.json()["commit"]["sha"], formatted_date
+    return r.json()['commit']['sha'], formatted_date
 
 
 def is_github(url: str) -> bool:
@@ -91,9 +92,9 @@ def get_branch(url: str, ebuild: str, settings: LivecheckSettings) -> str:
     catpkg, _, _, _ = catpkg_catpkgsplit(ebuild)
 
     # get branch from url
-    parts = url.strip("/").split("/")
-    if len(parts) >= 2 and parts[-2] == "commits":
-        return parts[-1].replace(".atom", "")
+    parts = url.strip('/').split('/')
+    if len(parts) >= 2 and parts[-2] == 'commits':
+        return parts[-1].replace('.atom', '')
 
     # get branch from settings
     if (branch := settings.branches.get(catpkg, '')):

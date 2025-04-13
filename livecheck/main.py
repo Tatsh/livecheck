@@ -3,7 +3,6 @@ from collections.abc import Iterator, Sequence
 from os import chdir
 from pathlib import Path
 from re import Match
-from typing import TypeVar
 from urllib.parse import urlparse
 import logging
 import os
@@ -111,8 +110,6 @@ from .utils.portage import (
     remove_leading_zeros,
 )
 
-T = TypeVar('T')
-
 
 def process_submodules(pkg_name: str, ref: str, contents: str, repo_uri: str) -> str:
     if pkg_name not in SUBMODULES:
@@ -184,7 +181,7 @@ def parse_metadata(repo_root: str, ebuild: str,
                    settings: LivecheckSettings) -> tuple[str, str, str, str]:
     catpkg, _, _, _ = catpkg_catpkgsplit(ebuild)
 
-    metadata_file = Path(repo_root) / catpkg / "metadata.xml"
+    metadata_file = Path(repo_root) / catpkg / 'metadata.xml'
     if not metadata_file.exists():
         return '', '', '', ''
     try:
@@ -192,31 +189,31 @@ def parse_metadata(repo_root: str, ebuild: str,
     except ET.ParseError as e:
         logger.error(f'Error parsing {metadata_file}: {e}')
         return '', '', '', ''
-    for upstream in root.findall("upstream"):
+    for upstream in root.findall('upstream'):
         for subelem in upstream:
             last_version = top_hash = hash_date = url = ''
             if subelem.tag == 'remote-id':
-                if not (remote := subelem.text.strip() if subelem.text else ""):
+                if not (remote := subelem.text.strip() if subelem.text else ''):
                     continue
-                _type = subelem.attrib["type"]
-                if GITHUB_METADATA in _type:
+                type_ = subelem.attrib['type']
+                if GITHUB_METADATA in type_:
                     last_version, top_hash = get_latest_github_metadata(remote, ebuild, settings)
-                if BITBUCKET_METADATA in _type:
+                if BITBUCKET_METADATA in type_:
                     last_version, top_hash = get_latest_bitbucket_metadata(remote, ebuild, settings)
-                if GITLAB_METADATA in _type:
+                if GITLAB_METADATA in type_:
                     last_version, top_hash = get_latest_gitlab_metadata(
-                        remote, _type, ebuild, settings)
-                if SOURCEHUT_METADATA in _type:
+                        remote, type_, ebuild, settings)
+                if SOURCEHUT_METADATA in type_:
                     last_version = get_latest_sourcehut_metadata(remote, ebuild, settings)
-                if METACPAN_METADATA in _type:
+                if METACPAN_METADATA in type_:
                     last_version = get_latest_metacpan_metadata(remote, ebuild, settings)
-                if PECL_METADATA in _type:
+                if PECL_METADATA in type_:
                     last_version = get_latest_pecl_metadata(remote, ebuild, settings)
-                if RUBYGEMS_METADATA in _type:
+                if RUBYGEMS_METADATA in type_:
                     last_version = get_latest_rubygems_metadata(remote, ebuild, settings)
-                if SOURCEFORGE_METADATA in _type:
+                if SOURCEFORGE_METADATA in type_:
                     last_version = get_latest_sourceforge_metadata(remote, ebuild, settings)
-                if PYPI_METADATA in _type:
+                if PYPI_METADATA in type_:
                     last_version, url = get_latest_pypi_metadata(remote, ebuild, settings)
                 if last_version or top_hash:
                     return last_version, top_hash, hash_date, url
@@ -224,9 +221,9 @@ def parse_metadata(repo_root: str, ebuild: str,
 
 
 def extract_restrict_version(cp: str) -> tuple[str, str]:
-    if match := re.match(r"(.*?):(.*):-(.*)", cp):
+    if match := re.match(r'(.*?):(.*):-(.*)', cp):
         package, slot, version = match.groups()
-        cleaned_string = f"{package}-{version}"
+        cleaned_string = f'{package}-{version}'
         return cleaned_string, slot
     return cp, ''
 
@@ -355,7 +352,7 @@ def str_version(version: str, sha: str) -> str:
 
 def replace_date_in_ebuild(ebuild: str, new_date: str, cp: str) -> str:
     short_date = new_date[2:]
-    pattern = re.compile(r"(\d{4,8})")
+    pattern = re.compile(r'(\d{4,8})')
 
     def replace_match(match: Match[str]) -> str:
         matched_text = match.group(0)
@@ -435,8 +432,8 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
         no_auto_update_str = ' (no_auto_update)' if cp in settings.no_auto_update else ''
         str_new_version = str_version(new_version, top_hash)
         str_old_version = str_version(old_version, old_sha)
-        print(f'{cat}/{pkg}: {str_old_version} -> '
-              f'{str_new_version}{no_auto_update_str}')
+        logger.debug(f'{cat}/{pkg}: {str_old_version} -> '
+                     f'{str_new_version}{no_auto_update_str}')
 
         if settings.auto_update_flag and cp not in settings.no_auto_update:
             # First check requirements before update
@@ -458,7 +455,7 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
                 ps_ref = TAG_NAME_FUNCTIONS[cp](top_hash)
             content = process_submodules(cp, ps_ref, content, url)
             dn = Path(ebuild).parent
-            print(f'{ebuild} -> {new_filename}')
+            logger.debug(f'{ebuild} -> {new_filename}')
             if settings.keep_old.get(cp, not settings.keep_old_flag):
                 if settings.git_flag:
                     try:
@@ -479,7 +476,7 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
             # that do not have thin-Manifests ( metadata/layout.conf -> thin-manifests = true)
             # see: https://devmanual.gentoo.org/general-concepts/manifest/index.html
             digest_ebuild(new_filename)
-            fetchlist = P.getFetchMap(f"{cp}-{last_version}")
+            fetchlist = P.getFetchMap(f'{cp}-{last_version}')
             # Stores the content so that it can be recovered because it had to be modified
             old_content = content
             # First pass
@@ -543,7 +540,7 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
 @click.option('-H',
               '--hook-dir',
               default=None,
-              help="Run a hook directory scripts with various parameters.",
+              help='Run a hook directory scripts with various parameters.',
               type=click.Path(file_okay=False,
                               dir_okay=True,
                               exists=True,
@@ -575,19 +572,19 @@ def main(
         logging.basicConfig(level=logging.DEBUG)
     else:
         logger.configure(handlers=[{
-            "sink":
+            'sink':
                 sys.stderr,
-            "level":
-                "INFO",
-            "format":
-                "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <level>{message}</level>"
+            'level':
+                'INFO',
+            'format':
+                '<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <level>{message}</level>'
         }])
     if exclude:
         logger.debug(f'Excluding {", ".join(exclude)}')
     search_dir = working_dir or '.'
     if auto_update and not os.access(search_dir, os.W_OK):
-        raise click.ClickException(
-            f'The directory "{working_dir}" must be writable because --auto-update is enabled.')
+        msg = f'The directory "{working_dir}" must be writable because --auto-update is enabled.'
+        raise click.ClickException(msg)
     repo_root, repo_name = get_repository_root_if_inside(search_dir)
     if not repo_root:
         logger.error('Not inside a repository configured in repos.conf')
@@ -637,6 +634,6 @@ def main(
                     ebuild_version=ebuild_version,
                     hook_dir=hook_dir)
         except Exception:
-            print(f'Exception while checking {cat}/{pkg}', file=sys.stderr)
+            logger.exception(f'Exception while checking {cat}/{pkg}')
             raise
     return 0

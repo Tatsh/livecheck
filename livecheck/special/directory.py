@@ -4,12 +4,13 @@ import re
 
 from bs4 import BeautifulSoup
 
-from ..settings import LivecheckSettings
-from ..utils import get_content
-from ..utils.portage import get_last_version
+from livecheck.settings import LivecheckSettings
+from livecheck.utils import get_content
+from livecheck.utils.portage import get_last_version
+
 from .utils import get_archive_extension
 
-__all__ = ("get_latest_directory_package",)
+__all__ = ('get_latest_directory_package',)
 
 
 def get_latest_directory_package(url: str, ebuild: str,
@@ -23,11 +24,11 @@ def get_latest_directory_package(url: str, ebuild: str,
 
         results: list[dict[str, str]] = []
         for item in BeautifulSoup(r.text, 'html.parser').find_all('a', href=True):
-            if (href := item["href"]) and get_archive_extension(href):
+            if (href := item['href']) and get_archive_extension(href):
                 file = urlparse(urljoin(directory, href)).path
                 name = Path(file).name
                 if name.startswith(archive):
-                    results.append({"tag": name, "url": file})
+                    results.append({'tag': name, 'url': file})
 
         if last_version := get_last_version(results, archive, ebuild, settings):
             return last_version['version'], last_version['url']

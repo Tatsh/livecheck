@@ -3,12 +3,13 @@ from urllib.parse import urlparse
 
 from loguru import logger
 
-from ..settings import LivecheckSettings
-from ..utils import get_content
-from ..utils.portage import catpkg_catpkgsplit, get_last_version
+from livecheck.settings import LivecheckSettings
+from livecheck.utils import get_content
+from livecheck.utils.portage import catpkg_catpkgsplit, get_last_version
+
 from .utils import EbuildTempFile, search_ebuild
 
-__all__ = ("get_latest_jetbrains_package", "update_jetbrains_ebuild", "is_jetbrains")
+__all__ = ('get_latest_jetbrains_package', 'is_jetbrains', 'update_jetbrains_ebuild')
 
 JETBRAINS_TAG_URL = 'https://data.services.jetbrains.com/products'
 
@@ -38,7 +39,7 @@ def get_latest_jetbrains_package(ebuild: str, settings: LivecheckSettings) -> st
                         or release['type'] == 'rc') and not settings.is_devel(catpkg):
                     continue
                 if 'linux' in release.get('downloads', ''):
-                    results.append({"tag": release['version']})
+                    results.append({'tag': release['version']})
 
     if last_version := get_last_version(results, '', ebuild, settings):
         return last_version['tag']
@@ -56,7 +57,7 @@ def update_jetbrains_ebuild(ebuild: str) -> None:
 
     with EbuildTempFile(ebuild) as temp_file, temp_file.open(
             'w', encoding='utf-8') as tf, Path(ebuild).open('r', encoding='utf-8') as f:
-        for line in f.readlines():
+        for line in f:
             if line.startswith('MY_PV='):
                 logger.debug('Found MY_PV= line.')
                 tf.write(f'MY_PV="{version}"\n')

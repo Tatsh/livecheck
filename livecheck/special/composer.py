@@ -2,10 +2,11 @@ import subprocess as sp
 
 from loguru import logger
 
-from ..utils import check_program
+from livecheck.utils import check_program
+
 from .utils import build_compress, remove_url_ebuild, search_ebuild
 
-__all__ = ("update_composer_ebuild", "remove_composer_url", "check_composer_requirements")
+__all__ = ('check_composer_requirements', 'remove_composer_url', 'update_composer_ebuild')
 
 
 def remove_composer_url(ebuild_content: str) -> str:
@@ -14,7 +15,7 @@ def remove_composer_url(ebuild_content: str) -> str:
 
 def update_composer_ebuild(ebuild: str, path: str | None, fetchlist: dict[str, str]) -> None:
     composer_path, temp_dir = search_ebuild(ebuild, 'composer.json', path)
-    if composer_path == "":
+    if not composer_path:
         return
 
     try:
@@ -25,7 +26,7 @@ def update_composer_ebuild(ebuild: str, path: str | None, fetchlist: dict[str, s
         logger.error(f"Error running 'composer': {e}")
         return
 
-    build_compress(temp_dir, composer_path, 'vendor', "-vendor.tar.xz", fetchlist)
+    build_compress(temp_dir, composer_path, 'vendor', '-vendor.tar.xz', fetchlist)
 
 
 def check_composer_requirements() -> bool:

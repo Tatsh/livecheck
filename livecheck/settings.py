@@ -9,18 +9,8 @@ from loguru import logger
 
 from . import utils
 
-__all__ = (
-    'LivecheckSettings',
-    'TYPE_CHECKSUM',
-    'TYPE_COMMIT',
-    'TYPE_DAVINCI',
-    'TYPE_DIRECTORY',
-    'TYPE_METADATA',
-    'TYPE_NONE',
-    'TYPE_REGEX',
-    'TYPE_REPOLOGY',
-    'gather_settings',
-)
+__all__ = ('TYPE_CHECKSUM', 'TYPE_COMMIT', 'TYPE_DAVINCI', 'TYPE_DIRECTORY', 'TYPE_METADATA',
+           'TYPE_NONE', 'TYPE_REGEX', 'TYPE_REPOLOGY', 'LivecheckSettings', 'gather_settings')
 
 TYPE_CHECKSUM = 'checksum'
 TYPE_COMMIT = 'commit'
@@ -48,15 +38,15 @@ class LivecheckSettings:
     branches: dict[str, str] = field(default_factory=dict)
     custom_livechecks: dict[str, tuple[str, str]] = field(default_factory=dict)
     dotnet_projects: dict[str, str] = field(default_factory=dict)
-    '''Dictionary of catpkg to project or solution file (base name only).'''
+    """Dictionary of catpkg to project or solution file (base name only)."""
     go_sum_uri: dict[str, str] = field(default_factory=dict)
-    '''
+    """
     Dictionary of catpkg to full URI to ``go.sum`` with ``@PV@`` used for
     where version gets placed.
-    '''
+    """
     type_packages: dict[str, str] = field(default_factory=dict)
     no_auto_update: set[str] = field(default_factory=set)
-    '''Disable auto-detection of semantic versioning.'''
+    """Disable auto-detection of semantic versioning."""
     sha_sources: dict[str, str] = field(default_factory=dict)
     transformations: Mapping[str, Callable[[str], str]] = field(default_factory=dict)
     yarn_base_packages: dict[str, str] = field(default_factory=dict)
@@ -89,7 +79,7 @@ class LivecheckSettings:
 
 
 class UnknownTransformationFunction(NameError):
-    def __init__(self, tfs: str):
+    def __init__(self, tfs: str) -> None:
         super().__init__(f'Unknown transformation function: {tfs}')
 
 
@@ -122,18 +112,18 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
     stable_version: dict[str, str] = {}
 
     for path in Path(search_dir).glob('**/livecheck.json'):
-        logger.debug(f"Opening {path}")
+        logger.debug(f'Opening {path}')
         with path.open() as f:
             dn = path.parent
             catpkg = f'{dn.parent.name}/{dn.name}'
             try:
                 settings_parsed = json.load(f)
             except json.JSONDecodeError as e:
-                logger.error(f"Error parsing file {path}: {e}")
+                logger.error(f'Error parsing file {path}: {e}')
                 continue
             if settings_parsed.get('type') is not None:
-                _type = settings_parsed.get('type').lower()
-                if _type == TYPE_REGEX:
+                type_ = settings_parsed.get('type').lower()
+                if type_ == TYPE_REGEX:
                     if settings_parsed.get('url') is None:
                         logger.error(f'No "url" in {path}')
                         continue
@@ -141,20 +131,20 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
                         logger.error(f'No "regex" in {path}')
                         continue
                     custom_livechecks[catpkg] = (settings_parsed['url'], settings_parsed['regex'])
-                if _type == TYPE_REPOLOGY:
+                if type_ == TYPE_REPOLOGY:
                     if settings_parsed.get('package') is None:
                         logger.error(f'No "package" in {path}')
                         continue
                     custom_livechecks[catpkg] = (settings_parsed.get('package'), '')
-                if _type == TYPE_DIRECTORY:
+                if type_ == TYPE_DIRECTORY:
                     if settings_parsed.get('url') is None:
                         logger.error(f'No "url" in {path}')
                         continue
                     custom_livechecks[catpkg] = (settings_parsed.get('url'), '')
-                if _type not in SETTINGS_TYPES:
+                if type_ not in SETTINGS_TYPES:
                     logger.error(f'Unknown "type" in {path}')
                 else:
-                    type_packages[catpkg] = _type
+                    type_packages[catpkg] = type_
 
             if settings_parsed.get('branch'):
                 check_instance(settings_parsed['branch'], 'branch', 'string', path)
@@ -200,7 +190,7 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
             if 'gomodule' in settings_parsed:
                 check_instance(settings_parsed['gomodule'], 'gomodule', 'bool', path)
                 gomodule_packages[catpkg] = settings_parsed['gomodule']
-                gomodule_path[catpkg] = ""
+                gomodule_path[catpkg] = ''
                 if settings_parsed.get('gomodule_path'):
                     check_instance(settings_parsed['gomodule_path'], 'gomodule_path', 'string',
                                    path)
@@ -208,7 +198,7 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
             if 'nodejs' in settings_parsed:
                 check_instance(settings_parsed['nodejs'], 'nodejs', 'bool', path)
                 nodejs_packages[catpkg] = settings_parsed['nodejs']
-                nodejs_path[catpkg] = ""
+                nodejs_path[catpkg] = ''
                 if settings_parsed.get('nodejs_path'):
                     check_instance(settings_parsed['nodejs_path'], 'nodejs_path', 'string', path)
                     nodejs_path[catpkg] = settings_parsed['nodejs_path']
@@ -218,7 +208,7 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
             if 'composer' in settings_parsed:
                 check_instance(settings_parsed['composer'], 'composer', 'bool', path)
                 composer_packages[catpkg] = settings_parsed['composer']
-                composer_path[catpkg] = ""
+                composer_path[catpkg] = ''
                 if settings_parsed.get('composer_path'):
                     check_instance(settings_parsed['composer_path'], 'composer_path', 'string',
                                    path)
@@ -285,10 +275,8 @@ def check_instance(value: int | str | bool | list[str] | None,
             is_type = False
 
     if not is_type:
-        logger.error(
-            f"Value \"{value}\" in key \"{key}\" is not of type \"{dtype}\" in file {path}")
+        logger.error(f'Value "{value}" in key "{key}" is not of type "{dtype}" in file {path}')
 
     if specific_value is not None and value != specific_value:
         logger.error(
-            f"Value \"{value}\" in key \"{key}\" is not equal to \"{specific_value}\" in file {path}"
-        )
+            f'Value "{value}" in key "{key}" is not equal to "{specific_value}" in file {path}')

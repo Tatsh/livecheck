@@ -1,6 +1,6 @@
-from ..utils import get_content
+from livecheck.utils import get_content
 
-__all__ = ["get_latest_davinci_package"]
+__all__ = ('get_latest_davinci_package',)
 
 DAVINCI_TAG_URL = 'https://www.blackmagicdesign.com/api/support/latest-stable-version/%s/linux'
 

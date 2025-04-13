@@ -8,11 +8,12 @@ import re
 from portage.versions import catpkgsplit, vercmp
 import portage
 
-from ..settings import LivecheckSettings
+from livecheck.settings import LivecheckSettings
 
-__all__ = ('P', 'catpkg_catpkgsplit', 'catpkgsplit2', 'get_first_src_uri', 'get_highest_matches',
-           'get_repository_root_if_inside', 'compare_versions', 'sanitize_version', 'get_distdir',
-           'fetch_ebuild', 'unpack_ebuild', 'get_last_version', 'remove_leading_zeros')
+__all__ = ('P', 'catpkg_catpkgsplit', 'catpkgsplit2', 'compare_versions', 'fetch_ebuild',
+           'get_distdir', 'get_first_src_uri', 'get_highest_matches', 'get_last_version',
+           'get_repository_root_if_inside', 'remove_leading_zeros', 'sanitize_version',
+           'unpack_ebuild')
 
 P = portage.db[portage.root]['porttree'].dbapi
 logger = logging.getLogger(__name__)
@@ -51,7 +52,7 @@ def get_highest_matches(names: Sequence[str], repo_root: str,
             if cp_mask not in result or vercmp(version, result[cp_mask]):
                 result[cp_mask] = version
 
-    return [f"{cp}-{version}" for cp, version in result.items()]
+    return [f'{cp}-{version}' for cp, version in result.items()]
 
 
 @lru_cache
@@ -71,7 +72,8 @@ def catpkgsplit2(atom: str) -> tuple[str, str, str, str]:
     """
     result = catpkgsplit(atom)
     if result is None or len(result) != 4:
-        raise ValueError(f'Invalid atom: {atom}')
+        msg = f'Invalid atom: {atom}'
+        raise ValueError(msg)
 
     return result[0], result[1], result[2], result[3]
 
@@ -103,10 +105,10 @@ def get_repository_root_if_inside(directory: str) -> tuple[str, str]:
     settings = portage.config(clone=portage.settings)
 
     # Get repositories from the settings object
-    repos = settings['PORTDIR_OVERLAY'].split() + [settings['PORTDIR']]
+    repos = [*settings['PORTDIR_OVERLAY'].split(), settings['PORTDIR']]
 
     # Normalize the directory path to check
-    directory = os.path.abspath(directory) + "/"
+    directory = os.path.abspath(directory) + '/'
     selected_repo_root = ''
     selected_repo_name = ''
 
@@ -115,7 +117,7 @@ def get_repository_root_if_inside(directory: str) -> tuple[str, str]:
         if os.path.isdir(repo_root):
             repo_root = os.path.abspath(repo_root)
             # Check if the directory is inside the repository root
-            if directory.startswith(repo_root + "/"):
+            if directory.startswith(repo_root + '/'):
                 # Select the most specific repository (deepest path)
                 if selected_repo_root is None or len(repo_root) > len(selected_repo_root):
                     selected_repo_root = repo_root
@@ -129,7 +131,7 @@ def get_repository_root_if_inside(directory: str) -> tuple[str, str]:
 
 
 def is_version_development(version: str) -> bool:
-    return bool(re.search('(alpha|beta|pre|dev|rc)', version, re.IGNORECASE))
+    return bool(re.search(r'(alpha|beta|pre|dev|rc)', version, re.IGNORECASE))
 
 
 def remove_initial_match(a: str, b: str) -> str:
@@ -151,7 +153,7 @@ def extract_version(s: str, repo: str) -> str:
         return m.group(1).strip()
 
     m = re.search(r'(?:^|[^-_])(\d.*)', s)
-    return m.group(1).strip() if m else ""
+    return m.group(1).strip() if m else ''
 
 
 def sanitize_version(ver: str, repo: str = '') -> str:
@@ -164,11 +166,11 @@ def remove_leading_zeros(ver: str) -> str:
     # check if a date format like 2022.12.26 or 24.01.12
     if not re.match(r'\d{4}|\d{2}\.\d{2}\.\d{2}', ver):
         return ver
-    if match := re.match(r"(\d+)\.(\d+)(?:\.(\d+))?(.*)", ver):
+    if match := re.match(r'(\d+)\.(\d+)(?:\.(\d+))?(.*)', ver):
         a, b, c, suffix = match.groups()
         if c is None:
-            return f"{int(a)}.{int(b)}{suffix}"
-        return f"{int(a)}.{int(b)}.{int(c)}{suffix}"
+            return f'{int(a)}.{int(b)}{suffix}'
+        return f'{int(a)}.{int(b)}.{int(c)}{suffix}'
     return ver
 
 
@@ -189,7 +191,7 @@ def normalize_version(ver: str) -> str:
 
     suf = re.sub(r'[-_\. ]', '', suf)
     if suf.isdigit():
-        return f"{main}.{suf}"
+        return f'{main}.{suf}'
 
     if m := re.match(r'^([A-Za-z]+)([0-9]+)?', suf):
         letters, digits = m.groups()
@@ -209,7 +211,7 @@ def normalize_version(ver: str) -> str:
     if digits == '0':
         digits = ''
 
-    if letters in ('test', 'dev'):
+    if letters in {'test', 'dev'}:
         letters = 'beta'
     if letters.startswith(('pl', 'patchlevel')):
         letters = 'p'
@@ -220,16 +222,16 @@ def normalize_version(ver: str) -> str:
         if letters in ('post'):
             letters = 'p'
         if digits:
-            return f"{main}_{letters}{digits}"
-        return f"{main}_{letters}"
+            return f'{main}_{letters}{digits}'
+        return f'{main}_{letters}'
 
     # Single-letter suffix with no digits -> preserve as lowercase
     if len(letters) == 1 and not digits:
-        return f"{main}{letters}"
+        return f'{main}{letters}'
     # No recognized suffix
     if not letters and digits:
         # Just attach the digits directly (e.g. "1.2.3" + "4")
-        return f"{main}{digits}"
+        return f'{main}{digits}'
     # If the version ends with a letter like 1.2.20a (and not recognized),
     # the requirement says "it is preserved" only if it is exactly a single letter.
     # For multi-letter unknown suffix -> discard.
@@ -269,7 +271,7 @@ def unpack_ebuild(ebuild_path: str) -> str:
     if portage.doebuild(ebuild_path, 'unpack', settings=settings, tree='porttree') != 0:
         return ''
 
-    workdir = settings["WORKDIR"]
+    workdir = settings['WORKDIR']
 
     if os.path.exists(workdir) and os.path.isdir(workdir):
         return str(workdir)
@@ -286,7 +288,7 @@ def get_last_version(results: list[dict[str, str]], repo: str, ebuild: str,
     last_version: dict[str, str] = {}
 
     for result in results:
-        tag = version = result["tag"]
+        tag = version = result['tag']
         if tf := settings.transformations.get(catpkg, None):
             version = tf(tag)
             logger.debug('Applying transformation %s -> %s', tag, version)
@@ -296,18 +298,18 @@ def get_last_version(results: list[dict[str, str]], repo: str, ebuild: str,
             logger.debug('Applying regex %s -> %s', tag, version)
         else:
             version = sanitize_version(version, repo)
-            logger.debug("Convert Tag: %s -> %s", tag, version)
+            logger.debug('Convert Tag: %s -> %s', tag, version)
         if not version:
             continue
         # skip version extraneous without dots, example Post120ToMaster
         if ebuild_version.count('.') > 1 and version.count('.') == 0:
-            logger.debug("Skip version without dots: %s", version)
+            logger.debug('Skip version without dots: %s', version)
             continue
         # Check valid version
         try:
             _, _, _, _ = catpkg_catpkgsplit(f'{catpkg}-{version}')
         except ValueError:
-            logger.debug("Skip non-version tag: %s", version)
+            logger.debug('Skip non-version tag: %s', version)
             continue
         if not version.startswith(settings.restrict_version_process):
             continue
@@ -318,7 +320,7 @@ def get_last_version(results: list[dict[str, str]], repo: str, ebuild: str,
                 last_version['version'] = version
 
     if not last_version:
-        logger.debug("No new update for %s.", ebuild)
+        logger.debug('No new update for %s.', ebuild)
 
     return last_version
 
@@ -330,5 +332,5 @@ def accept_version(ebuild_version: str, version: str, catpkg: str,
             stable_version and re.match(stable_version, version)):
         return True
 
-    return not (is_version_development(version)
-                or stable_version and not re.match(stable_version, version))
+    return not (is_version_development(version) or
+                (stable_version and not re.match(stable_version, version)))

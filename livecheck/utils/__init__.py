@@ -17,8 +17,8 @@ from requests import ConnectTimeout, ReadTimeout
 import keyring
 import requests
 
-__all__ = ('TextDataResponse', 'assert_not_none', 'chunks', 'dash_to_underscore', 'dotize',
-           'is_sha', 'prefix_v', 'session_init', 'get_content', 'extract_sha', 'check_program')
+__all__ = ('TextDataResponse', 'assert_not_none', 'check_program', 'chunks', 'dash_to_underscore',
+           'dotize', 'extract_sha', 'get_content', 'is_sha', 'prefix_v', 'session_init')
 
 logger2 = logging.getLogger(__name__)
 T = TypeVar('T')
@@ -38,7 +38,7 @@ def dotize(s: str) -> str:
 @lru_cache
 def is_sha(url: str) -> int:
     """
-    Extracts the last part of a URL and checks if it is a valid SHA-1 hash.
+    Extract the last part of a URL and checks if it is a valid SHA-1 hash.
 
     :param url: The input URL string.
     :return: 7 if it's a short SHA, 40 if it's a full SHA, 0 otherwise.
@@ -54,7 +54,7 @@ def is_sha(url: str) -> int:
 
 def extract_sha(text: str) -> str:
     """
-    Extracts the first valid SHA-1 hash (7 or 40 characters) found in the given string.
+    Extract the first valid SHA-1 hash (7 or 40 characters) found in the given string.
 
     :param text: The input string to search.
     :return: A SHA-1 hash (7 or 40 characters) if found, otherwise None.
@@ -69,7 +69,7 @@ def chunks(seq: Sequence[T], n: int) -> Iterator[Sequence[T]]:
 
 
 class InvalidPackageName(ValueError):
-    def __init__(self, pkg: str):
+    def __init__(self, pkg: str) -> None:
         super().__init__(f'Invalid package name: {pkg}')
 
 
@@ -82,7 +82,7 @@ def parse_npm_package_name(s: str) -> tuple[str, str | None, str | None]:
 @lru_cache
 def get_api_credentials(repo: str) -> str | None:
     if not (token := keyring.get_password(repo, 'livecheck')):
-        logger.warning(f"No {repo} API token found in your secret store")
+        logger.warning(f'No {repo} API token found in your secret store')
     return token
 
 
@@ -166,10 +166,11 @@ def get_content(url: str) -> requests.Response:
         r = requests.Response()
         r.status_code = HTTPStatus.SERVICE_UNAVAILABLE
         return r
-    if r.status_code not in (HTTPStatus.OK, HTTPStatus.CREATED, HTTPStatus.ACCEPTED,
-                             HTTPStatus.PARTIAL_CONTENT, HTTPStatus.MOVED_PERMANENTLY,
-                             HTTPStatus.FOUND, HTTPStatus.TEMPORARY_REDIRECT,
-                             HTTPStatus.PERMANENT_REDIRECT):
+    if r.status_code not in {
+            HTTPStatus.OK, HTTPStatus.CREATED, HTTPStatus.ACCEPTED, HTTPStatus.PARTIAL_CONTENT,
+            HTTPStatus.MOVED_PERMANENTLY, HTTPStatus.FOUND, HTTPStatus.TEMPORARY_REDIRECT,
+            HTTPStatus.PERMANENT_REDIRECT
+    }:
         logger.error(f'Error fetching {url} status_code {r.status_code}')
     elif not r.text:
         logger.warning(f'Empty response for {url}')
@@ -225,7 +226,7 @@ def hash_url(url: str) -> tuple[str, str, int]:
             requests.exceptions.MissingSchema, requests.exceptions.ChunkedEncodingError) as e:
         logger.error(f'Error hashing URL {url}: {e}')
 
-    return "", "", 0
+    return '', '', 0
 
 
 @lru_cache
@@ -235,11 +236,11 @@ def get_last_modified(url: str) -> str:
             r.raise_for_status()
             if last_modified := r.headers['last-modified']:
                 dt = parsedate_to_datetime(last_modified)
-                return dt.strftime("%Y%m%d")
+                return dt.strftime('%Y%m%d')
 
     except (ReadTimeout, ConnectTimeout, requests.exceptions.HTTPError,
             requests.exceptions.SSLError, requests.exceptions.ConnectionError,
             requests.exceptions.MissingSchema, requests.exceptions.ChunkedEncodingError) as e:
         logger.error(f'Error fetching last modified header for {url}: {e}')
 
-    return ""
+    return ''

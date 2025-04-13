@@ -2,7 +2,8 @@ from pathlib import Path
 import logging
 import re
 
-from ..utils import get_content
+from livecheck.utils import get_content
+
 from .utils import EbuildTempFile
 
 __all__ = ('update_go_ebuild',)
@@ -20,10 +21,9 @@ def update_go_ebuild(ebuild: str, version: str, go_sum_uri_template: str) -> Non
         raise InvalidGoSumURITemplate
     sha = ''
     try:
-        if (first_match := [
+        if (first_match := next(
                 re.match(r'^SHA="([^"]+)"', x)
-                for x in Path(ebuild).read_text(encoding='utf-8').splitlines()
-        ][0]):
+                for x in Path(ebuild).read_text(encoding='utf-8').splitlines())):
             sha = first_match.group(1)
     except IndexError:
         pass
@@ -36,7 +36,7 @@ def update_go_ebuild(ebuild: str, version: str, go_sum_uri_template: str) -> Non
         updated = False
         found_closing_bracket = False
         with Path(ebuild).open('r', encoding='utf-8') as f:
-            for line in f.readlines():
+            for line in f:
                 if line.startswith('EGO_SUM=(') and not updated:
                     logger.debug('Found EGO_SUM=( line.')
                     tf.write('EGO_SUM=(\n')

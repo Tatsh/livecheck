@@ -2,7 +2,8 @@ from functools import lru_cache
 import logging
 import re
 
-from ..utils import assert_not_none
+from livecheck.utils import assert_not_none
+
 from .github import get_latest_github_commit2
 
 logger = logging.getLogger(__name__)

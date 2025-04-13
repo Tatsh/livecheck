@@ -1,22 +1,24 @@
 from collections.abc import Iterator
 from pathlib import Path
 from shutil import copyfile
-from typing import Final, NotRequired, TypedDict, cast
+from typing import TypedDict, cast
 import json
 import re
 import subprocess as sp
 
 from loguru import logger
+from typing_extensions import NotRequired
 
-from ..utils import check_program
+from livecheck.utils import check_program
+
 from .utils import EbuildTempFile, get_project_path
 
-CONVERSION_CODE: Final[str] = '''const fs = require('fs');
+CONVERSION_CODE = """const fs = require('fs');
 const lockfile = require('@yarnpkg/lockfile');
 console.log(
-    JSON.stringify(lockfile.parse(fs.readFileSync(process.argv[3], 'utf8'))['object']));'''
+    JSON.stringify(lockfile.parse(fs.readFileSync(process.argv[3], 'utf8'))['object']));"""
 
-__all__ = ("update_yarn_ebuild", "check_yarn_requirements")
+__all__ = ('check_yarn_requirements', 'update_yarn_ebuild')
 
 
 class LockfilePackage(TypedDict):
@@ -35,7 +37,7 @@ def create_project(base_package_name: str, yarn_packages: set[str] | None = None
            check=True,
            cwd=path,
            stdout=sp.PIPE)
-    sp.run(('yarn', 'add', base_package_name) + tuple(yarn_packages or []),
+    sp.run(('yarn', 'add', base_package_name, *tuple(yarn_packages or [])),
            cwd=path,
            check=True,
            stdout=sp.PIPE)
@@ -48,7 +50,7 @@ def create_project(base_package_name: str, yarn_packages: set[str] | None = None
 
 def parse_lockfile(project_path: Path) -> Lockfile:
     return cast(
-        Lockfile,
+        'Lockfile',
         json.loads(
             sp.run(('node', '-', '--', str(project_path / 'yarn.lock')),
                    input=CONVERSION_CODE,
@@ -79,7 +81,7 @@ def update_yarn_ebuild(ebuild: str,
     with EbuildTempFile(ebuild) as temp_file, temp_file.open('w', encoding='utf-8') as tf:
         wrote_new_packages = False
         with Path(ebuild).open('r', encoding='utf-8') as f:
-            for line in f.readlines():
+            for line in f:
                 if line.startswith('YARN_PKGS=('):
                     tf.write(line)
                     if in_yarn_pkgs:

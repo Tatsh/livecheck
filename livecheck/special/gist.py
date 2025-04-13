@@ -1,9 +1,9 @@
 from datetime import datetime
 import re
 
-from ..utils import get_content
+from livecheck.utils import get_content
 
-__all__ = ("get_latest_gist_package", "is_gist")
+__all__ = ('get_latest_gist_package', 'is_gist')
 
 GIST_COMMIT_URL = 'https://api.github.com/gists/%s'
 
@@ -23,19 +23,19 @@ def get_latest_gist_package(url: str) -> tuple[str, str]:
     if not (r := get_content(url)):
         return '', ''
 
-    history = r.json().get("history", [])
+    history = r.json().get('history', [])
     if not history:
         return '', ''
-    latest = max(history, key=lambda x: x.get("committed_at", ""))
+    latest = max(history, key=lambda x: x.get('committed_at', ''))
 
-    d = latest.get("committed_at")
+    d = latest.get('committed_at')
     try:
-        dt = datetime.fromisoformat(d.replace("Z", "+00:00"))
-        formatted_date = dt.strftime("%Y%m%d")
+        dt = datetime.fromisoformat(d.replace('Z', '+00:00'))
+        formatted_date = dt.strftime('%Y%m%d')
     except ValueError:
         formatted_date = d[:10]
 
-    return latest.get("version"), formatted_date
+    return latest.get('version'), formatted_date
 
 
 def is_gist(url: str) -> bool:

@@ -1,12 +1,13 @@
 from urllib.parse import urlparse
 import re
 
-from ..settings import LivecheckSettings
-from ..utils import get_content
-from ..utils.portage import get_last_version
+from livecheck.settings import LivecheckSettings
+from livecheck.utils import get_content
+from livecheck.utils.portage import get_last_version
+
 from .utils import get_archive_extension
 
-__all__ = ("get_latest_pypi_package", "is_pypi", "PYPI_METADATA", "get_latest_pypi_metadata")
+__all__ = ('PYPI_METADATA', 'get_latest_pypi_metadata', 'get_latest_pypi_package', 'is_pypi')
 
 PYPI_METADATA = 'pypi'
 
@@ -16,7 +17,7 @@ PYPI_DOWNLOAD_URL = 'https://pypi.org/pypi/%s/json'
 def extract_project(url: str) -> str:
     parsed = urlparse(url)
     path = parsed.path.split('/')
-    if parsed.netloc in ('pypi', 'pypi.org', 'pypi.io', 'files.pythonhosted.org') and len(path) > 3:
+    if parsed.netloc in {'pypi', 'pypi.org', 'pypi.io', 'files.pythonhosted.org'} and len(path) > 3:
         if path[2] == 'source':
             return path[4]
         if m := re.search(r'^(.*?)(?=-\d)', path[-1]):
@@ -48,8 +49,8 @@ def get_latest_pypi_package2(project_name: str, src_uri: str, ebuild: str,
 
     results: list[dict[str, str]] = []
     if r := get_content(url):
-        for release, item in r.json().get("releases", {}).items():
-            results.extend([{"tag": release, "url": get_url(ext, item)}])
+        for release, item in r.json().get('releases', {}).items():
+            results.extend([{'tag': release, 'url': get_url(ext, item)}])
 
         if last_version := get_last_version(results, '', ebuild, settings):
             return last_version['version'], last_version['url']

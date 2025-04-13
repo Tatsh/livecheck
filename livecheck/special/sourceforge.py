@@ -1,15 +1,16 @@
 from pathlib import Path
 from urllib.parse import urlparse
 import re
-import xml.etree.ElementTree as etree
+import xml.etree.ElementTree as ET
 
-from ..settings import LivecheckSettings
-from ..utils import get_content
-from ..utils.portage import get_last_version
+from livecheck.settings import LivecheckSettings
+from livecheck.utils import get_content
+from livecheck.utils.portage import get_last_version
+
 from .utils import get_archive_extension
 
-__all__ = ("get_latest_sourceforge_package", "is_sourceforge", "SOURCEFORGE_METADATA",
-           "get_latest_sourceforge_metadata")
+__all__ = ('SOURCEFORGE_METADATA', 'get_latest_sourceforge_metadata',
+           'get_latest_sourceforge_package', 'is_sourceforge')
 
 SOURCEFORGE_DOWNLOAD_URL = 'https://sourceforge.net/projects/%s/rss'
 SOURCEFORGE_METADATA = 'sourceforge'
@@ -43,11 +44,11 @@ def get_latest_sourceforge_package2(repository: str, ebuild: str,
         return ''
 
     results: list[dict[str, str]] = []
-    for item in etree.fromstring(r.text).findall(".//item"):
-        title = item.find("title")
+    for item in ET.fromstring(r.text).findall('.//item'):
+        title = item.find('title')
         version = Path(title.text).name if title is not None and title.text else ''
         if version and get_archive_extension(version):
-            results.append({"tag": version})
+            results.append({'tag': version})
 
     if last_version := get_last_version(results, repository, ebuild, settings):
         return last_version['version']

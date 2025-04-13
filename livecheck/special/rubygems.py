@@ -1,11 +1,11 @@
 from urllib.parse import urlparse
 
-from ..settings import LivecheckSettings
-from ..utils import get_content
-from ..utils.portage import catpkg_catpkgsplit, get_last_version
+from livecheck.settings import LivecheckSettings
+from livecheck.utils import get_content
+from livecheck.utils.portage import catpkg_catpkgsplit, get_last_version
 
-__all__ = ("get_latest_rubygems_package", "is_rubygems", "RUBYGEMS_METADATA",
-           "get_latest_rubygems_metadata")
+__all__ = ('RUBYGEMS_METADATA', 'get_latest_rubygems_metadata', 'get_latest_rubygems_package',
+           'is_rubygems')
 
 RUBYGEMS_DOWNLOAD_URL = 'https://rubygems.org/api/v1/versions/%s.json'
 RUBYGEMS_METADATA = 'rubygems'
@@ -25,9 +25,9 @@ def get_latest_rubygems_package2(gem_name: str, ebuild: str, settings: Livecheck
 
     results: list[dict[str, str]] = [
         {
-            "tag": release.get("number", "")
+            'tag': release.get('number', '')
         } for release in response.json()
-        if settings.is_devel(catpkg) or not release.get("prerelease", False)
+        if settings.is_devel(catpkg) or not release.get('prerelease', False)
     ]
 
     if last_version := get_last_version(results, gem_name, ebuild, settings):
