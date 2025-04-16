@@ -13,7 +13,8 @@ def remove_nodejs_url(ebuild_content: str) -> str:
     return remove_url_ebuild(ebuild_content, '-node_modules.tar.xz')
 
 
-def update_nodejs_ebuild(ebuild: str, path: str | None, fetchlist: dict[str, str]) -> None:
+def update_nodejs_ebuild(ebuild: str, path: str | None, fetchlist: dict[str, tuple[str,
+                                                                                   ...]]) -> None:
     package_path, temp_dir = search_ebuild(ebuild, 'package.json', path)
     if package_path == '':
         return

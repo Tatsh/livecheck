@@ -56,7 +56,7 @@ def get_highest_matches(names: Sequence[str], repo_root: str,
 
 
 @lru_cache
-def catpkgsplit2(atom: str) -> tuple[str, str, str, str]:
+def catpkgsplit2(atom: str) -> tuple[str | None, str, str, str]:
     """
     Split an atom string. This function always returns a four-string tuple.
 
@@ -67,8 +67,8 @@ def catpkgsplit2(atom: str) -> tuple[str, str, str, str]:
 
     Returns
     -------
-    tuple[str, str, str, str]
-        Tuple consisting of four strings.
+    tuple[str | None, str, str, str]
+        Tuple consisting of four strings. If category is not set, the first item is ``None``.
     """
     result = catpkgsplit(atom)
     if result is None or len(result) != 4:
@@ -81,6 +81,7 @@ def catpkgsplit2(atom: str) -> tuple[str, str, str, str]:
 @lru_cache
 def catpkg_catpkgsplit(atom: str) -> tuple[str, str, str, str]:
     cat, pkg, ebuild_version, revision = catpkgsplit2(atom)
+    assert cat is not None
 
     if revision and revision != 'r0':
         return f'{cat}/{pkg}', cat, pkg, f'{ebuild_version}-{revision}'

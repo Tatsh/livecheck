@@ -61,7 +61,7 @@ def search_ebuild(ebuild: str, archive: str, path: str | None = None) -> tuple[s
 
 
 def build_compress(temp_dir: str, base_dir: str, directory: str, extension: str,
-                   fetchlist: dict[str, str]) -> bool:
+                   fetchlist: dict[str, tuple[str, ...]]) -> bool:
 
     vendor_dir = os.path.join(base_dir, directory)
     if not os.path.exists(vendor_dir):

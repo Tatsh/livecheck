@@ -13,13 +13,14 @@ def remove_composer_url(ebuild_content: str) -> str:
     return remove_url_ebuild(ebuild_content, '-vendor.tar.xz')
 
 
-def update_composer_ebuild(ebuild: str, path: str | None, fetchlist: dict[str, str]) -> None:
+def update_composer_ebuild(ebuild: str, path: str | None, fetchlist: dict[str, tuple[str,
+                                                                                     ...]]) -> None:
     composer_path, temp_dir = search_ebuild(ebuild, 'composer.json', path)
     if not composer_path:
         return
 
     try:
-        sp.run(['composer', '--no-interaction', '--no-scripts', 'install'],
+        sp.run(('composer', '--no-interaction', '--no-scripts', 'install'),
                cwd=composer_path,
                check=True)
     except sp.CalledProcessError as e:

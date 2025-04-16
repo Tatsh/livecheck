@@ -183,14 +183,14 @@ testing = ["jaraco.test", "pytest (!=8.0.*)", "pytest (>=6,!=8.1.*)", "pytest-ch
 
 [[package]]
 name = "beautifulsoup4"
-version = "4.13.3"
+version = "4.13.4"
 description = "Screen-scraping library"
 optional = false
 python-versions = ">=3.7.0"
 groups = ["main", "docs"]
 files = [
-    {file = "beautifulsoup4-4.13.3-py3-none-any.whl", hash = "sha256:99045d7d3f08f91f0d656bc9b7efbae189426cd913d830294a15eefa0ea4df16"},
-    {file = "beautifulsoup4-4.13.3.tar.gz", hash = "sha256:1bd32405dacc920b42b83ba01644747ed77456a65760e285fbc47633ceddaf8b"},
+    {file = "beautifulsoup4-4.13.4-py3-none-any.whl", hash = "sha256:9bbbb14bfde9d79f38b8cd5f8c7c85f4b8f2523190ebed90e950a8dea4cb1c4b"},
+    {file = "beautifulsoup4-4.13.4.tar.gz", hash = "sha256:dbb3c4e1ceae6aefebdaf2423247260cd062430a410e38c66f2baa50a8437195"},
 ]
 
 [package.dependencies]
@@ -478,14 +478,14 @@ markers = {main = "platform_system == \"Windows\" or sys_platform == \"win32\"",
 
 [[package]]
 name = "commitizen"
-version = "4.5.1"
+version = "4.6.0"
 description = "Python commitizen client tool"
 optional = false
 python-versions = "<4.0,>=3.9"
 groups = ["dev"]
 files = [
-    {file = "commitizen-4.5.1-py3-none-any.whl", hash = "sha256:6765c1d07c232673a171782ad102222d35bf11f22321d4953ed0413526d40094"},
-    {file = "commitizen-4.5.1.tar.gz", hash = "sha256:b749b639be939ef1758f9aa3a4388847197f58ad10a9e9cea37e5f746f6cb0c5"},
+    {file = "commitizen-4.6.0-py3-none-any.whl", hash = "sha256:d8861707b553c03c8b1993b7abd9e036384fdd1c57f95f6f38d5f215c53041a9"},
+    {file = "commitizen-4.6.0.tar.gz", hash = "sha256:cc1c9f8937e59a7c54321443aa49dd246e07b829e305c7cbff1d7f7e32e449fe"},
 ]
 
 [package.dependencies]
@@ -1633,27 +1633,33 @@ reference = "HEAD"
 resolved_reference = "d1e2605d020a02259e2ca14f2b97fb4a35aea48a"
 
 [[package]]
-name = "portage-types"
-version = "0.0.2"
-description = "Typing stubs for Portage"
+name = "portage-stubs"
+version = "0.0.6"
+description = "PEP 561 type stubs for portage."
 optional = false
-python-versions = ">=3.10,<4"
+python-versions = "<3.14,>=3.10"
 groups = ["dev"]
 files = [
-    {file = "portage_types-0.0.2-py3-none-any.whl", hash = "sha256:4a8bf4b6b025e7e4936d3ffc72aaacc8751133f6c8254adc9fc4f4f669cb3bac"},
-    {file = "portage_types-0.0.2.tar.gz", hash = "sha256:c876e0808222623d3fdb676bf712e298fcf1d2bfb13df28a7944b8290c6e36bb"},
+    {file = "portage_stubs-0.0.6-py3-none-any.whl", hash = "sha256:ec85e03363e6eb1b603d35a6fa4ff7ca503c604d85bdd4a86484a0dc09e89232"},
+    {file = "portage_stubs-0.0.6.tar.gz", hash = "sha256:0b9c00bb5d4c8e8f937336cc067819910893f9cce9c51f170031153e06cfe133"},
 ]
+
+[package.dependencies]
+typing-extensions = ">=4.13.1,<5.0.0"
+
+[package.extras]
+erdantic = ["erdantic (<2.0)"]
 
 [[package]]
 name = "prompt-toolkit"
-version = "3.0.50"
+version = "3.0.51"
 description = "Library for building powerful interactive command lines in Python"
 optional = false
-python-versions = ">=3.8.0"
+python-versions = ">=3.8"
 groups = ["dev"]
 files = [
-    {file = "prompt_toolkit-3.0.50-py3-none-any.whl", hash = "sha256:9b6427eb19e479d98acff65196a307c555eb567989e6d88ebbb1b509d9779198"},
-    {file = "prompt_toolkit-3.0.50.tar.gz", hash = "sha256:544748f3860a2623ca5cd6d2795e7a14f3d0e1c3c9728359013f79877fc89bab"},
+    {file = "prompt_toolkit-3.0.51-py3-none-any.whl", hash = "sha256:52742911fde84e2d423e2f9a4cf1de7d7ac4e51958f648d9540e0fb8db077b07"},
+    {file = "prompt_toolkit-3.0.51.tar.gz", hash = "sha256:931a162e3b27fc90c86f1b48bb1fb2c528c2761475e57c9c06de13311c7b54ed"},
 ]
 
 [package.dependencies]
@@ -3159,4 +3165,4 @@ erdantic = ["erdantic"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.14"
-content-hash = "91a1bc2f449c0da36090f7b78f2cd21241b1297d9574e345fed16a86b45c77bb"
+content-hash = "ad167d7a82f06467e8323ce8450c16c35910928045b115f002495ba7f1021b73"
