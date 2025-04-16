@@ -1,12 +1,13 @@
+import logging
 import subprocess as sp
-
-from loguru import logger
 
 from livecheck.utils import check_program
 
 from .utils import build_compress, remove_url_ebuild, search_ebuild
 
 __all__ = ('check_nodejs_requirements', 'remove_nodejs_url', 'update_nodejs_ebuild')
+
+logger = logging.getLogger(__name__)
 
 
 def remove_nodejs_url(ebuild_content: str) -> str:
@@ -16,7 +17,7 @@ def remove_nodejs_url(ebuild_content: str) -> str:
 def update_nodejs_ebuild(ebuild: str, path: str | None, fetchlist: dict[str, tuple[str,
                                                                                    ...]]) -> None:
     package_path, temp_dir = search_ebuild(ebuild, 'package.json', path)
-    if package_path == '':
+    if not package_path:
         return
 
     try:
@@ -24,8 +25,8 @@ def update_nodejs_ebuild(ebuild: str, path: str | None, fetchlist: dict[str, tup
                 '--ignore-scripts'),
                cwd=package_path,
                check=True)
-    except sp.CalledProcessError as e:
-        logger.error(f"Error running 'npm install': {e}")
+    except sp.CalledProcessError:
+        logger.exception("Error running 'npm install'.")
         return
 
     build_compress(temp_dir, package_path, 'node_modules', '-node_modules.tar.xz', fetchlist)

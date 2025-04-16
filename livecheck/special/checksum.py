@@ -17,7 +17,7 @@ def get_latest_checksum_package(url: str, ebuild: str, repo_root: str) -> tuple[
     manifest_file = Path(repo_root) / catpkg / 'Manifest'
     bn = Path(url).name
 
-    with open(manifest_file, encoding='utf-8') as f:
+    with Path(manifest_file).open(encoding='utf-8') as f:
         for line in f:
             m = PATTERN.match(line)
             if m and m.group('file') == bn:

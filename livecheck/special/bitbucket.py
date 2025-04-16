@@ -20,7 +20,8 @@ MAX_ITERATIONS = 4
 def extract_workspace_and_repository(url: str) -> tuple[str, str]:
     parsed = urlparse(url)
 
-    if parsed.netloc != 'bitbucket.org' or len(parsed.path.strip('/').split('/')) < 2:
+    if (parsed.netloc != 'bitbucket.org'
+            or len(parsed.path.strip('/').split('/')) < 2):  # noqa: PLR2004
         return '', ''
 
     workspace, repository = parsed.path.strip('/').split('/')[:2]
@@ -79,7 +80,7 @@ def get_latest_bitbucket(url: str, ebuild: str,
 
 
 def is_bitbucket(url: str) -> bool:
-    return extract_workspace_and_repository(url)[0] != ''
+    return bool(extract_workspace_and_repository(url)[0])
 
 
 def get_latest_bitbucket_metadata(remote: str, ebuild: str,

@@ -1,7 +1,8 @@
 from datetime import datetime
 from urllib.parse import urlparse
 import re
-import xml.etree.ElementTree as ET
+
+from defusedxml import ElementTree as ET  # noqa: N817
 
 from livecheck.settings import LivecheckSettings
 from livecheck.utils import get_content, is_sha
@@ -75,11 +76,11 @@ def get_branch(url: str, ebuild: str, settings: LivecheckSettings) -> str:
 
     # get branch from url
     parts = url.strip('/').split('/')
-    if len(parts) >= 3 and parts[-3] == 'log':
+    if len(parts) >= 3 and parts[-3] == 'log':  # noqa: PLR2004
         return parts[-2]
 
     # get branch from settings
-    if (branch := settings.branches.get(catpkg, '')):
+    if branch := settings.branches.get(catpkg, ''):
         return branch
 
     # default branch is master

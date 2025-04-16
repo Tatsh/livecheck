@@ -1,16 +1,17 @@
 from collections.abc import Iterator
 from pathlib import Path
+import logging
 import re
 import subprocess as sp
 import tempfile
-
-from loguru import logger
 
 from livecheck.utils import check_program
 
 from .utils import EbuildTempFile, search_ebuild
 
 __all__ = ('check_dotnet_requirements', 'update_dotnet_ebuild')
+
+log = logging.getLogger(__name__)
 
 
 def dotnet_restore(project_or_solution: str | Path) -> Iterator[str]:
@@ -108,6 +109,6 @@ def update_dotnet_ebuild(ebuild: str, project_or_solution: str | Path) -> None:
 
 def check_dotnet_requirements() -> bool:
     if not check_program('dotnet', '--version', '10.0.0'):
-        logger.error('dotnet is not installed or version is less than 9.0.0')
+        log.error('dotnet is not installed or version is less than 9.0.0')
         return False
     return True

@@ -1,5 +1,6 @@
 from urllib.parse import urlparse
-import xml.etree.ElementTree as ET
+
+from defusedxml import ElementTree as ET  # noqa: N817
 
 from livecheck.settings import LivecheckSettings
 from livecheck.utils import assert_not_none, get_content

@@ -8,10 +8,8 @@ import logging
 import os
 import re
 import subprocess as sp
-import sys
-import xml.etree.ElementTree as ET
 
-from loguru import logger
+from defusedxml import ElementTree as ET  # noqa: N817
 import click
 
 from .constants import (
@@ -110,6 +108,8 @@ from .utils.portage import (
     remove_leading_zeros,
 )
 
+log = logging.getLogger(__name__)
+
 
 def process_submodules(pkg_name: str, ref: str, contents: str, repo_uri: str) -> str:
     if pkg_name not in SUBMODULES:
@@ -135,7 +135,7 @@ def process_submodules(pkg_name: str, ref: str, contents: str, repo_uri: str) ->
 
 
 def log_unhandled_pkg(ebuild: str, src_uri: str) -> None:
-    logger.debug(f'Unhandled: {ebuild} SRC_URI: {src_uri}')
+    log.debug('Unhandled: %s, SRC_URI: %s', ebuild, src_uri)
 
 
 def parse_url(src_uri: str, ebuild: str, settings: LivecheckSettings) -> tuple[str, str, str, str]:
@@ -146,7 +146,7 @@ def parse_url(src_uri: str, ebuild: str, settings: LivecheckSettings) -> tuple[s
     if not parsed_uri.hostname:
         return last_version, top_hash, hash_date, url
 
-    logger.debug(f'Parsed URI: {parsed_uri}')
+    log.debug('Parsed URI: %s', parsed_uri)
     if is_gist(src_uri):
         top_hash, hash_date = get_latest_gist_package(src_uri)
     elif is_github(src_uri):
@@ -186,8 +186,8 @@ def parse_metadata(repo_root: str, ebuild: str,
         return '', '', '', ''
     try:
         root = ET.parse(metadata_file).getroot()
-    except ET.ParseError as e:
-        logger.error(f'Error parsing {metadata_file}: {e}')
+    except ET.ParseError:
+        log.exception('Error parsing %s.', metadata_file)
         return '', '', '', ''
     for upstream in root.findall('upstream'):
         for subelem in upstream:
@@ -242,22 +242,22 @@ def get_props(
             for path in Path(search_dir).glob('**/*.ebuild')
         ]
     matches_list = sorted(get_highest_matches(names, repo_root, settings))
-    logger.info(f'Found {len(matches_list)} ebuilds')
+    log.info('Found %d ebuilds.', len(matches_list))
     if not matches_list:
-        logger.error('No matches!')
+        log.error('No matches!')
         raise click.Abort
     for _match in matches_list:
         match, settings.restrict_version_process = extract_restrict_version(_match)
         catpkg, cat, pkg, ebuild_version = catpkg_catpkgsplit(match)
         if catpkg in exclude or pkg in exclude:
-            logger.debug(f'Ignoring {catpkg}')
+            log.debug('Ignoring %s.', catpkg)
             continue
         src_uri = get_first_src_uri(match, repo_root)
         if cat.startswith('acct-') or settings.type_packages.get(catpkg) == TYPE_NONE:
-            logger.debug(f'Ignoring {catpkg}')
+            log.debug('Ignoring %s.', catpkg)
             continue
         if settings.debug_flag or settings.progress_flag:
-            logger.info(f'Processing {catpkg} version {ebuild_version}')
+            log.info('Processing %s version %s.', catpkg, ebuild_version)
         last_version = hash_date = top_hash = url = ''
         ebuild = Path(repo_root) / catpkg / f'{pkg}-{ebuild_version}.ebuild'
         egit, branch = get_egit_repo(ebuild)
@@ -269,7 +269,7 @@ def get_props(
         if catpkg in settings.sync_version:
             matches_sync = get_highest_matches([settings.sync_version[catpkg]], '', settings)
             if not matches_sync:
-                logger.error(f'No matches for {catpkg}')
+                log.error('No matches for %s.', catpkg)
                 continue
             _, _, _, last_version = catpkg_catpkgsplit(matches_sync[0])
             # remove -r* from version
@@ -316,17 +316,16 @@ def get_props(
                         last_version, url = get_latest_directory_package(home, match, settings)
 
         if last_version or top_hash:
-            logger.debug(f'Inserting {catpkg}: {ebuild_version} -> {last_version} : {top_hash}')
+            log.debug('Inserting %s: %s -> %s : %s', catpkg, ebuild_version, last_version, top_hash)
             yield (cat, pkg, ebuild_version, last_version, top_hash, hash_date, url)
         else:
-            logger.debug(f'Ignoring {catpkg}, update not available')
+            log.debug('Ignoring %s. Update not available.', catpkg)
 
 
 def get_old_sha(ebuild: Path, url: str) -> str:
-    # TODO: Support mix of SHA and COMMIT (example guru/dev-python/tempy/tempy-1.4.0.ebuild)
     sha_pattern = re.compile(r'(SHA|COMMIT|EGIT_COMMIT)=["\']?([a-f0-9]{40})')
 
-    with open(ebuild, encoding='utf-8') as file:
+    with Path(ebuild).open(encoding='utf-8') as file:
         for line in file:
             if match := sha_pattern.search(line):
                 return match.group(2)
@@ -337,7 +336,7 @@ def get_old_sha(ebuild: Path, url: str) -> str:
 
 def get_egit_repo(ebuild: Path) -> tuple[str, str]:
     egit = branch = ''
-    with open(ebuild, encoding='utf-8') as file:
+    with Path(ebuild).open(encoding='utf-8') as file:
         for line in file:
             if match := re.compile(r'^EGIT_REPO_URI=(["\'])?(.*)\1').search(line):
                 egit = match.group(2)
@@ -350,15 +349,19 @@ def str_version(version: str, sha: str) -> str:
     return version + f' ({sha})' if sha else version
 
 
+DATE_LENGTH_8 = 8
+DATE_LENGTH_6 = 6
+
+
 def replace_date_in_ebuild(ebuild: str, new_date: str, cp: str) -> str:
     short_date = new_date[2:]
     pattern = re.compile(r'(\d{4,8})')
 
     def replace_match(match: Match[str]) -> str:
         matched_text = match.group(0)
-        if len(matched_text) == 8 and matched_text.isdigit():
+        if len(matched_text) == DATE_LENGTH_8 and matched_text.isdigit():
             return new_date
-        if len(matched_text) == 6 and matched_text.isdigit():
+        if len(matched_text) == DATE_LENGTH_6 and matched_text.isdigit():
             return short_date
         return matched_text
 
@@ -378,7 +381,7 @@ def execute_hooks(hook_dir: str | None, action: str, search_dir: str, cp: str, s
         return
     for hook in sorted(hook_path.iterdir()):
         if hook.is_file() and os.access(hook, os.X_OK):
-            logger.debug(f'Running hook {hook}')
+            log.debug('Running hook {hook}')
             result = sp.run([
                 hook, search_dir, cp, str_old_version, str_new_version, old_sha, new_sha, hash_date
             ],
@@ -393,18 +396,17 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
             hook_dir: str | None) -> None:
     cp = f'{cat}/{pkg}'
     ebuild = Path(search_dir) / cp / f'{pkg}-{ebuild_version}.ebuild'
-    # TODO: files.pythonhosted.org use different path structure /xx/yy/sha/archive... for replace in url
     old_sha = get_old_sha(ebuild, url)
-    if len(old_sha) == 7:
+    if len(old_sha) == 7:  # noqa: PLR2004
         top_hash = top_hash[:7]
     if update_sha_too_source := settings.sha_sources.get(cp, None):
-        logger.debug('Package also needs a SHA update')
+        log.debug('Package also needs a SHA update.')
         _, top_hash, hash_date, _ = parse_url(update_sha_too_source, f'{cp}-{ebuild_version}',
                                               settings)
 
         # if empty, it means that the source is not supported
         if not top_hash:
-            logger.warning(f'Could not get new SHA for {update_sha_too_source}')
+            log.warning('Could not get new SHA for %s.', update_sha_too_source)
             return
     if not last_version:
         last_version = ebuild_version
@@ -413,40 +415,38 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
     if last_version == ebuild_version and old_sha != top_hash and old_sha and top_hash:
         _, _, new_version, new_revision = catpkgsplit2(f'{cp}-{last_version}')
         new_revision = 'r' + str(int(new_revision[1:]) + 1)
-        logger.debug(f'Incrementing revision to {new_revision}')
+        log.debug('Incrementing revision to %s.', new_revision)
         last_version = f'{new_version}-{new_revision}'
-    logger.debug(f'top_hash = {last_version}')
+    log.debug('top_hash = {last_version}')
 
     # Remove leading zeros to prevent issues with version comparison
     last_version = remove_leading_zeros(last_version)
     ebuild_version = remove_leading_zeros(ebuild_version)
 
-    logger.debug(
-        f'Comparing current ebuild version {ebuild_version} with live version {last_version}')
+    log.debug('Comparing current ebuild version {ebuild_version} with live version {last_version}')
     if compare_versions(ebuild_version, last_version):
         dn = Path(ebuild).parent
         new_filename = f'{dn}/{pkg}-{last_version}.ebuild'
         _, _, _, new_version = catpkg_catpkgsplit(f'{cp}-{last_version}')
         _, _, _, old_version = catpkg_catpkgsplit(f'{cp}-{ebuild_version}')
-        logger.debug(f'Migrating from {ebuild} to {new_filename}')
+        log.debug('Migrating from %s to %s.', ebuild, new_filename)
         no_auto_update_str = ' (no_auto_update)' if cp in settings.no_auto_update else ''
         str_new_version = str_version(new_version, top_hash)
         str_old_version = str_version(old_version, old_sha)
-        logger.debug(f'{cat}/{pkg}: {str_old_version} -> '
-                     f'{str_new_version}{no_auto_update_str}')
+        log.debug('%s/%s: %s -> %s%s', cat, pkg, str_old_version, str_new_version,
+                  no_auto_update_str)
 
         if settings.auto_update_flag and cp not in settings.no_auto_update:
             # First check requirements before update
-            if (cp in settings.dotnet_projects and not check_dotnet_requirements()) or (
-                    cp in settings.composer_packages and not check_composer_requirements()
-            ) or (cp in settings.yarn_base_packages and not check_yarn_requirements()) or (
-                    cp in settings.nodejs_packages
-                    and not check_nodejs_requirements()) or (cp in settings.gomodule_packages
-                                                             and not check_gomodule_requirements()):
-                logger.warning('Update is not possible')
+            if ((  # noqa: PLR0916
+                    cp in settings.dotnet_projects and not check_dotnet_requirements())
+                    or (cp in settings.composer_packages and not check_composer_requirements())
+                    or (cp in settings.yarn_base_packages and not check_yarn_requirements())
+                    or (cp in settings.nodejs_packages and not check_nodejs_requirements())
+                    or (cp in settings.gomodule_packages and not check_gomodule_requirements())):
+                log.warning('Update is not possible.')
                 return
-            with open(ebuild, encoding='utf-8') as f:
-                old_content = content = f.read()
+            old_content = content = Path(ebuild).read_text(encoding='utf-8')
             # Only update the version if it is not a commit
             if top_hash and old_sha:
                 content = content.replace(old_sha, top_hash)
@@ -455,18 +455,17 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
                 ps_ref = TAG_NAME_FUNCTIONS[cp](top_hash)
             content = process_submodules(cp, ps_ref, content, url)
             dn = Path(ebuild).parent
-            logger.debug(f'{ebuild} -> {new_filename}')
+            log.debug('%s -> %s', ebuild, new_filename)
             if settings.keep_old.get(cp, not settings.keep_old_flag):
                 if settings.git_flag:
                     try:
                         sp.run(('git', 'mv', ebuild, new_filename), check=True)
                     except sp.CalledProcessError:
-                        logger.error(f'Error moving {ebuild} to {new_filename}')
+                        log.exception('Error moving %s to %s.', ebuild, new_filename)
                         return
                 else:
                     sp.run(('mv', ebuild, new_filename), check=True)
-            with open(new_filename, 'w', encoding='utf-8') as f:
-                f.write(content)
+            Path(new_filename).write_text(content, encoding='utf-8')
             execute_hooks(hook_dir, 'pre', search_dir, cp, ebuild_version, last_version, old_sha,
                           top_hash, hash_date)
             # We do not check the digest because it may happen that additional files need to be
@@ -488,10 +487,9 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
             if cp in settings.composer_packages:
                 content = remove_composer_url(content)
             if old_content != content:
-                with open(new_filename, 'w', encoding='utf-8') as file:
-                    file.write(content)
+                Path(new_filename).write_text(content, encoding='utf-8')
             if not digest_ebuild(new_filename):
-                logger.error(f'Error digesting {new_filename}')
+                log.error('Error digesting %s.', new_filename)
                 return
             # Second pass
             # Update ebuild or download news file
@@ -514,10 +512,9 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
                 update_composer_ebuild(new_filename, settings.composer_path[cp], fetchlist)
             # Restore original ebuild content
             if old_content != content:
-                with open(new_filename, 'w', encoding='utf-8') as file:
-                    file.write(old_content)
+                Path(new_filename).write_text(old_content, encoding='utf-8')
                 if not digest_ebuild(new_filename):
-                    logger.error(f'Error digesting {new_filename}')
+                    log.error('Error digesting %s.', new_filename)
                     return
             if settings.git_flag and sp.run(
                 ('ebuild', new_filename, 'digest'), check=False).returncode == 0:
@@ -526,7 +523,7 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
                 try:
                     sp.run(('pkgdev', 'commit'), cwd=Path(search_dir) / cp, check=True)
                 except sp.CalledProcessError:
-                    logger.error(f'Error committing {new_filename}')
+                    log.exception('Error committing %s.', new_filename)
             execute_hooks(hook_dir, 'post', search_dir, cp, ebuild_version, last_version, old_sha,
                           top_hash, hash_date)
 
@@ -541,11 +538,7 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
               '--hook-dir',
               default=None,
               help='Run a hook directory scripts with various parameters.',
-              type=click.Path(file_okay=False,
-                              dir_okay=True,
-                              exists=True,
-                              resolve_path=True,
-                              executable=True))
+              type=click.Path(file_okay=False, exists=True, resolve_path=True, path_type=Path))
 @click.option('-k', '--keep-old', is_flag=True, help='Keep old ebuild versions.')
 @click.option('-p', '--progress', is_flag=True, help='Enable progress logging.')
 @click.option('-W',
@@ -554,61 +547,50 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
               help='Working directory. Should be a port tree root.',
               type=click.Path(file_okay=False, exists=True, resolve_path=True, readable=True))
 @click.argument('package_names', nargs=-1)
-def main(
-    auto_update: bool = False,
-    debug: bool = False,
-    development: bool = False,
-    exclude: tuple[str] | None = None,
-    git: bool = False,
-    hook_dir: str | None = None,
-    keep_old: bool = False,
-    package_names: tuple[str] | list[str] | None = None,
-    progress: bool = False,
-    working_dir: str | None = '.',
-) -> int:
+def main(exclude: tuple[str, ...] | None = None,
+         hook_dir: str | None = None,
+         package_names: tuple[str, ...] | list[str] | None = None,
+         working_dir: str | None = '.',
+         *,
+         auto_update: bool = False,
+         debug: bool = False,
+         development: bool = False,
+         git: bool = False,
+         keep_old: bool = False,
+         progress: bool = False) -> int:
+    logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
     if working_dir and working_dir != '.':
         chdir(working_dir)
-    if debug:
-        logging.basicConfig(level=logging.DEBUG)
-    else:
-        logger.configure(handlers=[{
-            'sink':
-                sys.stderr,
-            'level':
-                'INFO',
-            'format':
-                '<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <level>{message}</level>'
-        }])
     if exclude:
-        logger.debug(f'Excluding {", ".join(exclude)}')
+        log.debug('Excluding %s.', ', '.join(exclude))
     search_dir = working_dir or '.'
     if auto_update and not os.access(search_dir, os.W_OK):
         msg = f'The directory "{working_dir}" must be writable because --auto-update is enabled.'
         raise click.ClickException(msg)
     repo_root, repo_name = get_repository_root_if_inside(search_dir)
     if not repo_root:
-        logger.error('Not inside a repository configured in repos.conf')
+        log.error('Not inside a repository configured in repos.conf.')
         raise click.Abort
     if git:
         if not auto_update:
-            logger.error('Git option requires --auto-update')
+            log.error('Git option requires --auto-update.')
             raise click.Abort
         if not Path(repo_root, '.git').is_dir():
-            logger.error(f'Directory {repo_root} is not a git repository')
+            log.error('Directory %s is not a git repository.', repo_root)
             raise click.Abort
         # Check if .git is a writeable directory
         if not os.access(Path(repo_root, '.git'), os.W_OK):
-            logger.error(f'Directory {repo_root}/.git is not writable')
+            log.error('Directory %s/.git is not writable.', repo_root)
             raise click.Abort
         # Check if git is installed
         if not check_program('git', '--version'):
-            logger.error('Git is not installed')
+            log.error('Git is not installed.')
             raise click.Abort
         # Check if pkgdev is installed
         if not check_program('pkgdev', '--version'):
-            logger.error('pkgdev is not installed')
+            log.error('pkgdev is not installed.')
             raise click.Abort
-    logger.info(f'search_dir={search_dir} repo_root={repo_root} repo_name={repo_name}')
+    log.info('search_dir=%s repo_root=%s repo_name=%s', search_dir, repo_root, repo_name)
     settings = gather_settings(search_dir)
 
     # update flags in settings
@@ -620,9 +602,9 @@ def main(
     settings.progress_flag = progress
 
     package_names = sorted(package_names or [])
-    for cat, pkg, ebuild_version, last_version, top_hash, hash_date, url in get_props(
-            search_dir, repo_root, settings, package_names, exclude):
-        try:
+    try:
+        for cat, pkg, ebuild_version, last_version, top_hash, hash_date, url in get_props(
+                search_dir, repo_root, settings, package_names, exclude):
             do_main(cat=cat,
                     pkg=pkg,
                     last_version=last_version,
@@ -633,7 +615,7 @@ def main(
                     settings=settings,
                     ebuild_version=ebuild_version,
                     hook_dir=hook_dir)
-        except Exception:
-            logger.exception(f'Exception while checking {cat}/{pkg}')
-            raise
+    except Exception:
+        log.exception('Exception while checking %s/%s.', cat, pkg)
+        raise
     return 0

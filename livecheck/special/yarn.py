@@ -3,10 +3,10 @@ from pathlib import Path
 from shutil import copyfile
 from typing import TypedDict, cast
 import json
+import logging
 import re
 import subprocess as sp
 
-from loguru import logger
 from typing_extensions import NotRequired
 
 from livecheck.utils import check_program
@@ -19,6 +19,8 @@ console.log(
     JSON.stringify(lockfile.parse(fs.readFileSync(process.argv[3], 'utf8'))['object']));"""
 
 __all__ = ('check_yarn_requirements', 'update_yarn_ebuild')
+
+logger = logging.getLogger(__name__)
 
 
 class LockfilePackage(TypedDict):
@@ -65,7 +67,8 @@ def yarn_pkgs(project_path: Path) -> Iterator[str]:
     deps = parse_lockfile(project_path).items()
     for key, val in deps:
         has_prefix_at = key.startswith('@')
-        dep_name = f'{"@" if has_prefix_at else ""}{key[1 if has_prefix_at else 0:].split("@", maxsplit=1)[0]}'
+        suffix = key[1 if has_prefix_at else 0:].split('@', maxsplit=1)[0]
+        dep_name = f'{"@" if has_prefix_at else ""}{suffix}'
         if dep_name.endswith('-cjs'):
             continue
         yield f'{dep_name}-{val["version"]}'

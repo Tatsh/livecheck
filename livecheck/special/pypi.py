@@ -17,7 +17,8 @@ PYPI_DOWNLOAD_URL = 'https://pypi.org/pypi/%s/json'
 def extract_project(url: str) -> str:
     parsed = urlparse(url)
     path = parsed.path.split('/')
-    if parsed.netloc in {'pypi', 'pypi.org', 'pypi.io', 'files.pythonhosted.org'} and len(path) > 3:
+    if (parsed.netloc in {'pypi', 'pypi.org', 'pypi.io', 'files.pythonhosted.org'}
+            and len(path) > 3):  # noqa: PLR2004
         if path[2] == 'source':
             return path[4]
         if m := re.search(r'^(.*?)(?=-\d)', path[-1]):

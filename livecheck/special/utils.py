@@ -4,7 +4,7 @@ import os
 import tarfile
 import tempfile
 
-from xdg.BaseDirectory import save_cache_path
+from platformdirs import user_cache_dir
 
 from livecheck.utils.portage import get_distdir, unpack_ebuild
 
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_project_path(package_name: str) -> Path:
-    return Path(save_cache_path(f'livecheck/{package_name}'))
+    return Path(user_cache_dir('livecheck')) / package_name
 
 
 def remove_url_ebuild(ebuild: str, remove: str) -> str:
@@ -63,8 +63,8 @@ def search_ebuild(ebuild: str, archive: str, path: str | None = None) -> tuple[s
 def build_compress(temp_dir: str, base_dir: str, directory: str, extension: str,
                    fetchlist: dict[str, tuple[str, ...]]) -> bool:
 
-    vendor_dir = os.path.join(base_dir, directory)
-    if not os.path.exists(vendor_dir):
+    vendor_dir = Path(base_dir) / directory
+    if not vendor_dir.exists():
         logger.warning('The directory vendor was not created.')
         return False
 
@@ -80,12 +80,12 @@ def build_compress(temp_dir: str, base_dir: str, directory: str, extension: str,
     else:
         base_name = filename[:-len(archive_ext)]
         vendor_archive_name = f'{base_name}{extension}'
-    vendor_archive_path = os.path.join(get_distdir(), vendor_archive_name)
+    vendor_archive_path = get_distdir() / vendor_archive_name
 
     vendor_path = Path(base_dir).resolve()
     base_path = Path(temp_dir).resolve()
 
-    relative_path = os.path.join(vendor_path.relative_to(base_path), directory)
+    relative_path = vendor_path.relative_to(base_path) / directory
 
     with tarfile.open(vendor_archive_path, 'w:xz') as tar:
         tar.add(vendor_dir, arcname=str(relative_path))

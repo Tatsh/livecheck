@@ -1,7 +1,8 @@
 from datetime import datetime
 from urllib.parse import urlparse
 import re
-import xml.etree.ElementTree as ET
+
+from defusedxml import ElementTree as ET  # noqa: N817
 
 from livecheck.constants import RSS_NS
 from livecheck.settings import LivecheckSettings
@@ -30,7 +31,7 @@ def extract_owner_repo(url: str) -> tuple[str, str, str]:
     # check if uri start with github. and has at least 3 parts
     if (m := re.match(r'^github\.(io|com)$', n)):
         p = [x for x in u.path.split('/') if x]
-        if len(p) < 2:
+        if len(p) < 2:  # noqa: PLR2004
             return '', '', ''
         r = p[1].replace('.git', '')
         return f'https://{d}/{p[0]}/{r}', p[0], r
@@ -93,7 +94,7 @@ def get_branch(url: str, ebuild: str, settings: LivecheckSettings) -> str:
 
     # get branch from url
     parts = url.strip('/').split('/')
-    if len(parts) >= 2 and parts[-2] == 'commits':
+    if len(parts) >= 2 and parts[-2] == 'commits':  # noqa: PLR2004
         return parts[-1].replace('.atom', '')
 
     # get branch from settings

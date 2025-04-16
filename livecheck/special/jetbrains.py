@@ -1,7 +1,6 @@
 from pathlib import Path
 from urllib.parse import urlparse
-
-from loguru import logger
+import logging
 
 from livecheck.settings import LivecheckSettings
 from livecheck.utils import get_content
@@ -12,6 +11,7 @@ from .utils import EbuildTempFile, search_ebuild
 __all__ = ('get_latest_jetbrains_package', 'is_jetbrains', 'update_jetbrains_ebuild')
 
 JETBRAINS_TAG_URL = 'https://data.services.jetbrains.com/products'
+logger = logging.getLogger(__name__)
 
 
 def get_latest_jetbrains_package(ebuild: str, settings: LivecheckSettings) -> str:

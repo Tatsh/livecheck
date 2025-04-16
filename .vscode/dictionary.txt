@@ -20,6 +20,7 @@ datatables
 davinci
 dcoppit
 debugpy
+defusedxml
 devcontainers
 devel
 distdir
@@ -94,6 +95,7 @@ phpstorm
 pipx
 pkgdev
 pkgs
+platformdirs
 portdir
 porttree
 psvpfstools

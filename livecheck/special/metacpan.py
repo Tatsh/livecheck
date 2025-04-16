@@ -49,7 +49,7 @@ def get_latest_metacpan_package2(package_name: str, ebuild: str,
 
 
 def is_metacpan(url: str) -> bool:
-    return extract_perl_package(url) != ''
+    return bool(extract_perl_package(url))
 
 
 def get_latest_metacpan_metadata(remote: str, ebuild: str, settings: LivecheckSettings) -> str:

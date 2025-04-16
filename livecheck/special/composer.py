@@ -1,12 +1,13 @@
+import logging
 import subprocess as sp
-
-from loguru import logger
 
 from livecheck.utils import check_program
 
 from .utils import build_compress, remove_url_ebuild, search_ebuild
 
 __all__ = ('check_composer_requirements', 'remove_composer_url', 'update_composer_ebuild')
+
+log = logging.getLogger(__name__)
 
 
 def remove_composer_url(ebuild_content: str) -> str:
@@ -23,8 +24,8 @@ def update_composer_ebuild(ebuild: str, path: str | None, fetchlist: dict[str, t
         sp.run(('composer', '--no-interaction', '--no-scripts', 'install'),
                cwd=composer_path,
                check=True)
-    except sp.CalledProcessError as e:
-        logger.error(f"Error running 'composer': {e}")
+    except sp.CalledProcessError:
+        log.exception("Error running 'composer'.")
         return
 
     build_compress(temp_dir, composer_path, 'vendor', '-vendor.tar.xz', fetchlist)
@@ -32,6 +33,6 @@ def update_composer_ebuild(ebuild: str, path: str | None, fetchlist: dict[str, t
 
 def check_composer_requirements() -> bool:
     if not check_program('composer', '--version'):
-        logger.error('composer is not installed')
+        log.error('composer is not installed')
         return False
     return True

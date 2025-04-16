@@ -60,7 +60,6 @@ SUBMODULES: Final[Mapping[str, set[str | tuple[str, str]]]] = {
         'external/stb',
         'external/unicorn',
         'external/vita-toolchain',
-        # TODO Handle other externals in psvpfstools https://github.com/Vita3K/psvpfstools
     },
     'games-emulation/yuzu': {
         'externals/SDL',

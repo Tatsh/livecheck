@@ -3,15 +3,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlparse
 import json
+import logging
 import re
-
-from loguru import logger
 
 from . import utils
 
 __all__ = ('TYPE_CHECKSUM', 'TYPE_COMMIT', 'TYPE_DAVINCI', 'TYPE_DIRECTORY', 'TYPE_METADATA',
            'TYPE_NONE', 'TYPE_REGEX', 'TYPE_REPOLOGY', 'LivecheckSettings', 'gather_settings')
 
+log = logging.getLogger(__name__)
 TYPE_CHECKSUM = 'checksum'
 TYPE_COMMIT = 'commit'
 TYPE_DAVINCI = 'davinci'
@@ -85,7 +85,7 @@ class UnknownTransformationFunction(NameError):
 
 def gather_settings(search_dir: str) -> LivecheckSettings:
     # Prevent circular import.
-    import livecheck.special.handlers as sc
+    import livecheck.special.handlers as sc  # noqa: PLC0415
 
     branches: dict[str, str] = {}
     custom_livechecks: dict[str, tuple[str, str]] = {}
@@ -112,37 +112,37 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
     stable_version: dict[str, str] = {}
 
     for path in Path(search_dir).glob('**/livecheck.json'):
-        logger.debug(f'Opening {path}')
+        log.debug('Opening %s.', path)
         with path.open() as f:
             dn = path.parent
             catpkg = f'{dn.parent.name}/{dn.name}'
             try:
                 settings_parsed = json.load(f)
-            except json.JSONDecodeError as e:
-                logger.error(f'Error parsing file {path}: {e}')
+            except json.JSONDecodeError:
+                log.exception('Error parsing file %s.', path)
                 continue
             if settings_parsed.get('type') is not None:
                 type_ = settings_parsed.get('type').lower()
                 if type_ == TYPE_REGEX:
                     if settings_parsed.get('url') is None:
-                        logger.error(f'No "url" in {path}')
+                        log.error('No "url" in %s.', path)
                         continue
                     if settings_parsed.get('regex') is None:
-                        logger.error(f'No "regex" in {path}')
+                        log.error('No "regex" in %s.', path)
                         continue
                     custom_livechecks[catpkg] = (settings_parsed['url'], settings_parsed['regex'])
                 if type_ == TYPE_REPOLOGY:
                     if settings_parsed.get('package') is None:
-                        logger.error(f'No "package" in {path}')
+                        log.error('No "package" in %s.', path)
                         continue
                     custom_livechecks[catpkg] = (settings_parsed.get('package'), '')
                 if type_ == TYPE_DIRECTORY:
                     if settings_parsed.get('url') is None:
-                        logger.error(f'No "url" in {path}')
+                        log.error('No "url" in %s.', path)
                         continue
                     custom_livechecks[catpkg] = (settings_parsed.get('url'), '')
                 if type_ not in SETTINGS_TYPES:
-                    logger.error(f'Unknown "type" in {path}')
+                    log.error('Unknown "type" in %s.', path)
                 else:
                     type_packages[catpkg] = type_
 
@@ -151,7 +151,7 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
                 branches[catpkg] = settings_parsed['branch']
             if 'no_auto_update' in settings_parsed:
                 check_instance(settings_parsed['no_auto_update'], 'no_auto_update', 'bool', path,
-                               True)
+                               True)  # noqa: FBT003
                 no_auto_update.add(catpkg)
             if settings_parsed.get('transformation_function', None):
                 tfs = settings_parsed['transformation_function']
@@ -215,10 +215,10 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
                     composer_path[catpkg] = settings_parsed['composer_path']
             if 'pattern_version' in settings_parsed or 'replace_version' in settings_parsed:
                 if 'pattern_version' not in settings_parsed:
-                    logger.error(f'No "pattern_version" in {path}')
+                    log.error('No "pattern_version" in %s.', path)
                     continue
                 if 'replace_version' not in settings_parsed:
-                    logger.error(f'No "replace_version" in {path}')
+                    log.error('No "replace_version" in %s.', path)
                     continue
                 check_instance(settings_parsed['pattern_version'], 'pattern_version', 'regex', path)
                 check_instance(settings_parsed['replace_version'], 'replace_version', 'string',
@@ -229,7 +229,7 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
                 if settings_parsed.get('restrict_version').lower(
                 ) != 'full' and settings_parsed.get('restrict_version').lower(
                 ) != 'major' and settings_parsed.get('restrict_version').lower() != 'minor':
-                    logger.error(f'Invalid "restrict_version" in {path}')
+                    log.error('Invalid "restrict_version" in %s.', path)
                     continue
                 restrict_version[catpkg] = settings_parsed['restrict_version'].lower()
             if 'sync_version' in settings_parsed:
@@ -247,11 +247,12 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
                              restrict_version, sync_version, stable_version)
 
 
-def check_instance(value: int | str | bool | list[str] | None,
-                   key: str,
-                   dtype: str,
-                   path: str | object,
-                   specific_value: bool | int | str | None = None) -> None:
+def check_instance(
+        value: int | str | bool | list[str] | None,  # noqa: FBT001
+        key: str,
+        dtype: str,
+        path: str | object,
+        specific_value: bool | int | str | None = None) -> None:  # noqa: FBT001
     is_type = False
     if dtype == 'bool':
         is_type = isinstance(value, bool)
@@ -275,8 +276,9 @@ def check_instance(value: int | str | bool | list[str] | None,
             is_type = False
 
     if not is_type:
-        logger.error(f'Value "{value}" in key "{key}" is not of type "{dtype}" in file {path}')
+        log.error('value "%s" in key "%s" is not of type "%s" in file "%s.', value, key, dtype,
+                  path)
 
     if specific_value is not None and value != specific_value:
-        logger.error(
-            f'Value "{value}" in key "{key}" is not equal to "{specific_value}" in file {path}')
+        log.error('Value "%s" in key "%s" is not equal to "%s" in file "%s".', value, key,
+                  specific_value, path)

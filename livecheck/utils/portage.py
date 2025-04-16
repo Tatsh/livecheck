@@ -1,8 +1,8 @@
 from collections.abc import Sequence
-from functools import lru_cache
+from functools import cache
 from itertools import chain
+from pathlib import Path
 import logging
-import os
 import re
 
 from portage.versions import catpkgsplit, vercmp
@@ -16,7 +16,7 @@ __all__ = ('P', 'catpkg_catpkgsplit', 'catpkgsplit2', 'compare_versions', 'fetch
            'unpack_ebuild')
 
 P = portage.db[portage.root]['porttree'].dbapi
-logger = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 
 def mask_version(cp: str, version: str, restrict_version: str | None = 'full') -> str:
@@ -55,7 +55,11 @@ def get_highest_matches(names: Sequence[str], repo_root: str,
     return [f'{cp}-{version}' for cp, version in result.items()]
 
 
-@lru_cache
+CATPKGSPLIT_SIZE = 4
+"""Size of the tuple returned by ``catpkgsplit()``."""
+
+
+@cache
 def catpkgsplit2(atom: str) -> tuple[str | None, str, str, str]:
     """
     Split an atom string. This function always returns a four-string tuple.
@@ -71,14 +75,14 @@ def catpkgsplit2(atom: str) -> tuple[str | None, str, str, str]:
         Tuple consisting of four strings. If category is not set, the first item is ``None``.
     """
     result = catpkgsplit(atom)
-    if result is None or len(result) != 4:
+    if result is None or len(result) != CATPKGSPLIT_SIZE:
         msg = f'Invalid atom: {atom}'
         raise ValueError(msg)
 
     return result[0], result[1], result[2], result[3]
 
 
-@lru_cache
+@cache
 def catpkg_catpkgsplit(atom: str) -> tuple[str, str, str, str]:
     cat, pkg, ebuild_version, revision = catpkgsplit2(atom)
     assert cat is not None
@@ -109,20 +113,20 @@ def get_repository_root_if_inside(directory: str) -> tuple[str, str]:
     repos = [*settings['PORTDIR_OVERLAY'].split(), settings['PORTDIR']]
 
     # Normalize the directory path to check
-    directory = os.path.abspath(directory) + '/'
+    directory = f'{Path(directory).resolve(strict=True)}/'
     selected_repo_root = ''
     selected_repo_name = ''
 
     # Check each repository
     for repo_root in repos:
-        if os.path.isdir(repo_root):
-            repo_root = os.path.abspath(repo_root)
+        if Path(repo_root).is_dir():
+            repo_root_ = str(Path(repo_root).resolve(strict=True))
             # Check if the directory is inside the repository root
-            if directory.startswith(repo_root + '/'):
-                # Select the most specific repository (deepest path)
-                if selected_repo_root is None or len(repo_root) > len(selected_repo_root):
-                    selected_repo_root = repo_root
-                    selected_repo_name = os.path.basename(repo_root)
+            # Select the most specific repository (deepest path)
+            if ((directory.startswith(repo_root_ + '/') and selected_repo_root is None)
+                    or len(repo_root_) > len(selected_repo_root)):
+                selected_repo_root = repo_root_
+                selected_repo_name = Path(repo_root_).name
 
     if '/local/' in directory and '/local/' not in selected_repo_root:
         return '', ''
@@ -164,7 +168,7 @@ def sanitize_version(ver: str, repo: str = '') -> str:
 
 
 def remove_leading_zeros(ver: str) -> str:
-    # check if a date format like 2022.12.26 or 24.01.12
+    """Check if version has a date string like ``2022.12.26``."""
     if not re.match(r'\d{4}|\d{2}\.\d{2}\.\d{2}', ver):
         return ver
     if match := re.match(r'(\d+)\.(\d+)(?:\.(\d+))?(.*)', ver):
@@ -175,9 +179,24 @@ def remove_leading_zeros(ver: str) -> str:
     return ver
 
 
-# Sanitize version to Gentoo Ebuild format
-# info: https://dev.gentoo.org/~gokturk/devmanual/pr65/ebuild-writing/file-format/index.html
-def normalize_version(ver: str) -> str:
+def normalize_version(ver: str) -> str:  # noqa: PLR0911
+    """
+    Normalize version string to Gentoo Ebuild format.
+
+    See Also
+    --------
+    `Guide <https://devmanual.gentoo.org/ebuild-writing/file-format/ebuild-format.html>`_
+
+    Parameters
+    ----------
+    ver : str
+        The version string to normalize.
+
+    Returns
+    -------
+    str
+        The normalized version string.
+    """
     i = 0
     sep = '._-'
     while i < len(ver) and (ver[i].isdigit() or ver[i] in sep):
@@ -243,12 +262,12 @@ def compare_versions(old: str, new: str) -> bool:
     return bool(vercmp(old, new) == -1)
 
 
-def get_distdir() -> str:
+def get_distdir() -> Path:
     settings = portage.config(clone=portage.settings)
     if distdir := settings.get('DISTDIR'):
-        return str(distdir)
+        return Path(distdir)
 
-    return '/var/cache/distfiles'
+    return Path('/var/cache/distfiles')
 
 
 def fetch_ebuild(ebuild_path: str) -> bool:
@@ -272,9 +291,9 @@ def unpack_ebuild(ebuild_path: str) -> str:
     if portage.doebuild(ebuild_path, 'unpack', settings=settings, tree='porttree') != 0:
         return ''
 
-    workdir = settings['WORKDIR']
+    workdir = Path(settings['WORKDIR'])
 
-    if os.path.exists(workdir) and os.path.isdir(workdir):
+    if workdir.exists() and workdir.is_dir():
         return str(workdir)
 
     return ''
@@ -282,8 +301,7 @@ def unpack_ebuild(ebuild_path: str) -> str:
 
 def get_last_version(results: list[dict[str, str]], repo: str, ebuild: str,
                      settings: LivecheckSettings) -> dict[str, str]:
-    # TODO: Solve when 0.7 is greater than 0.69 (guru/dev-python/yams)
-    logger.debug('Result count: %d', len(results))
+    log.debug('Result count: %d', len(results))
 
     catpkg, _, _, ebuild_version = catpkg_catpkgsplit(ebuild)
     last_version: dict[str, str] = {}
@@ -292,25 +310,25 @@ def get_last_version(results: list[dict[str, str]], repo: str, ebuild: str,
         tag = version = result['tag']
         if tf := settings.transformations.get(catpkg, None):
             version = tf(tag)
-            logger.debug('Applying transformation %s -> %s', tag, version)
+            log.debug('Applying transformation %s -> %s', tag, version)
         if catpkg in settings.regex_version:
             regex, replace = settings.regex_version[catpkg]
             version = re.sub(regex, replace, version)
-            logger.debug('Applying regex %s -> %s', tag, version)
+            log.debug('Applying regex %s -> %s', tag, version)
         else:
             version = sanitize_version(version, repo)
-            logger.debug('Convert Tag: %s -> %s', tag, version)
+            log.debug('Convert Tag: %s -> %s', tag, version)
         if not version:
             continue
         # skip version extraneous without dots, example Post120ToMaster
         if ebuild_version.count('.') > 1 and version.count('.') == 0:
-            logger.debug('Skip version without dots: %s', version)
+            log.debug('Skip version without dots: %s', version)
             continue
         # Check valid version
         try:
             _, _, _, _ = catpkg_catpkgsplit(f'{catpkg}-{version}')
         except ValueError:
-            logger.debug('Skip non-version tag: %s', version)
+            log.debug('Skip non-version tag: %s', version)
             continue
         if not version.startswith(settings.restrict_version_process):
             continue
@@ -321,7 +339,7 @@ def get_last_version(results: list[dict[str, str]], repo: str, ebuild: str,
                 last_version['version'] = version
 
     if not last_version:
-        logger.debug('No new update for %s.', ebuild)
+        log.debug('No new update for %s.', ebuild)
 
     return last_version
 

@@ -1,7 +1,8 @@
 from pathlib import Path
 from urllib.parse import urlparse
 import re
-import xml.etree.ElementTree as ET
+
+from defusedxml import ElementTree as ET  # noqa: N817
 
 from livecheck.settings import LivecheckSettings
 from livecheck.utils import get_content
