@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Iterable
 from functools import cache
 from itertools import chain
 from pathlib import Path
@@ -27,23 +27,29 @@ def mask_version(cp: str, version: str, restrict_version: str | None = 'full') -
     return cp
 
 
-def get_highest_matches(names: Sequence[str], repo_root: str,
+def get_highest_matches(names: Iterable[str], repo_root: str,
                         settings: LivecheckSettings) -> list[str]:
+    log.debug('Searching for %s.', ', '.join(names))
     result: dict[str, str] = {}
     for name in names:
         if not (matches := P.xmatch('match-all', name)):
+            log.debug('Found no matches with xmatch("match-all").')
             continue
         for m in matches:
             # Check if the package structure is valid
             try:
                 cp_a, _, _, version = catpkg_catpkgsplit(m)
             except ValueError:
+                log.debug('Ignoring invalid package structure.')
                 continue
 
-            if repo_root and P.findname2(m)[1] != repo_root:
+            if repo_root and (actual_root := P.findname2(m)[1]) != repo_root:
+                log.debug('Ignoring invalid repository root. Expected `%s` and received `%s`.',
+                          repo_root, actual_root)
                 continue
 
             if '9999' in version or not cp_a or not version:
+                log.debug('Ignoring 9999 version.')
                 continue
 
             restrict_version = settings.restrict_version.get(name, 'full')
@@ -123,8 +129,7 @@ def get_repository_root_if_inside(directory: str) -> tuple[str, str]:
             repo_root_ = str(Path(repo_root).resolve(strict=True))
             # Check if the directory is inside the repository root
             # Select the most specific repository (deepest path)
-            if ((directory.startswith(repo_root_ + '/') and selected_repo_root is None)
-                    or len(repo_root_) > len(selected_repo_root)):
+            if directory.startswith(f'{repo_root_}/') and not selected_repo_root:
                 selected_repo_root = repo_root_
                 selected_repo_name = Path(repo_root_).name
 
