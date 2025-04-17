@@ -27,7 +27,7 @@ def mask_version(cp: str, version: str, restrict_version: str | None = 'full') -
     return cp
 
 
-def get_highest_matches(names: Iterable[str], repo_root: str,
+def get_highest_matches(names: Iterable[str], repo_root: Path | None,
                         settings: LivecheckSettings) -> list[str]:
     log.debug('Searching for %s.', ', '.join(names))
     result: dict[str, str] = {}
@@ -43,7 +43,7 @@ def get_highest_matches(names: Iterable[str], repo_root: str,
                 log.debug('Ignoring invalid package structure.')
                 continue
 
-            if repo_root and (actual_root := P.findname2(m)[1]) != repo_root:
+            if repo_root and (actual_root := P.findname2(m)[1]) != str(repo_root):
                 log.debug('Ignoring invalid repository root. Expected `%s` and received `%s`.',
                           repo_root, actual_root)
                 continue
@@ -99,10 +99,11 @@ def catpkg_catpkgsplit(atom: str) -> tuple[str, str, str, str]:
     return f'{cat}/{pkg}', cat, pkg, ebuild_version
 
 
-def get_first_src_uri(match: str, search_dir: str | None = None) -> str:
+def get_first_src_uri(match: str, search_dir: Path | None = None) -> str:
     try:
         if (found_uri := next((uri for uri in chain(
-                *(x.split() for x in map(str, P.aux_get(match, ['SRC_URI'], mytree=search_dir))))
+                *(x.split()
+                  for x in map(str, P.aux_get(match, ['SRC_URI'], mytree=str(search_dir)))))
                                if uri.startswith(('http://', 'https://', 'mirror://', 'ftp://'))),
                               None)):
             return found_uri
@@ -111,7 +112,7 @@ def get_first_src_uri(match: str, search_dir: str | None = None) -> str:
     return ''
 
 
-def get_repository_root_if_inside(directory: str) -> tuple[str, str]:
+def get_repository_root_if_inside(directory: Path) -> tuple[str, str]:
     # Get Portage configuration
     settings = portage.config(clone=portage.settings)
 
@@ -119,7 +120,7 @@ def get_repository_root_if_inside(directory: str) -> tuple[str, str]:
     repos = [*settings['PORTDIR_OVERLAY'].split(), settings['PORTDIR']]
 
     # Normalize the directory path to check
-    directory = f'{Path(directory).resolve(strict=True)}/'
+    directory = directory.resolve(strict=True)
     selected_repo_root = ''
     selected_repo_name = ''
 
@@ -129,11 +130,11 @@ def get_repository_root_if_inside(directory: str) -> tuple[str, str]:
             repo_root_ = str(Path(repo_root).resolve(strict=True))
             # Check if the directory is inside the repository root
             # Select the most specific repository (deepest path)
-            if directory.startswith(f'{repo_root_}/') and not selected_repo_root:
+            if str(directory).startswith(f'{repo_root_}/') and not selected_repo_root:
                 selected_repo_root = repo_root_
                 selected_repo_name = Path(repo_root_).name
 
-    if '/local/' in directory and '/local/' not in selected_repo_root:
+    if '/local/' in str(directory) and '/local/' not in str(selected_repo_root):
         return '', ''
 
     # Return the most specific repository root, if found

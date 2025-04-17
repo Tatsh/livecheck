@@ -229,8 +229,8 @@ def extract_restrict_version(cp: str) -> tuple[str, str]:
 
 
 def get_props(
-    search_dir: str,
-    repo_root: str,
+    search_dir: Path,
+    repo_root: Path,
     settings: LivecheckSettings,
     names: Sequence[str] | None = None,
     exclude: Sequence[str] | None = None,
@@ -239,7 +239,7 @@ def get_props(
     if not names:
         names = [
             f'{path.parent.parent.name}/{path.parent.name}'
-            for path in Path(search_dir).glob('**/*.ebuild')
+            for path in search_dir.glob('**/*.ebuild')
         ]
     matches_list = sorted(get_highest_matches(names, repo_root, settings))
     log.info('Found %d ebuilds.', len(matches_list))
@@ -267,7 +267,7 @@ def get_props(
         if branch:
             settings.branches[catpkg] = branch
         if catpkg in settings.sync_version:
-            matches_sync = get_highest_matches([settings.sync_version[catpkg]], '', settings)
+            matches_sync = get_highest_matches([settings.sync_version[catpkg]], None, settings)
             if not matches_sync:
                 log.error('No matches for %s.', catpkg)
                 continue
@@ -277,7 +277,7 @@ def get_props(
         if settings.type_packages.get(catpkg) == TYPE_DAVINCI:
             last_version = get_latest_davinci_package(pkg)
         elif settings.type_packages.get(catpkg) == TYPE_METADATA:
-            last_version, top_hash, hash_date, url = parse_metadata(repo_root, match, settings)
+            last_version, top_hash, hash_date, url = parse_metadata(str(repo_root), match, settings)
         elif settings.type_packages.get(catpkg) == TYPE_DIRECTORY:
             url, _ = settings.custom_livechecks[catpkg]
             last_version, url = get_latest_directory_package(url, match, settings)
@@ -288,7 +288,8 @@ def get_props(
             url, regex = settings.custom_livechecks[catpkg]
             last_version, hash_date, url = get_latest_regex_package(match, url, regex, settings)
         elif settings.type_packages.get(catpkg) == TYPE_CHECKSUM:
-            last_version, hash_date, url = get_latest_checksum_package(src_uri, match, repo_root)
+            last_version, hash_date, url = get_latest_checksum_package(
+                src_uri, match, str(repo_root))
         elif settings.type_packages.get(catpkg) == TYPE_COMMIT:
             last_version, top_hash, hash_date, url = parse_url(egit, match, settings)
         else:
@@ -297,10 +298,12 @@ def get_props(
             if not last_version and not top_hash:
                 last_version, top_hash, hash_date, url = parse_url(src_uri, match, settings)
             if not last_version and not top_hash:
-                last_version, top_hash, hash_date, url = parse_metadata(repo_root, match, settings)
+                last_version, top_hash, hash_date, url = parse_metadata(
+                    str(repo_root), match, settings)
             # Try check for homepage
             homes = [
-                x for x in ' '.join(P.aux_get(match, ['HOMEPAGE'], mytree=repo_root)).split(' ')
+                x
+                for x in ' '.join(P.aux_get(match, ['HOMEPAGE'], mytree=str(repo_root))).split(' ')
                 if x
             ]
             for home in homes:
@@ -372,11 +375,12 @@ def replace_date_in_ebuild(ebuild: str, new_date: str, cp: str) -> str:
     return str(new_version) if old_version != new_version else n
 
 
-def execute_hooks(hook_dir: str | None, action: str, search_dir: str, cp: str, str_old_version: str,
-                  str_new_version: str, old_sha: str, new_sha: str, hash_date: str) -> None:
+def execute_hooks(hook_dir: Path | None, action: str, search_dir: Path, cp: str,
+                  str_old_version: str, str_new_version: str, old_sha: str, new_sha: str,
+                  hash_date: str) -> None:
     if not hook_dir:
         return
-    hook_path = Path(hook_dir + '/' + action)
+    hook_path = hook_dir / action
     if not hook_path.is_dir():
         return
     for hook in sorted(hook_path.iterdir()):
@@ -391,9 +395,9 @@ def execute_hooks(hook_dir: str | None, action: str, search_dir: str, cp: str, s
                 raise click.Abort
 
 
-def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
+def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: Path,
             settings: LivecheckSettings, last_version: str, top_hash: str, hash_date: str, url: str,
-            hook_dir: str | None) -> None:
+            hook_dir: Path | None) -> None:
     cp = f'{cat}/{pkg}'
     ebuild = Path(search_dir) / cp / f'{pkg}-{ebuild_version}.ebuild'
     old_sha = get_old_sha(ebuild, url)
@@ -423,7 +427,8 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
     last_version = remove_leading_zeros(last_version)
     ebuild_version = remove_leading_zeros(ebuild_version)
 
-    log.debug('Comparing current ebuild version {ebuild_version} with live version {last_version}')
+    log.debug('Comparing current ebuild version %s with live version %s.', ebuild_version,
+              last_version)
     if compare_versions(ebuild_version, last_version):
         dn = Path(ebuild).parent
         new_filename = f'{dn}/{pkg}-{last_version}.ebuild'
@@ -497,7 +502,7 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
                 update_yarn_ebuild(new_filename, settings.yarn_base_packages[cp], pkg,
                                    settings.yarn_packages.get(cp))
             if settings.type_packages.get(cp) == TYPE_CHECKSUM:
-                update_checksum_metadata(f'{cp}-{last_version}', url, search_dir)
+                update_checksum_metadata(f'{cp}-{last_version}', url, str(search_dir))
             if cp in settings.go_sum_uri:
                 update_go_ebuild(new_filename, top_hash, settings.go_sum_uri[cp])
             if cp in settings.dotnet_projects:
@@ -554,7 +559,7 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
 def main(exclude: tuple[str, ...] | None = None,
          hook_dir: Path | None = None,
          package_names: tuple[str, ...] | list[str] | None = None,
-         working_dir: Path | None = '.',
+         working_dir: Path | None = None,
          *,
          auto_update: bool = False,
          debug: bool = False,
@@ -563,11 +568,11 @@ def main(exclude: tuple[str, ...] | None = None,
          keep_old: bool = False,
          progress: bool = False) -> int:
     logging.basicConfig(level=logging.DEBUG if debug else logging.ERROR)
-    if working_dir and working_dir != '.':
+    if working_dir:
         chdir(working_dir)
     if exclude:
         log.debug('Excluding %s.', ', '.join(exclude))
-    search_dir = working_dir or '.'
+    search_dir = working_dir or Path()
     if auto_update and not os.access(search_dir, os.W_OK):
         msg = f'The directory "{working_dir}" must be writable because --auto-update is enabled.'
         raise click.ClickException(msg)
@@ -595,7 +600,7 @@ def main(exclude: tuple[str, ...] | None = None,
             log.error('pkgdev is not installed.')
             raise click.Abort
     log.info('search_dir=%s repo_root=%s repo_name=%s', search_dir, repo_root, repo_name)
-    settings = gather_settings(search_dir)
+    settings = gather_settings(str(search_dir))
 
     # update flags in settings
     settings.auto_update_flag = auto_update
@@ -609,14 +614,14 @@ def main(exclude: tuple[str, ...] | None = None,
     cat = pkg = None
     try:
         for cat, pkg, ebuild_version, last_version, top_hash, hash_date, url in get_props(
-                search_dir, repo_root, settings, package_names, exclude):
+                search_dir, Path(repo_root), settings, package_names, exclude):
             do_main(cat=cat,
                     pkg=pkg,
                     last_version=last_version,
                     top_hash=top_hash,
                     hash_date=hash_date,
                     url=url,
-                    search_dir=repo_root,
+                    search_dir=Path(repo_root),
                     settings=settings,
                     ebuild_version=ebuild_version,
                     hook_dir=hook_dir)
