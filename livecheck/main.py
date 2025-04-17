@@ -417,7 +417,7 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
         new_revision = 'r' + str(int(new_revision[1:]) + 1)
         log.debug('Incrementing revision to %s.', new_revision)
         last_version = f'{new_version}-{new_revision}'
-    log.debug('top_hash = {last_version}')
+    log.debug('top_hash = %s', last_version)
 
     # Remove leading zeros to prevent issues with version comparison
     last_version = remove_leading_zeros(last_version)
@@ -545,12 +545,16 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: str,
               '--working-dir',
               default='.',
               help='Working directory. Should be a port tree root.',
-              type=click.Path(file_okay=False, exists=True, resolve_path=True, readable=True))
+              type=click.Path(file_okay=False,
+                              exists=True,
+                              resolve_path=True,
+                              readable=True,
+                              path_type=Path))
 @click.argument('package_names', nargs=-1)
 def main(exclude: tuple[str, ...] | None = None,
-         hook_dir: str | None = None,
+         hook_dir: Path | None = None,
          package_names: tuple[str, ...] | list[str] | None = None,
-         working_dir: str | None = '.',
+         working_dir: Path | None = '.',
          *,
          auto_update: bool = False,
          debug: bool = False,
@@ -558,7 +562,7 @@ def main(exclude: tuple[str, ...] | None = None,
          git: bool = False,
          keep_old: bool = False,
          progress: bool = False) -> int:
-    logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
+    logging.basicConfig(level=logging.DEBUG if debug else logging.ERROR)
     if working_dir and working_dir != '.':
         chdir(working_dir)
     if exclude:
@@ -602,6 +606,7 @@ def main(exclude: tuple[str, ...] | None = None,
     settings.progress_flag = progress
 
     package_names = sorted(package_names or [])
+    cat = pkg = None
     try:
         for cat, pkg, ebuild_version, last_version, top_hash, hash_date, url in get_props(
                 search_dir, repo_root, settings, package_names, exclude):
@@ -616,6 +621,7 @@ def main(exclude: tuple[str, ...] | None = None,
                     ebuild_version=ebuild_version,
                     hook_dir=hook_dir)
     except Exception:
-        log.exception('Exception while checking %s/%s.', cat, pkg)
+        if cat and pkg:
+            log.exception('Exception while checking %s/%s.', cat, pkg)
         raise
     return 0
