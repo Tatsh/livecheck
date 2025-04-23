@@ -438,8 +438,8 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: Path,
         no_auto_update_str = ' (no_auto_update)' if cp in settings.no_auto_update else ''
         str_new_version = str_version(new_version, top_hash)
         str_old_version = str_version(old_version, old_sha)
-        log.debug('%s/%s: %s -> %s%s', cat, pkg, str_old_version, str_new_version,
-                  no_auto_update_str)
+        log.info('%s/%s: %s -> %s%s', cat, pkg, str_old_version, str_new_version,
+                 no_auto_update_str)
 
         if settings.auto_update_flag and cp not in settings.no_auto_update:
             # First check requirements before update
@@ -567,7 +567,7 @@ def main(exclude: tuple[str, ...] | None = None,
          git: bool = False,
          keep_old: bool = False,
          progress: bool = False) -> int:
-    logging.basicConfig(level=logging.DEBUG if debug else logging.ERROR)
+    logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
     if working_dir:
         chdir(working_dir)
     if exclude:
