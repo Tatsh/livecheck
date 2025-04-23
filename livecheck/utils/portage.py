@@ -121,6 +121,7 @@ def get_repository_root_if_inside(directory: Path) -> tuple[str, str]:
 
     # Normalize the directory path to check
     directory = directory.resolve(strict=True)
+    directory_str = str(directory) + '/'
     selected_repo_root = ''
     selected_repo_name = ''
 
@@ -130,11 +131,11 @@ def get_repository_root_if_inside(directory: Path) -> tuple[str, str]:
             repo_root_ = str(Path(repo_root).resolve(strict=True))
             # Check if the directory is inside the repository root
             # Select the most specific repository (deepest path)
-            if str(directory).startswith(f'{repo_root_}/') and not selected_repo_root:
+            if directory_str.startswith(f'{repo_root_}/') and not selected_repo_root:
                 selected_repo_root = repo_root_
                 selected_repo_name = Path(repo_root_).name
 
-    if '/local/' in str(directory) and '/local/' not in str(selected_repo_root):
+    if '/local/' in directory_str and '/local/' not in str(selected_repo_root):
         return '', ''
 
     # Return the most specific repository root, if found
