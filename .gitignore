@@ -3,6 +3,8 @@
 .*_cache/
 .coverage
 .directory
+.history
+.idea
 .pnp.*
 /.yarn/install-state.gz
 /dist/
