@@ -1,4 +1,5 @@
 from collections.abc import Iterable
+import re
 import subprocess as sp
 
 from packaging.version import Version
@@ -31,8 +32,12 @@ def check_program(cmd: str,
     except (sp.CalledProcessError, FileNotFoundError):
         return False
     try:
-        if min_version and Version(result.stdout.strip()) < Version(min_version):
-            return False
+        if min_version:
+            v = re.search(r'\d+(\.\d+)+', result.stdout.strip())
+            if not v:
+                return False
+            if Version(v.group(0)) < Version(min_version):
+                return False
     except ValueError:
         return False
 
