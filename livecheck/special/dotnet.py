@@ -108,7 +108,7 @@ def update_dotnet_ebuild(ebuild: str, project_or_solution: str | Path) -> None:
 
 
 def check_dotnet_requirements() -> bool:
-    if not check_program('dotnet', '--version', '10.0.0'):
+    if not check_program('dotnet', ['--version'], '10.0.0'):
         log.error('dotnet is not installed or version is less than 9.0.0')
         return False
     return True

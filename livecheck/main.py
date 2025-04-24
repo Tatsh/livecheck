@@ -592,11 +592,11 @@ def main(exclude: tuple[str, ...] | None = None,
             log.error('Directory %s/.git is not writable.', repo_root)
             raise click.Abort
         # Check if git is installed
-        if not check_program('git', '--version'):
+        if not check_program('git', ['--version']):
             log.error('Git is not installed.')
             raise click.Abort
         # Check if pkgdev is installed
-        if not check_program('pkgdev', '--version'):
+        if not check_program('pkgdev', ['--version']):
             log.error('pkgdev is not installed.')
             raise click.Abort
     log.info('search_dir=%s repo_root=%s repo_name=%s', search_dir, repo_root, repo_name)

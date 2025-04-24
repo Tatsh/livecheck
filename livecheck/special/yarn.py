@@ -110,10 +110,10 @@ def update_yarn_ebuild(ebuild: str,
 
 
 def check_yarn_requirements() -> bool:
-    if not check_program('yarn', '--version'):
+    if not check_program('yarn', ['--version']):
         logger.error('yarn is not installed')
         return False
-    if not check_program('node', '--version'):
+    if not check_program('node', ['--version']):
         logger.error('yarn is not installed')
         return False
     return True
