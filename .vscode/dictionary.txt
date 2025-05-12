@@ -5,6 +5,7 @@ autodoc
 automodule
 beautifulsoup
 bitrock
+bsky
 bsnes
 catpkg
 catpkgsplit
