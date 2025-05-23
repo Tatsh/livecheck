@@ -68,13 +68,15 @@ def get_latest_bitbucket_package(url: str, ebuild: str,
 
 
 def get_latest_bitbucket(url: str, ebuild: str,
-                         settings: LivecheckSettings) -> tuple[str, str, str]:
+                         settings: LivecheckSettings, *, force_sha: bool) -> tuple[str, str, str]:
     last_version = top_hash = hash_date = ''
 
     if is_sha(urlparse(url).path):
         log_unhandled_commit(ebuild, url)
     else:
         last_version, top_hash = get_latest_bitbucket_package(url, ebuild, settings)
+        if not force_sha:
+            top_hash = ''
 
     return last_version, top_hash, hash_date
 

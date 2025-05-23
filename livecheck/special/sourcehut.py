@@ -91,11 +91,13 @@ def get_branch(url: str, ebuild: str, settings: LivecheckSettings) -> str:
 
 
 def get_latest_sourcehut(url: str, ebuild: str,
-                         settings: LivecheckSettings) -> tuple[str, str, str]:
+                         settings: LivecheckSettings, *, force_sha: bool) -> tuple[str, str, str]:
     last_version = top_hash = hash_date = ''
 
     if (branch := get_branch(url, ebuild, settings)):
         top_hash, hash_date = get_latest_sourcehut_commit(url, branch)
+        if not force_sha:
+            top_hash = ''
     else:
         last_version = get_latest_sourcehut_package(url, ebuild, settings)
 

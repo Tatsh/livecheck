@@ -108,13 +108,15 @@ def get_branch(url: str, ebuild: str, settings: LivecheckSettings) -> str:
     return ''
 
 
-def get_latest_github(url: str, ebuild: str, settings: LivecheckSettings) -> tuple[str, str, str]:
+def get_latest_github(url: str, ebuild: str, settings: LivecheckSettings, *, force_sha: bool) -> tuple[str, str, str]:
     last_version = top_hash = hash_date = ''
 
     if (branch := get_branch(url, ebuild, settings)):
         top_hash, hash_date = get_latest_github_commit(url, branch)
     else:
         last_version, top_hash = get_latest_github_package(url, ebuild, settings)
+        if not force_sha:
+            top_hash = ''
 
     return last_version, top_hash, hash_date
 

@@ -138,7 +138,7 @@ def log_unhandled_pkg(ebuild: str, src_uri: str) -> None:
     log.debug('Unhandled: %s, SRC_URI: %s', ebuild, src_uri)
 
 
-def parse_url(src_uri: str, ebuild: str, settings: LivecheckSettings) -> tuple[str, str, str, str]:
+def parse_url(src_uri: str, ebuild: str, settings: LivecheckSettings, *, force_sha: bool) -> tuple[str, str, str, str]:
     parsed_uri = urlparse(src_uri)
     last_version = top_hash = hash_date = ''
     url = src_uri
@@ -150,15 +150,15 @@ def parse_url(src_uri: str, ebuild: str, settings: LivecheckSettings) -> tuple[s
     if is_gist(src_uri):
         top_hash, hash_date = get_latest_gist_package(src_uri)
     elif is_github(src_uri):
-        last_version, top_hash, hash_date = get_latest_github(src_uri, ebuild, settings)
+        last_version, top_hash, hash_date = get_latest_github(src_uri, ebuild, settings, force_sha=force_sha)
     elif is_sourcehut(src_uri):
-        last_version, top_hash, hash_date = get_latest_sourcehut(src_uri, ebuild, settings)
+        last_version, top_hash, hash_date = get_latest_sourcehut(src_uri, ebuild, settings, force_sha=force_sha)
     elif is_pypi(src_uri):
         last_version, url = get_latest_pypi_package(src_uri, ebuild, settings)
     elif is_jetbrains(src_uri):
         last_version = get_latest_jetbrains_package(ebuild, settings)
     elif is_gitlab(src_uri):
-        last_version, top_hash, hash_date = get_latest_gitlab(src_uri, ebuild, settings)
+        last_version, top_hash, hash_date = get_latest_gitlab(src_uri, ebuild, settings, force_sha=force_sha)
     elif is_package(src_uri):
         last_version = get_latest_package(src_uri, ebuild, settings)
     elif is_pecl(src_uri):
@@ -170,7 +170,7 @@ def parse_url(src_uri: str, ebuild: str, settings: LivecheckSettings) -> tuple[s
     elif is_sourceforge(src_uri):
         last_version = get_latest_sourceforge_package(src_uri, ebuild, settings)
     elif is_bitbucket(src_uri):
-        last_version, top_hash, hash_date = get_latest_bitbucket(src_uri, ebuild, settings)
+        last_version, top_hash, hash_date = get_latest_bitbucket(src_uri, ebuild, settings, force_sha=force_sha)
     else:
         log_unhandled_pkg(ebuild, src_uri)
 
@@ -291,12 +291,12 @@ def get_props(
             last_version, hash_date, url = get_latest_checksum_package(
                 src_uri, match, str(repo_root))
         elif settings.type_packages.get(catpkg) == TYPE_COMMIT:
-            last_version, top_hash, hash_date, url = parse_url(egit, match, settings)
+            last_version, top_hash, hash_date, url = parse_url(egit, match, settings, force_sha=True)
         else:
             if egit:
-                last_version, top_hash, hash_date, url = parse_url(egit, match, settings)
+                last_version, top_hash, hash_date, url = parse_url(egit, match, settings, force_sha=True)
             if not last_version and not top_hash:
-                last_version, top_hash, hash_date, url = parse_url(src_uri, match, settings)
+                last_version, top_hash, hash_date, url = parse_url(src_uri, match, settings, force_sha=False)
             if not last_version and not top_hash:
                 last_version, top_hash, hash_date, url = parse_metadata(
                     str(repo_root), match, settings)
@@ -308,7 +308,7 @@ def get_props(
             ]
             for home in homes:
                 if not last_version and not top_hash:
-                    last_version, top_hash, hash_date, url = parse_url(home, match, settings)
+                    last_version, top_hash, hash_date, url = parse_url(home, match, settings, force_sha=False)
             if not last_version and not top_hash:
                 last_version = get_latest_repology(match, settings)
             # Only check directory if no other method was found
@@ -406,7 +406,7 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: Path,
     if update_sha_too_source := settings.sha_sources.get(cp, None):
         log.debug('Package also needs a SHA update.')
         _, top_hash, hash_date, _ = parse_url(update_sha_too_source, f'{cp}-{ebuild_version}',
-                                              settings)
+                                              settings, force_sha=True)
 
         # if empty, it means that the source is not supported
         if not top_hash:
@@ -462,15 +462,20 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: Path,
             dn = Path(ebuild).parent
             log.debug('%s -> %s', ebuild, new_filename)
             if settings.keep_old.get(cp, not settings.keep_old_flag):
-                if settings.git_flag:
-                    try:
+                try:
+                    if settings.git_flag:
                         sp.run(('git', 'mv', ebuild, new_filename), check=True)
-                    except sp.CalledProcessError:
-                        log.exception('Error moving %s to %s.', ebuild, new_filename)
-                        return
-                else:
-                    sp.run(('mv', ebuild, new_filename), check=True)
-            Path(new_filename).write_text(content, encoding='utf-8')
+                    else:
+                        sp.run(('mv', ebuild, new_filename), check=True)
+                except sp.CalledProcessError:
+                    log.exception('Error moving %s to %s.', ebuild, new_filename)
+                    return
+
+            try:
+                Path(new_filename).write_text(content, encoding='utf-8')
+            except OSError:
+                log.exception('Error writing %s.', new_filename)
+                return
             execute_hooks(hook_dir, 'pre', search_dir, cp, ebuild_version, last_version, old_sha,
                           top_hash, hash_date)
             # We do not check the digest because it may happen that additional files need to be
