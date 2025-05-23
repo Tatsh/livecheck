@@ -266,7 +266,7 @@ def get_props(
             log.debug('Ignoring %s.', catpkg)
             continue
         src_uri = get_first_src_uri(match, repo_root)
-        if cat.startswith('acct-') or settings.type_packages.get(catpkg) == TYPE_NONE:
+        if cat.startswith(('acct-', 'virtual')) or settings.type_packages.get(catpkg) == TYPE_NONE:
             log.debug('Ignoring %s.', catpkg)
             continue
         if settings.debug_flag or settings.progress_flag:
