@@ -53,6 +53,14 @@ def get_content(url: str) -> requests.Response:
     parsed_uri = urlparse(url)
     log.debug('Fetching %s', url)
 
+    if parsed_uri.scheme == 'mirror':
+        # If the URL is a mirror, we need to handle it differently
+        # This is a placeholder for the actual implementation
+        log.debug('Handling MIRROR protocol for %s', url)
+        response = requests.Response()
+        response.status_code = HTTPStatus.NOT_IMPLEMENTED
+        return response
+
     if parsed_uri.hostname == 'api.github.com':
         session = session_init('github')
     elif parsed_uri.hostname == 'api.gitlab.com':
