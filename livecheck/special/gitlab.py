@@ -62,7 +62,8 @@ def get_latest_gitlab_package(url: str, ebuild: str,
     return '', ''
 
 
-def get_latest_gitlab(url: str, ebuild: str, settings: LivecheckSettings, *, force_sha: bool) -> tuple[str, str, str]:
+def get_latest_gitlab(url: str, ebuild: str, settings: LivecheckSettings, *,
+                      force_sha: bool) -> tuple[str, str, str]:
     last_version = top_hash = hash_date = ''
 
     if is_sha(urlparse(url).path):
