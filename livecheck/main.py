@@ -501,7 +501,7 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: Path,
             try:
                 Path(new_filename).write_text(content, encoding='utf-8')
             except OSError:
-                log.exception('Error writing %s.', new_filename)
+                log.exception('Error writing `%s`.', new_filename)
                 return
             execute_hooks(hook_dir, 'pre', search_dir, cp, ebuild_version, last_version, old_sha,
                           top_hash, hash_date)
