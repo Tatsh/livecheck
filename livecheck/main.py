@@ -3,6 +3,7 @@ from collections.abc import Iterator, Sequence
 from os import chdir
 from pathlib import Path
 from re import Match
+from shutil import copyfile
 from urllib.parse import urlparse
 import logging
 import os
