@@ -270,7 +270,7 @@ def get_props(
             log.debug('Ignoring %s.', catpkg)
             continue
         if settings.debug_flag or settings.progress_flag:
-            log.info('Processing %s version %s', catpkg, ebuild_version)
+            log.info('Processing `%s` version `%s`.', catpkg, ebuild_version)
         last_version = hash_date = top_hash = url = ''
         ebuild = Path(repo_root) / catpkg / f'{pkg}-{ebuild_version}.ebuild'
         egit, branch = get_egit_repo(ebuild)
