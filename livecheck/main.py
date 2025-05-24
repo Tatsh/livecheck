@@ -493,9 +493,9 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: Path,
                     if settings.git_flag:
                         sp.run(('git', 'mv', ebuild, new_filename), check=True)
                     else:
-                        sp.run(('mv', ebuild, new_filename), check=True)
-                except sp.CalledProcessError:
-                    log.exception('Error moving %s to %s.', ebuild, new_filename)
+                        copyfile(ebuild, new_filename)
+                except OSError:
+                    log.exception('Error moving `%s` to `%s`.', ebuild, new_filename)
                     return
 
             try:
