@@ -50,7 +50,11 @@ def handle_bsnes_hd(s: str) -> str:
 
 def handle_pl(s: str) -> str:
     logger.debug('handle_pl() < "%s"', s)
-    major, minor, mm, pl = assert_not_none(re.match(r'^v?(\d+)\.(\d+)\.(\d+)-pl(\d+)', s)).groups()
+    res = re.match(r'^v?(\d+)\.(\d+)\.(\d+)-pl(\d+)', s)
+    if not res:
+        logger.debug('handle_pl() -> ""')
+        return ''
+    major, minor, mm, pl = res.groups()
     ret = f'{major}.{minor}.{mm}.{pl}'
     logger.debug('handle_pl() -> "%s"', ret)
     return ret
