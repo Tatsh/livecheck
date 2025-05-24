@@ -56,7 +56,7 @@ def get_content(url: str) -> requests.Response:
     if parsed_uri.scheme == 'mirror':
         # If the URL is a mirror, we need to handle it differently
         # This is a placeholder for the actual implementation
-        log.debug('Handling MIRROR protocol for %s', url)
+        log.debug('Handling mirror:// protocol for `%s`.', url)
         response = requests.Response()
         response.status_code = HTTPStatus.NOT_IMPLEMENTED
         return response
