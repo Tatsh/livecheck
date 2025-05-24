@@ -166,9 +166,8 @@ consider making changes in `repos.conf` if necessary.
 Example:
 
 ```shell
-poetry shell
-cd "${VIRTUAL_ENV}/etc"
-cp -R /etc/portage .
-cd portage
-ln -sf "$(readlink -f /etc/portage/make.profile)" make.profile
+eval "$(poetry env activate)"
+pip install keyrings-alt
+cp -R /etc/portage "${VIRTUAL_ENV}/etc/"
+ln -sf "$(readlink -f /etc/portage/make.profile)" "${VIRTUAL_ENV}/etc/portage/make.profile"
 ```
