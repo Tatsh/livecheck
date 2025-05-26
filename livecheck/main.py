@@ -425,9 +425,7 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: Path,
             hook_dir: Path | None) -> None:
     cp = f'{cat}/{pkg}'
     ebuild = Path(search_dir) / cp / f'{pkg}-{ebuild_version}.ebuild'
-    old_sha = get_old_sha(ebuild, url)
-    if len(old_sha) == 7:  # noqa: PLR2004
-        top_hash = top_hash[:7]
+    old_sha = ''
     if update_sha_too_source := settings.sha_sources.get(cp, None):
         log.debug('Package also needs a SHA update.')
         _, top_hash, hash_date, _ = parse_url(update_sha_too_source,
@@ -439,6 +437,11 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: Path,
         if not top_hash:
             log.warning('Could not get new SHA for %s.', update_sha_too_source)
             return
+    if top_hash:
+        old_sha = get_old_sha(ebuild, url)
+        if len(old_sha) == 7:  # noqa: PLR2004
+            top_hash = top_hash[:7]
+        log.debug('Get old_sha = %s', old_sha)
     if not last_version:
         last_version = ebuild_version
     if hash_date:

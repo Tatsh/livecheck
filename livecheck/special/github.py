@@ -116,8 +116,9 @@ def get_latest_github(url: str, ebuild: str, settings: LivecheckSettings, *,
         top_hash, hash_date = get_latest_github_commit(url, branch)
     else:
         last_version, top_hash = get_latest_github_package(url, ebuild, settings)
-        if not force_sha:
-            top_hash = ''
+
+    if not force_sha:
+        top_hash = ''
 
     return last_version, top_hash, hash_date
 
