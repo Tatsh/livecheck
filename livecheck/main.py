@@ -3,7 +3,6 @@ from collections.abc import Iterator, Sequence
 from os import chdir
 from pathlib import Path
 from re import Match
-from shutil import copyfile
 from urllib.parse import urlparse
 import logging
 import os
@@ -492,9 +491,9 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: Path,
             if settings.keep_old.get(cp, not settings.keep_old_flag):
                 try:
                     if settings.git_flag:
-                        sp.run(('git', 'mv', ebuild, new_filename), check=True)
+                        sp.run(('git', 'mv', str(ebuild), new_filename), check=True)
                     else:
-                        copyfile(ebuild, new_filename)
+                        ebuild.rename(ebuild, new_filename)
                 except OSError:
                     log.exception('Error moving `%s` to `%s`.', ebuild, new_filename)
                     return
