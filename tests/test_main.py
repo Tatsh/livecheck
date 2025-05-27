@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from livecheck.main import replace_date_in_ebuild
 
 CP = 'sys-devel/gcc'

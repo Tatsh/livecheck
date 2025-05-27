@@ -1,12 +1,18 @@
-from collections.abc import Callable, Mapping
+"""Settings."""
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 import json
 import logging
 import re
 
 from . import utils
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Mapping
+    from pathlib import Path
 
 __all__ = ('TYPE_CHECKSUM', 'TYPE_COMMIT', 'TYPE_DAVINCI', 'TYPE_DIRECTORY', 'TYPE_METADATA',
            'TYPE_NONE', 'TYPE_REGEX', 'TYPE_REPOLOGY', 'LivecheckSettings', 'gather_settings')
@@ -22,19 +28,14 @@ TYPE_REGEX = 'regex'
 TYPE_REPOLOGY = 'repology'
 
 SETTINGS_TYPES = {
-    TYPE_CHECKSUM,
-    TYPE_COMMIT,
-    TYPE_DAVINCI,
-    TYPE_DIRECTORY,
-    TYPE_METADATA,
-    TYPE_NONE,
-    TYPE_REGEX,
-    TYPE_REPOLOGY,
+    TYPE_CHECKSUM, TYPE_COMMIT, TYPE_DAVINCI, TYPE_DIRECTORY, TYPE_METADATA, TYPE_NONE, TYPE_REGEX,
+    TYPE_REPOLOGY
 }
 
 
 @dataclass
 class LivecheckSettings:
+    """All settings."""
     branches: dict[str, str] = field(default_factory=dict)
     custom_livechecks: dict[str, tuple[str, str]] = field(default_factory=dict)
     dotnet_projects: dict[str, str] = field(default_factory=dict)
@@ -75,6 +76,7 @@ class LivecheckSettings:
     restrict_version_process: str = ''
 
     def is_devel(self, catpkg: str) -> bool:
+        """Check if the package is a development version."""
         return self.development.get(catpkg, self.development_flag)
 
 
@@ -84,6 +86,14 @@ class UnknownTransformationFunction(NameError):
 
 
 def gather_settings(search_dir: Path) -> LivecheckSettings:
+    """
+    Gather settings from ``livecheck.json`` files in the given directory.
+
+    Raises
+    ------
+    UnknownTransformationFunction
+        If a transformation function is invalid.
+    """
     # Prevent circular import.
     import livecheck.special.handlers as sc  # noqa: PLC0415
 

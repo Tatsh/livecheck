@@ -1,12 +1,17 @@
+"""SourceHut utility functions."""
+from __future__ import annotations
+
 from datetime import datetime
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 import re
 
 from defusedxml import ElementTree as ET  # noqa: N817
-
-from livecheck.settings import LivecheckSettings
 from livecheck.utils import get_content, is_sha
 from livecheck.utils.portage import catpkg_catpkgsplit, get_last_version
+
+if TYPE_CHECKING:
+    from livecheck.settings import LivecheckSettings
 
 __all__ = ('SOURCEHUT_METADATA', 'get_latest_sourcehut', 'get_latest_sourcehut_commit',
            'get_latest_sourcehut_metadata', 'get_latest_sourcehut_package', 'is_sourcehut')
@@ -24,6 +29,7 @@ def extract_owner_repo(url: str) -> tuple[str, str, str]:
 
 
 def get_latest_sourcehut_package(url: str, ebuild: str, settings: LivecheckSettings) -> str:
+    """Get the latest version of a SourceHut package."""
     domain, owner, repo = extract_owner_repo(url)
     if not owner or not repo:
         return ''
@@ -45,6 +51,7 @@ def get_latest_sourcehut_package(url: str, ebuild: str, settings: LivecheckSetti
 
 
 def get_latest_sourcehut_commit(url: str, branch: str = 'master') -> tuple[str, str]:
+    """Get the latest commit hash and date from a SourceHut repository."""
     domain, owner, repo = extract_owner_repo(url)
     if not owner or not repo:
         return '', ''
@@ -68,6 +75,7 @@ def get_latest_sourcehut_commit(url: str, branch: str = 'master') -> tuple[str, 
 
 
 def is_sourcehut(url: str) -> bool:
+    """Check if the given URL is a SourceHut repository."""
     return bool(extract_owner_repo(url)[0])
 
 
@@ -92,6 +100,7 @@ def get_branch(url: str, ebuild: str, settings: LivecheckSettings) -> str:
 
 def get_latest_sourcehut(url: str, ebuild: str, settings: LivecheckSettings, *,
                          force_sha: bool) -> tuple[str, str, str]:
+    """Get the latest version and commit hash from a SourceHut repository."""
     last_version = top_hash = hash_date = ''
 
     if (branch := get_branch(url, ebuild, settings)):
@@ -105,6 +114,7 @@ def get_latest_sourcehut(url: str, ebuild: str, settings: LivecheckSettings, *,
 
 
 def get_latest_sourcehut_metadata(remote: str, ebuild: str, settings: LivecheckSettings) -> str:
+    """Get the latest version of a SourceHut package from its metadata."""
     if not (last_version := get_latest_sourcehut_package(f'https://git.sr.ht/{remote}', ebuild,
                                                          settings)):
         last_version = get_latest_sourcehut_package(f'https://hg.sr.ht/{remote}', ebuild, settings)

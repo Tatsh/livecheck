@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Any
 
 from livecheck.utils.misc import check_program

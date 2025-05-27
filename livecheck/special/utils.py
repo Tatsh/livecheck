@@ -1,12 +1,14 @@
+"""General utilities for special handling."""
+from __future__ import annotations
+
 from pathlib import Path
 import logging
 import os
 import tarfile
 import tempfile
 
-from platformdirs import user_cache_dir
-
 from livecheck.utils.portage import get_distdir, unpack_ebuild
+from platformdirs import user_cache_dir
 
 __all__ = ('EbuildTempFile', 'build_compress', 'get_archive_extension', 'get_project_path',
            'remove_url_ebuild', 'search_ebuild')
@@ -15,10 +17,12 @@ logger = logging.getLogger(__name__)
 
 
 def get_project_path(package_name: str) -> Path:
+    """Get the project path for a given package name."""
     return Path(user_cache_dir('livecheck')) / package_name
 
 
 def remove_url_ebuild(ebuild: str, remove: str) -> str:
+    """Remove URLs from the ebuild content."""
     lines = ebuild.split('\n')
     filtered_lines = []
     for line in lines:
@@ -39,6 +43,7 @@ def remove_url_ebuild(ebuild: str, remove: str) -> str:
 
 
 def search_ebuild(ebuild: str, archive: str, path: str | None = None) -> tuple[str, str]:
+    """Search for an archive in the unpacked ebuild directory."""
     temp_dir = unpack_ebuild(ebuild)
     if not temp_dir:
         logger.warning('Error unpacking the ebuild.')
@@ -55,14 +60,14 @@ def search_ebuild(ebuild: str, archive: str, path: str | None = None) -> tuple[s
             if archive in files:
                 return root, temp_dir
 
-    logger.error('Error searching the "{archive}" inside package.')
+    logger.error('Error searching the `%s` inside package.', archive)
 
     return '', ''
 
 
 def build_compress(temp_dir: str, base_dir: str, directory: str, extension: str,
                    fetchlist: dict[str, tuple[str, ...]]) -> bool:
-
+    """Build dist archive."""
     vendor_dir = Path(base_dir) / directory
     if not vendor_dir.exists():
         logger.warning('The directory vendor was not created.')
@@ -94,11 +99,10 @@ def build_compress(temp_dir: str, base_dir: str, directory: str, extension: str,
 
 
 def get_archive_extension(filename: str) -> str:
+    """Get archive extension from a filename."""
     filename = filename.lower()
-    for ext in [
-            'tar.gz', 'tar.xz', 'tar.bz2', 'tar.lz', 'tar.zst', 'tc.gz', 'tar.z', 'gz', 'xz', 'zip',
-            'tbz2', 'bz2', 'tbz', 'txz', 'tar', 'tgz', 'rar', '7z'
-    ]:
+    for ext in ('tar.gz', 'tar.xz', 'tar.bz2', 'tar.lz', 'tar.zst', 'tc.gz', 'tar.z', 'gz', 'xz',
+                'zip', 'tbz2', 'bz2', 'tbz', 'txz', 'tar', 'tgz', 'rar', '7z'):
         if filename.endswith('.' + ext):
             return '.' + ext
 
@@ -106,11 +110,13 @@ def get_archive_extension(filename: str) -> str:
 
 
 class EbuildTempFile:
+    """Ebuild temporary file context manager."""
     def __init__(self, ebuild: str) -> None:
         self.ebuild = Path(ebuild)
         self.temp_file: Path | None = None
 
     def __enter__(self) -> Path:
+        """Create a temporary file."""
         self.temp_file = Path(
             tempfile.NamedTemporaryFile(mode='w',
                                         prefix=self.ebuild.stem,
@@ -122,6 +128,7 @@ class EbuildTempFile:
 
     def __exit__(self, exc_type: object, exc_value: BaseException | None,
                  traceback: object) -> bool:
+        """Handle the context exit."""
         if exc_type is None:
             if not self.temp_file or not self.temp_file.exists() or self.temp_file.stat(
             ).st_size == 0:

@@ -1,8 +1,10 @@
 """Main command."""
-from collections.abc import Iterator, Sequence
+from __future__ import annotations
+
 from os import chdir
 from pathlib import Path
 from re import Match
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 import logging
 import os
@@ -94,7 +96,6 @@ from .special.sourcehut import (
     is_sourcehut,
 )
 from .special.yarn import check_yarn_requirements, update_yarn_ebuild
-from .typing import PropTuple
 from .utils import check_program, extract_sha, get_content, is_sha
 from .utils.misc import setup_logging
 from .utils.portage import (
@@ -109,10 +110,18 @@ from .utils.portage import (
     remove_leading_zeros,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator, Sequence
+
+    from .typing import PropTuple
+
 log = logging.getLogger(__name__)
+
+__all__ = ('main',)
 
 
 def process_submodules(pkg_name: str, ref: str, contents: str, repo_uri: str) -> str:
+    """Process submodules in the ebuild contents."""
     if pkg_name not in SUBMODULES:
         return contents
     offset_a, offset_b = ((1, 3) if 'api.github.com/repos/' in repo_uri else (0, 2))
@@ -136,11 +145,13 @@ def process_submodules(pkg_name: str, ref: str, contents: str, repo_uri: str) ->
 
 
 def log_unhandled_pkg(ebuild: str, src_uri: str) -> None:
+    """Log unhandled package name and ``SRC_URI`` at :py:ref:`logging.DEBUG` level."""
     log.debug('Unhandled: %s, SRC_URI: %s', ebuild, src_uri)
 
 
 def parse_url(src_uri: str, ebuild: str, settings: LivecheckSettings, *,
               force_sha: bool) -> tuple[str, str, str, str]:
+    """Parse a URL and return the last version, top hash, hash date, and URL."""
     parsed_uri = urlparse(src_uri)
     last_version = top_hash = hash_date = ''
     url = src_uri
@@ -193,6 +204,7 @@ def parse_url(src_uri: str, ebuild: str, settings: LivecheckSettings, *,
 
 def parse_metadata(repo_root: str, ebuild: str,
                    settings: LivecheckSettings) -> tuple[str, str, str, str]:
+    """Parse ``metadata.xml`` for upstream information."""
     catpkg, _, _, _ = catpkg_catpkgsplit(ebuild)
 
     metadata_file = Path(repo_root) / catpkg / 'metadata.xml'
@@ -235,6 +247,7 @@ def parse_metadata(repo_root: str, ebuild: str,
 
 
 def extract_restrict_version(cp: str) -> tuple[str, str]:
+    """Extract the restrict version from a package string."""
     if match := re.match(r'(.*?):(.*):-(.*)', cp):
         package, slot, version = match.groups()
         cleaned_string = f'{package}-{version}'
@@ -249,6 +262,17 @@ def get_props(
     names: Sequence[str] | None = None,
     exclude: Sequence[str] | None = None,
 ) -> Iterator[PropTuple]:
+    """
+    Get properties for packages in the search directory.
+
+    Yields
+    ------
+    PropTuple
+
+    Raises
+    ------
+    click.Abort
+    """
     exclude = exclude or []
     if not names:
         names = [
@@ -602,6 +626,7 @@ def main(exclude: tuple[str, ...] | None = None,
          git: bool = False,
          keep_old: bool = False,
          progress: bool = False) -> int:
+    """Update ebuilds to their latest versions."""  # noqa: DOC501
     setup_logging(debug=debug)
     if working_dir:
         chdir(working_dir)

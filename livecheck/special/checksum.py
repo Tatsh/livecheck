@@ -1,3 +1,6 @@
+"""Checksum functions."""
+from __future__ import annotations
+
 from pathlib import Path
 import re
 
@@ -13,6 +16,7 @@ PATTERN = re.compile(r'^DIST\s+(?P<file>\S+)\s+(?P<size>\d+)\s+BLAKE2B\s+'
 
 
 def get_latest_checksum_package(url: str, ebuild: str, repo_root: str) -> tuple[str, str, str]:
+    """Get the latest version of a package based on its checksum."""
     catpkg, _, _, version = catpkg_catpkgsplit(ebuild)
     manifest_file = Path(repo_root) / catpkg / 'Manifest'
     bn = Path(url).name
@@ -30,6 +34,7 @@ def get_latest_checksum_package(url: str, ebuild: str, repo_root: str) -> tuple[
 
 
 def update_checksum_metadata(ebuild: str, url: str, repo_root: str) -> None:
+    """Update the checksum metadata in the Manifest file."""
     catpkg, _, _, _ = catpkg_catpkgsplit(ebuild)
     manifest_file = Path(repo_root) / catpkg / 'Manifest'
     blake2, sha512, size = hash_url(url)

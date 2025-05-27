@@ -1,3 +1,6 @@
+"""Utilities for requests module."""
+from __future__ import annotations
+
 from dataclasses import dataclass
 from email.utils import parsedate_to_datetime
 from functools import cache
@@ -17,14 +20,16 @@ log = logging.getLogger(__name__)
 class TextDataResponse:
     """Used for data URI responses."""
     text: str
-    status_code: int = HTTPStatus.OK  # Default status code for successful response
-
+    """Text content."""
+    status_code: int = HTTPStatus.OK
+    """Defaults to 200 OK."""
     def raise_for_status(self) -> None:
-        pass
+        """Do nothing."""
 
 
 @cache
 def session_init(module: str) -> requests.Session:
+    """Create a session."""
     session = requests.Session()
     if module == 'github':
         token = get_api_credentials('github.com')
@@ -50,6 +55,7 @@ def session_init(module: str) -> requests.Session:
 
 
 def get_content(url: str) -> requests.Response:
+    """"Fetch content from a URL."""
     parsed_uri = urlparse(url)
     log.debug('Fetching %s', url)
 
@@ -99,6 +105,7 @@ def get_content(url: str) -> requests.Response:
 
 @cache
 def hash_url(url: str) -> tuple[str, str, int]:
+    """Hash the content of a URL using BLAKE2b and SHA-512."""
     h_blake2b = hashlib.blake2b()
     h_sha512 = hashlib.sha512()
     size = 0
@@ -119,6 +126,7 @@ def hash_url(url: str) -> tuple[str, str, int]:
 
 @cache
 def get_last_modified(url: str) -> str:
+    """Get the last modified date of a URL."""
     try:
         with requests.head(url, timeout=30) as r:
             r.raise_for_status()

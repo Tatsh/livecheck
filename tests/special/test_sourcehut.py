@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from livecheck.settings import LivecheckSettings
 from livecheck.special.sourcehut import extract_owner_repo, get_branch
 

@@ -1,8 +1,14 @@
+"""NPM functions."""
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
-from livecheck.settings import LivecheckSettings
 from livecheck.utils import get_content
 from livecheck.utils.portage import get_last_version
+
+if TYPE_CHECKING:
+    from livecheck.settings import LivecheckSettings
 
 __all__ = ('get_latest_package', 'is_package')
 
@@ -21,6 +27,7 @@ def extract_project(url: str) -> tuple[str, str]:
 
 
 def get_latest_package(src_uri: str, ebuild: str, settings: LivecheckSettings) -> str:
+    """Get the latest version of an NPM package."""
     domain, project = extract_project(src_uri)
 
     url = PACKAGE_DOWNLOAD_URL % (domain, project)
@@ -37,4 +44,5 @@ def get_latest_package(src_uri: str, ebuild: str, settings: LivecheckSettings) -
 
 
 def is_package(url: str) -> bool:
+    """Check if the URL is an NPM package URL."""
     return bool(extract_project(url)[0])

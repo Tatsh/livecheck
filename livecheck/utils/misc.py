@@ -1,10 +1,16 @@
-from collections.abc import Iterable
+"""Miscellaneous utility functions."""
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 import logging
 import logging.config
 import re
 import subprocess as sp
 
 from packaging.version import Version
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 
 def check_program(cmd: str,

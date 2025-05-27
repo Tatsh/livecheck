@@ -1,0 +1,1 @@
+"""Special situation handling."""

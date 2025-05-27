@@ -1,8 +1,14 @@
+"""RubyGems functions."""
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
-from livecheck.settings import LivecheckSettings
 from livecheck.utils import get_content
 from livecheck.utils.portage import catpkg_catpkgsplit, get_last_version
+
+if TYPE_CHECKING:
+    from livecheck.settings import LivecheckSettings
 
 __all__ = ('RUBYGEMS_METADATA', 'get_latest_rubygems_metadata', 'get_latest_rubygems_package',
            'is_rubygems')
@@ -12,6 +18,7 @@ RUBYGEMS_METADATA = 'rubygems'
 
 
 def get_latest_rubygems_package(ebuild: str, settings: LivecheckSettings) -> str:
+    """Get the latest version of a RubyGems package."""
     _, _, gem_name, _ = catpkg_catpkgsplit(ebuild)
     return get_latest_rubygems_package2(gem_name, ebuild, settings)
 
@@ -37,8 +44,10 @@ def get_latest_rubygems_package2(gem_name: str, ebuild: str, settings: Livecheck
 
 
 def is_rubygems(url: str) -> bool:
+    """Check if the URL is a RubyGems URL."""
     return urlparse(url).netloc == 'rubygems.org'
 
 
 def get_latest_rubygems_metadata(remote: str, ebuild: str, settings: LivecheckSettings) -> str:
+    """Get the latest version of a RubyGems package."""
     return get_latest_rubygems_package2(remote, ebuild, settings)

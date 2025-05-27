@@ -1,3 +1,6 @@
+"""Github Gist functions."""
+from __future__ import annotations
+
 from datetime import datetime
 import re
 
@@ -16,6 +19,7 @@ def extract_id(url: str) -> str:
 
 
 def get_latest_gist_package(url: str) -> tuple[str, str]:
+    """Get the latest version of a Gist."""
     if not (gist_id := extract_id(url)):
         return '', ''
 
@@ -39,4 +43,5 @@ def get_latest_gist_package(url: str) -> tuple[str, str]:
 
 
 def is_gist(url: str) -> bool:
+    """Check if the URL is to a Gist."""
     return bool(extract_id(url))

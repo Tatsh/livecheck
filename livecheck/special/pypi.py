@@ -1,11 +1,17 @@
+"""PyPI functions."""
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 import re
 
-from livecheck.settings import LivecheckSettings
 from livecheck.utils import get_content
 from livecheck.utils.portage import get_last_version
 
 from .utils import get_archive_extension
+
+if TYPE_CHECKING:
+    from livecheck.settings import LivecheckSettings
 
 __all__ = ('PYPI_METADATA', 'get_latest_pypi_metadata', 'get_latest_pypi_package', 'is_pypi')
 
@@ -39,6 +45,7 @@ def get_url(ext: str, item: list[dict[str, str]]) -> str:
 
 def get_latest_pypi_package(src_uri: str, ebuild: str,
                             settings: LivecheckSettings) -> tuple[str, str]:
+    """Get the latest version of a PyPI package."""
     project_name = extract_project(src_uri)
     return get_latest_pypi_package2(project_name, src_uri, ebuild, settings)
 
@@ -60,9 +67,11 @@ def get_latest_pypi_package2(project_name: str, src_uri: str, ebuild: str,
 
 
 def is_pypi(url: str) -> bool:
+    """Check if the URL is a PyPI URL."""
     return bool(extract_project(url))
 
 
 def get_latest_pypi_metadata(remote: str, ebuild: str,
                              settings: LivecheckSettings) -> tuple[str, str]:
+    """Get the latest version of a PyPI package."""
     return get_latest_pypi_package2(remote, '', ebuild, settings)

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from livecheck.utils.portage import remove_leading_zeros, sanitize_version
 import pytest
 

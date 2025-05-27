@@ -1,3 +1,6 @@
+"""Golang functions."""
+from __future__ import annotations
+
 from pathlib import Path
 import logging
 import re
@@ -12,11 +15,20 @@ logger = logging.getLogger(__name__)
 
 
 class InvalidGoSumURITemplate(ValueError):
+    """Raised when the Go sum URI template is invalid."""
     def __init__(self) -> None:
         super().__init__('URI template missing @PV@ or @SHA@.')
 
 
 def update_go_ebuild(ebuild: str, version: str, go_sum_uri_template: str) -> None:
+    """
+    Update a Go ebuild with the latest EGO_SUM content.
+
+    Raises
+    ------
+    InvalidGoSumURITemplate
+        If the URI template does not contain '@PV@' or '@SHA@'.
+    """
     if '@PV@' not in go_sum_uri_template and '@SHA@' not in go_sum_uri_template:
         raise InvalidGoSumURITemplate
     sha = ''

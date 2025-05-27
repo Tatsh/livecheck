@@ -1,20 +1,26 @@
+"""Directory functions."""
+from __future__ import annotations
+
 from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib.parse import urljoin, urlparse
 import re
 
 from bs4 import BeautifulSoup
-
-from livecheck.settings import LivecheckSettings
 from livecheck.utils import get_content
 from livecheck.utils.portage import get_last_version
 
 from .utils import get_archive_extension
+
+if TYPE_CHECKING:
+    from livecheck.settings import LivecheckSettings
 
 __all__ = ('get_latest_directory_package',)
 
 
 def get_latest_directory_package(url: str, ebuild: str,
                                  settings: LivecheckSettings) -> tuple[str, str]:
+    """Get the latest version of a package from a directory listing."""
     if m := re.search(r'^(.*?)(?=-\d)', Path(url).name):
         directory = re.sub(r'/[^/]+$', '', url) + '/'
         if not (r := get_content(directory)):

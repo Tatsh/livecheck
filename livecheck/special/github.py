@@ -1,13 +1,18 @@
+"""Github functions."""
+from __future__ import annotations
+
 from datetime import datetime
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 import re
 
 from defusedxml import ElementTree as ET  # noqa: N817
-
 from livecheck.constants import RSS_NS
-from livecheck.settings import LivecheckSettings
 from livecheck.utils import get_content, is_sha
 from livecheck.utils.portage import catpkg_catpkgsplit, get_last_version
+
+if TYPE_CHECKING:
+    from livecheck.settings import LivecheckSettings
 
 __all__ = ('GITHUB_METADATA', 'get_latest_github', 'get_latest_github_commit',
            'get_latest_github_commit2', 'get_latest_github_metadata', 'get_latest_github_package',
@@ -40,6 +45,7 @@ def extract_owner_repo(url: str) -> tuple[str, str, str]:
 
 def get_latest_github_package(url: str, ebuild: str,
                               settings: LivecheckSettings) -> tuple[str, str]:
+    """Get the latest version of a Github package."""
     domain, owner, repo = extract_owner_repo(url)
     if not owner or not repo:
         return '', ''
@@ -65,6 +71,7 @@ def get_latest_github_package(url: str, ebuild: str,
 
 
 def get_latest_github_commit(url: str, branch: str) -> tuple[str, str]:
+    """Get the latest commit hash and date for a Github repository."""
     _, owner, repo = extract_owner_repo(url)
     if not owner or not repo:
         return '', ''
@@ -73,6 +80,7 @@ def get_latest_github_commit(url: str, branch: str) -> tuple[str, str]:
 
 
 def get_latest_github_commit2(owner: str, repo: str, branch: str) -> tuple[str, str]:
+    """Get the latest commit hash and date for a Github repository."""
     url = GITHUB_COMMIT_URL % (owner, repo, branch)
     if not (r := get_content(url)):
         return '', ''
@@ -86,6 +94,7 @@ def get_latest_github_commit2(owner: str, repo: str, branch: str) -> tuple[str, 
 
 
 def is_github(url: str) -> bool:
+    """Check if the URL is a Github repository."""
     return bool(extract_owner_repo(url)[0])
 
 
@@ -110,6 +119,7 @@ def get_branch(url: str, ebuild: str, settings: LivecheckSettings) -> str:
 
 def get_latest_github(url: str, ebuild: str, settings: LivecheckSettings, *,
                       force_sha: bool) -> tuple[str, str, str]:
+    """Get the latest version of a Github package."""
     last_version = top_hash = hash_date = ''
 
     if (branch := get_branch(url, ebuild, settings)):
@@ -125,4 +135,5 @@ def get_latest_github(url: str, ebuild: str, settings: LivecheckSettings, *,
 
 def get_latest_github_metadata(remote: str, ebuild: str,
                                settings: LivecheckSettings) -> tuple[str, str]:
+    """Get the latest version of a Github package from metadata."""
     return get_latest_github_package(f'https://github.com/{remote}', ebuild, settings)

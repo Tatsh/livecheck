@@ -1,10 +1,16 @@
+"""Bitbucket functions."""
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
-from livecheck.settings import LivecheckSettings
 from livecheck.utils import get_content, is_sha
 from livecheck.utils.portage import get_last_version
 
 from .utils import get_archive_extension, log_unhandled_commit
+
+if TYPE_CHECKING:
+    from livecheck.settings import LivecheckSettings
 
 __all__ = ('BITBUCKET_METADATA', 'get_latest_bitbucket', 'get_latest_bitbucket_metadata',
            'get_latest_bitbucket_package', 'is_bitbucket')
@@ -31,6 +37,7 @@ def extract_workspace_and_repository(url: str) -> tuple[str, str]:
 
 def get_latest_bitbucket_package(url: str, ebuild: str,
                                  settings: LivecheckSettings) -> tuple[str, str]:
+    """Get the latest version of a Bitbucket package."""
     workspace, repository = extract_workspace_and_repository(url)
 
     url = BITBUCKET_TAG_URL % (workspace, repository)
@@ -69,6 +76,7 @@ def get_latest_bitbucket_package(url: str, ebuild: str,
 
 def get_latest_bitbucket(url: str, ebuild: str, settings: LivecheckSettings, *,
                          force_sha: bool) -> tuple[str, str, str]:
+    """Get the latest version of a Bitbucket package."""
     last_version = top_hash = hash_date = ''
 
     if is_sha(urlparse(url).path):
@@ -82,9 +90,11 @@ def get_latest_bitbucket(url: str, ebuild: str, settings: LivecheckSettings, *,
 
 
 def is_bitbucket(url: str) -> bool:
+    """Check if the URL is a Bitbucket repository."""
     return bool(extract_workspace_and_repository(url)[0])
 
 
 def get_latest_bitbucket_metadata(remote: str, ebuild: str,
                                   settings: LivecheckSettings) -> tuple[str, str]:
+    """Get the latest version of a Bitbucket package from metadata."""
     return get_latest_bitbucket_package(f'https://bitbucket.org/{remote}', ebuild, settings)

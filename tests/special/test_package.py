@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Any
 
 from livecheck.special.package import extract_project, is_package

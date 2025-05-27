@@ -1,3 +1,6 @@
+"""String utility functions."""
+from __future__ import annotations
+
 from functools import cache
 from typing import Literal
 from urllib.parse import urlparse
@@ -83,6 +86,11 @@ def parse_npm_package_name(s: str) -> tuple[str, str | None, str | None]:
     -------
     tuple[str, str | None, str | None]
         A tuple containing the scope, name, and version of the package.
+
+    Raises
+    ------
+    InvalidPackageName
+        If the package name does not match the expected format.
     """
     if not (m := re.match(RE_SCOPED, s) or re.match(RE_NON_SCOPED, s)):
         raise InvalidPackageName(s)

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Any
 
 from livecheck.special.bitbucket import extract_workspace_and_repository, is_bitbucket

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Any
 
 from livecheck.special.metacpan import extract_perl_package, is_metacpan

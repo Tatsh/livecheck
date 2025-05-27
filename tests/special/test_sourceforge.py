@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from livecheck.special.sourceforge import extract_repository
 
 

@@ -1,14 +1,20 @@
-from collections.abc import Iterable
+"""Portage utilities."""
+from __future__ import annotations
+
 from functools import cache
 from itertools import chain
 from pathlib import Path
+from typing import TYPE_CHECKING
 import logging
 import re
 
 from portage.versions import catpkgsplit, vercmp
 import portage
 
-from livecheck.settings import LivecheckSettings
+if TYPE_CHECKING:
+    from collections.abc import Collection, Iterable
+
+    from livecheck.settings import LivecheckSettings
 
 __all__ = ('P', 'catpkg_catpkgsplit', 'catpkgsplit2', 'compare_versions', 'fetch_ebuild',
            'get_distdir', 'get_first_src_uri', 'get_highest_matches', 'get_last_version',
@@ -29,6 +35,7 @@ def mask_version(cp: str, version: str, restrict_version: str | None = 'full') -
 
 def get_highest_matches(names: Iterable[str], repo_root: Path | None,
                         settings: LivecheckSettings) -> list[str]:
+    """Get the highest matching versions for an iterable of package names."""
     log.debug('Searching for %s.', ', '.join(names))
     result: dict[str, str] = {}
     for name in names:
@@ -62,7 +69,7 @@ def get_highest_matches(names: Iterable[str], repo_root: Path | None,
 
 
 CATPKGSPLIT_SIZE = 4
-"""Size of the tuple returned by ``catpkgsplit()``."""
+"""Size of the tuple returned by :py:func:`catpkgsplit`."""
 
 
 @cache
@@ -79,6 +86,11 @@ def catpkgsplit2(atom: str) -> tuple[str | None, str, str, str]:
     -------
     tuple[str | None, str, str, str]
         Tuple consisting of four strings. If category is not set, the first item is ``None``.
+
+    Raises
+    ------
+    ValueError
+        If :py:func:`catpkgsplit` returns ``None`` or a tuple of size not equal to 4.
     """
     result = catpkgsplit(atom)
     if result is None or len(result) != CATPKGSPLIT_SIZE:
@@ -90,6 +102,14 @@ def catpkgsplit2(atom: str) -> tuple[str | None, str, str, str]:
 
 @cache
 def catpkg_catpkgsplit(atom: str) -> tuple[str, str, str, str]:
+    """
+    Split an atom string into category, package, and version, but also return CP.
+
+    Returns
+    -------
+    tuple[str, str, str, str]
+        Tuple consisting of CP, category, PN, and PV.
+    """
     cat, pkg, ebuild_version, revision = catpkgsplit2(atom)
     assert cat is not None
 
@@ -100,6 +120,7 @@ def catpkg_catpkgsplit(atom: str) -> tuple[str, str, str, str]:
 
 
 def get_first_src_uri(match: str, search_dir: Path | None = None) -> str:
+    """Get the first source URI for a match string (passed to :py:func:`P.aux_get`)."""
     try:
         if (found_uri := next((uri for uri in chain(
                 *(x.split()
@@ -113,6 +134,7 @@ def get_first_src_uri(match: str, search_dir: Path | None = None) -> str:
 
 
 def get_repository_root_if_inside(directory: Path) -> tuple[str, str]:
+    """Get the repository root if the current working directory is inside a repository."""
     # Get Portage configuration
     settings = portage.config(clone=portage.settings)
 
@@ -169,6 +191,7 @@ def extract_version(s: str, repo: str) -> str:
 
 
 def sanitize_version(ver: str, repo: str = '') -> str:
+    """Sanitise a version string."""
     ver = extract_version(ver, repo)
     ver = normalize_version(ver)
     return remove_leading_zeros(ver)
@@ -266,30 +289,43 @@ def normalize_version(ver: str) -> str:  # noqa: PLR0911
 
 
 def compare_versions(old: str, new: str) -> bool:
+    """
+    Compare two version strings.
+
+    Returns
+    -------
+    bool
+        ``True`` if the old version is less than the new version, ``False`` otherwise.
+    """
     return bool(vercmp(old, new) == -1)
 
 
 def get_distdir() -> Path:
+    """
+    Get the ``DISTDIR`` path from Portage settings.
+
+    Falls back to default ``/var/cache/distfiles``.
+    """
     settings = portage.config(clone=portage.settings)
     if distdir := settings.get('DISTDIR'):
         return Path(distdir)
-
     return Path('/var/cache/distfiles')
 
 
 def fetch_ebuild(ebuild_path: str) -> bool:
+    """Perform ``ebuild fetch`` operation."""
     settings = portage.config(clone=portage.settings)
-
     return bool(portage.doebuild(ebuild_path, 'fetch', settings=settings, tree='porttree') == 0)
 
 
 def digest_ebuild(ebuild_path: str) -> bool:
+    """Perform ``ebuild digest`` operation."""
     settings = portage.config(clone=portage.settings)
-
     return bool(portage.doebuild(ebuild_path, 'digest', settings=settings, tree='porttree') == 0)
 
 
 def unpack_ebuild(ebuild_path: str) -> str:
+    """Perform ``ebuild unpack`` operation and return the WORKDIR path."""
     settings = portage.config(clone=portage.settings)
 
     if portage.doebuild(ebuild_path, 'clean', settings=settings, tree='porttree') != 0:
@@ -306,8 +342,18 @@ def unpack_ebuild(ebuild_path: str) -> str:
     return ''
 
 
-def get_last_version(results: list[dict[str, str]], repo: str, ebuild: str,
+def get_last_version(results: Collection[dict[str, str]], repo: str, ebuild: str,
                      settings: LivecheckSettings) -> dict[str, str]:
+    """
+    Get the latest version from the results.
+
+    Parameters
+    ----------
+    results : Collection[dict[str, str]]
+    repo : str
+    ebuild : str
+    settings : LivecheckSettings
+    """
     log.debug('Result count: %d', len(results))
 
     catpkg, _, _, ebuild_version = catpkg_catpkgsplit(ebuild)
@@ -353,6 +399,19 @@ def get_last_version(results: list[dict[str, str]], repo: str, ebuild: str,
 
 def accept_version(ebuild_version: str, version: str, catpkg: str,
                    settings: LivecheckSettings) -> bool:
+    """
+    Determine if version is acceptable for the given CP.
+
+    Parameters
+    ----------
+    ebuild_version : str
+        The version of the ebuild.
+    version : str
+        The version to check against the ebuild version.
+    catpkg : str
+        The category/package name in the format 'category/package'.
+    settings : LivecheckSettings
+    """
     stable_version = settings.stable_version.get(catpkg, '')
     if is_version_development(ebuild_version) or settings.is_devel(catpkg) or (
             stable_version and re.match(stable_version, version)):

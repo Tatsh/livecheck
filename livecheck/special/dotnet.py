@@ -1,5 +1,8 @@
-from collections.abc import Iterator
+""".NET functions."""
+from __future__ import annotations
+
 from pathlib import Path
+from typing import TYPE_CHECKING
 import logging
 import re
 import subprocess as sp
@@ -8,6 +11,9 @@ import tempfile
 from livecheck.utils import check_program
 
 from .utils import EbuildTempFile, search_ebuild
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 __all__ = ('check_dotnet_requirements', 'update_dotnet_ebuild')
 
@@ -31,31 +37,48 @@ def dotnet_restore(project_or_solution: str | Path) -> Iterator[str]:
 
 
 class NoMatch(RuntimeError):
+    """Raised when no match is found for a given project or solution."""
     def __init__(self, cp: str) -> None:
         super().__init__(f'No match for {cp}')
 
 
 class ProjectFileNotFound(FileNotFoundError):
+    """Raised when the specified project or solution file is not found."""
     def __init__(self, project_or_solution: str | Path) -> None:
         super().__init__(f'Project file {project_or_solution} was not found.')
 
 
 class TooManyProjects(RuntimeError):
+    """Raised when multiple candidates of a project or solution are found."""
     def __init__(self, project_or_solution: str | Path) -> None:
         super().__init__(f'Found multiple candidates of {project_or_solution}.')
 
 
 class NoNugetsEnding(RuntimeError):
+    """Raised when the end of the ``NUGETS`` variable cannot be determined."""
     def __init__(self) -> None:
         super().__init__('Unable to determine of end of NUGETS')
 
 
 class NoNugetsFound(RuntimeError):
+    """Raised when no ``NUGETS`` variable is found in the ebuild."""
     def __init__(self) -> None:
         super().__init__('No NUGETS variable found in ebuild')
 
 
 def update_dotnet_ebuild(ebuild: str, project_or_solution: str | Path) -> None:
+    """
+    Update a .NET ebuild with the latest ``NUGETS``.
+
+    Raises
+    ------
+    NoNugetsEnding
+        If the end of the ``NUGETS`` variable cannot be determined.
+    NoNugetsFound
+        If no ``NUGETS`` variable is found in the ebuild.
+    RuntimeError
+        If the ``NUGETS`` variable is malformed or if multiple candidates are found.
+    """
     project_or_solution = Path(project_or_solution)
     dotnet_path, _ = search_ebuild(ebuild, project_or_solution.name, '')
     if not dotnet_path:
@@ -108,7 +131,8 @@ def update_dotnet_ebuild(ebuild: str, project_or_solution: str | Path) -> None:
 
 
 def check_dotnet_requirements() -> bool:
+    """Check if dotnet is installed and its version is at least 9.0.0."""
     if not check_program('dotnet', ['--version'], '10.0.0'):
-        log.error('dotnet is not installed or version is less than 9.0.0')
+        log.error('dotnet is not installed or version is less than 9.0.0.')
         return False
     return True

@@ -1,12 +1,19 @@
-from collections.abc import Mapping
+"""GitLab functions."""
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 from urllib.parse import quote, urlparse
 import re
 
-from livecheck.settings import LivecheckSettings
 from livecheck.utils import get_content, is_sha
 from livecheck.utils.portage import get_last_version
 
 from .utils import log_unhandled_commit
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from livecheck.settings import LivecheckSettings
 
 __all__ = ('GITLAB_METADATA', 'get_latest_gitlab', 'get_latest_gitlab_metadata',
            'get_latest_gitlab_package', 'is_gitlab')
@@ -41,7 +48,7 @@ def extract_domain_and_namespace(url: str) -> tuple[str, str, str]:
 
 def get_latest_gitlab_package(url: str, ebuild: str,
                               settings: LivecheckSettings) -> tuple[str, str]:
-
+    """Get the latest version of a GitLab package."""
     domain, path_with_namespace, repo = extract_domain_and_namespace(url)
     encoded_path = quote(path_with_namespace, safe='')
 
@@ -63,6 +70,7 @@ def get_latest_gitlab_package(url: str, ebuild: str,
 
 def get_latest_gitlab(url: str, ebuild: str, settings: LivecheckSettings, *,
                       force_sha: bool) -> tuple[str, str, str]:
+    """Get the latest version of a GitLab package."""
     last_version = top_hash = hash_date = ''
 
     if is_sha(urlparse(url).path):
@@ -76,10 +84,12 @@ def get_latest_gitlab(url: str, ebuild: str, settings: LivecheckSettings, *,
 
 
 def is_gitlab(url: str) -> bool:
+    """Check if the URL is a GitLab repository."""
     return bool(extract_domain_and_namespace(url)[0])
 
 
 def get_latest_gitlab_metadata(remote: str, _type: str, ebuild: str,
                                settings: LivecheckSettings) -> tuple[str, str]:
+    """Get the latest version of a GitLab package from metadata."""
     uri = GITLAB_HOSTNAMES[_type]
     return get_latest_gitlab_package(f'https://{uri}/{remote}', ebuild, settings)

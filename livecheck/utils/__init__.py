@@ -1,4 +1,6 @@
 """Utility functions."""
+from __future__ import annotations
+
 from .assertions import assert_not_none
 from .misc import check_program
 from .requests import TextDataResponse, get_content, get_last_modified, hash_url, session_init

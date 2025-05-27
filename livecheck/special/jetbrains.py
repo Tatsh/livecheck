@@ -1,12 +1,18 @@
+"""JetBrains functions."""
+from __future__ import annotations
+
 from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 import logging
 
-from livecheck.settings import LivecheckSettings
 from livecheck.utils import get_content
 from livecheck.utils.portage import catpkg_catpkgsplit, get_last_version
 
 from .utils import EbuildTempFile, search_ebuild
+
+if TYPE_CHECKING:
+    from livecheck.settings import LivecheckSettings
 
 __all__ = ('get_latest_jetbrains_package', 'is_jetbrains', 'update_jetbrains_ebuild')
 
@@ -15,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_latest_jetbrains_package(ebuild: str, settings: LivecheckSettings) -> str:
+    """Get the latest version of a JetBrains package."""
     product_name = {
         'phpstorm': 'PhpStorm',
         'pycharm-community': 'PyCharm Community Edition',
@@ -48,6 +55,7 @@ def get_latest_jetbrains_package(ebuild: str, settings: LivecheckSettings) -> st
 
 
 def update_jetbrains_ebuild(ebuild: str) -> None:
+    """Update a JetBrains package ebuild."""
     package_path, _ = search_ebuild(str(ebuild), 'product-info.json')
     if not (version := package_path.split('/')[-1]):
         logger.warning('No version found in the tar.gz file.')
@@ -66,4 +74,5 @@ def update_jetbrains_ebuild(ebuild: str) -> None:
 
 
 def is_jetbrains(url: str) -> bool:
+    """Check if the URL is a JetBrains download URL."""
     return urlparse(url).netloc == 'download.jetbrains.com'

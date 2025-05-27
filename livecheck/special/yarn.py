@@ -1,17 +1,21 @@
-from collections.abc import Iterator
+"""Yarn-based ebuild handling."""
+from __future__ import annotations
+
 from pathlib import Path
 from shutil import copyfile
-from typing import TypedDict, cast
+from typing import TYPE_CHECKING, TypedDict, cast
 import json
 import logging
 import re
 import subprocess as sp
 
+from livecheck.utils import check_program
 from typing_extensions import NotRequired
 
-from livecheck.utils import check_program
-
 from .utils import EbuildTempFile, get_project_path
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 CONVERSION_CODE = """const fs = require('fs');
 const lockfile = require('@yarnpkg/lockfile');
@@ -78,6 +82,14 @@ def update_yarn_ebuild(ebuild: str,
                        yarn_base_package: str,
                        pkg: str,
                        yarn_packages: set[str] | None = None) -> None:
+    """
+    Update a Yarn-based ebuild.
+
+    Raises
+    ------
+    RuntimeError
+        If the ``YARN_PKGS`` section is malformed
+    """
     project_path = create_project(yarn_base_package, yarn_packages)
     package_re = re.compile(r'^' + re.escape(yarn_base_package) + r'-[0-9]+')
     in_yarn_pkgs = False
@@ -110,6 +122,7 @@ def update_yarn_ebuild(ebuild: str,
 
 
 def check_yarn_requirements() -> bool:
+    """Check if Yarn and Node are installed."""
     if not check_program('yarn', ['--version']):
         logger.error('yarn is not installed')
         return False

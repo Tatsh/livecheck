@@ -1,11 +1,21 @@
-from collections.abc import Callable, Mapping
+"""Constants."""
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from .utils import prefix_v
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Mapping
 
 __all__ = ('RSS_NS', 'SUBMODULES', 'TAG_NAME_FUNCTIONS')
 
 RSS_NS = {'': 'http://www.w3.org/2005/Atom'}
+"""
+Namespace for RSS feeds.
 
+:meta hide-value:
+"""
 SUBMODULES: Mapping[str, set[str | tuple[str, str]]] = {
     'app-misc/tasksh': {'src/libshared'},
     'app-pda/tsschecker': {'external/jssy'},
@@ -70,6 +80,11 @@ SUBMODULES: Mapping[str, set[str | tuple[str, str]]] = {
     },
     'media-sound/sony-headphones-client': {'Client/imgui'}
 }
+"""
+Currently, submodule handling is hard-coded for specific packages.
+
+:meta hide-value:
+"""
 TAG_NAME_FUNCTIONS: Mapping[str, Callable[[str], str]] = {
     'app-misc/tasksh': prefix_v,
     'games-emulation/rpcs3': prefix_v,
@@ -77,3 +92,8 @@ TAG_NAME_FUNCTIONS: Mapping[str, Callable[[str], str]] = {
     'games-emulation/yuzu': lambda x: f'mainline-{x.replace(".", "-")}',
     'media-sound/sony-headphones-client': prefix_v,
 }
+"""
+Functions to prefix tag names for specific packages.
+
+:meta hide-value:
+"""

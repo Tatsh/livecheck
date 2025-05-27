@@ -1,6 +1,13 @@
-from livecheck.settings import LivecheckSettings
+"""Repology functions."""
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from livecheck.utils import get_content
 from livecheck.utils.portage import catpkg_catpkgsplit, get_last_version
+
+if TYPE_CHECKING:
+    from livecheck.settings import LivecheckSettings
 
 __all__ = ('get_latest_repology',)
 
@@ -8,6 +15,7 @@ REPOLOGY_DOWNLOAD_URL = 'https://repology.org/api/v1/project/%s'
 
 
 def get_latest_repology(ebuild: str, settings: LivecheckSettings, package: str = '') -> str:
+    """Get the latest version of a package from Repology."""
     catpkg, _, pkg, _ = catpkg_catpkgsplit(ebuild)
 
     results: list[dict[str, str]] = []

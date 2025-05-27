@@ -1,14 +1,19 @@
+"""SourceForge utility functions."""
+from __future__ import annotations
+
 from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 import re
 
 from defusedxml import ElementTree as ET  # noqa: N817
-
-from livecheck.settings import LivecheckSettings
 from livecheck.utils import get_content
 from livecheck.utils.portage import get_last_version
 
 from .utils import get_archive_extension
+
+if TYPE_CHECKING:
+    from livecheck.settings import LivecheckSettings
 
 __all__ = ('SOURCEFORGE_METADATA', 'get_latest_sourceforge_metadata',
            'get_latest_sourceforge_package', 'is_sourceforge')
@@ -33,6 +38,7 @@ def extract_repository(url: str) -> str:
 
 
 def get_latest_sourceforge_package(src_uri: str, ebuild: str, settings: LivecheckSettings) -> str:
+    """Get the latest version of a SourceForge package."""
     repository = extract_repository(src_uri)
     return get_latest_sourceforge_package2(repository, ebuild, settings)
 
@@ -58,8 +64,10 @@ def get_latest_sourceforge_package2(repository: str, ebuild: str,
 
 
 def is_sourceforge(url: str) -> bool:
+    """Check if the URL is a SourceForge repository."""
     return bool(extract_repository(url))
 
 
 def get_latest_sourceforge_metadata(remote: str, ebuild: str, settings: LivecheckSettings) -> str:
+    """Get the latest version of a SourceForge package using metadata."""
     return get_latest_sourceforge_package2(remote, ebuild, settings)

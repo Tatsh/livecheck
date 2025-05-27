@@ -8,32 +8,15 @@ Commands
 --------
 
 .. click:: livecheck.main:main
-  :prog: livecheck
-  :nested: full
+   :prog: livecheck
+   :nested: full
 
 .. only:: html
 
-  Library
-  -------
-  .. automodule:: livecheck.utils
-    :members:
+   .. toctree::
+      :maxdepth: 1
 
-  .. automodule:: livecheck.utils.portage
-    :members:
-
-  Settings
-  ---------
-  .. automodule:: livecheck.settings
-    :members:
-
-  Typing
-  ------
-  .. automodule:: livecheck.typing
-    :members:
-
-  .. toctree::
-    :maxdepth: 2
-    :caption: Contents:
+      lib
 
 Indices and tables
 ==================

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Any
 
 from livecheck.special.gitlab import extract_domain_and_namespace, is_gitlab
