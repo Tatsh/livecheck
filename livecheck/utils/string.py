@@ -59,7 +59,8 @@ def extract_sha(text: str) -> str:
     str | None
         The SHA-1 hash if found, otherwise empty string.
     """
-    match = re.search(r'\b[0-9a-f]{7,40}\b', text)
+    match = re.search(r'\b(?:[0-9a-f]{7}|[0-9a-f]{40})\b', text)
+
     return match.group(0) if match else ''
 
 
