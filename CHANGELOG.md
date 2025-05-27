@@ -10,6 +10,8 @@ and this project adheres to
 
 ## [unreleased]
 
+## [0.1.0]
+
 ### Added
 
 - Added back Python 3.10 support.
@@ -83,4 +85,4 @@ and this project adheres to
 
 - When multiple ebuilds are in the same directory, only the latest one will be considered for updating.
 
-[unreleased]: https://github.com/Tatsh/livecheck/-/compare/v0.0.13...HEAD
+[unreleased]: https://github.com/Tatsh/livecheck/-/compare/v0.1.0...HEAD
