@@ -2,11 +2,13 @@
 *~
 .*_cache/
 .coverage
+.cspellcache
 .directory
 .history
 .idea
 .pnp.*
 /.yarn/install-state.gz
+/build/
 /dist/
 /docs/_build/
 /man/_static/

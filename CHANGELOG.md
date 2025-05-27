@@ -12,13 +12,17 @@ and this project adheres to
 
 ### Added
 
-- Added back Python 3.10 support
-- Support for URIs from BitBucket, Composer, CPAN, Davinci, PECL, Repology, Rubygems, SourceForge, SourceHut.
-  Thanks to @inode64
+- Added back Python 3.10 support.
+- Support for URIs from BitBucket, Composer, CPAN, Davinci, PECL, Repology, Rubygems, SourceForge, and
+  SourceHut. Thanks to @inode64.
 
 ### Changed
 
-- Updated man page to not have unnecessary API docs
+- Updated man page to not have unnecessary API docs.
+
+### Fixed
+
+- Always search for settings from the repository root even if inside a directory within.
 
 ## [0.0.9]
 

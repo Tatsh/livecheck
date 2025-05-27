@@ -10,6 +10,10 @@ local utils = import 'utils.libjsonnet';
   citation+: {
     'date-released': '2025-04-13',
   },
+  gitignore+: [
+    '.history',
+    '.idea',
+  ],
   pyproject+: {
     tool+: {
       poetry+: {
@@ -26,8 +30,8 @@ local utils = import 'utils.libjsonnet';
           dev+: {
             dependencies+: {
               'portage-stubs': '^0',
-              'types-defusedxml': '0.7.0.20240218',
-              'types-requests': '^2.32.0.20250328',
+              'types-defusedxml': '>=0.7.0.20240218',
+              'types-requests': '^2.32.0.20250515',
               'types-beautifulsoup4': '>=4.12.0.20250204',
             },
           },
