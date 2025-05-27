@@ -19,7 +19,6 @@ local utils = import 'utils.libjsonnet';
       poetry+: {
         dependencies+: {
           beautifulsoup4: '>=4.13.4',
-          click: '^8.1.8',
           defusedxml: '^0.7.1',
           keyring: '^25.6.0',
           platformdirs: '^4.3.7',
@@ -38,7 +37,7 @@ local utils = import 'utils.libjsonnet';
       },
     },
   },
-  skip+: ['tests/test_utils.py', 'livecheck/utils.py'],
+  security_policy_supported_versions: { '0.1.x': ':white_check_mark:' },
   // Common
   authors: [
     {
