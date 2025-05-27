@@ -294,7 +294,7 @@ def get_props(
         if cat.startswith(('acct-', 'virtual')) or settings.type_packages.get(catpkg) == TYPE_NONE:
             log.debug('Ignoring %s.', catpkg)
             continue
-        log.info('Processing `%s` version `%s`.', catpkg, ebuild_version)
+        log.info('Processing: %s | Version: %s', catpkg, ebuild_version)
         last_version = hash_date = top_hash = url = ''
         ebuild = Path(repo_root) / catpkg / f'{pkg}-{ebuild_version}.ebuild'
         egit, branch = get_egit_repo(ebuild)
