@@ -496,7 +496,7 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: Path,
                     if settings.git_flag:
                         sp.run(('git', 'mv', str(ebuild), new_filename), check=True)
                     else:
-                        ebuild.rename(ebuild, new_filename)
+                        ebuild.rename(new_filename)
                 except OSError:
                     log.exception('Error moving `%s` to `%s`.', ebuild, new_filename)
                     return
