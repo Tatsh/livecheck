@@ -96,6 +96,7 @@ from .special.sourcehut import (
 from .special.yarn import check_yarn_requirements, update_yarn_ebuild
 from .typing import PropTuple
 from .utils import check_program, extract_sha, get_content, is_sha
+from .utils.misc import setup_logging
 from .utils.portage import (
     P,
     catpkg_catpkgsplit,
@@ -255,7 +256,7 @@ def get_props(
             for path in search_dir.glob('**/*.ebuild')
         ]
     matches_list = sorted(get_highest_matches(names, repo_root, settings))
-    log.info('Found %d ebuilds.', len(matches_list))
+    log.info('Found %d ebuild%s.', len(matches_list), 's' if len(matches_list) != 1 else '')
     if not matches_list:
         log.error('No matches!')
         raise click.Abort
@@ -269,8 +270,7 @@ def get_props(
         if cat.startswith(('acct-', 'virtual')) or settings.type_packages.get(catpkg) == TYPE_NONE:
             log.debug('Ignoring %s.', catpkg)
             continue
-        if settings.debug_flag or settings.progress_flag:
-            log.info('Processing `%s` version `%s`.', catpkg, ebuild_version)
+        log.info('Processing `%s` version `%s`.', catpkg, ebuild_version)
         last_version = hash_date = top_hash = url = ''
         ebuild = Path(repo_root) / catpkg / f'{pkg}-{ebuild_version}.ebuild'
         egit, branch = get_egit_repo(ebuild)
@@ -602,7 +602,7 @@ def main(exclude: tuple[str, ...] | None = None,
          git: bool = False,
          keep_old: bool = False,
          progress: bool = False) -> int:
-    logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
+    setup_logging(debug=debug)
     if working_dir:
         chdir(working_dir)
     if exclude:
@@ -634,8 +634,8 @@ def main(exclude: tuple[str, ...] | None = None,
         if not check_program('pkgdev', ['--version']):
             log.error('pkgdev is not installed.')
             raise click.Abort
-    log.info('search_dir=%s repo_root=%s repo_name=%s', search_dir, repo_root, repo_name)
-    settings = gather_settings(str(search_dir))
+    log.debug('search_dir=%s repo_root=%s repo_name=%s', search_dir, repo_root, repo_name)
+    settings = gather_settings(Path(repo_root))
 
     # update flags in settings
     settings.auto_update_flag = auto_update

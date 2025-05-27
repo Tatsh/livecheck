@@ -83,7 +83,7 @@ class UnknownTransformationFunction(NameError):
         super().__init__(f'Unknown transformation function: {tfs}')
 
 
-def gather_settings(search_dir: str) -> LivecheckSettings:
+def gather_settings(search_dir: Path) -> LivecheckSettings:
     # Prevent circular import.
     import livecheck.special.handlers as sc  # noqa: PLC0415
 
@@ -111,7 +111,7 @@ def gather_settings(search_dir: str) -> LivecheckSettings:
     sync_version: dict[str, str] = {}
     stable_version: dict[str, str] = {}
 
-    for path in Path(search_dir).glob('**/livecheck.json'):
+    for path in search_dir.glob('**/livecheck.json'):
         log.debug('Opening %s.', path)
         with path.open() as f:
             dn = path.parent

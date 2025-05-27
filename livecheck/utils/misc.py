@@ -1,4 +1,6 @@
 from collections.abc import Iterable
+import logging
+import logging.config
 import re
 import subprocess as sp
 
@@ -42,3 +44,50 @@ def check_program(cmd: str,
         return False
 
     return True
+
+
+def setup_logging(*,
+                  debug: bool = False,
+                  force_color: bool = False,
+                  no_color: bool = False) -> None:  # pragma: no cover
+    """Set up logging configuration."""
+    logging.config.dictConfig({
+        'disable_existing_loggers': True,
+        'root': {
+            'level': 'DEBUG' if debug else 'INFO',
+            'handlers': ['console'],
+        },
+        'formatters': {
+            'default': {
+                '()': 'colorlog.ColoredFormatter',
+                'force_color': force_color,
+                'format': (
+                    '%(light_cyan)s%(asctime)s%(reset)s | %(log_color)s%(levelname)-8s%(reset)s | '
+                    '%(light_green)s%(name)s%(reset)s:%(light_red)s%(funcName)s%(reset)s:'
+                    '%(blue)s%(lineno)d%(reset)s - %(message)s'),
+                'no_color': no_color,
+            },
+            'simple': {
+                'format': '%(message)s',
+            }
+        },
+        'handlers': {
+            'console': {
+                'class': 'colorlog.StreamHandler',
+                'formatter': 'default' if debug else 'simple',
+            }
+        },
+        'loggers': {
+            'livecheck': {
+                'level': 'INFO' if not debug else 'DEBUG',
+                'handlers': ('console',),
+                'propagate': False,
+            },
+            'urllib3': {
+                'level': 'ERROR' if not debug else 'DEBUG',
+                'handlers': ('console',),
+                'propagate': False,
+            },
+        },
+        'version': 1
+    })

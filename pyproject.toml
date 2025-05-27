@@ -14,6 +14,7 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
   "Typing :: Typed",
 ]
+dependencies = ["colorlog (>=6.9.0,<7.0.0)"]
 description = "Tool to update ebuilds."
 dynamic = ["dependencies", "requires-python"]
 keywords = ["command line", "ebuild", "gentoo", "portage"]

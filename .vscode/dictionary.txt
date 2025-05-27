@@ -12,6 +12,7 @@ catpkgsplit
 citra
 clion
 codeowners
+colored
 commitizen
 conftest
 coveragerc
