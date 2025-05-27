@@ -1,5 +1,4 @@
 from collections.abc import Callable, Mapping
-from typing import Final
 
 from .utils import prefix_v
 
@@ -7,7 +6,7 @@ __all__ = ('RSS_NS', 'SUBMODULES', 'TAG_NAME_FUNCTIONS')
 
 RSS_NS = {'': 'http://www.w3.org/2005/Atom'}
 
-SUBMODULES: Final[Mapping[str, set[str | tuple[str, str]]]] = {
+SUBMODULES: Mapping[str, set[str | tuple[str, str]]] = {
     'app-misc/tasksh': {'src/libshared'},
     'app-pda/tsschecker': {'external/jssy'},
     'games-emulation/citra': {
@@ -69,9 +68,9 @@ SUBMODULES: Final[Mapping[str, set[str | tuple[str, str]]]] = {
         'externals/sirit',
         ('externals/cpp-httplib', 'HTTPLIB_SHA'),
     },
-    'media-sound/sony-headphones-client': {'Client/imgui'},
+    'media-sound/sony-headphones-client': {'Client/imgui'}
 }
-TAG_NAME_FUNCTIONS: Final[Mapping[str, Callable[[str], str]]] = {
+TAG_NAME_FUNCTIONS: Mapping[str, Callable[[str], str]] = {
     'app-misc/tasksh': prefix_v,
     'games-emulation/rpcs3': prefix_v,
     'games-emulation/xemu': prefix_v,

@@ -1,5 +1,4 @@
 from collections.abc import Mapping
-from typing import Final
 from urllib.parse import quote, urlparse
 import re
 
@@ -14,7 +13,7 @@ __all__ = ('GITLAB_METADATA', 'get_latest_gitlab', 'get_latest_gitlab_metadata',
 
 GITLAB_TAG_URL = 'https://%s/api/v4/projects/%s/repository/tags?per_page=%s'
 GITLAB_METADATA = 'gitlab'
-GITLAB_HOSTNAMES: Final[Mapping[str, str]] = {
+GITLAB_HOSTNAMES: Mapping[str, str] = {
     'freedesktop-gitlab': 'gitlab.freedesktop.org',
     'gitlab': 'gitlab.com',
     'gnome-gitlab': 'gitlab.gnome.org',
