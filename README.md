@@ -7,7 +7,7 @@
 [![PyPI - Version](https://img.shields.io/pypi/v/livecheck)](https://pypi.org/project/livecheck/)
 [![GitHub tag (with filter)](https://img.shields.io/github/v/tag/Tatsh/livecheck)](https://github.com/Tatsh/livecheck/tags)
 [![License](https://img.shields.io/github/license/Tatsh/livecheck)](https://github.com/Tatsh/livecheck/blob/master/LICENSE.txt)
-[![GitHub commits since latest release (by SemVer including pre-releases)](https://img.shields.io/github/commits-since/Tatsh/livecheck/v0.0.13/master)](https://github.com/Tatsh/livecheck/compare/v0.0.13...master)
+[![GitHub commits since latest release (by SemVer including pre-releases)](https://img.shields.io/github/commits-since/Tatsh/livecheck/v0.1.0/master)](https://github.com/Tatsh/livecheck/compare/v0.1.0...master)
 
 Tool for overlays to update ebuilds. Inspired by the MacPorts `port` subcommand of the same name
 or [nvchecker](https://github.com/lilydjwg/nvchecker).
