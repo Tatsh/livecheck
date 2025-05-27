@@ -21,16 +21,16 @@ local utils = import 'utils.libjsonnet';
           beautifulsoup4: '>=4.13.4',
           defusedxml: '^0.7.1',
           keyring: '^25.6.0',
-          platformdirs: '^4.3.7',
+          platformdirs: '^4.3.8',
           requests: '^2.32.3',
         },
         group+: {
           dev+: {
             dependencies+: {
               'portage-stubs': '^0',
-              'types-defusedxml': '>=0.7.0.20240218',
-              'types-requests': '^2.32.0.20250515',
-              'types-beautifulsoup4': '>=4.12.0.20250204',
+              'types-beautifulsoup4': '>=4.12.0.20250516',
+              'types-defusedxml': '>=0.7.0.20250516',
+              'types-requests': '>=2.32.0.20250515',
             },
           },
         },
