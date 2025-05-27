@@ -23,7 +23,6 @@ local utils = import 'utils.libjsonnet';
           defusedxml: '^0.7.1',
           keyring: '^25.6.0',
           platformdirs: '^4.3.7',
-          portage: { git: 'https://github.com/gentoo/portage.git' },
           requests: '^2.32.3',
         },
         group+: {

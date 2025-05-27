@@ -95,9 +95,6 @@ python = ">=3.10,<3.14"
 requests = "^2.32.3"
 typing-extensions = "^4.13.2"
 
-[tool.poetry.dependencies.portage]
-git = "https://github.com/gentoo/portage.git"
-
 [tool.poetry.group.dev]
 optional = true
 

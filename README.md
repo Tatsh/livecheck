@@ -158,7 +158,8 @@ located. Use `python -m livecheck` instead of `livecheck` to execute commands.
 
 ### With a virtualenv
 
-Run `poetry install --all-extras --with=dev,docs,tests` to set up a virtualenv.
+Run `poetry install --all-extras --with=dev,docs,tests` to set up a virtualenv. You must also add
+Portage to this virtualenv manually.
 
 Fully copy `/etc/portage` to the root of your virtualenv. Then you must fix `make.profile`. Also
 consider making changes in `repos.conf` if necessary.
@@ -167,6 +168,7 @@ Example:
 
 ```shell
 eval "$(poetry env activate)"
+pip install git+https://github.com/gentoo/portage.git
 pip install keyrings-alt
 cp -R /etc/portage "${VIRTUAL_ENV}/etc/"
 ln -sf "$(readlink -f /etc/portage/make.profile)" "${VIRTUAL_ENV}/etc/portage/make.profile"
