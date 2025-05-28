@@ -10,6 +10,10 @@ and this project adheres to
 
 ## [unreleased]
 
+## Changed
+
+- Do not export `main` at the top level.
+
 ## [0.1.0]
 
 ### Added

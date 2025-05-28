@@ -16,6 +16,18 @@ local utils = import 'utils.libjsonnet';
   ],
   pyproject+: {
     tool+: {
+      coverage+: {
+        report+: {
+          omit+: [
+            'tests/special/test_*.py',
+            'tests/utils/test_*.py',
+            'typing.py',
+          ],
+        },
+        run+: {
+          omit+: ['tests/special/test_*.py', 'tests/utils/test_*.py', 'typing.py'],
+        },
+      },
       poetry+: {
         dependencies+: {
           beautifulsoup4: '>=4.13.4',
