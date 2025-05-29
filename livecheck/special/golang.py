@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import contextlib
 import logging
 import re
 
@@ -32,13 +33,12 @@ def update_go_ebuild(ebuild: str, version: str, go_sum_uri_template: str) -> Non
     if '@PV@' not in go_sum_uri_template and '@SHA@' not in go_sum_uri_template:
         raise InvalidGoSumURITemplate
     sha = ''
-    try:
-        if (first_match := next(
-                re.match(r'^SHA="([^"]+)"', x)
-                for x in Path(ebuild).read_text(encoding='utf-8').splitlines())):
+    with contextlib.suppress(StopIteration):
+        if (first_match :=
+                next(y for y in (re.match(r'^SHA="([^"]+)"', x)
+                                 for x in Path(ebuild).read_text(encoding='utf-8').splitlines())
+                     if y is not None)):
             sha = first_match.group(1)
-    except IndexError:
-        pass
     uri = go_sum_uri_template.replace('@PV@', version).replace('@SHA@', sha)
     if not (r := get_content(uri)):
         return
