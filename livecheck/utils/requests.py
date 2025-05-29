@@ -130,7 +130,7 @@ def get_last_modified(url: str) -> str:
     try:
         with requests.head(url, timeout=30) as r:
             r.raise_for_status()
-            if last_modified := r.headers['last-modified']:
+            if last_modified := r.headers.get('last-modified'):
                 return parsedate_to_datetime(last_modified).strftime('%Y%m%d')
 
     except requests.RequestException:
