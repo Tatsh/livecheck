@@ -7,6 +7,7 @@ beautifulsoup
 bitrock
 bsky
 bsnes
+caplog
 catpkg
 catpkgsplit
 citra
