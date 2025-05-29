@@ -134,17 +134,19 @@ def process_submodules(pkg_name: str, ref: str, contents: str, repo_uri: str) ->
             name = item[0]
         else:
             grep_for = f'{Path(item).name.upper().replace("-", "_")}_SHA="'
-        if (r := get_content(f'https://api.github.com/repos/{repo_root}/contents/{name}'
-                             f'?ref={ref}')):
-            remote_sha = r.json()['sha']
-            for line in ebuild_lines:
-                if (line.startswith(grep_for) and
-                    (local_sha := line.split('=')[1].replace('"', '').strip()) != remote_sha):
-                    contents = contents.replace(local_sha, remote_sha)
+        r = get_content(f'https://api.github.com/repos/{repo_root}/contents/{name}'
+                        f'?ref={ref}')
+        if not r.ok:
+            continue
+        remote_sha = r.json()['sha']
+        for line in ebuild_lines:
+            if (line.startswith(grep_for)
+                    and (local_sha := line.split('=')[1].replace('"', '').strip()) != remote_sha):
+                contents = contents.replace(local_sha, remote_sha)
     return contents
 
 
-def log_unhandled_pkg(ebuild: str, src_uri: str) -> None:
+def log_unhandled_pkg(ebuild: str, src_uri: str) -> None:  # pragma: no cover
     """Log unhandled package name and ``SRC_URI`` at :py:ref:`logging.DEBUG` level."""
     log.debug('Unhandled: %s, SRC_URI: %s', ebuild, src_uri)
 
@@ -206,7 +208,6 @@ def parse_metadata(repo_root: str, ebuild: str,
                    settings: LivecheckSettings) -> tuple[str, str, str, str]:
     """Parse ``metadata.xml`` for upstream information."""
     catpkg, _, _, _ = catpkg_catpkgsplit(ebuild)
-
     metadata_file = Path(repo_root) / catpkg / 'metadata.xml'
     if not metadata_file.exists():
         return '', '', '', ''
@@ -255,13 +256,11 @@ def extract_restrict_version(cp: str) -> tuple[str, str]:
     return cp, ''
 
 
-def get_props(
-    search_dir: Path,
-    repo_root: Path,
-    settings: LivecheckSettings,
-    names: Sequence[str] | None = None,
-    exclude: Sequence[str] | None = None,
-) -> Iterator[PropTuple]:
+def get_props(search_dir: Path,
+              repo_root: Path,
+              settings: LivecheckSettings,
+              names: Sequence[str] | None = None,
+              exclude: Sequence[str] | None = None) -> Iterator[PropTuple]:
     """
     Get properties for packages in the search directory.
 
@@ -625,7 +624,7 @@ def main(exclude: tuple[str, ...] | None = None,
          development: bool = False,
          git: bool = False,
          keep_old: bool = False,
-         progress: bool = False) -> int:
+         progress: bool = False) -> None:
     """Update ebuilds to their latest versions."""  # noqa: DOC501
     setup_logging(debug=debug)
     if working_dir:
@@ -689,4 +688,3 @@ def main(exclude: tuple[str, ...] | None = None,
         if cat and pkg:
             log.exception('Exception while checking %s/%s.', cat, pkg)
         raise
-    return 0

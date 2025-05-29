@@ -96,6 +96,7 @@ pecl
 phpstorm
 pipx
 pkgdev
+pkgmetadata
 pkgs
 platformdirs
 portdir
