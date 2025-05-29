@@ -35,7 +35,7 @@ def extract_workspace_and_repository(url: str) -> tuple[str, str]:
     return workspace, repository.replace('.git', '')
 
 
-def get_latest_bitbucket_package(url: str, ebuild: str,
+def get_latest_bitbucket_package(url: str, cpv: str,
                                  settings: LivecheckSettings) -> tuple[str, str]:
     """Get the latest version of a Bitbucket package."""
     workspace, repository = extract_workspace_and_repository(url)
@@ -56,7 +56,7 @@ def get_latest_bitbucket_package(url: str, ebuild: str,
     iteration_count = 0
 
     while url and iteration_count < MAX_ITERATIONS:
-        if not (r := get_content(url)):
+        if not (r := get_content(url)).ok:
             break
         data = r.json()
 
@@ -68,21 +68,21 @@ def get_latest_bitbucket_package(url: str, ebuild: str,
         url = data.get('next')
         iteration_count += 1
 
-    if last_version := get_last_version(results, repository, ebuild, settings):
+    if last_version := get_last_version(results, repository, cpv, settings):
         return last_version['version'], last_version['id']
 
     return '', ''
 
 
-def get_latest_bitbucket(url: str, ebuild: str, settings: LivecheckSettings, *,
+def get_latest_bitbucket(url: str, cpv: str, settings: LivecheckSettings, *,
                          force_sha: bool) -> tuple[str, str, str]:
     """Get the latest version of a Bitbucket package."""
     last_version = top_hash = hash_date = ''
 
     if is_sha(urlparse(url).path):
-        log_unhandled_commit(ebuild, url)
+        log_unhandled_commit(cpv, url)
     else:
-        last_version, top_hash = get_latest_bitbucket_package(url, ebuild, settings)
+        last_version, top_hash = get_latest_bitbucket_package(url, cpv, settings)
         if not force_sha:
             top_hash = ''
 
@@ -94,7 +94,7 @@ def is_bitbucket(url: str) -> bool:
     return bool(extract_workspace_and_repository(url)[0])
 
 
-def get_latest_bitbucket_metadata(remote: str, ebuild: str,
+def get_latest_bitbucket_metadata(remote: str, cpv: str,
                                   settings: LivecheckSettings) -> tuple[str, str]:
     """Get the latest version of a Bitbucket package from metadata."""
-    return get_latest_bitbucket_package(f'https://bitbucket.org/{remote}', ebuild, settings)
+    return get_latest_bitbucket_package(f'https://bitbucket.org/{remote}', cpv, settings)
