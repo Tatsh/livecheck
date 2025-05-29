@@ -12,7 +12,7 @@ from portage.versions import catpkgsplit, vercmp
 import portage
 
 if TYPE_CHECKING:
-    from collections.abc import Collection, Iterable
+    from collections.abc import Collection, Iterable, Mapping
 
     from livecheck.settings import LivecheckSettings
 
@@ -201,10 +201,8 @@ def remove_leading_zeros(ver: str) -> str:
     """Check if version has a date string like ``2022.12.26``."""
     if not re.match(r'\d{4}|\d{2}\.\d{2}\.\d{2}', ver):
         return ver
-    if match := re.match(r'(\d+)\.(\d+)(?:\.(\d+))?(.*)', ver):
+    if match := re.match(r'(\d+)\.(\d+)\.(\d+)(.*)', ver):
         a, b, c, suffix = match.groups()
-        if c is None:
-            return f'{int(a)}.{int(b)}{suffix}'
         return f'{int(a)}.{int(b)}.{int(c)}{suffix}'
     return ver
 
@@ -246,12 +244,7 @@ def normalize_version(ver: str) -> str:  # noqa: PLR0911
     if m := re.match(r'^([A-Za-z]+)([0-9]+)?', suf):
         letters, digits = m.groups()
     else:
-        suf_clean = re.sub(r'[\s.\-_]+', '', suf)
-        m2 = re.match(r'^([A-Za-z]+)([0-9]+)?$', suf_clean)
-        if m2:
-            letters, digits = m2.groups()
-        else:
-            letters, digits = '', ''
+        letters, digits = '', ''
 
     if digits:
         if letters == 'a':
@@ -279,7 +272,7 @@ def normalize_version(ver: str) -> str:  # noqa: PLR0911
     if len(letters) == 1 and not digits:
         return f'{main}{letters}'
     # No recognized suffix
-    if not letters and digits:
+    if digits:
         # Just attach the digits directly (e.g. "1.2.3" + "4")
         return f'{main}{digits}'
     # If the version ends with a letter like 1.2.20a (and not recognized),
@@ -342,14 +335,14 @@ def unpack_ebuild(ebuild_path: str) -> str:
     return ''
 
 
-def get_last_version(results: Collection[dict[str, str]], repo: str, ebuild: str,
+def get_last_version(results: Collection[Mapping[str, str]], repo: str, ebuild: str,
                      settings: LivecheckSettings) -> dict[str, str]:
     """
     Get the latest version from the results.
 
     Parameters
     ----------
-    results : Collection[dict[str, str]]
+    results : Collection[Mapping[str, str]]
     repo : str
     ebuild : str
     settings : LivecheckSettings
@@ -388,7 +381,7 @@ def get_last_version(results: Collection[dict[str, str]], repo: str, ebuild: str
         if accept_version(ebuild_version, version, catpkg, settings):
             last = last_version.get('version', '')
             if not last or compare_versions(last, version):
-                last_version = result.copy()
+                last_version = dict(result).copy()
                 last_version['version'] = version
 
     if not last_version:

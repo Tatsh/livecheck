@@ -49,6 +49,7 @@ fetchlist
 fhdk
 findname
 fontawesome
+foobar
 furb
 genindex
 glabels
