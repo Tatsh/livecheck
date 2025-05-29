@@ -21,7 +21,7 @@
 [![Mastodon Follow](https://img.shields.io/mastodon/follow/109370961877277568?domain=hostux.social&style=social)](https://hostux.social/@Tatsh)
 
 Tool for overlays to update ebuilds. Inspired by the MacPorts `port` subcommand of the same name
-or [nvchecker](https://github.com/lilydjwg/nvchecker).
+and [nvchecker](https://github.com/lilydjwg/nvchecker).
 
 ## Internal workings
 
