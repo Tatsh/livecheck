@@ -36,24 +36,6 @@ def dotnet_restore(project_or_solution: str | Path) -> Iterator[str]:
                     and not re.match(r'^runtime\.win', x) and re.search(r'@[0-9]', x))
 
 
-class NoMatch(RuntimeError):
-    """Raised when no match is found for a given project or solution."""
-    def __init__(self, cp: str) -> None:
-        super().__init__(f'No match for {cp}')
-
-
-class ProjectFileNotFound(FileNotFoundError):
-    """Raised when the specified project or solution file is not found."""
-    def __init__(self, project_or_solution: str | Path) -> None:
-        super().__init__(f'Project file {project_or_solution} was not found.')
-
-
-class TooManyProjects(RuntimeError):
-    """Raised when multiple candidates of a project or solution are found."""
-    def __init__(self, project_or_solution: str | Path) -> None:
-        super().__init__(f'Found multiple candidates of {project_or_solution}.')
-
-
 class NoNugetsEnding(RuntimeError):
     """Raised when the end of the ``NUGETS`` variable cannot be determined."""
     def __init__(self) -> None:
@@ -107,16 +89,14 @@ def update_dotnet_ebuild(ebuild: str, project_or_solution: str | Path) -> None:
                     in_nugets = False
                     skip_lines = line_no
                     break
-        if not skip_lines:
-            raise NoNugetsEnding
         if not nugets_starting_line:
             raise NoNugetsFound
+        if not skip_lines:
+            raise NoNugetsEnding
 
-        for line_no, line in enumerate(lines, start=1):
+        for line in lines:
             if line.startswith('NUGETS="'):
                 tf.write('NUGETS="')
-                if in_nugets:
-                    raise RuntimeError
                 in_nugets = True
             elif in_nugets:
                 for new_line_no, pkg in enumerate(new_nugets_lines, start=1):
@@ -126,7 +106,7 @@ def update_dotnet_ebuild(ebuild: str, project_or_solution: str | Path) -> None:
                         case _:
                             tf.write(f'\t{pkg}"\n' if last_line_no == new_line_no else f'\t{pkg}\n')
                 in_nugets = False
-            elif line_no > skip_lines or line_no < nugets_starting_line:
+            else:
                 tf.write(line)
 
 

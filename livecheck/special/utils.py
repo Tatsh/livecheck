@@ -127,31 +127,29 @@ class EbuildTempFile:
         return self.temp_file
 
     def __exit__(self, exc_type: object, exc_value: BaseException | None,
-                 traceback: object) -> bool:
+                 traceback: object) -> None:
         """Handle the context exit."""
         if exc_type is None:
             if not self.temp_file or not self.temp_file.exists() or self.temp_file.stat(
             ).st_size == 0:
                 logger.error('The temporary file is empty or missing.')
-                return False
+                return
 
             self.ebuild.unlink(missing_ok=True)
 
             if self.ebuild.exists():
                 logger.error('Error removing the original ebuild file.')
-                return False
+                return
 
             self.temp_file.rename(self.ebuild)
             self.ebuild.chmod(0o0644)
 
             if not self.ebuild.exists():
                 logger.error('Error renaming the temporary file.')
-                return False
+                return
 
         if self.temp_file and self.temp_file.exists():
             self.temp_file.unlink(missing_ok=True)
-
-        return True
 
 
 def log_unhandled_commit(catpkg: str, src_uri: str) -> None:
