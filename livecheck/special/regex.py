@@ -33,13 +33,14 @@ def get_latest_regex_package(ebuild: str, url: str, regex: str,
             hash_date = ''
             try:
                 updated_el = ET.fromstring(r.text).find('entry/updated', RSS_NS)
-                assert updated_el is not None
-                assert updated_el.text is not None
-                if re.search(r'(2[0-9]{7})', ebuild_version):
-                    hash_date = updated_el.text.split('T')[0].replace('-', '')
-                    logger.debug('Use updated date %s for commit %s.', hash_date, result)
             except ET.ParseError:
                 logger.exception('Error parsing %s.', url)
+                continue
+            assert updated_el is not None
+            assert updated_el.text is not None
+            if re.search(r'(2[0-9]{7})', ebuild_version):
+                hash_date = updated_el.text.split('T')[0].replace('-', '')
+                logger.debug('Using updated date %s for commit %s.', hash_date, result)
             return result, hash_date, url
         results.append({'tag': result})
 
