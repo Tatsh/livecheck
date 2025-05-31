@@ -40,8 +40,11 @@ def update_checksum_metadata(ebuild: str, url: str, repo_root: str) -> None:
     blake2, sha512, size = hash_url(url)
     bn = Path(url).name
 
-    with EbuildTempFile(str(manifest_file)) as temp_file, temp_file.open(
-            'w', encoding='utf-8') as tf, Path(manifest_file).open('r', encoding='utf-8') as f:
+    with (
+            EbuildTempFile(str(manifest_file)) as temp_file,
+            temp_file.open('w', encoding='utf-8') as tf,
+            Path(manifest_file).open('r', encoding='utf-8') as f,
+    ):
         for line in f:
             m = PATTERN.match(line)
             if m and m.group('file') == bn:

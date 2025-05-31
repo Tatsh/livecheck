@@ -4,6 +4,8 @@ atrac
 autodoc
 automodule
 beautifulsoup
+beefcafe
+beefdead
 bitrock
 bsky
 bsnes
@@ -84,6 +86,8 @@ modindex
 mypy
 mytree
 netcore
+newbeef
+newcafe
 norecursedirs
 notroj
 npmjs
