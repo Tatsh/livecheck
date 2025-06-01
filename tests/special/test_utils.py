@@ -273,7 +273,7 @@ def test_ebuild_tempfile_tempfile_empty(mocker: MockerFixture) -> None:
     temp_file_path = '/tmp/test-abcdef.ebuild'
     mock_tempfile = mocker.patch('tempfile.NamedTemporaryFile')
     mock_tempfile.return_value.name = temp_file_path
-    mock_path = mocker.patch('pathlib.Path')
+    mock_path = mocker.patch('livecheck.special.utils.Path')
     mock_ebuild = mock_path.return_value
     mock_temp = mock_path.return_value
     mock_ebuild.stem = 'test'
@@ -292,7 +292,7 @@ def test_ebuild_tempfile_exception_cleanup(mocker: MockerFixture) -> None:
     temp_file_path = '/tmp/test-abcdef.ebuild'
     mock_tempfile = mocker.patch('tempfile.NamedTemporaryFile')
     mock_tempfile.return_value.name = temp_file_path
-    mock_path = mocker.patch('pathlib.Path')
+    mock_path = mocker.patch('livecheck.special.utils.Path')
     mock_ebuild = mock_path.return_value
     mock_temp = mock_path.return_value
     mock_ebuild.stem = 'test'
