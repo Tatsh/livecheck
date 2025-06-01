@@ -29,7 +29,7 @@ def get_latest_directory_package(url: str, ebuild: str,
         archive = m.group(1).strip()
 
         results: list[dict[str, str]] = []
-        for item in BeautifulSoup(r.text, 'html.parser').find_all('a', href=True):
+        for item in BeautifulSoup(r.text, 'html5lib').find_all('a', href=True):
             if (href := item['href']) and get_archive_extension(href):
                 file = urlparse(urljoin(directory, href)).path
                 name = Path(file).name
