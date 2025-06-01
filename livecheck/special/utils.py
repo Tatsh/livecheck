@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 import logging
 import os
 import tarfile
@@ -9,6 +10,9 @@ import tempfile
 
 from livecheck.utils.portage import get_distdir, unpack_ebuild
 from platformdirs import user_cache_dir
+
+if TYPE_CHECKING:
+    from collections.abc import Collection, Mapping
 
 __all__ = ('EbuildTempFile', 'build_compress', 'get_archive_extension', 'get_project_path',
            'remove_url_ebuild', 'search_ebuild')
@@ -31,13 +35,11 @@ def remove_url_ebuild(ebuild: str, remove: str) -> str:
         if not stripped_line or stripped_line.startswith('#'):
             filtered_lines.append(original_line)
             continue
-        if remove in stripped_line:
-            url = stripped_line.strip(' "\'')
-            if url.endswith(remove):
-                if stripped_line.endswith(('"', "'")) and (stripped_line.count('"') == 1
-                                                           or stripped_line.count("'") == 1):
-                    filtered_lines.append(stripped_line[-1])
-                continue
+        if remove in stripped_line and stripped_line.strip(' "\'').endswith(remove):
+            if (stripped_line.endswith(('"', "'"))
+                    and (stripped_line.count('"') == 1 or stripped_line.count("'") == 1)):
+                filtered_lines.append(stripped_line[-1])
+            continue
         filtered_lines.append(original_line)
     return '\n'.join(filtered_lines)
 
@@ -66,7 +68,7 @@ def search_ebuild(ebuild: str, archive: str, path: str | None = None) -> tuple[s
 
 
 def build_compress(temp_dir: str, base_dir: str, directory: str, extension: str,
-                   fetchlist: dict[str, tuple[str, ...]]) -> bool:
+                   fetchlist: Mapping[str, Collection[str]]) -> bool:
     """Build dist archive."""
     vendor_dir = Path(base_dir) / directory
     if not vendor_dir.exists():
@@ -103,7 +105,7 @@ def get_archive_extension(filename: str) -> str:
     filename = filename.lower()
     for ext in ('tar.gz', 'tar.xz', 'tar.bz2', 'tar.lz', 'tar.zst', 'tc.gz', 'tar.z', 'gz', 'xz',
                 'zip', 'tbz2', 'bz2', 'tbz', 'txz', 'tar', 'tgz', 'rar', '7z'):
-        if filename.endswith('.' + ext):
+        if filename.endswith(f'.{ext}'):
             return '.' + ext
 
     return ''
@@ -134,20 +136,9 @@ class EbuildTempFile:
             ).st_size == 0:
                 logger.error('The temporary file is empty or missing.')
                 return
-
             self.ebuild.unlink(missing_ok=True)
-
-            if self.ebuild.exists():
-                logger.error('Error removing the original ebuild file.')
-                return
-
             self.temp_file.rename(self.ebuild)
             self.ebuild.chmod(0o0644)
-
-            if not self.ebuild.exists():
-                logger.error('Error renaming the temporary file.')
-                return
-
         if self.temp_file and self.temp_file.exists():
             self.temp_file.unlink(missing_ok=True)
 
