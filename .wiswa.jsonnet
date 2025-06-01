@@ -32,6 +32,7 @@ local utils = import 'utils.libjsonnet';
         dependencies+: {
           beautifulsoup4: '>=4.13.4',
           defusedxml: '^0.7.1',
+          html5lib: '^1.1',
           keyring: '^25.6.0',
           platformdirs: '^4.3.8',
           requests: '^2.32.3',
