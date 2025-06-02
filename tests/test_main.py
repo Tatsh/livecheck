@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
+import logging
 
+from defusedxml import ElementTree as ET  # noqa: N817
 from livecheck.main import (
     do_main,
     execute_hooks,
@@ -24,6 +26,7 @@ if TYPE_CHECKING:
     from pathlib import Path
     from unittest.mock import Mock
 
+    from _pytest.logging import LogCaptureFixture
     from click.testing import CliRunner
     from pytest_mock import MockerFixture
 
@@ -367,10 +370,78 @@ def test_parse_metadata_no_metadata_file(tmp_path: Path, mocker: MockerFixture) 
     assert result == ('', '', '', '')
 
 
-def test_parse_metadata_with_multiple_upstreams(tmp_path: Path, mocker: MockerFixture) -> None:
-    mocker.patch('livecheck.main.get_latest_github_metadata',
-                 return_value=('latest_version', 'top_hash'))
-    mock_get_latest_gitlab_meta = mocker.patch('livecheck.main.get_latest_gitlab_metadata')
+@pytest.mark.parametrize((
+    'attrib_type',
+    'get_latest_meta_func',
+    'get_latest_meta_return',
+    'expected',
+), [
+    (
+        'github',
+        'get_latest_github_metadata',
+        ('latest_version', 'top_hash'),
+        ('latest_version', 'top_hash', '', ''),
+    ),
+    (
+        'sourcehut',
+        'get_latest_sourcehut_metadata',
+        'latest_version',
+        ('latest_version', '', '', ''),
+    ),
+    (
+        'bitbucket',
+        'get_latest_bitbucket_metadata',
+        ('latest_version', 'top_hash'),
+        ('latest_version', 'top_hash', '', ''),
+    ),
+    (
+        'gitlab',
+        'get_latest_gitlab_metadata',
+        ('latest_version', 'top_hash'),
+        ('latest_version', 'top_hash', '', ''),
+    ),
+    (
+        'metacpan',
+        'get_latest_metacpan_metadata',
+        'latest_version',
+        ('latest_version', '', '', ''),
+    ),
+    (
+        'pecl',
+        'get_latest_pecl_metadata',
+        'latest_version',
+        ('latest_version', '', '', ''),
+    ),
+    (
+        'rubygems',
+        'get_latest_rubygems_metadata',
+        'latest_version',
+        ('latest_version', '', '', ''),
+    ),
+    (
+        'sourceforge',
+        'get_latest_sourceforge_metadata',
+        'latest_version',
+        ('latest_version', '', '', ''),
+    ),
+    (
+        'pypi',
+        'get_latest_pypi_metadata',
+        ('latest_version', 'url'),
+        ('latest_version', '', '', 'url'),
+    ),
+    (
+        'pypi',
+        'get_latest_pypi_metadata',
+        ('', 'url'),
+        ('', '', '', ''),
+    ),
+])
+def test_parse_metadata_cases(attrib_type: str, get_latest_meta_func: str,
+                              get_latest_meta_return: str, expected: tuple[str, ...],
+                              tmp_path: Path, mocker: MockerFixture) -> None:
+    mock_get_latest_meta = mocker.patch(f'livecheck.main.{get_latest_meta_func}',
+                                        return_value=get_latest_meta_return)
     mock_et_parse = mocker.patch('livecheck.main.ET.parse')
     repo_root = tmp_path
     cat_dir = tmp_path / 'cat' / 'pkg'
@@ -381,20 +452,74 @@ def test_parse_metadata_with_multiple_upstreams(tmp_path: Path, mocker: MockerFi
     settings = mocker.Mock()
     remote_id_element1 = mocker.Mock()
     remote_id_element1.tag = 'remote-id'
-    remote_id_element1.text = 'github:foo/bar'
-    remote_id_element1.attrib = {'type': 'github'}
-    remote_id_element2 = mocker.Mock()
-    remote_id_element2.tag = 'remote-id'
-    remote_id_element2.text = 'gitlab:foo/bar'
-    remote_id_element2.attrib = {'type': 'gitlab'}
+    remote_id_element1.text = attrib_type
+    remote_id_element1.attrib = {'type': attrib_type}
     upstream_element1 = [remote_id_element1]
-    upstream_element2 = [remote_id_element2]
     mock_root = mocker.Mock()
-    mock_root.findall.return_value = [upstream_element1, upstream_element2]
+    mock_root.findall.return_value = [upstream_element1]
     mock_et_parse.return_value.getroot.return_value = mock_root
     result = parse_metadata(str(repo_root), ebuild, settings)
-    assert result == ('latest_version', 'top_hash', '', '')
-    assert mock_get_latest_gitlab_meta.call_count == 0
+    assert result == expected
+    if attrib_type == 'gitlab':
+        mock_get_latest_meta.assert_called_once_with(attrib_type, attrib_type, ebuild, settings)
+    else:
+        mock_get_latest_meta.assert_called_once_with(attrib_type, ebuild, settings)
+
+
+def test_parse_metadata_parse_error(mocker: MockerFixture, tmp_path: Path) -> None:
+    mock_et_parse = mocker.patch('livecheck.main.ET.parse')
+    mock_et_parse.side_effect = ET.ParseError('Parse error')
+    repo_root = tmp_path
+    cat_dir = tmp_path / 'cat' / 'pkg'
+    cat_dir.mkdir(parents=True)
+    metadata_file = cat_dir / 'metadata.xml'
+    metadata_file.write_text('<pkgmetadata></pkgmetadata>', encoding='utf-8')
+    ebuild = 'cat/pkg-1.0.0'
+    settings = mocker.Mock()
+    result = parse_metadata(str(repo_root), ebuild, settings)
+    assert result == ('', '', '', '')
+
+
+def test_parse_metadata_no_remote_id(mocker: MockerFixture, tmp_path: Path) -> None:
+    mock_et_parse = mocker.patch('livecheck.main.ET.parse')
+    repo_root = tmp_path
+    cat_dir = tmp_path / 'cat' / 'pkg'
+    cat_dir.mkdir(parents=True)
+    metadata_file = cat_dir / 'metadata.xml'
+    metadata_file.write_text('<pkgmetadata></pkgmetadata>', encoding='utf-8')
+    ebuild = 'cat/pkg-1.0.0'
+    settings = mocker.Mock()
+    remote_id_element1 = mocker.Mock()
+    remote_id_element1.tag = 'remote-id'
+    remote_id_element1.text = ''
+    remote_id_element1.attrib = {}
+    upstream_element1 = [remote_id_element1]
+    mock_root = mocker.Mock()
+    mock_root.findall.return_value = [upstream_element1]
+    mock_et_parse.return_value.getroot.return_value = mock_root
+    result = parse_metadata(str(repo_root), ebuild, settings)
+    assert result == ('', '', '', '')
+
+
+def test_parse_metadata_no_remote_id2(mocker: MockerFixture, tmp_path: Path) -> None:
+    mock_et_parse = mocker.patch('livecheck.main.ET.parse')
+    repo_root = tmp_path
+    cat_dir = tmp_path / 'cat' / 'pkg'
+    cat_dir.mkdir(parents=True)
+    metadata_file = cat_dir / 'metadata.xml'
+    metadata_file.write_text('<pkgmetadata></pkgmetadata>', encoding='utf-8')
+    ebuild = 'cat/pkg-1.0.0'
+    settings = mocker.Mock()
+    remote_id_element1 = mocker.Mock()
+    remote_id_element1.tag = 'remote-id2'
+    remote_id_element1.text = ''
+    remote_id_element1.attrib = {}
+    upstream_element1 = [remote_id_element1]
+    mock_root = mocker.Mock()
+    mock_root.findall.return_value = [upstream_element1]
+    mock_et_parse.return_value.getroot.return_value = mock_root
+    result = parse_metadata(str(repo_root), ebuild, settings)
+    assert result == ('', '', '', '')
 
 
 @pytest.mark.parametrize(
@@ -861,6 +986,39 @@ def test_main_calls_get_props_and_do_main(mocker: MockerFixture, runner: CliRunn
         settings=mock_settings,
         hook_dir=None,
     )
+
+
+def test_main_exclude_logs_message(mocker: MockerFixture, runner: CliRunner, tmp_path: Path,
+                                   caplog: LogCaptureFixture) -> None:
+    mocker.patch('livecheck.main.chdir')
+    mocker.patch('livecheck.main.setup_logging')
+    mocker.patch('livecheck.main.gather_settings')
+    mocker.patch('livecheck.main.get_props')
+    mocker.patch('livecheck.main.get_repository_root_if_inside',
+                 return_value=(str(tmp_path), 'repo'))
+    mocker.patch('livecheck.main.os.access', return_value=True)
+    mocker.patch('livecheck.main.Path.is_dir', return_value=True)
+    mocker.patch('livecheck.main.check_program', return_value=True)
+    with caplog.at_level(logging.DEBUG):
+        result = runner.invoke(main, ['--exclude', 'cat/pkg', '--exclude', 'cat2/pkg2'])
+    assert result.exit_code == 0
+    assert 'Excluding cat/pkg, cat2/pkg2.' in caplog.messages
+
+
+def test_main_git_check_program_git(mocker: MockerFixture, runner: CliRunner, tmp_path: Path,
+                                    caplog: LogCaptureFixture) -> None:
+    mocker.patch('livecheck.main.chdir')
+    mocker.patch('livecheck.main.setup_logging')
+    mocker.patch('livecheck.main.gather_settings')
+    mocker.patch('livecheck.main.get_props')
+    mocker.patch('livecheck.main.get_repository_root_if_inside',
+                 return_value=(str(tmp_path), 'repo'))
+    mocker.patch('livecheck.main.os.access', return_value=True)
+    mocker.patch('livecheck.main.Path.is_dir', return_value=True)
+    mocker.patch('livecheck.main.check_program', return_value=False)
+    result = runner.invoke(main, ['--git', '--auto-update', '--working-dir', str(tmp_path)])
+    assert result.exit_code != 0
+    assert 'Git is not installed.' in caplog.messages
 
 
 def test_main_handles_exception_in_get_props(mocker: MockerFixture, runner: CliRunner,
