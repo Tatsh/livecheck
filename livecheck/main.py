@@ -581,8 +581,8 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: Path,
                     return
             if settings.git_flag and sp.run(
                 ('ebuild', new_filename, 'digest'), check=False).returncode == 0:
-                sp.run(('git', 'add', new_filename), check=True)
-                sp.run(('git', 'add', Path(search_dir) / cp / 'Manifest'), check=True)
+                sp.run(('git', 'add', new_filename, str(Path(search_dir) / cp / 'Manifest')),
+                       check=True)
                 try:
                     sp.run(('pkgdev', 'commit'), cwd=Path(search_dir) / cp, check=True)
                 except sp.CalledProcessError:
@@ -614,10 +614,10 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: Path,
                               readable=True,
                               path_type=Path))
 @click.argument('package_names', nargs=-1)
-def main(exclude: tuple[str, ...] | None = None,
+def main(working_dir: Path,
+         exclude: tuple[str, ...] | None = None,
          hook_dir: Path | None = None,
          package_names: tuple[str, ...] | list[str] | None = None,
-         working_dir: Path | None = None,
          *,
          auto_update: bool = False,
          debug: bool = False,
@@ -627,8 +627,7 @@ def main(exclude: tuple[str, ...] | None = None,
          progress: bool = False) -> None:
     """Update ebuilds to their latest versions."""  # noqa: DOC501
     setup_logging(debug=debug)
-    if working_dir:
-        chdir(working_dir)
+    chdir(working_dir)
     if exclude:
         log.debug('Excluding %s.', ', '.join(exclude))
     search_dir = working_dir or Path()
