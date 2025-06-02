@@ -11,6 +11,8 @@ from livecheck.utils.portage import get_last_version
 from .utils import get_archive_extension
 
 if TYPE_CHECKING:
+    from collections.abc import Collection, Mapping
+
     from livecheck.settings import LivecheckSettings
 
 __all__ = ('PYPI_METADATA', 'get_latest_pypi_metadata', 'get_latest_pypi_package', 'is_pypi')
@@ -33,7 +35,7 @@ def extract_project(url: str) -> str:
     return ''
 
 
-def get_url(ext: str, item: list[dict[str, str]]) -> str:
+def get_url(ext: str, item: Collection[Mapping[str, str]]) -> str:
     for urls in item:
         if urls['url'].endswith(ext):
             return urls['url']
