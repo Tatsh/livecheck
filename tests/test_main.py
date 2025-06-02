@@ -1034,3 +1034,128 @@ def test_main_handles_exception_in_get_props(mocker: MockerFixture, runner: CliR
     mocker.patch('livecheck.main.get_props', side_effect=Exception('fail'))
     result = runner.invoke(main, ['--working-dir', str(tmp_path)])
     assert result.exit_code != 0
+
+
+def test_main_auto_update_git_happy_path(mocker: MockerFixture, runner: CliRunner,
+                                         tmp_path: Path) -> None:
+    mock_settings = mocker.Mock()
+    mocker.patch('livecheck.main.chdir')
+    mocker.patch('livecheck.main.setup_logging')
+    mocker.patch('livecheck.main.gather_settings', return_value=mock_settings)
+    mocker.patch('livecheck.main.get_repository_root_if_inside',
+                 return_value=(str(tmp_path), 'repo'))
+    mocker.patch('os.access', return_value=True)
+    mocker.patch('pathlib.Path.is_dir', return_value=True)
+    mocker.patch('livecheck.main.check_program', return_value=True)
+    mock_do_main = mocker.patch('livecheck.main.do_main')
+    mocker.patch('livecheck.main.get_props',
+                 return_value=[
+                     ('cat', 'pkg', '1.0.0', '1.0.1', 'sha', 'date', 'url'),
+                 ])
+    args = ['--auto-update', '--git', '--working-dir', str(tmp_path), 'cat/pkg']
+    result = runner.invoke(main, args)
+    assert result.exit_code == 0
+    mock_do_main.assert_called_once_with(
+        cat='cat',
+        pkg='pkg',
+        ebuild_version='1.0.0',
+        last_version='1.0.1',
+        top_hash='sha',
+        hash_date='date',
+        url='url',
+        search_dir=tmp_path,
+        settings=mock_settings,
+        hook_dir=None,
+    )
+
+
+def test_main_auto_update_git_missing_git_dir(mocker: MockerFixture, runner: CliRunner,
+                                              tmp_path: Path) -> None:
+    mocker.patch('livecheck.main.chdir')
+    mocker.patch('livecheck.main.setup_logging')
+    mocker.patch('livecheck.main.gather_settings')
+    mocker.patch('livecheck.main.get_repository_root_if_inside',
+                 return_value=(str(tmp_path), 'repo'))
+    mocker.patch('os.access', return_value=True)
+    mocker.patch('pathlib.Path.is_dir', side_effect=lambda _=None: False)
+    mocker.patch('livecheck.main.check_program', return_value=True)
+    args = ['--auto-update', '--git', '--working-dir', str(tmp_path), 'cat/pkg']
+    result = runner.invoke(main, args)
+    assert result.exit_code != 0
+
+
+def test_main_auto_update_git_git_not_installed(mocker: MockerFixture, runner: CliRunner,
+                                                tmp_path: Path) -> None:
+    mocker.patch('livecheck.main.chdir')
+    mocker.patch('livecheck.main.setup_logging')
+    mocker.patch('livecheck.main.gather_settings')
+    mocker.patch('livecheck.main.get_repository_root_if_inside',
+                 return_value=(str(tmp_path), 'repo'))
+    mocker.patch('os.access', return_value=True)
+    mocker.patch('pathlib.Path.is_dir', return_value=True)
+    mocker.patch('livecheck.main.check_program', side_effect=lambda prog, _: prog != 'git')
+    args = ['--auto-update', '--git', '--working-dir', str(tmp_path), 'cat/pkg']
+    result = runner.invoke(main, args)
+    assert result.exit_code != 0
+
+
+def test_main_auto_update_git_git_dir_not_writable(mocker: MockerFixture, runner: CliRunner,
+                                                   tmp_path: Path) -> None:
+    mocker.patch('livecheck.main.chdir')
+    mocker.patch('livecheck.main.setup_logging')
+    mocker.patch('livecheck.main.gather_settings')
+    mocker.patch('livecheck.main.get_repository_root_if_inside',
+                 return_value=(str(tmp_path), 'repo'))
+
+    def fake_os_access(path: Path, mode: int) -> bool:
+        return '.git' not in str(path)
+
+    mocker.patch('os.access', side_effect=fake_os_access)
+    mocker.patch('pathlib.Path.is_dir', return_value=True)
+    mocker.patch('livecheck.main.check_program', return_value=True)
+    args = ['--auto-update', '--git', '--working-dir', str(tmp_path), 'cat/pkg']
+    result = runner.invoke(main, args)
+    assert result.exit_code != 0
+
+
+def test_main_auto_update_git_pkgdev_not_installed(mocker: MockerFixture, runner: CliRunner,
+                                                   tmp_path: Path) -> None:
+    mocker.patch('livecheck.main.chdir')
+    mocker.patch('livecheck.main.setup_logging')
+    mocker.patch('livecheck.main.gather_settings')
+    mocker.patch('livecheck.main.get_repository_root_if_inside',
+                 return_value=(str(tmp_path), 'repo'))
+    mocker.patch('os.access', return_value=True)
+    mocker.patch('pathlib.Path.is_dir', return_value=True)
+
+    def fake_check_program(prog: str, args: Any) -> bool:
+        if prog == 'git':
+            return True
+        return prog != 'pkgdev'
+
+    mocker.patch('livecheck.main.check_program', side_effect=fake_check_program)
+    args = ['--auto-update', '--git', '--working-dir', str(tmp_path), 'cat/pkg']
+    result = runner.invoke(main, args)
+    assert result.exit_code != 0
+
+
+def test_main_handles_exception_in_do_main(mocker: MockerFixture, runner: CliRunner,
+                                           tmp_path: Path) -> None:
+    mock_settings = mocker.Mock()
+    mocker.patch('livecheck.main.chdir')
+    mocker.patch('livecheck.main.setup_logging')
+    mocker.patch('livecheck.main.gather_settings', return_value=mock_settings)
+    mocker.patch('livecheck.main.get_repository_root_if_inside',
+                 return_value=(str(tmp_path), 'repo'))
+    mocker.patch('os.access', return_value=True)
+    mocker.patch('pathlib.Path.is_dir', return_value=True)
+    mocker.patch('livecheck.main.check_program', return_value=True)
+    mocker.patch('livecheck.main.get_props',
+                 return_value=[
+                     ('cat', 'pkg', '1.0.0', '1.0.1', 'sha', 'date', 'url'),
+                 ])
+    mock_do_main = mocker.patch('livecheck.main.do_main', side_effect=Exception('fail in do_main'))
+    args = ['--auto-update', '--working-dir', str(tmp_path), 'cat/pkg']
+    result = runner.invoke(main, args)
+    assert result.exit_code != 0
+    assert mock_do_main.called
