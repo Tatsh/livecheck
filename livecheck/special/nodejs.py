@@ -1,12 +1,16 @@
 """NodeJS functions."""
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 import logging
 import subprocess as sp
 
 from livecheck.utils import check_program
 
 from .utils import build_compress, remove_url_ebuild, search_ebuild
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 __all__ = ('check_nodejs_requirements', 'remove_nodejs_url', 'update_nodejs_ebuild')
 
@@ -18,8 +22,8 @@ def remove_nodejs_url(ebuild_content: str) -> str:
     return remove_url_ebuild(ebuild_content, '-node_modules.tar.xz')
 
 
-def update_nodejs_ebuild(ebuild: str, path: str | None, fetchlist: dict[str, tuple[str,
-                                                                                   ...]]) -> None:
+def update_nodejs_ebuild(ebuild: str, path: str | None,
+                         fetchlist: Mapping[str, tuple[str, ...]]) -> None:
     """Update a NodeJS-based ebuild."""
     package_path, temp_dir = search_ebuild(ebuild, 'package.json', path)
     if not package_path:
