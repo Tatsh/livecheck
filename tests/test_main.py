@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 import logging
+import subprocess as sp
 
 from defusedxml import ElementTree as ET  # noqa: N817
 from livecheck.main import (
@@ -84,7 +85,7 @@ def test_replace_date_in_ebuild_version_change() -> None:
 
 @pytest.fixture
 def mock_settings(mocker: MockerFixture) -> Any:
-    settings = mocker.Mock()
+    settings = mocker.MagicMock()
     settings.auto_update_flag = False
     settings.composer_packages = set()
     settings.custom_livechecks = {}
@@ -123,7 +124,6 @@ def test_do_main_no_update(mocker: MockerFixture, tmp_path: Path, mock_settings:
     mocker.patch('livecheck.main.replace_date_in_ebuild', side_effect=lambda v, _, __: v)
     mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
     mock_compare = mocker.patch('livecheck.main.compare_versions', return_value=False)
-
     do_main(cat=cat,
             ebuild_version=ebuild_version,
             hash_date=hash_date,
@@ -170,7 +170,6 @@ def test_do_main_update_with_sha(mocker: MockerFixture, tmp_path: Path,
     mock_write = mocker.patch('livecheck.main.Path.write_text')
     mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
     mocker.patch('livecheck.main.sp.run', return_value=mocker.Mock(returncode=0))
-
     do_main(cat=cat,
             ebuild_version=ebuild_version,
             hash_date=hash_date,
@@ -199,7 +198,6 @@ def test_do_main_with_sha_source_and_no_top_hash(mocker: MockerFixture, tmp_path
     ebuild_path = tmp_path / f'{cat}/{pkg}/{pkg}-1.0.0.ebuild'
     ebuild_path.parent.mkdir(parents=True)
     ebuild_path.write_text('SHA="1234567"\n', encoding='utf-8')
-
     mock_settings.sha_sources = {cp: 'https://sha.example.com'}
     mocker.patch('livecheck.main.parse_url', return_value=('', '', '', ''))
     mocker.patch('livecheck.main.get_old_sha', return_value='1234567')
@@ -207,7 +205,6 @@ def test_do_main_with_sha_source_and_no_top_hash(mocker: MockerFixture, tmp_path
     mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
     mocker.patch('livecheck.main.compare_versions', return_value=False)
     mock_write = mocker.patch('livecheck.main.Path.write_text')
-
     do_main(cat=cat,
             ebuild_version=ebuild_version,
             pkg=pkg,
@@ -218,8 +215,908 @@ def test_do_main_with_sha_source_and_no_top_hash(mocker: MockerFixture, tmp_path
             hash_date=hash_date,
             url=url,
             hook_dir=hook_dir)
-
     mock_write.assert_not_called()
+
+
+def test_do_main_sha_sources_parse_url_fixes(mocker: MockerFixture, tmp_path: Path,
+                                             mock_settings: Mock) -> None:
+    cat = 'cat'
+    pkg = 'pkg'
+    ebuild_version = '1.0.0'
+    top_hash = ''
+    hash_date = '20250101'
+    url = 'https://example.com'
+    hook_dir = None
+    search_dir = tmp_path
+    cp = f'{cat}/{pkg}'
+    ebuild_path = tmp_path / f'{cat}/{pkg}/{pkg}-1.0.0.ebuild'
+    ebuild_path.parent.mkdir(parents=True)
+    ebuild_path.write_text('SHA="1234567"\n', encoding='utf-8')
+    # settings.sha_sources.get() returns a value
+    mock_settings.sha_sources = {cp: 'https://sha.example.com'}
+    mocker.patch('livecheck.main.parse_url', return_value=('', 'top_hash', '20250101', ''))
+    mocker.patch('livecheck.main.get_old_sha', return_value='12345678')
+    mocker.patch('livecheck.main.replace_date_in_ebuild', side_effect=lambda v, _, __: v)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mock_write = mocker.patch('livecheck.main.Path.write_text')
+    do_main(cat=cat,
+            ebuild_version=ebuild_version,
+            pkg=pkg,
+            search_dir=search_dir,
+            settings=mock_settings,
+            last_version='',
+            top_hash=top_hash,
+            hash_date=hash_date,
+            url=url,
+            hook_dir=hook_dir)
+    mock_write.assert_not_called()
+
+
+def test_do_main_logs_update_not_possible_when_requirements_fail(mocker: MockerFixture,
+                                                                 tmp_path: Path,
+                                                                 mock_settings: Mock) -> None:
+    cat = 'cat'
+    pkg = 'pkg'
+    ebuild_version = '1.0.0'
+    last_version = '1.0.1'
+    top_hash = 'abcdef1'
+    hash_date = ''
+    url = 'https://example.com'
+    hook_dir = None
+    search_dir = tmp_path
+    cp = f'{cat}/{pkg}'
+    ebuild_path = tmp_path / f'{cat}/{pkg}/{pkg}-1.0.0.ebuild'
+    ebuild_path.parent.mkdir(parents=True)
+    ebuild_path.write_text('SHA="1234567"\n', encoding='utf-8')
+    mock_settings.auto_update_flag = True
+    mock_settings.composer_packages = set()
+    mock_settings.dotnet_projects = {cp}
+    mock_settings.yarn_base_packages = set()
+    mock_settings.nodejs_packages = set()
+    mock_settings.gomodule_packages = set()
+    mocker.patch('livecheck.main.get_old_sha', return_value='1234567')
+    mocker.patch('livecheck.main.replace_date_in_ebuild', side_effect=lambda v, _, __: v)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.catpkg_catpkgsplit', return_value=(cp, cat, pkg, last_version))
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
+    mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
+    mocker.patch('livecheck.main.digest_ebuild', return_value=True)
+    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.is_sha', return_value=True)
+    mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
+    mocker.patch('livecheck.main.execute_hooks')
+    mocker.patch('livecheck.main.Path.read_text', return_value='SHA="1234567"\n')
+    mocker.patch('livecheck.main.Path.write_text')
+    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.sp.run', return_value=mocker.Mock(returncode=0))
+    mocker.patch('livecheck.main.check_dotnet_requirements', return_value=False)
+    mocker.patch('livecheck.main.check_composer_requirements', return_value=True)
+    mocker.patch('livecheck.main.check_yarn_requirements', return_value=True)
+    mocker.patch('livecheck.main.check_nodejs_requirements', return_value=True)
+    mocker.patch('livecheck.main.check_gomodule_requirements', return_value=True)
+    mock_log = mocker.patch('livecheck.main.log')
+    do_main(cat=cat,
+            ebuild_version=ebuild_version,
+            hash_date=hash_date,
+            hook_dir=hook_dir,
+            last_version=last_version,
+            pkg=pkg,
+            search_dir=search_dir,
+            settings=mock_settings,
+            top_hash=top_hash,
+            url=url)
+    mock_log.warning.assert_any_call('Update is not possible.')
+
+
+def test_do_main_keep_old_true_git_flag_true(mocker: MockerFixture, tmp_path: Path,
+                                             mock_settings: Mock) -> None:
+    cat = 'cat'
+    pkg = 'pkg'
+    ebuild_version = '1.0.0'
+    last_version = '1.0.1'
+    top_hash = 'abcdef1'
+    hash_date = ''
+    url = 'https://example.com'
+    hook_dir = None
+    search_dir = tmp_path
+    cp = f'{cat}/{pkg}'
+    ebuild_path = tmp_path / f'{cat}/{pkg}/{pkg}-1.0.0.ebuild'
+    ebuild_path.parent.mkdir(parents=True)
+    ebuild_path.write_text('SHA="1234567"\n', encoding='utf-8')
+    mock_settings.sha_sources = {}
+    mock_settings.auto_update_flag = True
+    mock_settings.keep_old = {cp: True}
+    mock_settings.git_flag = True
+    mocker.patch('livecheck.main.get_old_sha', return_value='1234567')
+    mocker.patch('livecheck.main.replace_date_in_ebuild', side_effect=lambda v, _, __: v)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.catpkg_catpkgsplit', return_value=(cp, cat, pkg, last_version))
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
+    mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
+    mocker.patch('livecheck.main.digest_ebuild', return_value=True)
+    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.is_sha', return_value=True)
+    mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
+    mocker.patch('livecheck.main.execute_hooks')
+    mocker.patch('livecheck.main.Path.read_text', return_value='SHA="1234567"\n')
+    mock_write = mocker.patch('livecheck.main.Path.write_text')
+    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.sp.run', return_value=mocker.Mock(returncode=0))
+    do_main(cat=cat,
+            ebuild_version=ebuild_version,
+            hash_date=hash_date,
+            hook_dir=hook_dir,
+            last_version=last_version,
+            pkg=pkg,
+            search_dir=search_dir,
+            settings=mock_settings,
+            top_hash=top_hash,
+            url=url)
+    mock_write.assert_called_once_with('abcdef1', encoding='utf-8')
+
+
+def test_do_main_keep_old_true_git_flag_true_rename_failure(mocker: MockerFixture, tmp_path: Path,
+                                                            mock_settings: Mock) -> None:
+    cat = 'cat'
+    pkg = 'pkg'
+    ebuild_version = '1.0.0'
+    last_version = '1.0.1'
+    top_hash = 'abcdef1'
+    hash_date = ''
+    url = 'https://example.com'
+    hook_dir = None
+    search_dir = tmp_path
+    cp = f'{cat}/{pkg}'
+    ebuild_path = tmp_path / f'{cat}/{pkg}/{pkg}-1.0.0.ebuild'
+    ebuild_path.parent.mkdir(parents=True)
+    ebuild_path.write_text('SHA="1234567"\n', encoding='utf-8')
+    mock_settings.sha_sources = {}
+    mock_settings.auto_update_flag = True
+    mock_settings.keep_old = {cp: True}
+    mock_settings.git_flag = True
+    mocker.patch('livecheck.main.get_old_sha', return_value='1234567')
+    mocker.patch('livecheck.main.replace_date_in_ebuild', side_effect=lambda v, _, __: v)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.catpkg_catpkgsplit', return_value=(cp, cat, pkg, last_version))
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
+    mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
+    mocker.patch('livecheck.main.digest_ebuild', return_value=True)
+    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.is_sha', return_value=True)
+    mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
+    mocker.patch('livecheck.main.execute_hooks')
+    mocker.patch('livecheck.main.Path.read_text', return_value='SHA="1234567"\n')
+    mock_log = mocker.patch('livecheck.main.log')
+    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.sp.run',
+                 side_effect=sp.CalledProcessError(1, 'git', 'Git command failed'))
+    do_main(cat=cat,
+            ebuild_version=ebuild_version,
+            hash_date=hash_date,
+            hook_dir=hook_dir,
+            last_version=last_version,
+            pkg=pkg,
+            search_dir=search_dir,
+            settings=mock_settings,
+            top_hash=top_hash,
+            url=url)
+    mock_log.exception.assert_called_once_with('Error moving `%s` to `%s`.', mocker.ANY, mocker.ANY)
+
+
+def test_do_main_keep_old_true_git_flag_true_write_text_failure(mocker: MockerFixture,
+                                                                tmp_path: Path,
+                                                                mock_settings: Mock) -> None:
+    cat = 'cat'
+    pkg = 'pkg'
+    ebuild_version = '1.0.0'
+    last_version = '1.0.1'
+    top_hash = 'abcdef1'
+    hash_date = ''
+    url = 'https://example.com'
+    hook_dir = None
+    search_dir = tmp_path
+    cp = f'{cat}/{pkg}'
+    ebuild_path = tmp_path / f'{cat}/{pkg}/{pkg}-1.0.0.ebuild'
+    ebuild_path.parent.mkdir(parents=True)
+    ebuild_path.write_text('SHA="1234567"\n', encoding='utf-8')
+    mock_settings.sha_sources = {}
+    mock_settings.auto_update_flag = True
+    mock_settings.keep_old = {cp: True}
+    mock_settings.git_flag = True
+    mocker.patch('livecheck.main.get_old_sha', return_value='1234567')
+    mocker.patch('livecheck.main.replace_date_in_ebuild', side_effect=lambda v, _, __: v)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.catpkg_catpkgsplit', return_value=(cp, cat, pkg, last_version))
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
+    mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
+    mocker.patch('livecheck.main.digest_ebuild', return_value=True)
+    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.is_sha', return_value=True)
+    mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
+    mocker.patch('livecheck.main.execute_hooks')
+    mocker.patch('livecheck.main.Path.read_text', return_value='SHA="1234567"\n')
+    mock_log = mocker.patch('livecheck.main.log')
+    mocker.patch('livecheck.main.Path.write_text', side_effect=OSError)
+    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.sp.run', return_value=mocker.Mock(returncode=0))
+    do_main(cat=cat,
+            ebuild_version=ebuild_version,
+            hash_date=hash_date,
+            hook_dir=hook_dir,
+            last_version=last_version,
+            pkg=pkg,
+            search_dir=search_dir,
+            settings=mock_settings,
+            top_hash=top_hash,
+            url=url)
+    mock_log.exception.assert_called_once_with('Error writing `%s`.', mocker.ANY)
+
+
+def test_do_main_pkgdev_commit_raises_called_process_error(mocker: MockerFixture, tmp_path: Path,
+                                                           mock_settings: Mock) -> None:
+    cat = 'cat'
+    pkg = 'pkg'
+    ebuild_version = '1.0.0'
+    last_version = '1.0.1'
+    top_hash = 'abcdef1'
+    hash_date = ''
+    url = 'https://example.com'
+    hook_dir = None
+    search_dir = tmp_path
+    cp = f'{cat}/{pkg}'
+    ebuild_path = tmp_path / f'{cat}/{pkg}/{pkg}-1.0.0.ebuild'
+    ebuild_path.parent.mkdir(parents=True)
+    ebuild_path.write_text('SHA="1234567"\n', encoding='utf-8')
+    mock_settings.sha_sources = {}
+    mock_settings.auto_update_flag = True
+    mock_settings.git_flag = True
+    mocker.patch('livecheck.main.get_old_sha', return_value='1234567')
+    mocker.patch('livecheck.main.replace_date_in_ebuild', side_effect=lambda v, _, __: v)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.catpkg_catpkgsplit', return_value=(cp, cat, pkg, last_version))
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
+    mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
+    mocker.patch('livecheck.main.digest_ebuild', return_value=True)
+    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.is_sha', return_value=True)
+    mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
+    mocker.patch('livecheck.main.execute_hooks')
+    mocker.patch('livecheck.main.Path.read_text', return_value='SHA="1234567"\n')
+    mocker.patch('livecheck.main.Path.write_text')
+    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+
+    def fake_sp_run(args: Any, **kwargs: Any) -> Any:
+        if args[0] == 'pkgdev' and args[1] == 'commit':
+            raise sp.CalledProcessError(1, args, 'pkgdev commit failed')
+        return mocker.Mock(returncode=0)
+
+    mocker.patch('livecheck.main.sp.run', side_effect=fake_sp_run)
+    mock_log = mocker.patch('livecheck.main.log')
+    do_main(cat=cat,
+            ebuild_version=ebuild_version,
+            hash_date=hash_date,
+            hook_dir=hook_dir,
+            last_version=last_version,
+            pkg=pkg,
+            search_dir=search_dir,
+            settings=mock_settings,
+            top_hash=top_hash,
+            url=url)
+    mock_log.exception.assert_any_call('Error committing %s.', mocker.ANY)
+
+
+def test_do_main_digest_ebuild_returns_false(mocker: MockerFixture, tmp_path: Path,
+                                             mock_settings: Mock) -> None:
+    cat = 'cat'
+    pkg = 'pkg'
+    ebuild_version = '1.0.0'
+    last_version = '1.0.1'
+    top_hash = 'abcdef1'
+    hash_date = ''
+    url = 'https://example.com'
+    hook_dir = None
+    search_dir = tmp_path
+    cp = f'{cat}/{pkg}'
+    ebuild_path = tmp_path / f'{cat}/{pkg}/{pkg}-1.0.0.ebuild'
+    ebuild_path.parent.mkdir(parents=True)
+    ebuild_path.write_text('SHA="1234567"\n', encoding='utf-8')
+    mock_settings.sha_sources = {}
+    mock_settings.auto_update_flag = True
+    mocker.patch('livecheck.main.get_old_sha', return_value='1234567')
+    mocker.patch('livecheck.main.replace_date_in_ebuild', side_effect=lambda v, _, __: v)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.catpkg_catpkgsplit', return_value=(cp, cat, pkg, last_version))
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
+    mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
+    # digest_ebuild returns False
+    mock_digest = mocker.patch('livecheck.main.digest_ebuild', return_value=False)
+    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.is_sha', return_value=True)
+    mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
+    mocker.patch('livecheck.main.execute_hooks')
+    mocker.patch('livecheck.main.Path.read_text', return_value='SHA="1234567"\n')
+    mock_write = mocker.patch('livecheck.main.Path.write_text')
+    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.sp.run', return_value=mocker.Mock(returncode=0))
+    do_main(cat=cat,
+            ebuild_version=ebuild_version,
+            hash_date=hash_date,
+            hook_dir=hook_dir,
+            last_version=last_version,
+            pkg=pkg,
+            search_dir=search_dir,
+            settings=mock_settings,
+            top_hash=top_hash,
+            url=url)
+    mock_digest.assert_called()
+    mock_write.assert_called_once_with('abcdef1', encoding='utf-8')
+
+
+def test_do_main_gomodule_packages(mocker: MockerFixture, tmp_path: Path,
+                                   mock_settings: Mock) -> None:
+    cat = 'cat'
+    pkg = 'pkg'
+    ebuild_version = '1.0.0'
+    last_version = '1.0.1'
+    top_hash = 'abcdef1'
+    hash_date = ''
+    url = 'https://example.com'
+    hook_dir = None
+    search_dir = tmp_path
+    cp = f'{cat}/{pkg}'
+    ebuild_path = tmp_path / f'{cat}/{pkg}/{pkg}-1.0.0.ebuild'
+    ebuild_path.parent.mkdir(parents=True)
+    ebuild_path.write_text('SHA="1234567"\n', encoding='utf-8')
+    mock_settings.auto_update_flag = True
+    mock_settings.gomodule_packages = {cp}
+    mocker.patch('livecheck.main.get_old_sha', return_value='1234567')
+    mocker.patch('livecheck.main.replace_date_in_ebuild', side_effect=lambda v, _, __: v)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.catpkg_catpkgsplit', return_value=(cp, cat, pkg, last_version))
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
+    mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
+    mocker.patch('livecheck.main.digest_ebuild', return_value=True)
+    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.is_sha', return_value=True)
+    mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
+    mocker.patch('livecheck.main.execute_hooks')
+    mocker.patch('livecheck.main.Path.read_text', return_value='SHA="1234567"\n')
+    mock_write = mocker.patch('livecheck.main.Path.write_text')
+    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.sp.run', return_value=mocker.Mock(returncode=0))
+    mock_update_gomodule_ebuild = mocker.patch('livecheck.main.update_gomodule_ebuild')
+    do_main(cat=cat,
+            ebuild_version=ebuild_version,
+            hash_date=hash_date,
+            hook_dir=hook_dir,
+            last_version=last_version,
+            pkg=pkg,
+            search_dir=search_dir,
+            settings=mock_settings,
+            top_hash=top_hash,
+            url=url)
+    mock_update_gomodule_ebuild.assert_called_once_with(
+        f'{search_dir}/{cat}/{pkg}/{pkg}-{last_version}.ebuild', mocker.ANY, {})
+    mock_write.assert_called_once_with('abcdef1', encoding='utf-8')
+
+
+def test_do_main_nodejs_packages(mocker: MockerFixture, tmp_path: Path,
+                                 mock_settings: Mock) -> None:
+    cat = 'cat'
+    pkg = 'pkg'
+    ebuild_version = '1.0.0'
+    last_version = '1.0.1'
+    top_hash = 'abcdef1'
+    hash_date = ''
+    url = 'https://example.com'
+    hook_dir = None
+    search_dir = tmp_path
+    cp = f'{cat}/{pkg}'
+    ebuild_path = tmp_path / f'{cat}/{pkg}/{pkg}-1.0.0.ebuild'
+    ebuild_path.parent.mkdir(parents=True)
+    ebuild_path.write_text('SHA="1234567"\n', encoding='utf-8')
+    mock_settings.auto_update_flag = True
+    mock_settings.nodejs_packages = {cp}
+    mocker.patch('livecheck.main.get_old_sha', return_value='1234567')
+    mocker.patch('livecheck.main.replace_date_in_ebuild', side_effect=lambda v, _, __: v)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.catpkg_catpkgsplit', return_value=(cp, cat, pkg, last_version))
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
+    mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
+    mocker.patch('livecheck.main.digest_ebuild', return_value=True)
+    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.is_sha', return_value=True)
+    mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
+    mocker.patch('livecheck.main.execute_hooks')
+    mocker.patch('livecheck.main.Path.read_text', return_value='SHA="1234567"\n')
+    mock_write = mocker.patch('livecheck.main.Path.write_text')
+    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.sp.run', return_value=mocker.Mock(returncode=0))
+    mock_update_nodejs_ebuild = mocker.patch('livecheck.main.update_nodejs_ebuild')
+    do_main(cat=cat,
+            ebuild_version=ebuild_version,
+            hash_date=hash_date,
+            hook_dir=hook_dir,
+            last_version=last_version,
+            pkg=pkg,
+            search_dir=search_dir,
+            settings=mock_settings,
+            top_hash=top_hash,
+            url=url)
+    mock_update_nodejs_ebuild.assert_called_once_with(
+        f'{search_dir}/{cat}/{pkg}/{pkg}-{last_version}.ebuild', mocker.ANY, {})
+    mock_write.assert_called_once_with('abcdef1', encoding='utf-8')
+
+
+def test_do_main_composer_packages(mocker: MockerFixture, tmp_path: Path,
+                                   mock_settings: Mock) -> None:
+    cat = 'cat'
+    pkg = 'pkg'
+    ebuild_version = '1.0.0'
+    last_version = '1.0.1'
+    top_hash = 'abcdef1'
+    hash_date = ''
+    url = 'https://example.com'
+    hook_dir = None
+    search_dir = tmp_path
+    cp = f'{cat}/{pkg}'
+    ebuild_path = tmp_path / f'{cat}/{pkg}/{pkg}-1.0.0.ebuild'
+    ebuild_path.parent.mkdir(parents=True)
+    ebuild_path.write_text('SHA="1234567"\n', encoding='utf-8')
+    mock_settings.auto_update_flag = True
+    mock_settings.composer_packages = {cp}
+    mocker.patch('livecheck.main.get_old_sha', return_value='1234567')
+    mocker.patch('livecheck.main.replace_date_in_ebuild', side_effect=lambda v, _, __: v)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.catpkg_catpkgsplit', return_value=(cp, cat, pkg, last_version))
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
+    mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
+    mocker.patch('livecheck.main.digest_ebuild', return_value=True)
+    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.is_sha', return_value=True)
+    mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
+    mocker.patch('livecheck.main.execute_hooks')
+    mocker.patch('livecheck.main.Path.read_text', return_value='SHA="1234567"\n')
+    mock_write = mocker.patch('livecheck.main.Path.write_text')
+    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.sp.run', return_value=mocker.Mock(returncode=0))
+    mock_update_composer_ebuild = mocker.patch('livecheck.main.update_composer_ebuild')
+    do_main(cat=cat,
+            ebuild_version=ebuild_version,
+            hash_date=hash_date,
+            hook_dir=hook_dir,
+            last_version=last_version,
+            pkg=pkg,
+            search_dir=search_dir,
+            settings=mock_settings,
+            top_hash=top_hash,
+            url=url)
+    mock_update_composer_ebuild.assert_called_once_with(
+        f'{search_dir}/{cat}/{pkg}/{pkg}-{last_version}.ebuild', mocker.ANY, {})
+    mock_write.assert_called_once_with('abcdef1', encoding='utf-8')
+
+
+def test_do_main_yarn_base_packages(mocker: MockerFixture, tmp_path: Path,
+                                    mock_settings: Mock) -> None:
+    cat = 'cat'
+    pkg = 'pkg'
+    ebuild_version = '1.0.0'
+    last_version = '1.0.1'
+    top_hash = 'abcdef1'
+    hash_date = ''
+    url = 'https://example.com'
+    hook_dir = None
+    search_dir = tmp_path
+    cp = f'{cat}/{pkg}'
+    ebuild_path = tmp_path / f'{cat}/{pkg}/{pkg}-1.0.0.ebuild'
+    ebuild_path.parent.mkdir(parents=True)
+    ebuild_path.write_text('SHA="1234567"\n', encoding='utf-8')
+    mock_settings.auto_update_flag = True
+    mock_settings.yarn_base_packages = {cp: ''}
+    mocker.patch('livecheck.main.get_old_sha', return_value='1234567')
+    mocker.patch('livecheck.main.replace_date_in_ebuild', side_effect=lambda v, _, __: v)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.catpkg_catpkgsplit', return_value=(cp, cat, pkg, last_version))
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
+    mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
+    mocker.patch('livecheck.main.digest_ebuild', return_value=True)
+    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.is_sha', return_value=True)
+    mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
+    mocker.patch('livecheck.main.execute_hooks')
+    mocker.patch('livecheck.main.Path.read_text', return_value='SHA="1234567"\n')
+    mock_write = mocker.patch('livecheck.main.Path.write_text')
+    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.sp.run', return_value=mocker.Mock(returncode=0))
+    mock_update_yarn_ebuild = mocker.patch('livecheck.main.update_yarn_ebuild')
+    do_main(cat=cat,
+            ebuild_version=ebuild_version,
+            hash_date=hash_date,
+            hook_dir=hook_dir,
+            last_version=last_version,
+            pkg=pkg,
+            search_dir=search_dir,
+            settings=mock_settings,
+            top_hash=top_hash,
+            url=url)
+    mock_update_yarn_ebuild.assert_called_once_with(
+        f'{search_dir}/{cat}/{pkg}/{pkg}-{last_version}.ebuild', '', 'pkg', mocker.ANY)
+    mock_write.assert_called_once_with('abcdef1', encoding='utf-8')
+
+
+def test_do_main_go_sum_uri(mocker: MockerFixture, tmp_path: Path, mock_settings: Mock) -> None:
+    cat = 'cat'
+    pkg = 'pkg'
+    ebuild_version = '1.0.0'
+    last_version = '1.0.1'
+    top_hash = 'abcdef1'
+    hash_date = ''
+    url = 'https://example.com'
+    hook_dir = None
+    search_dir = tmp_path
+    cp = f'{cat}/{pkg}'
+    ebuild_path = tmp_path / f'{cat}/{pkg}/{pkg}-1.0.0.ebuild'
+    ebuild_path.parent.mkdir(parents=True)
+    ebuild_path.write_text('SHA="1234567"\n', encoding='utf-8')
+    mock_settings.auto_update_flag = True
+    mock_settings.go_sum_uri = {cp: ''}
+    mocker.patch('livecheck.main.get_old_sha', return_value='1234567')
+    mocker.patch('livecheck.main.replace_date_in_ebuild', side_effect=lambda v, _, __: v)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.catpkg_catpkgsplit', return_value=(cp, cat, pkg, last_version))
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
+    mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
+    mocker.patch('livecheck.main.digest_ebuild', return_value=True)
+    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.is_sha', return_value=True)
+    mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
+    mocker.patch('livecheck.main.execute_hooks')
+    mocker.patch('livecheck.main.Path.read_text', return_value='SHA="1234567"\n')
+    mock_write = mocker.patch('livecheck.main.Path.write_text')
+    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.sp.run', return_value=mocker.Mock(returncode=0))
+    mock_update_go_ebuild = mocker.patch('livecheck.main.update_go_ebuild')
+    do_main(cat=cat,
+            ebuild_version=ebuild_version,
+            hash_date=hash_date,
+            hook_dir=hook_dir,
+            last_version=last_version,
+            pkg=pkg,
+            search_dir=search_dir,
+            settings=mock_settings,
+            top_hash=top_hash,
+            url=url)
+    mock_update_go_ebuild.assert_called_once_with(
+        f'{search_dir}/{cat}/{pkg}/{pkg}-{last_version}.ebuild', 'abcdef1', '')
+    mock_write.assert_called_once_with('abcdef1', encoding='utf-8')
+
+
+def test_do_main_dotnet_projects(mocker: MockerFixture, tmp_path: Path,
+                                 mock_settings: Mock) -> None:
+    cat = 'cat'
+    pkg = 'pkg'
+    ebuild_version = '1.0.0'
+    last_version = '1.0.1'
+    top_hash = 'abcdef1'
+    hash_date = ''
+    url = 'https://example.com'
+    hook_dir = None
+    search_dir = tmp_path
+    cp = f'{cat}/{pkg}'
+    ebuild_path = tmp_path / f'{cat}/{pkg}/{pkg}-1.0.0.ebuild'
+    ebuild_path.parent.mkdir(parents=True)
+    ebuild_path.write_text('SHA="1234567"\n', encoding='utf-8')
+    mock_settings.auto_update_flag = True
+    mock_settings.dotnet_projects = {cp: ''}
+    mocker.patch('livecheck.main.check_dotnet_requirements', return_value=True)
+    mocker.patch('livecheck.main.get_old_sha', return_value='1234567')
+    mocker.patch('livecheck.main.replace_date_in_ebuild', side_effect=lambda v, _, __: v)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.catpkg_catpkgsplit', return_value=(cp, cat, pkg, last_version))
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
+    mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
+    mocker.patch('livecheck.main.digest_ebuild', return_value=True)
+    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.is_sha', return_value=True)
+    mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
+    mocker.patch('livecheck.main.execute_hooks')
+    mocker.patch('livecheck.main.Path.read_text', return_value='SHA="1234567"\n')
+    mock_write = mocker.patch('livecheck.main.Path.write_text')
+    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.sp.run', return_value=mocker.Mock(returncode=0))
+    mock_update_dotnet_ebuild = mocker.patch('livecheck.main.update_dotnet_ebuild')
+    do_main(cat=cat,
+            ebuild_version=ebuild_version,
+            hash_date=hash_date,
+            hook_dir=hook_dir,
+            last_version=last_version,
+            pkg=pkg,
+            search_dir=search_dir,
+            settings=mock_settings,
+            top_hash=top_hash,
+            url=url)
+    mock_update_dotnet_ebuild.assert_called_once_with(
+        f'{search_dir}/{cat}/{pkg}/{pkg}-{last_version}.ebuild', '')
+    mock_write.assert_called_once_with('abcdef1', encoding='utf-8')
+
+
+def test_do_main_jetbrains_packages(mocker: MockerFixture, tmp_path: Path,
+                                    mock_settings: Mock) -> None:
+    cat = 'cat'
+    pkg = 'pkg'
+    ebuild_version = '1.0.0'
+    last_version = '1.0.1'
+    top_hash = 'abcdef1'
+    hash_date = ''
+    url = 'https://example.com'
+    hook_dir = None
+    search_dir = tmp_path
+    cp = f'{cat}/{pkg}'
+    ebuild_path = tmp_path / f'{cat}/{pkg}/{pkg}-1.0.0.ebuild'
+    ebuild_path.parent.mkdir(parents=True)
+    ebuild_path.write_text('SHA="1234567"\n', encoding='utf-8')
+    mock_settings.auto_update_flag = True
+    mock_settings.jetbrains_packages = {cp}
+    mocker.patch('livecheck.main.get_old_sha', return_value='1234567')
+    mocker.patch('livecheck.main.replace_date_in_ebuild', side_effect=lambda v, _, __: v)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.catpkg_catpkgsplit', return_value=(cp, cat, pkg, last_version))
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
+    mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
+    mocker.patch('livecheck.main.digest_ebuild', return_value=True)
+    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.is_sha', return_value=True)
+    mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
+    mocker.patch('livecheck.main.execute_hooks')
+    mocker.patch('livecheck.main.Path.read_text', return_value='SHA="1234567"\n')
+    mock_write = mocker.patch('livecheck.main.Path.write_text')
+    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.sp.run', return_value=mocker.Mock(returncode=0))
+    mock_update_jetbrains_ebuild = mocker.patch('livecheck.main.update_jetbrains_ebuild')
+    do_main(cat=cat,
+            ebuild_version=ebuild_version,
+            hash_date=hash_date,
+            hook_dir=hook_dir,
+            last_version=last_version,
+            pkg=pkg,
+            search_dir=search_dir,
+            settings=mock_settings,
+            top_hash=top_hash,
+            url=url)
+    mock_update_jetbrains_ebuild.assert_called_once_with(
+        f'{search_dir}/{cat}/{pkg}/{pkg}-{last_version}.ebuild')
+    mock_write.assert_called_once_with('abcdef1', encoding='utf-8')
+
+
+def test_do_main_type_checksum_updates_checksum_metadata(mocker: MockerFixture, tmp_path: Path,
+                                                         mock_settings: Mock) -> None:
+    cat = 'cat'
+    pkg = 'pkg'
+    ebuild_version = '1.0.0'
+    last_version = '1.0.1'
+    top_hash = 'abcdef1'
+    hash_date = '20240101'
+    url = 'https://example.com'
+    hook_dir = None
+    search_dir = tmp_path
+    cp = f'{cat}/{pkg}'
+    ebuild_path = tmp_path / f'{cat}/{pkg}/{pkg}-1.0.0.ebuild'
+    ebuild_path.parent.mkdir(parents=True)
+    ebuild_path.write_text('SHA="1234567"\n', encoding='utf-8')
+    mock_settings.auto_update_flag = True
+    mock_settings.type_packages = {cp: 'checksum'}
+    mocker.patch('livecheck.main.get_old_sha', return_value='1234567')
+    mocker.patch('livecheck.main.replace_date_in_ebuild', side_effect=lambda v, _, __: v)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.catpkg_catpkgsplit', return_value=(cp, cat, pkg, last_version))
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
+    mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
+    mocker.patch('livecheck.main.digest_ebuild', return_value=True)
+    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.is_sha', return_value=True)
+    mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
+    mocker.patch('livecheck.main.execute_hooks')
+    mocker.patch('livecheck.main.Path.read_text', return_value='SHA="1234567"\n')
+    mocker.patch('livecheck.main.remove_gomodule_url', return_value='Not the same content')
+    mock_write = mocker.patch('livecheck.main.Path.write_text')
+    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.sp.run', return_value=mocker.Mock(returncode=0))
+    mock_update_checksum_metadata = mocker.patch('livecheck.main.update_checksum_metadata')
+    do_main(cat=cat,
+            ebuild_version=ebuild_version,
+            hash_date=hash_date,
+            hook_dir=hook_dir,
+            last_version=last_version,
+            pkg=pkg,
+            search_dir=search_dir,
+            settings=mock_settings,
+            top_hash=top_hash,
+            url=url)
+    mock_update_checksum_metadata.assert_called_once_with(f'{cp}-{last_version}', url,
+                                                          str(search_dir))
+    mock_write.assert_called_once_with('abcdef1', encoding='utf-8')
+
+
+def test_do_main_old_content_differs_with_gomodule_packages(mocker: MockerFixture, tmp_path: Path,
+                                                            mock_settings: Mock) -> None:
+    cat = 'cat'
+    pkg = 'pkg'
+    ebuild_version = '1.0.0'
+    last_version = '1.0.1'
+    top_hash = 'abcdef1'
+    hash_date = ''
+    url = 'https://example.com'
+    hook_dir = None
+    search_dir = tmp_path
+    cp = f'{cat}/{pkg}'
+    ebuild_path = tmp_path / f'{cat}/{pkg}/{pkg}-1.0.0.ebuild'
+    ebuild_path.parent.mkdir(parents=True)
+    ebuild_path.write_text('SHA="1234567"\n', encoding='utf-8')
+    mock_settings.auto_update_flag = True
+    mock_settings.sha_sources = {}
+    mock_settings.keep_old = {}
+    mock_settings.git_flag = False
+    mock_settings.gomodule_packages = {cp}
+    mocker.patch('livecheck.main.remove_gomodule_url', return_value='Not the same content')
+    mocker.patch('livecheck.main.get_old_sha', return_value='1234567')
+    mocker.patch('livecheck.main.replace_date_in_ebuild', side_effect=lambda v, _, __: v)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.catpkg_catpkgsplit', return_value=(cp, cat, pkg, last_version))
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
+    mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
+    mocker.patch('livecheck.main.digest_ebuild', return_value=True)
+    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.is_sha', return_value=True)
+    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.sp.run', return_value=mocker.Mock(returncode=0))
+    mocker.patch('livecheck.main.execute_hooks')
+    mocker.patch('livecheck.main.Path.read_text',
+                 side_effect=['SHA="1234567"\n', 'SHA="abcdef1"\n'])
+    write_text_mock = mocker.patch('livecheck.main.Path.write_text')
+    process_submodules_mock = mocker.patch('livecheck.main.process_submodules',
+                                           side_effect=lambda *_, **__: 'SHA="abcdef1"\n')
+    mock_update_gomodule_ebuild = mocker.patch('livecheck.main.update_gomodule_ebuild')
+    do_main(cat=cat,
+            ebuild_version=ebuild_version,
+            hash_date=hash_date,
+            hook_dir=hook_dir,
+            last_version=last_version,
+            pkg=pkg,
+            search_dir=search_dir,
+            settings=mock_settings,
+            top_hash=top_hash,
+            url=url)
+    assert mock_update_gomodule_ebuild.called
+    assert write_text_mock.call_count >= 2
+    assert process_submodules_mock.called
+
+
+def test_do_main_old_content_differs_with_gomodule_packages_digest_false(
+        mocker: MockerFixture, tmp_path: Path, mock_settings: Mock) -> None:
+    cat = 'cat'
+    pkg = 'pkg'
+    ebuild_version = '1.0.0'
+    last_version = '1.0.1'
+    top_hash = 'abcdef1'
+    hash_date = ''
+    url = 'https://example.com'
+    hook_dir = None
+    search_dir = tmp_path
+    cp = f'{cat}/{pkg}'
+    ebuild_path = tmp_path / f'{cat}/{pkg}/{pkg}-1.0.0.ebuild'
+    ebuild_path.parent.mkdir(parents=True)
+    ebuild_path.write_text('SHA="1234567"\n', encoding='utf-8')
+    mock_settings.auto_update_flag = True
+    mock_settings.sha_sources = {}
+    mock_settings.keep_old = {}
+    mock_settings.git_flag = False
+    mock_settings.keep_old_flag = True
+    mock_settings.gomodule_packages = {cp}
+    mocker.patch('livecheck.main.remove_gomodule_url', return_value='Not the same content')
+    mocker.patch('livecheck.main.get_old_sha', return_value='1234567')
+    mocker.patch('livecheck.main.replace_date_in_ebuild', side_effect=lambda v, _, __: v)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.catpkg_catpkgsplit', return_value=(cp, cat, pkg, last_version))
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
+    mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
+    # digest_ebuild returns True for first call, False for second call
+    mock_digest = mocker.patch('livecheck.main.digest_ebuild', side_effect=[True, True, False])
+    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.is_sha', return_value=True)
+    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.sp.run', return_value=mocker.Mock(returncode=0))
+    mocker.patch('livecheck.main.execute_hooks')
+    # Simulate old_content != content
+    mocker.patch('livecheck.main.Path.read_text',
+                 side_effect=['SHA="1234567"\n', 'SHA="abcdef1"\n'])
+    write_text_mock = mocker.patch('livecheck.main.Path.write_text')
+    process_submodules_mock = mocker.patch('livecheck.main.process_submodules',
+                                           side_effect=lambda *_, **__: 'SHA="abcdef1"\n')
+    mocker.patch('livecheck.main.update_gomodule_ebuild')
+    do_main(cat=cat,
+            ebuild_version=ebuild_version,
+            hash_date=hash_date,
+            hook_dir=hook_dir,
+            last_version=last_version,
+            pkg=pkg,
+            search_dir=search_dir,
+            settings=mock_settings,
+            top_hash=top_hash,
+            url=url)
+    assert write_text_mock.call_count >= 2
+    assert process_submodules_mock.called
+    assert mock_digest.call_count == 3
+    assert mock_digest.call_args_list[-1][0][0] == (
+        f'{search_dir}/{cat}/{pkg}/{pkg}-{last_version}.ebuild')
+
+
+def test_do_main_not_is_sha_and_cp_in_tag_name_functions(mocker: MockerFixture, tmp_path: Path,
+                                                         mock_settings: Mock) -> None:
+    # Setup
+    cat = 'cat'
+    pkg = 'pkg'
+    ebuild_version = '1.0.0'
+    last_version = '1.0.1'
+    top_hash = 'not-a-sha'
+    hash_date = ''
+    url = 'https://example.com'
+    hook_dir = None
+    search_dir = tmp_path
+    cp = f'{cat}/{pkg}'
+    ebuild_path = tmp_path / f'{cat}/{pkg}/{pkg}-1.0.0.ebuild'
+    ebuild_path.parent.mkdir(parents=True)
+    ebuild_path.write_text('SHA="1234567"\n', encoding='utf-8')
+    mock_settings.auto_update_flag = True
+    mock_settings.sha_sources = {}
+    mock_settings.no_auto_update = set()
+    mock_settings.keep_old = {}
+    mock_settings.git_flag = False
+    mocker.patch('livecheck.main.get_old_sha', return_value='')
+    mocker.patch('livecheck.main.replace_date_in_ebuild', side_effect=lambda v, _, __: v)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.catpkg_catpkgsplit', return_value=(cp, cat, pkg, last_version))
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
+    mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
+    mocker.patch('livecheck.main.digest_ebuild', return_value=True)
+    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
+    mocker.patch('livecheck.main.execute_hooks')
+    mocker.patch('livecheck.main.Path.read_text', return_value='SHA="1234567"\n')
+    mock_write = mocker.patch('livecheck.main.Path.write_text')
+    mocker.patch('livecheck.main.sp.run', return_value=mocker.Mock(returncode=0))
+    mock_is_sha = mocker.patch('livecheck.main.is_sha', return_value=False)
+    mocker.patch('livecheck.main.TAG_NAME_FUNCTIONS', {cp: lambda *_: 'tagged-sha'})
+    do_main(cat=cat,
+            ebuild_version=ebuild_version,
+            hash_date=hash_date,
+            hook_dir=hook_dir,
+            last_version=last_version,
+            pkg=pkg,
+            search_dir=search_dir,
+            settings=mock_settings,
+            top_hash=top_hash,
+            url=url)
+    mock_is_sha.assert_called_with(top_hash)
+    mock_write.assert_called_once_with('tagged-sha', encoding='utf-8')
 
 
 def test_process_submodules_no_submodules(mocker: MockerFixture) -> None:
@@ -654,6 +1551,498 @@ def test_get_props_type_metadata_calls_parse_metadata(mocker: MockerFixture, fak
                   names=['cat/pkg'],
                   exclude=[]))
     assert results == [('cat', 'pkg', '1.0.0', 'ver', 'sha', 'date', 'url')]
+
+
+def test_get_props_no_names_argument_yields(mocker: MockerFixture, fake_repo: Path,
+                                            mock_settings2: Mock) -> None:
+    # Setup: create two ebuild files in the repo
+    ebuild1 = fake_repo / 'cat1' / 'pkg1' / 'pkg1-1.0.0.ebuild'
+    ebuild2 = fake_repo / 'cat2' / 'pkg2' / 'pkg2-2.0.0.ebuild'
+    ebuild1.parent.mkdir(parents=True, exist_ok=True)
+    ebuild2.parent.mkdir(parents=True, exist_ok=True)
+    ebuild1.write_text('EAPI=8\n', encoding='utf-8')
+    ebuild2.write_text('EAPI=8\n', encoding='utf-8')
+    mocker.patch('livecheck.main.get_highest_matches',
+                 return_value=['cat1/pkg1-1.0.0', 'cat2/pkg2-2.0.0'])
+
+    def fake_catpkg_catpkgsplit(arg: str) -> tuple[str, str, str, str]:
+        if arg == 'cat1/pkg1-1.0.0':
+            return ('cat1/pkg1', 'cat1', 'pkg1', '1.0.0')
+        if arg == 'cat2/pkg2-2.0.0':
+            return ('cat2/pkg2', 'cat2', 'pkg2', '2.0.0')
+        return ('cat/pkg', 'cat', 'pkg', '1.0.0')
+
+    mocker.patch('livecheck.main.catpkg_catpkgsplit', side_effect=fake_catpkg_catpkgsplit)
+    mocker.patch('livecheck.main.get_first_src_uri', return_value='https://example.com/pkg.tar.gz')
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
+    mocker.patch('livecheck.main.get_old_sha', return_value='')
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.log')
+    mocker.patch('livecheck.main.parse_url',
+                 side_effect=[
+                     ('ver1', 'sha1', 'date1', 'url1'),
+                     ('ver2', 'sha2', 'date2', 'url2'),
+                 ])
+    results = list(
+        get_props(search_dir=fake_repo,
+                  repo_root=fake_repo,
+                  settings=mock_settings2,
+                  names=None,
+                  exclude=[]))
+    assert results == [
+        ('cat1', 'pkg1', '1.0.0', 'ver1', 'sha1', 'date1', 'url1'),
+        ('cat2', 'pkg2', '2.0.0', 'ver2', 'sha2', 'date2', 'url2'),
+    ]
+
+
+def test_get_props_no_names_argument_exclude_all(mocker: MockerFixture, fake_repo: Path,
+                                                 mock_settings2: Mock) -> None:
+    ebuild1 = fake_repo / 'cat1' / 'pkg1' / 'pkg1-1.0.0.ebuild'
+    ebuild1.parent.mkdir(parents=True, exist_ok=True)
+    ebuild1.write_text('EAPI=8\n', encoding='utf-8')
+    mocker.patch('livecheck.main.get_highest_matches', return_value=['cat1/pkg1-1.0.0'])
+    mocker.patch('livecheck.main.catpkg_catpkgsplit',
+                 return_value=('cat1/pkg1', 'cat1', 'pkg1', '1.0.0'))
+    mocker.patch('livecheck.main.get_first_src_uri', return_value='https://example.com/pkg.tar.gz')
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
+    mocker.patch('livecheck.main.log')
+    results = list(
+        get_props(search_dir=fake_repo,
+                  repo_root=fake_repo,
+                  settings=mock_settings2,
+                  names=None,
+                  exclude=['cat1/pkg1']))
+    assert results == []
+
+
+def test_get_props_no_names_argument_no_matches(mocker: MockerFixture, fake_repo: Path,
+                                                mock_settings2: Mock) -> None:
+    mocker.patch('livecheck.main.get_highest_matches', return_value=[])
+    mocker.patch('livecheck.main.log')
+    with pytest.raises(click.Abort):
+        list(
+            get_props(search_dir=fake_repo,
+                      repo_root=fake_repo,
+                      settings=mock_settings2,
+                      names=None,
+                      exclude=[]))
+
+
+def test_get_props_type_davinci_calls_get_latest_davinci_package(mocker: MockerFixture,
+                                                                 fake_repo: Path,
+                                                                 mock_settings2: Mock) -> None:
+    mock_settings2.type_packages = {'cat/pkg': 'davinci'}
+    mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
+    mocker.patch('livecheck.main.catpkg_catpkgsplit',
+                 return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
+    mocker.patch('livecheck.main.get_first_src_uri',
+                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
+    mocker.patch('livecheck.main.get_old_sha', return_value='')
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.log')
+    mock_get_latest_davinci_package = mocker.patch('livecheck.main.get_latest_davinci_package',
+                                                   return_value='davinci_ver')
+    results = list(
+        get_props(search_dir=fake_repo,
+                  repo_root=fake_repo,
+                  settings=mock_settings2,
+                  names=['cat/pkg'],
+                  exclude=[]))
+    assert results == [('cat', 'pkg', '1.0.0', 'davinci_ver', '', '', '')]
+    mock_get_latest_davinci_package.assert_called_once_with('pkg')
+
+
+def test_get_props_type_directory_calls_get_latest_directory_package(mocker: MockerFixture,
+                                                                     fake_repo: Path,
+                                                                     mock_settings2: Mock) -> None:
+    mock_settings2.type_packages = {'cat/pkg': 'directory'}
+    mock_settings2.custom_livechecks = {'cat/pkg': ('https://dir.example.com', None)}
+    mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
+    mocker.patch('livecheck.main.catpkg_catpkgsplit',
+                 return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
+    mocker.patch('livecheck.main.get_first_src_uri',
+                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
+    mocker.patch('livecheck.main.get_old_sha', return_value='')
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.log')
+    mock_get_latest_directory_package = mocker.patch('livecheck.main.get_latest_directory_package',
+                                                     return_value=('dir_ver', 'dir_url'))
+    results = list(
+        get_props(search_dir=fake_repo,
+                  repo_root=fake_repo,
+                  settings=mock_settings2,
+                  names=['cat/pkg'],
+                  exclude=[]))
+    assert results == [('cat', 'pkg', '1.0.0', 'dir_ver', '', '', 'dir_url')]
+    mock_get_latest_directory_package.assert_called_once_with('https://dir.example.com',
+                                                              'cat/pkg-1.0.0', mock_settings2)
+
+
+def test_get_props_type_repology_calls_get_latest_repology(mocker: MockerFixture, fake_repo: Path,
+                                                           mock_settings2: Mock) -> None:
+    mock_settings2.type_packages = {'cat/pkg': 'repology'}
+    mock_settings2.custom_livechecks = {'cat/pkg': ('repology_pkg', None)}
+    mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
+    mocker.patch('livecheck.main.catpkg_catpkgsplit',
+                 return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
+    mocker.patch('livecheck.main.get_first_src_uri',
+                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
+    mocker.patch('livecheck.main.get_old_sha', return_value='')
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.log')
+    mock_get_latest_repology = mocker.patch('livecheck.main.get_latest_repology',
+                                            return_value='repo_ver')
+    results = list(
+        get_props(search_dir=fake_repo,
+                  repo_root=fake_repo,
+                  settings=mock_settings2,
+                  names=['cat/pkg'],
+                  exclude=[]))
+    assert results == [('cat', 'pkg', '1.0.0', 'repo_ver', '', '', '')]
+    mock_get_latest_repology.assert_called_once_with('cat/pkg-1.0.0', mock_settings2,
+                                                     'repology_pkg')
+
+
+def test_get_props_type_regex_calls_get_latest_regex_package(mocker: MockerFixture, fake_repo: Path,
+                                                             mock_settings2: Mock) -> None:
+    mock_settings2.type_packages = {'cat/pkg': 'regex'}
+    mock_settings2.custom_livechecks = {'cat/pkg': ('https://regex.example.com', 'v([0-9.]+)')}
+    mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
+    mocker.patch('livecheck.main.catpkg_catpkgsplit',
+                 return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
+    mocker.patch('livecheck.main.get_first_src_uri',
+                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
+    mocker.patch('livecheck.main.get_old_sha', return_value='')
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.log')
+    mock_get_latest_regex_package = mocker.patch(
+        'livecheck.main.get_latest_regex_package',
+        return_value=('regex_ver', 'regex_date', 'regex_url'))
+    results = list(
+        get_props(search_dir=fake_repo,
+                  repo_root=fake_repo,
+                  settings=mock_settings2,
+                  names=['cat/pkg'],
+                  exclude=[]))
+    assert results == [('cat', 'pkg', '1.0.0', 'regex_ver', '', 'regex_date', 'regex_url')]
+    mock_get_latest_regex_package.assert_called_once_with(
+        'cat/pkg-1.0.0', 'https://regex.example.com', 'v([0-9.]+)', mock_settings2)
+
+
+def test_get_props_type_checksum_calls_get_latest_checksum_package(mocker: MockerFixture,
+                                                                   fake_repo: Path,
+                                                                   mock_settings2: Mock) -> None:
+    mock_settings2.type_packages = {'cat/pkg': 'checksum'}
+    mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
+    mocker.patch('livecheck.main.catpkg_catpkgsplit',
+                 return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
+    mocker.patch('livecheck.main.get_first_src_uri',
+                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
+    mocker.patch('livecheck.main.get_old_sha', return_value='')
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.log')
+    mock_get_latest_checksum_package = mocker.patch('livecheck.main.get_latest_checksum_package',
+                                                    return_value=('cs_ver', 'cs_date', 'cs_url'))
+    results = list(
+        get_props(search_dir=fake_repo,
+                  repo_root=fake_repo,
+                  settings=mock_settings2,
+                  names=['cat/pkg'],
+                  exclude=[]))
+    assert results == [('cat', 'pkg', '1.0.0', 'cs_ver', '', 'cs_date', 'cs_url')]
+    mock_get_latest_checksum_package.assert_called_once_with('https://example.com/pkg-1.0.0.tar.gz',
+                                                             'cat/pkg-1.0.0', str(fake_repo))
+
+
+def test_get_props_type_commit_calls_parse_url(mocker: MockerFixture, fake_repo: Path,
+                                               mock_settings2: Mock) -> None:
+    mock_settings2.type_packages = {'cat/pkg': 'commit'}
+    mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
+    mocker.patch('livecheck.main.catpkg_catpkgsplit',
+                 return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
+    mocker.patch('livecheck.main.get_first_src_uri',
+                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('egit_url', ''))
+    mocker.patch('livecheck.main.get_old_sha', return_value='')
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.log')
+    mock_parse_url = mocker.patch(
+        'livecheck.main.parse_url',
+        return_value=('commit_ver', 'commit_sha', 'commit_date', 'commit_url'))
+    results = list(
+        get_props(search_dir=fake_repo,
+                  repo_root=fake_repo,
+                  settings=mock_settings2,
+                  names=['cat/pkg'],
+                  exclude=[]))
+    assert results == [('cat', 'pkg', '1.0.0', 'commit_ver', 'commit_sha', 'commit_date',
+                        'commit_url')]
+    mock_parse_url.assert_called_once_with('egit_url/commit/',
+                                           'cat/pkg-1.0.0',
+                                           mock_settings2,
+                                           force_sha=True)
+
+
+def test_get_props_with_egit_repo_and_branch(mocker: MockerFixture, fake_repo: Path,
+                                             mock_settings2: Mock) -> None:
+    # Setup mocks for get_highest_matches and catpkg_catpkgsplit
+    mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
+    mocker.patch('livecheck.main.catpkg_catpkgsplit',
+                 return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
+    mocker.patch('livecheck.main.get_first_src_uri',
+                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    # get_egit_repo returns egit url and branch
+    egit_url = 'https://github.com/org/repo.git'
+    branch_name = 'main'
+    mock_get_egit_repo = mocker.patch('livecheck.main.get_egit_repo',
+                                      return_value=(egit_url, branch_name))
+    mocker.patch('livecheck.main.get_old_sha', return_value='abcdef1')
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mock_log = mocker.patch('livecheck.main.log')
+    # parse_url returns a version, sha, date, url
+    mock_parse_url = mocker.patch(
+        'livecheck.main.parse_url',
+        return_value=('ver', 'sha', 'date', 'https://github.com/org/repo.git/commit/abcdef1'))
+    # settings.type_packages is empty so default path is taken
+    results = list(
+        get_props(search_dir=fake_repo,
+                  repo_root=fake_repo,
+                  settings=mock_settings2,
+                  names=['cat/pkg'],
+                  exclude=[]))
+    assert results == [('cat', 'pkg', '1.0.0', 'ver', 'sha', 'date',
+                        'https://github.com/org/repo.git/commit/abcdef1')]
+    # Ensure get_egit_repo was called and branch was set in settings
+    mock_get_egit_repo.assert_called_once()
+    assert mock_settings2.branches['cat/pkg'] == branch_name
+    mock_parse_url.assert_called_once_with(egit_url + '/commit/' + 'abcdef1',
+                                           'cat/pkg-1.0.0',
+                                           mock_settings2,
+                                           force_sha=True)
+    mock_log.info.assert_any_call('Processing: %s | Version: %s', 'cat/pkg', '1.0.0')
+
+
+def test_get_props_sync_version_yields(mocker: MockerFixture, fake_repo: Path,
+                                       mock_settings2: Mock) -> None:
+    # Setup: catpkg is in settings.sync_version
+    mock_settings2.sync_version = {'cat/pkg': 'cat/pkg-2.0.0'}
+    mocker.patch(
+        'livecheck.main.get_highest_matches',
+        side_effect=[
+            ['cat/pkg-1.0.0'],  # for main get_highest_matches
+            ['cat/pkg-2.0.0'],  # for sync_version get_highest_matches
+        ])
+    mocker.patch('livecheck.main.catpkg_catpkgsplit',
+                 side_effect=[('cat/pkg', 'cat', 'pkg', '1.0.0'),
+                              ('cat/pkg', 'cat', 'pkg', '2.0.0')])
+    mocker.patch('livecheck.main.get_first_src_uri',
+                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
+    mocker.patch('livecheck.main.get_old_sha', return_value='')
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.log')
+    mocker.patch('livecheck.main.parse_url', return_value=('', '', '', ''))
+    results = list(
+        get_props(search_dir=fake_repo,
+                  repo_root=fake_repo,
+                  settings=mock_settings2,
+                  names=['cat/pkg'],
+                  exclude=[]))
+    # Should yield with last_version from sync_version (with -r* removed)
+    assert results == [('cat', 'pkg', '1.0.0', '2.0.0', '', '', '')]
+
+
+def test_get_props_sync_version_no_matches(mocker: MockerFixture, fake_repo: Path,
+                                           mock_settings2: Mock) -> None:
+    mock_settings2.sync_version = {'cat/pkg': 'cat/pkg-2.0.0'}
+    mocker.patch(
+        'livecheck.main.get_highest_matches',
+        side_effect=[
+            ['cat/pkg-1.0.0'],  # for main get_highest_matches
+            [],  # for sync_version get_highest_matches
+        ])
+    mocker.patch('livecheck.main.catpkg_catpkgsplit',
+                 return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
+    mocker.patch('livecheck.main.get_first_src_uri',
+                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
+    mocker.patch('livecheck.main.get_old_sha', return_value='')
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.log')
+    mocker.patch('livecheck.main.parse_url', return_value=('', '', '', ''))
+    results = list(
+        get_props(search_dir=fake_repo,
+                  repo_root=fake_repo,
+                  settings=mock_settings2,
+                  names=['cat/pkg'],
+                  exclude=[]))
+    assert results == []
+
+
+def test_get_props_no_last_version_no_top_hash_uses_homepage(mocker: MockerFixture, fake_repo: Path,
+                                                             mock_settings2: Mock) -> None:
+    mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
+    mocker.patch('livecheck.main.catpkg_catpkgsplit',
+                 return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
+    mocker.patch('livecheck.main.get_first_src_uri',
+                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
+    mocker.patch('livecheck.main.get_old_sha', return_value='')
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.P.aux_get',
+                 return_value=['https://homepage1', 'https://homepage2'])
+    mocker.patch('livecheck.main.log')
+    parse_url_mock = mocker.patch(
+        'livecheck.main.parse_url',
+        side_effect=[
+            ('', '', '', ''),  # for src_uri
+            ('ver', 'sha', 'date', 'url'),  # for homepage1
+        ])
+    results = list(
+        get_props(search_dir=fake_repo,
+                  repo_root=fake_repo,
+                  settings=mock_settings2,
+                  names=['cat/pkg'],
+                  exclude=[]))
+    assert results == [('cat', 'pkg', '1.0.0', 'ver', 'sha', 'date', 'url')]
+    assert parse_url_mock.call_count == 2
+    parse_url_mock.assert_any_call('https://example.com/pkg-1.0.0.tar.gz',
+                                   'cat/pkg-1.0.0',
+                                   mock_settings2,
+                                   force_sha=False)
+    parse_url_mock.assert_any_call('https://homepage1',
+                                   'cat/pkg-1.0.0',
+                                   mock_settings2,
+                                   force_sha=False)
+
+
+def test_get_props_no_last_version_no_top_hash_no_homepage(mocker: MockerFixture, fake_repo: Path,
+                                                           mock_settings2: Mock) -> None:
+    mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
+    mocker.patch('livecheck.main.catpkg_catpkgsplit',
+                 return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
+    mocker.patch('livecheck.main.get_first_src_uri',
+                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_latest_repology', return_value='')
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
+    mocker.patch('livecheck.main.get_old_sha', return_value='')
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.P.aux_get', return_value=[])
+    mocker.patch('livecheck.main.log')
+    parse_url_mock = mocker.patch('livecheck.main.parse_url', return_value=('', '', '', ''))
+    results = list(
+        get_props(search_dir=fake_repo,
+                  repo_root=fake_repo,
+                  settings=mock_settings2,
+                  names=['cat/pkg'],
+                  exclude=[]))
+    assert results == []
+    parse_url_mock.assert_called_once_with('https://example.com/pkg-1.0.0.tar.gz',
+                                           'cat/pkg-1.0.0',
+                                           mock_settings2,
+                                           force_sha=False)
+
+
+def test_get_props_no_last_version_no_top_hash_uses_directory(mocker: MockerFixture,
+                                                              fake_repo: Path,
+                                                              mock_settings2: Mock) -> None:
+    mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
+    mocker.patch('livecheck.main.catpkg_catpkgsplit',
+                 return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
+    mocker.patch('livecheck.main.get_first_src_uri',
+                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
+    mocker.patch('livecheck.main.get_old_sha', return_value='')
+    mocker.patch('livecheck.main.get_latest_repology', return_value='')
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.P.aux_get', return_value=[])
+    mocker.patch('livecheck.main.log')
+    mocker.patch('livecheck.main.parse_url', return_value=('', '', '', ''))
+    get_latest_directory_package_mock = mocker.patch('livecheck.main.get_latest_directory_package',
+                                                     return_value=('dir_ver', 'dir_url'))
+    mock_settings2.custom_livechecks = {'cat/pkg': ('https://dir.example.com', None)}
+    results = list(
+        get_props(search_dir=fake_repo,
+                  repo_root=fake_repo,
+                  settings=mock_settings2,
+                  names=['cat/pkg'],
+                  exclude=[]))
+    assert results == [('cat', 'pkg', '1.0.0', 'dir_ver', '', '', 'dir_url')]
+    get_latest_directory_package_mock.assert_called_once_with(
+        'https://example.com/pkg-1.0.0.tar.gz', 'cat/pkg-1.0.0', mock_settings2)
+
+
+def test_get_props_no_last_version_no_top_hash_uses_directory_loop_homes(
+        mocker: MockerFixture, fake_repo: Path, mock_settings2: Mock) -> None:
+    mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
+    mocker.patch('livecheck.main.catpkg_catpkgsplit',
+                 return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
+    mocker.patch('livecheck.main.get_latest_repology', return_value='')
+    mocker.patch('livecheck.main.get_first_src_uri',
+                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
+    mocker.patch('livecheck.main.get_old_sha', return_value='')
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.P.aux_get',
+                 return_value=['https://homepage1', 'https://homepage2'])
+    mocker.patch('livecheck.main.log')
+    mocker.patch('livecheck.main.parse_url', return_value=('', '', '', ''))
+    get_latest_directory_package_mock = mocker.patch('livecheck.main.get_latest_directory_package',
+                                                     side_effect=[('', ''), ('', ''),
+                                                                  ('dir_ver', 'dir_url')])
+    mock_settings2.custom_livechecks = {'cat/pkg': ('https://dir.example.com', None)}
+    results = list(
+        get_props(search_dir=fake_repo,
+                  repo_root=fake_repo,
+                  settings=mock_settings2,
+                  names=['cat/pkg'],
+                  exclude=[]))
+    assert results == [('cat', 'pkg', '1.0.0', 'dir_ver', '', '', 'dir_url')]
+    get_latest_directory_package_mock.assert_any_call('https://homepage1', 'cat/pkg-1.0.0',
+                                                      mock_settings2)
 
 
 @pytest.mark.parametrize(

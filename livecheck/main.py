@@ -363,8 +363,9 @@ def get_props(search_dir: Path,
             if not last_version and not top_hash:
                 last_version, url = get_latest_directory_package(src_uri, match, settings)
                 for home in homes:
-                    if not last_version and not top_hash:
-                        last_version, url = get_latest_directory_package(home, match, settings)
+                    last_version, url = get_latest_directory_package(home, match, settings)
+                    if last_version:
+                        break
 
         if last_version or top_hash:
             log.debug('Inserting %s: %s -> %s : %s', catpkg, ebuild_version, last_version, top_hash)
@@ -520,7 +521,7 @@ def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: Path,
                         sp.run(('git', 'mv', str(ebuild), new_filename), check=True)
                     else:
                         ebuild.rename(new_filename)
-                except OSError:
+                except (sp.CalledProcessError, OSError):
                     log.exception('Error moving `%s` to `%s`.', ebuild, new_filename)
                     return
 
