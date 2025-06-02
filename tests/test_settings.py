@@ -225,6 +225,204 @@ def test_gather_settings_invalid_type_logs_error(tmp_path: Path, mocker: MockerF
     logger.error.assert_any_call('Unknown "type" in %s.', mocker.ANY)
 
 
+def test_gather_settings_type_regex_missing_url_logs_error(tmp_path: Path,
+                                                           mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    data = {'type': TYPE_REGEX, 'regex': 'v([0-9.]+)'}
+    make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
+    result = gather_settings(tmp_path)
+    logger.error.assert_any_call('No "url" in %s.', mocker.ANY)
+    assert 'cat/pkg' not in result.custom_livechecks
+
+
+def test_gather_settings_type_regex_missing_regex_logs_error(tmp_path: Path,
+                                                             mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    data = {'type': TYPE_REGEX, 'url': 'https://example.com'}
+    make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
+    result = gather_settings(tmp_path)
+    logger.error.assert_any_call('No "regex" in %s.', mocker.ANY)
+    assert 'cat/pkg' not in result.custom_livechecks
+
+
+def test_gather_settings_type_repology_missing_package_logs_error(tmp_path: Path,
+                                                                  mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    data = {'type': 'repology'}
+    make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
+    result = gather_settings(tmp_path)
+    logger.error.assert_any_call('No "package" in %s.', mocker.ANY)
+    assert 'cat/pkg' not in result.custom_livechecks
+
+
+def test_gather_settings_type_directory_missing_url_logs_error(tmp_path: Path,
+                                                               mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    data = {'type': TYPE_DIRECTORY}
+    make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
+    result = gather_settings(tmp_path)
+    logger.error.assert_any_call('No "url" in %s.', mocker.ANY)
+    assert 'cat/pkg' not in result.custom_livechecks
+
+
+def test_gather_settings_pattern_version_without_replace_version_logs_error(
+        tmp_path: Path, mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    data = {
+        'type': TYPE_REGEX,
+        'url': 'https://example.com',
+        'regex': 'v([0-9.]+)',
+        'pattern_version': r'v(\d+)'  # 'replace_version' is missing
+    }
+    make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
+    result = gather_settings(tmp_path)
+    logger.error.assert_any_call('No "replace_version" in %s.', mocker.ANY)
+    assert 'cat/pkg' not in result.regex_version
+
+
+def test_gather_settings_replace_version_without_pattern_version_logs_error(
+        tmp_path: Path, mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    data = {
+        'type': TYPE_REGEX,
+        'url': 'https://example.com',
+        'regex': 'v([0-9.]+)',
+        'replace_version': r'\1'  # 'pattern_version' is missing
+    }
+    make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
+    result = gather_settings(tmp_path)
+    logger.error.assert_any_call('No "pattern_version" in %s.', mocker.ANY)
+    assert 'cat/pkg' not in result.regex_version
+
+
+def test_gather_settings_invalid_restrict_version_value_logs_error(tmp_path: Path,
+                                                                   mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    data = {
+        'type': TYPE_REGEX,
+        'url': 'https://example.com',
+        'regex': 'v([0-9.]+)',
+        'restrict_version': 'invalid_value'
+    }
+    make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
+    result = gather_settings(tmp_path)
+    logger.error.assert_any_call('Invalid "restrict_version" in %s.', mocker.ANY)
+    assert 'cat/pkg' not in result.restrict_version
+
+
+def test_gather_settings_type_repology_with_package(tmp_path: Path, mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    data = {'type': 'repology', 'package': 'repology-pkg'}
+    make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
+    result = gather_settings(tmp_path)
+    logger.error.assert_not_called()
+    assert 'cat/pkg' in result.custom_livechecks
+    assert result.custom_livechecks['cat/pkg'] == ('repology-pkg', '')
+    assert result.type_packages['cat/pkg'] == 'repology'
+
+
+def test_gather_settings_yarn_base_package_without_yarn_packages(tmp_path: Path,
+                                                                 mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    data = {
+        'type': TYPE_REGEX,
+        'url': 'https://example.com',
+        'regex': 'v([0-9.]+)',
+        'yarn_base_package': 'foo'
+        # 'yarn_packages' is intentionally omitted
+    }
+    make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
+    result = gather_settings(tmp_path)
+    assert result.yarn_base_packages['cat/pkg'] == 'foo'
+    assert 'cat/pkg' not in result.yarn_packages
+    logger.error.assert_not_called()
+
+
+def test_gather_settings_gomodule_without_gomodule_path(tmp_path: Path,
+                                                        mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    data = {
+        'type': TYPE_DIRECTORY,
+        'url': 'https://example.com/dir',
+        'gomodule': True
+        # 'gomodule_path' is intentionally omitted
+    }
+    make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
+    result = gather_settings(tmp_path)
+    assert result.gomodule_packages['cat/pkg'] is True
+    # Should default to empty string if gomodule_path is missing
+    assert not result.gomodule_path['cat/pkg']
+    logger.error.assert_not_called()
+
+
+def test_gather_settings_nodejs_without_nodejs_path(tmp_path: Path, mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    data = {
+        'type': TYPE_DIRECTORY,
+        'url': 'https://example.com/dir',
+        'nodejs': True
+        # 'nodejs_path' is intentionally omitted
+    }
+    make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
+    result = gather_settings(tmp_path)
+    assert result.nodejs_packages['cat/pkg'] is True
+    # Should default to empty string if nodejs_path is missing
+    assert not result.nodejs_path['cat/pkg']
+    logger.error.assert_not_called()
+
+
+def test_gather_settings_composer_without_composer_path(tmp_path: Path,
+                                                        mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    data = {
+        'type': TYPE_DIRECTORY,
+        'url': 'https://example.com/dir',
+        'composer': True
+        # 'composer_path' is intentionally omitted
+    }
+    make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
+    result = gather_settings(tmp_path)
+    assert result.composer_packages['cat/pkg'] is True
+    # Should default to empty string if composer_path is missing
+    assert not result.composer_path['cat/pkg']
+    logger.error.assert_not_called()
+
+
+def test_gather_settings_composer_key_without_type(tmp_path: Path, mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    data = {
+        # 'type' is intentionally omitted
+        'composer': True,
+        'composer_path': 'composer/path'
+    }
+    file_path = tmp_path / 'cat/pkg/livecheck.json'
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    file_path.write_text(json.dumps(data))
+    result = gather_settings(tmp_path)
+    # Should still parse composer fields even if 'type' is None
+    assert result.composer_packages['cat/pkg'] is True
+    assert result.composer_path['cat/pkg'] == 'composer/path'
+    logger.error.assert_not_called()
+
+
+def test_gather_settings_composer_key_without_type_and_path(tmp_path: Path,
+                                                            mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    data = {
+        # 'type' is intentionally omitted
+        'composer': True
+        # 'composer_path' is omitted
+    }
+    file_path = tmp_path / 'cat/pkg/livecheck.json'
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    file_path.write_text(json.dumps(data))
+    result = gather_settings(tmp_path)
+    # Should still parse composer field and default composer_path to ''
+    assert result.composer_packages['cat/pkg'] is True
+    assert not result.composer_path['cat/pkg']
+    logger.error.assert_not_called()
+
+
 def test_check_instance_bool_type_logs_error_on_wrong_type(mocker: MockerFixture) -> None:
     logger = mocker.patch('livecheck.settings.log')
     check_instance('not_bool', 'key', 'bool', 'file')
@@ -293,3 +491,17 @@ def test_check_instance_specific_value_no_error_on_match(mocker: MockerFixture) 
     logger = mocker.patch('livecheck.settings.log')
     check_instance(5, 'key', 'int', 'file', specific_value=5)
     logger.error.assert_not_called()
+
+
+def test_check_instance_bad_dtype(mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    check_instance(5, 'key', 'int2', 'file', specific_value=5)
+    logger.error.assert_called_with('value "%s" in key "%s" is not of type "%s" in file "%s.', 5,
+                                    'key', 'int2', 'file')
+
+
+def test_check_instance_url_not_string(mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    check_instance(123, 'key', 'url', 'file')
+    logger.error.assert_called_with('value "%s" in key "%s" is not of type "%s" in file "%s.', 123,
+                                    'key', 'url', 'file')
