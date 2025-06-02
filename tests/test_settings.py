@@ -1,10 +1,18 @@
+# ruff: noqa: FBT003
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 import json
 import operator
 
-from livecheck import settings
+from livecheck.settings import (
+    TYPE_DIRECTORY,
+    TYPE_REGEX,
+    LivecheckSettings,
+    UnknownTransformationFunction,
+    check_instance,
+    gather_settings,
+)
 import pytest
 
 if TYPE_CHECKING:
@@ -15,7 +23,7 @@ if TYPE_CHECKING:
 
 
 def test_livecheck_settings_defaults() -> None:
-    s = settings.LivecheckSettings()
+    s = LivecheckSettings()
     assert isinstance(s.branches, dict)
     assert isinstance(s.custom_livechecks, dict)
     assert isinstance(s.dotnet_projects, dict)
@@ -49,39 +57,39 @@ def test_livecheck_settings_defaults() -> None:
 
 
 def test_is_devel_returns_flag_when_not_in_development() -> None:
-    s = settings.LivecheckSettings(development_flag=True)
+    s = LivecheckSettings(development_flag=True)
     assert s.is_devel('cat/pkg') is True
 
 
 def test_is_devel_returns_value_from_development_dict() -> None:
-    s = settings.LivecheckSettings(development={'cat/pkg': False}, development_flag=True)
+    s = LivecheckSettings(development={'cat/pkg': False}, development_flag=True)
     assert s.is_devel('cat/pkg') is False
 
 
 def test_is_devel_returns_default_when_not_set() -> None:
-    s = settings.LivecheckSettings()
+    s = LivecheckSettings()
     assert s.is_devel('cat/pkg') is False
 
 
 def test_livecheck_settings_mutable_fields_are_independent() -> None:
-    s1 = settings.LivecheckSettings()
-    s2 = settings.LivecheckSettings()
+    s1 = LivecheckSettings()
+    s2 = LivecheckSettings()
     s1.branches['foo'] = 'bar'
     assert 'foo' not in s2.branches
 
 
 def test_livecheck_settings_repr_and_eq() -> None:
-    s1 = settings.LivecheckSettings(branches={'a': 'b'})
-    s2 = settings.LivecheckSettings(branches={'a': 'b'})
+    s1 = LivecheckSettings(branches={'a': 'b'})
+    s2 = LivecheckSettings(branches={'a': 'b'})
     assert repr(s1).startswith('LivecheckSettings(')
     assert s1 == s2
 
 
 def test_livecheck_settings_custom_livechecks_and_types() -> None:
-    s = settings.LivecheckSettings(custom_livechecks={'cat/pkg': ('url', 'regex')},
-                                   type_packages={'cat/pkg': settings.TYPE_REGEX})
+    s = LivecheckSettings(custom_livechecks={'cat/pkg': ('url', 'regex')},
+                          type_packages={'cat/pkg': TYPE_REGEX})
     assert s.custom_livechecks['cat/pkg'] == ('url', 'regex')
-    assert s.type_packages['cat/pkg'] == settings.TYPE_REGEX
+    assert s.type_packages['cat/pkg'] == TYPE_REGEX
 
 
 @pytest.fixture
@@ -100,23 +108,23 @@ def make_json_file(tmp_path: Path, rel_path: Path | str, data: Any) -> Path:
 
 
 def test_gather_settings_basic(tmp_path: Path) -> None:
-    data = {'type': settings.TYPE_REGEX, 'url': 'https://example.com', 'regex': 'v([0-9.]+)'}
+    data = {'type': TYPE_REGEX, 'url': 'https://example.com', 'regex': 'v([0-9.]+)'}
     make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
-    result = settings.gather_settings(tmp_path)
+    result = gather_settings(tmp_path)
     assert 'cat/pkg' in result.custom_livechecks
     assert result.custom_livechecks['cat/pkg'] == ('https://example.com', 'v([0-9.]+)')
-    assert result.type_packages['cat/pkg'] == settings.TYPE_REGEX
+    assert result.type_packages['cat/pkg'] == TYPE_REGEX
 
 
 def test_gather_settings_with_transformation_function(tmp_path: Path) -> None:
     data = {
-        'type': settings.TYPE_REGEX,
+        'type': TYPE_REGEX,
         'url': 'https://example.com',
         'regex': 're3_v([0-9.]+)',
         'transformation_function': 'handle_re'
     }
     make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
-    result = settings.gather_settings(tmp_path)
+    result = gather_settings(tmp_path)
     assert 'cat/pkg' in result.transformations
     assert callable(result.transformations['cat/pkg'])
     assert result.transformations['cat/pkg']('re3_v1') == '1'
@@ -126,32 +134,32 @@ def test_gather_settings_with_utils_transformation(tmp_path: Path, mocker: Mocke
                                                    mock_utils: Mock) -> None:
     # Patch special.handlers to not have the function, so it falls back to utils
     data = {
-        'type': settings.TYPE_REGEX,
+        'type': TYPE_REGEX,
         'url': 'https://example.com',
         'regex': 'v([0-9.]+)',
         'transformation_function': 'dash_to_underscore'
     }
     make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
-    result = settings.gather_settings(tmp_path)
+    result = gather_settings(tmp_path)
     assert 'cat/pkg' in result.transformations
     assert result.transformations['cat/pkg']('a-b-c') == 'a_b_c'
 
 
 def test_gather_settings_unknown_transformation(tmp_path: Path, mocker: MockerFixture) -> None:
     data = {
-        'type': settings.TYPE_REGEX,
+        'type': TYPE_REGEX,
         'url': 'https://example.com',
         'regex': 'v([0-9.]+)',
         'transformation_function': 'not_found'
     }
     make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
-    with pytest.raises(settings.UnknownTransformationFunction):
-        settings.gather_settings(tmp_path)
+    with pytest.raises(UnknownTransformationFunction):
+        gather_settings(tmp_path)
 
 
 def test_gather_settings_handles_various_fields(tmp_path: Path) -> None:
     data = {
-        'type': settings.TYPE_DIRECTORY,
+        'type': TYPE_DIRECTORY,
         'url': 'https://example.com/dir',
         'branch': 'main',
         'no_auto_update': True,
@@ -176,7 +184,7 @@ def test_gather_settings_handles_various_fields(tmp_path: Path) -> None:
         'stable_version': r'stable'
     }
     make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
-    result = settings.gather_settings(tmp_path)
+    result = gather_settings(tmp_path)
     assert result.branches['cat/pkg'] == 'main'
     assert 'cat/pkg' in result.no_auto_update
     assert result.sha_sources['cat/pkg'] == 'https://example.com/sha'
@@ -200,14 +208,12 @@ def test_gather_settings_handles_various_fields(tmp_path: Path) -> None:
 
 
 def test_gather_settings_invalid_json_logs_and_skips(tmp_path: Path, mocker: MockerFixture) -> None:
-    # Patch logger to check for error
     logger = mocker.patch('livecheck.settings.log')
     file_path = tmp_path / 'cat/pkg/livecheck.json'
     file_path.parent.mkdir(parents=True, exist_ok=True)
     file_path.write_text('{invalid json')
-    result = settings.gather_settings(tmp_path)
+    result = gather_settings(tmp_path)
     logger.exception.assert_called()
-    # Should not raise, and settings should be empty
     assert not result.custom_livechecks
 
 
@@ -215,5 +221,75 @@ def test_gather_settings_invalid_type_logs_error(tmp_path: Path, mocker: MockerF
     logger = mocker.patch('livecheck.settings.log')
     data = {'type': 'unknown_type'}
     make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
-    settings.gather_settings(tmp_path)
+    gather_settings(tmp_path)
     logger.error.assert_any_call('Unknown "type" in %s.', mocker.ANY)
+
+
+def test_check_instance_bool_type_logs_error_on_wrong_type(mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    check_instance('not_bool', 'key', 'bool', 'file')
+    logger.error.assert_called_with('value "%s" in key "%s" is not of type "%s" in file "%s.',
+                                    'not_bool', 'key', 'bool', 'file')
+
+
+def test_check_instance_int_type_accepts_int(mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    check_instance(42, 'key', 'int', 'file')
+    logger.error.assert_not_called()
+
+
+def test_check_instance_string_type_accepts_string(mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    check_instance('hello', 'key', 'string', 'file')
+    logger.error.assert_not_called()
+
+
+def test_check_instance_none_type_accepts_none(mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    check_instance(None, 'key', 'none', 'file')
+    logger.error.assert_not_called()
+
+
+def test_check_instance_list_type_accepts_list(mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    check_instance(['a', 'b'], 'key', 'list', 'file')
+    logger.error.assert_not_called()
+
+
+def test_check_instance_url_type_accepts_valid_url(mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    check_instance('https://example.com', 'key', 'url', 'file')
+    logger.error.assert_not_called()
+
+
+def test_check_instance_url_type_logs_error_on_invalid_url(mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    check_instance('not_a_url', 'key', 'url', 'file')
+    logger.error.assert_called_with('value "%s" in key "%s" is not of type "%s" in file "%s.',
+                                    'not_a_url', 'key', 'url', 'file')
+
+
+def test_check_instance_regex_type_accepts_valid_regex(mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    check_instance(r'\d+', 'key', 'regex', 'file')
+    logger.error.assert_not_called()
+
+
+def test_check_instance_regex_type_logs_error_on_invalid_regex(mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    check_instance(r'[unclosed', 'key', 'regex', 'file')
+    logger.error.assert_called_with('value "%s" in key "%s" is not of type "%s" in file "%s.',
+                                    r'[unclosed', 'key', 'regex', 'file')
+
+
+def test_check_instance_specific_value_logs_error_on_mismatch(mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    check_instance(True, 'key', 'bool', 'file', specific_value=False)
+    logger.error.assert_called_with('Value "%s" in key "%s" is not equal to "%s" in file "%s".',
+                                    True, 'key', False, 'file')
+
+
+def test_check_instance_specific_value_no_error_on_match(mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    check_instance(5, 'key', 'int', 'file', specific_value=5)
+    logger.error.assert_not_called()
