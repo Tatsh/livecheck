@@ -10,6 +10,8 @@ and this project adheres to
 
 ## [unreleased]
 
+## [0.1.1]
+
 ## Changed
 
 - Do not export `main` at the top level.
@@ -89,4 +91,4 @@ and this project adheres to
 
 - When multiple ebuilds are in the same directory, only the latest one will be considered for updating.
 
-[unreleased]: https://github.com/Tatsh/livecheck/-/compare/v0.1.0...HEAD
+[unreleased]: https://github.com/Tatsh/livecheck/-/compare/v0.1.1...HEAD
