@@ -1,12 +1,16 @@
 """Composer functions."""
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 import logging
 import subprocess as sp
 
 from livecheck.utils import check_program
 
 from .utils import build_compress, remove_url_ebuild, search_ebuild
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 __all__ = ('check_composer_requirements', 'remove_composer_url', 'update_composer_ebuild')
 
@@ -18,8 +22,8 @@ def remove_composer_url(ebuild_content: str) -> str:
     return remove_url_ebuild(ebuild_content, '-vendor.tar.xz')
 
 
-def update_composer_ebuild(ebuild: str, path: str | None, fetchlist: dict[str, tuple[str,
-                                                                                     ...]]) -> None:
+def update_composer_ebuild(ebuild: str, path: str | None,
+                           fetchlist: Mapping[str, tuple[str, ...]]) -> None:
     """Update a Composer package ebuild."""
     composer_path, temp_dir = search_ebuild(ebuild, 'composer.json', path)
     if not composer_path:
