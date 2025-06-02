@@ -19,8 +19,8 @@ livecheck
       :target: https://github.com/Tatsh/livecheck/blob/master/LICENSE.txt
       :alt: License
 
-   .. image:: https://img.shields.io/github/commits-since/Tatsh/livecheck/v0.1.0/master
-      :target: https://github.com/Tatsh/livecheck/compare/v0.1.0...master
+   .. image:: https://img.shields.io/github/commits-since/Tatsh/livecheck/v0.1.1/master
+      :target: https://github.com/Tatsh/livecheck/compare/v0.1.1...master
       :alt: Commits since latest release
 
    .. image:: https://github.com/Tatsh/livecheck/actions/workflows/qa.yml/badge.svg

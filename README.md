@@ -4,7 +4,7 @@
 [![PyPI - Version](https://img.shields.io/pypi/v/livecheck)](https://pypi.org/project/livecheck/)
 [![GitHub tag (with filter)](https://img.shields.io/github/v/tag/Tatsh/livecheck)](https://github.com/Tatsh/livecheck/tags)
 [![License](https://img.shields.io/github/license/Tatsh/livecheck)](https://github.com/Tatsh/livecheck/blob/master/LICENSE.txt)
-[![GitHub commits since latest release (by SemVer including pre-releases)](https://img.shields.io/github/commits-since/Tatsh/livecheck/v0.1.0/master)](https://github.com/Tatsh/livecheck/compare/v0.1.0...master)
+[![GitHub commits since latest release (by SemVer including pre-releases)](https://img.shields.io/github/commits-since/Tatsh/livecheck/v0.1.1/master)](https://github.com/Tatsh/livecheck/compare/v0.1.1...master)
 [![QA](https://github.com/Tatsh/livecheck/actions/workflows/qa.yml/badge.svg)](https://github.com/Tatsh/livecheck/actions/workflows/qa.yml)
 [![Tests](https://github.com/Tatsh/livecheck/actions/workflows/tests.yml/badge.svg)](https://github.com/Tatsh/livecheck/actions/workflows/tests.yml)
 [![Coverage Status](https://coveralls.io/repos/github/Tatsh/livecheck/badge.svg?branch=master)](https://coveralls.io/github/Tatsh/livecheck?branch=master)
