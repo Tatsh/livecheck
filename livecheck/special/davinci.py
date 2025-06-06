@@ -16,4 +16,6 @@ def get_latest_davinci_package(pkg: str) -> str:
         return ''
 
     data = r.json()
+    if data['linux']['releaseNum'] == 0:
+        return f"{data['linux']['major']}.{data['linux']['minor']}"
     return f"{data['linux']['major']}.{data['linux']['minor']}.{data['linux']['releaseNum']}"
