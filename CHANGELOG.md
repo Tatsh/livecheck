@@ -10,6 +10,8 @@ and this project adheres to
 
 ## [unreleased]
 
+- Ignore releaseNum when normalizing DaVinci versions and return major.minor
+
 ## [0.1.1]
 
 ## Changed
