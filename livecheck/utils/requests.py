@@ -8,7 +8,9 @@ from http import HTTPStatus
 from urllib.parse import urlparse
 import hashlib
 import logging
+import random
 
+import portage
 import requests
 
 from .credentials import get_api_credentials
@@ -59,13 +61,46 @@ def get_content(url: str) -> requests.Response:
     parsed_uri = urlparse(url)
     log.debug('Fetching %s', url)
 
-    if parsed_uri.scheme == 'mirror':
-        # If the URL is a mirror, we need to handle it differently
-        # This is a placeholder for the actual implementation
-        log.debug('Handling mirror:// protocol for `%s`.', url)
-        response = requests.Response()
-        response.status_code = HTTPStatus.NOT_IMPLEMENTED
-        return response
+    if parsed_uri.scheme != 'mirror':
+        return get_content_final(url)
+
+    # Change mirror to destination URL using Portage thirdpartymirrors.
+    # Code from Portage's fetch module
+    eidx = url.find('/', 9)
+    if eidx != -1:
+        mirrorname = parsed_uri.netloc
+
+        settings = portage.config(clone=portage.settings)
+        thirdpartymirrors = settings.thirdpartymirrors()
+
+        # now try the official mirrors
+        if mirrorname in thirdpartymirrors:
+            uris = [
+                locmirr.rstrip('/') + '/' + parsed_uri.path
+                for locmirr in thirdpartymirrors[mirrorname]
+            ]
+            random.shuffle(uris)
+            for uri in uris:
+                r = get_content_final(uri)
+                if r.status_code in {HTTPStatus.OK, HTTPStatus.CREATED, HTTPStatus.ACCEPTED}:
+                    log.debug('Using mirror %s for %s', uri, url)
+                    return r
+
+        if (mirrorname not in thirdpartymirrors):
+            log.debug('No known mirror by the name: %s', mirrorname)
+
+    else:
+        log.debug('Invalid mirror definition URL: %s', url)
+
+    r = requests.Response()
+    r.status_code = HTTPStatus.BAD_REQUEST
+    return r
+
+
+def get_content_final(url: str) -> requests.Response:
+    """"Fetch content from a URL."""
+    parsed_uri = urlparse(url)
+    log.debug('Fetching %s', url)
 
     if parsed_uri.hostname == 'api.github.com':
         session = session_init('github')
