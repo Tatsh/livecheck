@@ -87,7 +87,7 @@ def get_content(url: str) -> requests.Response:
     try:
         r = session.get(url)
     except requests.RequestException:
-        log.exception('Caught error {e} attempting to fetch {url}')
+        log.exception('Caught error attempting to fetch `%s`.', url)
         r = requests.Response()
         r.status_code = HTTPStatus.SERVICE_UNAVAILABLE
         return r
