@@ -10,7 +10,8 @@ and this project adheres to
 
 ## [unreleased]
 
-- Ignore releaseNum when normalizing DaVinci versions and return major.minor
+- Ignore releaseNum when normalizing DaVinci versions and return major.minor.
+- Change mirror to destination URL using Portage thirdpartymirrors.
 
 ## [0.1.1]
 
