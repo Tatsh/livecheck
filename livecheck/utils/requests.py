@@ -8,6 +8,7 @@ from http import HTTPStatus
 from urllib.parse import urlparse
 import hashlib
 import logging
+import random
 
 import portage
 import requests
@@ -60,13 +61,46 @@ def get_content(url: str) -> requests.Response:
     parsed_uri = urlparse(url)
     log.debug('Fetching %s', url)
 
-    # Change mirror to destination URL ussing protage
-    if parsed_uri.scheme == 'mirror':
-        filename = url.rsplit('/', 1)[-1]
+    if parsed_uri.scheme != 'mirror':
+        return get_content_final(url)
+
+    # Change mirror to destination URL using Portage thirdpartymirrors.
+    # Code from Portage's fetch module
+    eidx = url.find('/', 9)
+    if eidx != -1:
+        mirrorname = parsed_uri.netloc
+
         settings = portage.config(clone=portage.settings)
-        url = portage.get_mirror_url(url, filename=filename, settings=settings)
-        log.debug('Updated URL to %s', url)
-        parsed_uri = urlparse(url)
+        thirdpartymirrors = settings.thirdpartymirrors()
+
+        # now try the official mirrors
+        if mirrorname in thirdpartymirrors:
+            uris = [
+                locmirr.rstrip('/') + '/' + parsed_uri.path
+                for locmirr in thirdpartymirrors[mirrorname]
+            ]
+            random.shuffle(uris)
+            for uri in uris:
+                r = get_content_final(uri)
+                if r.status_code in {HTTPStatus.OK, HTTPStatus.CREATED, HTTPStatus.ACCEPTED}:
+                    log.debug('Using mirror %s for %s', uri, url)
+                    return r
+
+        if (mirrorname not in thirdpartymirrors):
+            log.debug('No known mirror by the name: %s', mirrorname)
+
+    else:
+        log.debug('Invalid mirror definition URL: %s', url)
+
+    r = requests.Response()
+    r.status_code = HTTPStatus.BAD_REQUEST
+    return r
+
+
+def get_content_final(url: str) -> requests.Response:
+    """"Fetch content from a URL."""
+    parsed_uri = urlparse(url)
+    log.debug('Fetching %s', url)
 
     if parsed_uri.hostname == 'api.github.com':
         session = session_init('github')

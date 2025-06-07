@@ -141,6 +141,7 @@ sudachi
 tasksh
 tatsh
 testpaths
+thirdpartymirrors
 toctree
 tryfirst
 tsschecker
