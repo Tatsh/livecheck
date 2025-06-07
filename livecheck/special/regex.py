@@ -34,7 +34,7 @@ def get_latest_regex_package(ebuild: str, url: str, regex: str,
             try:
                 updated_el = ET.fromstring(r.text).find('entry/updated', RSS_NS)
             except ET.ParseError:
-                logger.exception('Error parsing %s.', url)
+                logger.debug('Ignoring XML parse error (URL: %s).', url)
                 continue
             assert updated_el is not None
             assert updated_el.text is not None
