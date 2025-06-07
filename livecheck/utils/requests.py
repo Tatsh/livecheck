@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 import hashlib
 import logging
 
+import portage
 import requests
 
 from .credentials import get_api_credentials
@@ -59,13 +60,13 @@ def get_content(url: str) -> requests.Response:
     parsed_uri = urlparse(url)
     log.debug('Fetching %s', url)
 
+    # Change mirror to destination URL ussing protage
     if parsed_uri.scheme == 'mirror':
-        # If the URL is a mirror, we need to handle it differently
-        # This is a placeholder for the actual implementation
-        log.debug('Handling mirror:// protocol for `%s`.', url)
-        response = requests.Response()
-        response.status_code = HTTPStatus.NOT_IMPLEMENTED
-        return response
+        filename = url.rsplit('/', 1)[-1]
+        settings = portage.config(clone=portage.settings)
+        url = portage.get_mirror_url(url, filename=filename, settings=settings)
+        log.debug('Updated URL to %s', url)
+        parsed_uri = urlparse(url)
 
     if parsed_uri.hostname == 'api.github.com':
         session = session_init('github')
