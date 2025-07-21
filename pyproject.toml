@@ -109,21 +109,21 @@ html5lib = "^1.1"
 keyring = "^25.6.0"
 platformdirs = "^4.3.8"
 python = ">=3.10,<3.14"
-requests = "^2.32.3"
-typing-extensions = "^4.14.0"
+requests = "^2.32.4"
+typing-extensions = "^4.14.1"
 
 [tool.poetry.group.dev]
 optional = true
 
 [tool.poetry.group.dev.dependencies]
-commitizen = "^4.8.2"
+commitizen = "^4.8.3"
 djlint = "^1.36.4"
-mypy = ">=1.12,<1.16"
-portage-stubs = "^0"
-ruff = "^0.11.11"
+mypy = "^1.17.0"
+portage-stubs = "^0.0.6"
+ruff = "^0.12.4"
 types-beautifulsoup4 = ">=4.12.0.20250516"
-types-defusedxml = ">=0.7.0.20250516"
-types-requests = ">=2.32.0.20250515"
+types-defusedxml = ">=0.7.0.20250708"
+types-requests = ">=2.32.4.20250611"
 yapf = "^0.43.0"
 
 [tool.poetry.group.docs]
@@ -131,13 +131,13 @@ optional = true
 
 [tool.poetry.group.docs.dependencies]
 autodoc-pydantic = "^2.2.0"
-doc8 = "^1.1.2"
+doc8 = "^2.0.0"
 docutils = "^0.21.2"
 esbonio = "^0.16.5"
-numpydoc = "^1.8.0"
+numpydoc = "^1.9.0"
 restructuredtext-lint = "^1.4.0"
 sphinx-click = "^6.0.0"
-sphinx-datatables = "^0.2.1"
+sphinx-datatables = "^0.3.0"
 sphinx-hoverxref = "^1.4.2"
 sphinx-immaterial = "^0.13.5"
 
@@ -158,8 +158,8 @@ optional = true
 
 [tool.poetry.group.tests.dependencies]
 mock = "^5.2.0"
-pytest = "^8.3.5"
-pytest-cov = "^6.1.1"
+pytest = "^8.4.1"
+pytest-cov = "^6.2.1"
 pytest-mock = "^3.14.1"
 
 [tool.poetry.group.tests.dependencies.coveralls]
