@@ -216,6 +216,7 @@ def parse_metadata(repo_root: str, ebuild: str,
     except ET.ParseError:
         log.exception('Error parsing %s.', metadata_file)
         return '', '', '', ''
+    assert root is not None
     for upstream in root.findall('upstream'):
         for subelem in upstream:
             last_version = top_hash = hash_date = url = ''
