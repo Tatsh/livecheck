@@ -66,6 +66,8 @@ def get_latest_github_package(url: str, ebuild: str,
         url = GITHUB_DATE_URL % (owner, repo, last_version['id'])
         if not (r := get_content(url)):
             return last_version['version'], ''
+        if not (r := get_content(r.json()['object']['url'])):
+            return last_version['version'], ''
         return last_version['version'], r.json()['object']['sha']
     return '', ''
 
