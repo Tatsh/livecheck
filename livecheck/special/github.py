@@ -54,22 +54,31 @@ def get_latest_github_package(url: str, ebuild: str,
     if not (r := get_content(url)):
         return '', ''
 
+    try:
+        root = ET.fromstring(r.text)
+    except ET.ParseError:
+        return '', ''
+
     results: list[dict[str, str]] = []
-    for tag_id_element in ET.fromstring(r.text).findall('entry/id', RSS_NS):
+    for tag_id_element in root.findall('entry/id', RSS_NS):
         tag_id = tag_id_element.text
 
         tag = tag_id.split('/')[-1] if tag_id and '/' in tag_id else ''
         if tag := (tag_id.split('/')[-1] if tag_id and '/' in tag_id else ''):
             results.append({'tag': tag, 'id': tag})
 
-    if last_version := get_last_version(results, repo, ebuild, settings):
-        url = GITHUB_DATE_URL % (owner, repo, last_version['id'])
-        if not (r := get_content(url)):
-            return last_version['version'], ''
-        if not (r := get_content(r.json()['object']['url'])):
-            return last_version['version'], ''
+    if not (last_version := get_last_version(results, repo, ebuild, settings)):
+        return '', ''
+
+    url = GITHUB_DATE_URL % (owner, repo, last_version['id'])
+    if not (r := get_content(url)):
+        return last_version['version'], ''
+
+    if (('object' not in r.json() or 'url' not in r.json()['object']
+         or not (r := get_content(r.json()['object']['url'])))
+            and ('object' not in r.json() or 'url' not in r.json()['object'])):
         return last_version['version'], r.json()['object']['sha']
-    return '', ''
+    return last_version['version'], ''
 
 
 def get_latest_github_commit(url: str, branch: str) -> tuple[str, str]:

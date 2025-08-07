@@ -11,6 +11,7 @@ and this project adheres to
 ## [unreleased]
 
 - Ignore releaseNum when normalizing DaVinci versions and return major.minor
+- Fix the real sha from GitHub for a version
 
 ## [0.1.1]
 
