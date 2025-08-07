@@ -47,11 +47,8 @@ def get_latest_github_package(url: str, ebuild: str,
                               settings: LivecheckSettings) -> tuple[str, str]:
     """Get the latest version of a Github package."""
     domain, owner, repo = extract_owner_repo(url)
-    if not owner or not repo:
-        return '', ''
-
     url = GITHUB_DOWNLOAD_URL % (domain)
-    if not (r := get_content(url)):
+    if not owner or not repo or not (r := get_content(url)):
         return '', ''
 
     try:
