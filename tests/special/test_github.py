@@ -174,6 +174,21 @@ def test_get_latest_github_package_no_response(mocker: MockerFixture) -> None:
     assert result == ('', '')
 
 
+def test_get_latest_github_package_xml_parse_error(mocker: MockerFixture) -> None:
+    # Patch extract_owner_repo to return valid values
+    mocker.patch('livecheck.special.github.extract_owner_repo',
+                 return_value=('https://github.com/owner/repo', 'owner', 'repo'))
+    # Patch get_content to return a mock response with any text
+    mock_response = mocker.Mock()
+    mock_response.text = '<invalid><xml>'
+    mocker.patch('livecheck.special.github.get_content', return_value=mock_response)
+    # Patch ET.fromstring to raise ParseError
+    mocker.patch('livecheck.special.github.ET.fromstring', side_effect=ET.ParseError)
+    result = get_latest_github_package('https://github.com/owner/repo', 'cat/repo-1.0.0.ebuild',
+                                       mocker.Mock())
+    assert result == ('', '')
+
+
 def test_get_latest_github_package_no_response_2(mocker: MockerFixture) -> None:
     xml = '<?xml version="1.0" encoding="UTF-8"?><feed xmlns="http://www.w3.org/2005/Atom"></feed>'
     mocker.patch('livecheck.special.github.get_content', side_effect=[mocker.Mock(text=xml), None])
