@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from defusedxml import ElementTree as ET  # noqa: N817
 from livecheck.special.github import (
     extract_owner_repo,
     get_branch,
@@ -171,6 +172,21 @@ def test_get_latest_github_package_no_response(mocker: MockerFixture) -> None:
     mocker.patch('livecheck.special.github.extract_owner_repo',
                  return_value=('domain', 'owner', 'repo'))
     result = get_latest_github_package('', 'category/repo-1.0.0.ebuild', mocker.Mock(branches={}))
+    assert result == ('', '')
+
+
+def test_get_latest_github_package_xml_parse_error(mocker: MockerFixture) -> None:
+    # Patch extract_owner_repo to return valid values
+    mocker.patch('livecheck.special.github.extract_owner_repo',
+                 return_value=('https://github.com/owner/repo', 'owner', 'repo'))
+    # Patch get_content to return a mock response with any text
+    mock_response = mocker.Mock()
+    mock_response.text = '<invalid><xml>'
+    mocker.patch('livecheck.special.github.get_content', return_value=mock_response)
+    # Patch ET.fromstring to raise ParseError
+    mocker.patch('livecheck.special.github.ET.fromstring', side_effect=ET.ParseError)
+    result = get_latest_github_package('https://github.com/owner/repo', 'cat/repo-1.0.0.ebuild',
+                                       mocker.Mock())
     assert result == ('', '')
 
 
