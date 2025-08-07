@@ -1968,6 +1968,8 @@ def test_get_props_no_last_version_no_top_hash_no_homepage(mocker: MockerFixture
     mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
     mocker.patch('livecheck.main.P.aux_get', return_value=[])
     mocker.patch('livecheck.main.log')
+    mock_get_content = mocker.patch('livecheck.special.directory.get_content')
+    mock_get_content.return_value = mocker.MagicMock(text='')
     parse_url_mock = mocker.patch('livecheck.main.parse_url', return_value=('', '', '', ''))
     results = list(
         get_props(search_dir=fake_repo,
