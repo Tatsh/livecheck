@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from defusedxml import ElementTree as ET  # noqa: N817
 from livecheck.special.github import (
     extract_owner_repo,
     get_branch,
