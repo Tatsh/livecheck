@@ -71,11 +71,10 @@ def get_latest_github_package(url: str, ebuild: str,
     if not (r := get_content(url)):
         return last_version['version'], ''
 
-    if (('object' not in r.json() or 'url' not in r.json()['object']
-         or not (r := get_content(r.json()['object']['url'])))
-            and ('object' not in r.json() or 'url' not in r.json()['object'])):
-        return last_version['version'], r.json()['object']['sha']
-    return last_version['version'], ''
+    object_url = r.json().get('object', {}).get('url', '')
+    r2 = get_content(object_url) if object_url else r
+    data = r2.json().get('object', {})
+    return last_version['version'], data.get('sha', '')
 
 
 def get_latest_github_commit(url: str, branch: str) -> tuple[str, str]:
