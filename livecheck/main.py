@@ -11,6 +11,7 @@ import os
 import re
 import subprocess as sp
 
+from bascom import setup_logging
 from defusedxml import ElementTree as ET  # noqa: N817
 import click
 
@@ -97,7 +98,6 @@ from .special.sourcehut import (
 )
 from .special.yarn import check_yarn_requirements, update_yarn_ebuild
 from .utils import check_program, extract_sha, get_content, is_sha
-from .utils.misc import setup_logging
 from .utils.portage import (
     P,
     catpkg_catpkgsplit,
@@ -257,11 +257,12 @@ def extract_restrict_version(cp: str) -> tuple[str, str]:
     return cp, ''
 
 
-def get_props(search_dir: Path,
-              repo_root: Path,
-              settings: LivecheckSettings,
-              names: Sequence[str] | None = None,
-              exclude: Sequence[str] | None = None) -> Iterator[PropTuple]:
+def get_props(  # noqa: C901, PLR0912, PLR0914
+        search_dir: Path,
+        repo_root: Path,
+        settings: LivecheckSettings,
+        names: Sequence[str] | None = None,
+        exclude: Sequence[str] | None = None) -> Iterator[PropTuple]:
     """
     Get properties for packages in the search directory.
 
@@ -445,9 +446,9 @@ def execute_hooks(hook_dir: Path | None, action: str, search_dir: Path, cp: str,
                 raise click.Abort
 
 
-def do_main(*, cat: str, ebuild_version: str, pkg: str, search_dir: Path,
-            settings: LivecheckSettings, last_version: str, top_hash: str, hash_date: str, url: str,
-            hook_dir: Path | None) -> None:
+def do_main(  # noqa: C901, PLR0912, PLR0915
+        *, cat: str, ebuild_version: str, pkg: str, search_dir: Path, settings: LivecheckSettings,
+        last_version: str, top_hash: str, hash_date: str, url: str, hook_dir: Path | None) -> None:
     cp = f'{cat}/{pkg}'
     ebuild = Path(search_dir) / cp / f'{pkg}-{ebuild_version}.ebuild'
     old_sha = ''
@@ -628,7 +629,11 @@ def main(working_dir: Path,
          keep_old: bool = False,
          progress: bool = False) -> None:
     """Update ebuilds to their latest versions."""  # noqa: DOC501
-    setup_logging(debug=debug)
+    setup_logging(debug=debug,
+                  loggers={'livecheck': {
+                      'handlers': ('console',),
+                      'propagate': False
+                  }})
     chdir(working_dir)
     if exclude:
         log.debug('Excluding %s.', ', '.join(exclude))

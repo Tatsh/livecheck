@@ -70,7 +70,7 @@ def make_mock_response(json_data: Any, *, ok: bool = True) -> Any:
     class MockResponse:
         ok: bool = True
 
-        def json(self) -> Any:
+        def json(self) -> Any:  # noqa: PLR6301
             return json_data
 
     return MockResponse(ok=ok)

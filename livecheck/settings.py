@@ -85,7 +85,7 @@ class UnknownTransformationFunction(NameError):
         super().__init__(f'Unknown transformation function: {tfs}')
 
 
-def gather_settings(search_dir: Path) -> LivecheckSettings:
+def gather_settings(search_dir: Path) -> LivecheckSettings:  # noqa: C901, PLR0912, PLR0914, PLR0915
     """
     Gather settings from ``livecheck.json`` files in the given directory.
 

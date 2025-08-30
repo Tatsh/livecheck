@@ -64,7 +64,7 @@ def test_is_package(test_case: dict[str, Any]) -> None:
 
 def make_mock_response(versions: Any) -> Any:
     class MockResponse:
-        def json(self) -> Any:
+        def json(self) -> Any:  # noqa: PLR6301
             return {'versions': versions}
 
     return MockResponse()

@@ -1,8 +1,10 @@
 arcname
 asmjit
+asyncio
 atrac
 autodoc
 automodule
+bascom
 beautifulsoup
 beefcafe
 beefdead
@@ -16,11 +18,11 @@ citra
 clion
 codeowners
 colored
-colorlog
 commitizen
 conftest
 coveragerc
 cpan
+dataclasses
 datatable
 datatables
 davinci
@@ -33,6 +35,7 @@ distdir
 distfiles
 djlint
 dlmalloc
+docstrings
 doctrees
 doebuild
 dosbox
@@ -64,6 +67,7 @@ icingaweb
 imgui
 intersphinx
 isort
+itertools
 jimevins
 jinja
 jsonnet
@@ -85,6 +89,7 @@ metacpan
 modindex
 mypy
 mytree
+namedtuples
 netcore
 newbeef
 newcafe

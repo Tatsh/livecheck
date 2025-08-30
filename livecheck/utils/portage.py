@@ -207,7 +207,7 @@ def remove_leading_zeros(ver: str) -> str:
     return ver
 
 
-def normalize_version(ver: str) -> str:  # noqa: PLR0911
+def normalize_version(ver: str) -> str:
     """
     Normalize version string to Gentoo Ebuild format.
 
