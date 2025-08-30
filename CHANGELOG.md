@@ -94,4 +94,12 @@ and this project adheres to
 
 - When multiple ebuilds are in the same directory, only the latest one will be considered for updating.
 
-[unreleased]: https://github.com/Tatsh/livecheck/-/compare/v0.1.1...HEAD
+[unreleased]: https://github.com/Tatsh/livecheck/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/Tatsh/livecheck/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/Tatsh/livecheck/compare/v0.0.13...v0.1.0
+[0.0.9]: https://github.com/Tatsh/livecheck/compare/v0.0.8...v0.0.9
+[0.0.8]: https://github.com/Tatsh/livecheck/compare/v0.0.7...v0.0.8
+[0.0.7]: https://github.com/Tatsh/livecheck/compare/v0.0.6...v0.0.7
+[0.0.4]: https://github.com/Tatsh/livecheck/compare/v0.0.3...v0.0.4
+[0.0.3]: https://github.com/Tatsh/livecheck/compare/v0.0.2...v0.0.3
+[0.0.1]: https://github.com/Tatsh/livecheck/releases/tag/v0.0.1
