@@ -61,6 +61,8 @@ class LivecheckSettings:
     development: dict[str, bool] = field(default_factory=dict)
     composer_packages: dict[str, bool] = field(default_factory=dict)
     composer_path: dict[str, str] = field(default_factory=dict)
+    maven_packages: dict[str, bool] = field(default_factory=dict)
+    maven_path: dict[str, str] = field(default_factory=dict)
     regex_version: dict[str, tuple[str, str]] = field(default_factory=dict)
     restrict_version: dict[str, str] = field(default_factory=dict)
     sync_version: dict[str, str] = field(default_factory=dict)
@@ -116,6 +118,8 @@ def gather_settings(search_dir: Path) -> LivecheckSettings:  # noqa: C901, PLR09
     development: dict[str, bool] = {}
     composer_packages: dict[str, bool] = {}
     composer_path: dict[str, str] = {}
+    maven_packages: dict[str, bool] = {}
+    maven_path: dict[str, str] = {}
     regex_version: dict[str, tuple[str, str]] = {}
     restrict_version: dict[str, str] = {}
     sync_version: dict[str, str] = {}
@@ -223,6 +227,13 @@ def gather_settings(search_dir: Path) -> LivecheckSettings:  # noqa: C901, PLR09
                     check_instance(settings_parsed['composer_path'], 'composer_path', 'string',
                                    path)
                     composer_path[catpkg] = settings_parsed['composer_path']
+            if 'maven' in settings_parsed:
+                check_instance(settings_parsed['maven'], 'maven', 'bool', path)
+                maven_packages[catpkg] = settings_parsed['maven']
+                maven_path[catpkg] = ''
+                if settings_parsed.get('maven_path'):
+                    check_instance(settings_parsed['maven_path'], 'maven_path', 'string', path)
+                    maven_path[catpkg] = settings_parsed['maven_path']
             if 'pattern_version' in settings_parsed or 'replace_version' in settings_parsed:
                 if 'pattern_version' not in settings_parsed:
                     log.error('No "pattern_version" in %s.', path)
@@ -253,8 +264,9 @@ def gather_settings(search_dir: Path) -> LivecheckSettings:  # noqa: C901, PLR09
                              type_packages, no_auto_update, sha_sources, transformations,
                              yarn_base_packages, yarn_packages, jetbrains_packages, keep_old,
                              gomodule_packages, gomodule_path, nodejs_packages, nodejs_path,
-                             development, composer_packages, composer_path, regex_version,
-                             restrict_version, sync_version, stable_version)
+                             development, composer_packages, composer_path, maven_packages,
+                             maven_path, regex_version, restrict_version, sync_version,
+                             stable_version)
 
 
 def check_instance(

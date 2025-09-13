@@ -66,6 +66,11 @@ from .special.gomodule import (
     update_gomodule_ebuild,
 )
 from .special.jetbrains import get_latest_jetbrains_package, is_jetbrains, update_jetbrains_ebuild
+from .special.maven import (
+    check_maven_requirements,
+    remove_maven_url,
+    update_maven_ebuild,
+)
 from .special.metacpan import (
     METACPAN_METADATA,
     get_latest_metacpan_metadata,
@@ -502,6 +507,7 @@ def do_main(  # noqa: C901, PLR0912, PLR0915
             if ((  # noqa: PLR0916
                     cp in settings.dotnet_projects and not check_dotnet_requirements())
                     or (cp in settings.composer_packages and not check_composer_requirements())
+                    or (cp in settings.maven_packages and not check_maven_requirements())
                     or (cp in settings.yarn_base_packages and not check_yarn_requirements())
                     or (cp in settings.nodejs_packages and not check_nodejs_requirements())
                     or (cp in settings.gomodule_packages and not check_gomodule_requirements())):
@@ -552,6 +558,8 @@ def do_main(  # noqa: C901, PLR0912, PLR0915
                 content = remove_nodejs_url(content)
             if cp in settings.composer_packages:
                 content = remove_composer_url(content)
+            if cp in settings.maven_packages:
+                content = remove_maven_url(content)
             if old_content != content:
                 Path(new_filename).write_text(content, encoding='utf-8')
             if not digest_ebuild(new_filename):
@@ -570,6 +578,8 @@ def do_main(  # noqa: C901, PLR0912, PLR0915
                 update_dotnet_ebuild(new_filename, settings.dotnet_projects[cp])
             if cp in settings.jetbrains_packages:
                 update_jetbrains_ebuild(new_filename)
+            if cp in settings.maven_packages:
+                update_maven_ebuild(new_filename, settings.maven_path[cp], fetchlist)
             if cp in settings.nodejs_packages:
                 update_nodejs_ebuild(new_filename, settings.nodejs_path[cp], fetchlist)
             if cp in settings.gomodule_packages:

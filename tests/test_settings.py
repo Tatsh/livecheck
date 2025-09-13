@@ -43,6 +43,8 @@ def test_livecheck_settings_defaults() -> None:
     assert isinstance(s.development, dict)
     assert isinstance(s.composer_packages, dict)
     assert isinstance(s.composer_path, dict)
+    assert isinstance(s.maven_packages, dict)
+    assert isinstance(s.maven_path, dict)
     assert isinstance(s.regex_version, dict)
     assert isinstance(s.restrict_version, dict)
     assert isinstance(s.sync_version, dict)
@@ -177,6 +179,8 @@ def test_gather_settings_handles_various_fields(tmp_path: Path) -> None:
         'development': True,
         'composer': True,
         'composer_path': 'composer/path',
+        'maven': True,
+        'maven_path': 'maven/path',
         'pattern_version': r'v(\d+)',
         'replace_version': r'\1',
         'restrict_version': 'major',
@@ -201,6 +205,8 @@ def test_gather_settings_handles_various_fields(tmp_path: Path) -> None:
     assert result.development['cat/pkg'] is True
     assert result.composer_packages['cat/pkg'] is True
     assert result.composer_path['cat/pkg'] == 'composer/path'
+    assert result.maven_packages['cat/pkg'] is True
+    assert result.maven_path['cat/pkg'] == 'maven/path'
     assert result.regex_version['cat/pkg'] == (r'v(\d+)', r'\1')
     assert result.restrict_version['cat/pkg'] == 'major'
     assert result.sync_version['cat/pkg'] == 'sync'
@@ -420,6 +426,58 @@ def test_gather_settings_composer_key_without_type_and_path(tmp_path: Path,
     # Should still parse composer field and default composer_path to ''
     assert result.composer_packages['cat/pkg'] is True
     assert not result.composer_path['cat/pkg']
+    logger.error.assert_not_called()
+
+
+def test_gather_settings_maven_without_maven_path(tmp_path: Path,
+                                                  mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    data = {
+        'type': TYPE_DIRECTORY,
+        'url': 'https://example.com/dir',
+        'maven': True
+        # 'maven_path' is intentionally omitted
+    }
+    make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
+    result = gather_settings(tmp_path)
+    assert result.maven_packages['cat/pkg'] is True
+    # Should default to empty string if maven_path is missing
+    assert not result.maven_path['cat/pkg']
+    logger.error.assert_not_called()
+
+
+def test_gather_settings_maven_key_without_type(tmp_path: Path, mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    data = {
+        # 'type' is intentionally omitted
+        'maven': True,
+        'maven_path': 'maven/path'
+    }
+    file_path = tmp_path / 'cat/pkg/livecheck.json'
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    file_path.write_text(json.dumps(data))
+    result = gather_settings(tmp_path)
+    # Should still parse maven fields even if 'type' is None
+    assert result.maven_packages['cat/pkg'] is True
+    assert result.maven_path['cat/pkg'] == 'maven/path'
+    logger.error.assert_not_called()
+
+
+def test_gather_settings_maven_key_without_type_and_path(tmp_path: Path,
+                                                         mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    data = {
+        # 'type' is intentionally omitted
+        'maven': True
+        # 'maven_path' is omitted
+    }
+    file_path = tmp_path / 'cat/pkg/livecheck.json'
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    file_path.write_text(json.dumps(data))
+    result = gather_settings(tmp_path)
+    # Should still parse maven field and default maven_path to ''
+    assert result.maven_packages['cat/pkg'] is True
+    assert not result.maven_path['cat/pkg']
     logger.error.assert_not_called()
 
 

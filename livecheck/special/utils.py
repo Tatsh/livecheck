@@ -54,8 +54,8 @@ def search_ebuild(ebuild: str, archive: str, path: str | None = None) -> tuple[s
     if path:
         # Search first directory in temp_dir
         for root, _, _ in os.walk(temp_dir):
-            # check if relative path is in the root
-            if path in root:
+            # check if relative path is in the end of root
+            if root.endswith(path):
                 return root, temp_dir
     else:
         for root, _, files in os.walk(temp_dir):

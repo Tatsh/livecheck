@@ -116,6 +116,8 @@ action directory there can be several scripts that are executed in order of name
 - `branch` - string- The GitHub branch name to use for commits.
 - `composer_packages` - boolean - Download composer vendor modules.
 - `composer_path` - path - Where is 'composer.json' located (need composer_packages).
+- `maven_packages` - boolean - Download Maven dependencies.
+- `maven_path` - path - Where is 'pom.xml' located (need maven_packages).
 - `development` - bool - Include development packages.
 - `gomodule_packages` - boolean - Download go vendor modules.
 - `gomodule_path` - path - Where is 'go.mod' located (need gomodule_packages).
