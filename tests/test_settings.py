@@ -429,8 +429,7 @@ def test_gather_settings_composer_key_without_type_and_path(tmp_path: Path,
     logger.error.assert_not_called()
 
 
-def test_gather_settings_maven_without_maven_path(tmp_path: Path,
-                                                  mocker: MockerFixture) -> None:
+def test_gather_settings_maven_without_maven_path(tmp_path: Path, mocker: MockerFixture) -> None:
     logger = mocker.patch('livecheck.settings.log')
     data = {
         'type': TYPE_DIRECTORY,

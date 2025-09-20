@@ -260,13 +260,12 @@ def gather_settings(search_dir: Path) -> LivecheckSettings:  # noqa: C901, PLR09
                 check_instance(settings_parsed['stable_version'], 'stable_version', 'regex', path)
                 stable_version[catpkg] = settings_parsed['stable_version']
 
-    return LivecheckSettings(branches, custom_livechecks, dotnet_projects, golang_packages,
-                             type_packages, no_auto_update, sha_sources, transformations,
-                             yarn_base_packages, yarn_packages, jetbrains_packages, keep_old,
-                             gomodule_packages, gomodule_path, nodejs_packages, nodejs_path,
-                             development, composer_packages, composer_path, maven_packages,
-                             maven_path, regex_version, restrict_version, sync_version,
-                             stable_version)
+    return LivecheckSettings(
+        branches, custom_livechecks, dotnet_projects, golang_packages, type_packages,
+        no_auto_update, sha_sources, transformations, yarn_base_packages, yarn_packages,
+        jetbrains_packages, keep_old, gomodule_packages, gomodule_path, nodejs_packages,
+        nodejs_path, development, composer_packages, composer_path, maven_packages, maven_path,
+        regex_version, restrict_version, sync_version, stable_version)
 
 
 def check_instance(

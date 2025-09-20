@@ -708,8 +708,7 @@ def test_do_main_composer_packages(mocker: MockerFixture, tmp_path: Path,
     mock_write.assert_called_once_with('abcdef1', encoding='utf-8')
 
 
-def test_do_main_maven_packages(mocker: MockerFixture, tmp_path: Path,
-                                mock_settings: Mock) -> None:
+def test_do_main_maven_packages(mocker: MockerFixture, tmp_path: Path, mock_settings: Mock) -> None:
     cat = 'cat'
     pkg = 'pkg'
     ebuild_version = '1.0.0'
