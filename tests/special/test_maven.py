@@ -57,7 +57,7 @@ def test_update_maven_ebuild_success(mocker: MockerFixture) -> None:
         cwd=maven_path,
         check=True,
     )
-    mock_build_compress.assert_called_once_with(temp_dir, maven_path, '.m2', '-mv.tar.xz',
+    mock_build_compress.assert_called_once_with(temp_dir, maven_path, '.m2', '-mvn.tar.xz',
                                                 fetchlist)
 
 
