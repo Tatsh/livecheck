@@ -19,7 +19,7 @@ def test_remove_maven_url_calls_remove_url_ebuild(mocker: MockerFixture) -> None
     mock_remove_url_ebuild.return_value = 'result'
     ebuild_content = 'SOME CONTENT'
     result = remove_maven_url(ebuild_content)
-    mock_remove_url_ebuild.assert_called_once_with(ebuild_content, '-maven-deps.tar.xz')
+    mock_remove_url_ebuild.assert_called_once_with(ebuild_content, '-mvn.tar.xz')
     assert result == 'result'
 
 
@@ -52,11 +52,12 @@ def test_update_maven_ebuild_success(mocker: MockerFixture) -> None:
     update_maven_ebuild('ebuild', 'path', fetchlist)
 
     mock_sp_run.assert_called_once_with(
-        ('mvn', '--batch-mode', '-Dmaven.repo.local=m2', 'dependency:go-offline'),
+        ('mvn', '--batch-mode', '-Dmaven.repo.local=.m2', 'dependency:go-offline',
+         '-Drat.ignoreErrors=true', 'package'),
         cwd=maven_path,
         check=True,
     )
-    mock_build_compress.assert_called_once_with(temp_dir, maven_path, 'm2', '-maven-deps.tar.xz',
+    mock_build_compress.assert_called_once_with(temp_dir, maven_path, '.m2', '-mv.tar.xz',
                                                 fetchlist)
 
 
