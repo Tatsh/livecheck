@@ -22,6 +22,7 @@ commitizen
 conftest
 coveragerc
 cpan
+Dmaven
 dataclasses
 datatable
 datatables
