@@ -1,15 +1,12 @@
 local utils = import 'utils.libjsonnet';
 
-(import 'defaults.libjsonnet') + {
+{
   // Project-specific
   description: 'Tool to update ebuilds.',
   keywords: ['command line', 'ebuild', 'gentoo', 'portage'],
   project_name: 'livecheck',
   version: '0.1.1',
   want_main: true,
-  citation+: {
-    'date-released': '2025-04-13',
-  },
   gitignore+: [
     '.history',
     '.idea',
@@ -30,20 +27,20 @@ local utils = import 'utils.libjsonnet';
       },
       poetry+: {
         dependencies+: {
-          beautifulsoup4: '>=4.13.4',
-          defusedxml: '^0.7.1',
-          html5lib: '^1.1',
-          keyring: '^25.6.0',
-          platformdirs: '^4.3.8',
-          requests: '^2.32.3',
+          beautifulsoup4: utils.latestPypiPackageVersionCaret('beautifulsoup4'),
+          defusedxml: utils.latestPypiPackageVersionCaret('defusedxml'),
+          html5lib: utils.latestPypiPackageVersionCaret('html5lib'),
+          keyring: utils.latestPypiPackageVersionCaret('keyring'),
+          platformdirs: utils.latestPypiPackageVersionCaret('platformdirs'),
+          requests: utils.latestPypiPackageVersionCaret('requests'),
         },
         group+: {
           dev+: {
             dependencies+: {
               'portage-stubs': '^0',
-              'types-beautifulsoup4': '>=4.12.0.20250516',
-              'types-defusedxml': '>=0.7.0.20250516',
-              'types-requests': '>=2.32.0.20250515',
+              'types-beautifulsoup4': utils.latestPypiPackageVersionCaret('types-beautifulsoup4'),
+              'types-defusedxml': utils.latestPypiPackageVersionCaret('types-defusedxml'),
+              'types-requests': utils.latestPypiPackageVersionCaret('types-requests'),
             },
           },
         },
@@ -51,14 +48,23 @@ local utils = import 'utils.libjsonnet';
     },
   },
   security_policy_supported_versions: { '0.1.x': ':white_check_mark:' },
-  // Common
-  authors: [
-    {
-      'family-names': 'Udvare',
-      'given-names': 'Andrew',
-      email: 'audvare@gmail.com',
-      name: '%s %s' % [self['given-names'], self['family-names']],
+  copilot: {
+    intro: 'Livecheck is a tool to update Portage ebuilds using upstream information.',
+  },
+  readthedocs+: {
+    build+: {
+      jobs+: {
+        post_install+: [
+          'VIRTUAL_ENV="$READTHEDOCS_VIRTUALENV_PATH" poetry run pip install git+https://github.com/gentoo/portage.git',
+        ],
+      },
     },
+    sphinx+: {
+      fail_on_warning: false,
+    },
+  },
+  // Common
+  authors+: [
     {
       'family-names': 'Javier',
       'given-names': 'Francisco',
@@ -66,13 +72,4 @@ local utils = import 'utils.libjsonnet';
       name: '%s %s' % [self['given-names'], self['family-names']],
     },
   ],
-  local funding_name = '%s2' % std.asciiLower(self.github_username),
-  github_username: 'Tatsh',
-  github+: {
-    funding+: {
-      ko_fi: funding_name,
-      liberapay: funding_name,
-      patreon: funding_name,
-    },
-  },
 }

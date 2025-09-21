@@ -1,6 +1,6 @@
 # Copilot Instructions
 
-livecheck is a tool to update ebuilds.
+Livecheck is a tool to update Portage ebuilds using upstream information.
 
 ## General
 

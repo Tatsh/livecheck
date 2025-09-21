@@ -17,12 +17,10 @@ catpkgsplit
 citra
 clion
 codeowners
-colored
 commitizen
 conftest
 coveragerc
 cpan
-Dmaven
 dataclasses
 datatable
 datatables
@@ -36,6 +34,7 @@ distdir
 distfiles
 djlint
 dlmalloc
+dmaven
 docstrings
 doctrees
 doebuild
@@ -75,7 +74,6 @@ jsonnet
 jsonschema
 jssy
 keepends
-levelname
 lextudio
 libchdr
 libfat
@@ -118,6 +116,7 @@ pydantic
 pydocstyle
 pylance
 pylint
+pypi
 pyproject
 pyright
 pytest
