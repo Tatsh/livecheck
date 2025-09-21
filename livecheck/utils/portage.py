@@ -240,6 +240,8 @@ def normalize_version(ver: str) -> str:
     suf = re.sub(r'[-_\. ]', '', suf)
     if suf.isdigit():
         return f'{main}.{suf}'
+    if suf.startswith('build'):
+        return f'{main}'
 
     if m := re.match(r'^([A-Za-z]+)([0-9]+)?', suf):
         letters, digits = m.groups()

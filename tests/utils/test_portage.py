@@ -83,6 +83,7 @@ if TYPE_CHECKING:
     ('0.0.8b2', '0.0.8_beta2'),
     ('0.0.8a5', '0.0.8_alpha5'),
     ('0.1.8b0', '0.1.8_beta'),
+    ('1.4.1-build.2', '1.4.1'),
 ])
 def test_sanitize_version(version: str, expected: str) -> None:
     assert sanitize_version(version) == expected
