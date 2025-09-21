@@ -10,8 +10,18 @@ and this project adheres to
 
 ## [unreleased]
 
-- Ignore releaseNum when normalizing DaVinci versions and return major.minor
-- Fix the real sha from GitHub for a version
+### Added
+
+- Maven support. #395 Thanks to @inode64.
+
+### Changed
+
+- Ignore releaseNum when normalizing DaVinci versions and return major.minor.
+- Do not consider build numbers when normalising versions for Portage. #396 Thanks to @inode64.
+
+### Fixed
+
+- Fix the real SHA from GitHub for a version.
 
 ## [0.1.1]
 
