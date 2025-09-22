@@ -10,6 +10,8 @@ and this project adheres to
 
 ## [unreleased]
 
+## [0.1.2]
+
 ### Added
 
 - Maven support. #395 Thanks to @inode64.
@@ -104,7 +106,8 @@ and this project adheres to
 
 - When multiple ebuilds are in the same directory, only the latest one will be considered for updating.
 
-[unreleased]: https://github.com/Tatsh/livecheck/compare/v0.1.1...HEAD
+[unreleased]: https://github.com/Tatsh/livecheck/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/Tatsh/livecheck/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/Tatsh/livecheck/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/Tatsh/livecheck/compare/v0.0.13...v0.1.0
 [0.0.9]: https://github.com/Tatsh/livecheck/compare/v0.0.8...v0.0.9
