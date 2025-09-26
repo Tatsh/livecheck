@@ -103,8 +103,8 @@ def build_compress(temp_dir: str, base_dir: str, directory: str, extension: str,
 def get_archive_extension(filename: str) -> str:
     """Get archive extension from a filename."""
     filename = filename.lower()
-    for ext in ('tar.gz', 'tar.xz', 'tar.bz2', 'tar.lz', 'tar.zst', 'tc.gz', 'tar.z', 'gz', 'xz',
-                'zip', 'tbz2', 'bz2', 'tbz', 'txz', 'tar', 'tgz', 'rar', '7z'):
+    for ext in ('gh.tar.gz', 'tar.gz', 'tar.xz', 'tar.bz2', 'tar.lz', 'tar.zst', 'tc.gz', 'tar.z',
+                'gz', 'xz', 'zip', 'tbz2', 'bz2', 'tbz', 'txz', 'tar', 'tgz', 'rar', '7z'):
         if filename.endswith(f'.{ext}'):
             return '.' + ext
 

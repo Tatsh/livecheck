@@ -98,6 +98,11 @@ def mock_settings(mocker: MockerFixture) -> Any:
     settings.keep_old_flag = False
     settings.no_auto_update = set()
     settings.nodejs_packages = set()
+    settings.nodejs_package_managers = {}
+    settings.default_package_manager = 'npm'
+    settings.get_package_manager = mocker.Mock(
+        side_effect=lambda cp: settings.nodejs_package_managers.get(
+            cp, settings.default_package_manager))
     settings.maven_packages = set()
     settings.progress_flag = False
     settings.sha_sources = {}
@@ -655,7 +660,61 @@ def test_do_main_nodejs_packages(mocker: MockerFixture, tmp_path: Path,
             top_hash=top_hash,
             url=url)
     mock_update_nodejs_ebuild.assert_called_once_with(
-        f'{search_dir}/{cat}/{pkg}/{pkg}-{last_version}.ebuild', mocker.ANY, {})
+        f'{search_dir}/{cat}/{pkg}/{pkg}-{last_version}.ebuild', mocker.ANY, {}, 'npm')
+    mock_write.assert_called_once_with('abcdef1', encoding='utf-8')
+
+
+def test_do_main_nodejs_packages_custom_manager(mocker: MockerFixture, tmp_path: Path,
+                                                mock_settings: Mock) -> None:
+    cat = 'cat'
+    pkg = 'pkg'
+    ebuild_version = '1.0.0'
+    last_version = '1.0.1'
+    top_hash = 'abcdef1'
+    hash_date = ''
+    url = 'https://example.com'
+    hook_dir = None
+    search_dir = tmp_path
+    cp = f'{cat}/{pkg}'
+    ebuild_path = tmp_path / f'{cat}/{pkg}/{pkg}-1.0.0.ebuild'
+    ebuild_path.parent.mkdir(parents=True)
+    ebuild_path.write_text('SHA="1234567"\n', encoding='utf-8')
+    mock_settings.auto_update_flag = True
+    mock_settings.nodejs_packages = {cp}
+    mock_settings.nodejs_package_managers = {cp: 'pnpm'}
+    mock_settings.get_package_manager.side_effect = (
+        lambda name: mock_settings.nodejs_package_managers.get(name, 'npm'))
+    mocker.patch('livecheck.main.get_old_sha', return_value='1234567')
+    mocker.patch('livecheck.main.replace_date_in_ebuild', side_effect=lambda v, _, __: v)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.catpkg_catpkgsplit', return_value=(cp, cat, pkg, last_version))
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
+    mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
+    mocker.patch('livecheck.main.digest_ebuild', return_value=True)
+    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.is_sha', return_value=True)
+    mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
+    mocker.patch('livecheck.main.execute_hooks')
+    mocker.patch('livecheck.main.Path.read_text', return_value='SHA="1234567"\n')
+    mock_write = mocker.patch('livecheck.main.Path.write_text')
+    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.sp.run', return_value=mocker.Mock(returncode=0))
+    mock_update_nodejs_ebuild = mocker.patch('livecheck.main.update_nodejs_ebuild')
+
+    do_main(cat=cat,
+            ebuild_version=ebuild_version,
+            hash_date=hash_date,
+            hook_dir=hook_dir,
+            last_version=last_version,
+            pkg=pkg,
+            search_dir=search_dir,
+            settings=mock_settings,
+            top_hash=top_hash,
+            url=url)
+
+    mock_update_nodejs_ebuild.assert_called_once_with(
+        f'{search_dir}/{cat}/{pkg}/{pkg}-{last_version}.ebuild', mocker.ANY, {}, 'pnpm')
     mock_write.assert_called_once_with('abcdef1', encoding='utf-8')
 
 

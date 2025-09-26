@@ -40,6 +40,7 @@ def test_livecheck_settings_defaults() -> None:
     assert isinstance(s.gomodule_path, dict)
     assert isinstance(s.nodejs_packages, dict)
     assert isinstance(s.nodejs_path, dict)
+    assert isinstance(s.nodejs_package_managers, dict)
     assert isinstance(s.development, dict)
     assert isinstance(s.composer_packages, dict)
     assert isinstance(s.composer_path, dict)
@@ -55,6 +56,7 @@ def test_livecheck_settings_defaults() -> None:
     assert s.git_flag is False
     assert s.keep_old_flag is False
     assert s.progress_flag is False
+    assert s.default_package_manager == 'npm'
     assert not s.restrict_version_process
 
 
@@ -71,6 +73,16 @@ def test_is_devel_returns_value_from_development_dict() -> None:
 def test_is_devel_returns_default_when_not_set() -> None:
     s = LivecheckSettings()
     assert s.is_devel('cat/pkg') is False
+
+
+def test_get_package_manager_defaults_to_global() -> None:
+    s = LivecheckSettings(default_package_manager='pnpm')
+    assert s.get_package_manager('cat/pkg') == 'pnpm'
+
+
+def test_get_package_manager_returns_override() -> None:
+    s = LivecheckSettings(nodejs_package_managers={'cat/pkg': 'yarn'})
+    assert s.get_package_manager('cat/pkg') == 'yarn'
 
 
 def test_livecheck_settings_mutable_fields_are_independent() -> None:
@@ -176,6 +188,7 @@ def test_gather_settings_handles_various_fields(tmp_path: Path) -> None:
         'gomodule_path': 'mod/path',
         'nodejs': True,
         'nodejs_path': 'node/path',
+        'nodejs_package_manager': 'yarn',
         'development': True,
         'composer': True,
         'composer_path': 'composer/path',
@@ -202,6 +215,7 @@ def test_gather_settings_handles_various_fields(tmp_path: Path) -> None:
     assert result.gomodule_path['cat/pkg'] == 'mod/path'
     assert result.nodejs_packages['cat/pkg'] is True
     assert result.nodejs_path['cat/pkg'] == 'node/path'
+    assert result.nodejs_package_managers['cat/pkg'] == 'yarn'
     assert result.development['cat/pkg'] is True
     assert result.composer_packages['cat/pkg'] is True
     assert result.composer_path['cat/pkg'] == 'composer/path'
@@ -367,14 +381,31 @@ def test_gather_settings_nodejs_without_nodejs_path(tmp_path: Path, mocker: Mock
         'type': TYPE_DIRECTORY,
         'url': 'https://example.com/dir',
         'nodejs': True
-        # 'nodejs_path' is intentionally omitted
+        # 'nodejs_path' and 'nodejs_package_manager' are intentionally omitted
     }
     make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
     result = gather_settings(tmp_path)
     assert result.nodejs_packages['cat/pkg'] is True
     # Should default to empty string if nodejs_path is missing
     assert not result.nodejs_path['cat/pkg']
+    assert 'cat/pkg' not in result.nodejs_package_managers
     logger.error.assert_not_called()
+
+
+def test_gather_settings_invalid_nodejs_package_manager(tmp_path: Path,
+                                                        mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    data = {
+        'type': TYPE_DIRECTORY,
+        'url': 'https://example.com/dir',
+        'nodejs': True,
+        'nodejs_package_manager': 'invalid'
+    }
+    make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
+    result = gather_settings(tmp_path)
+    assert result.nodejs_packages['cat/pkg'] is True
+    assert 'cat/pkg' not in result.nodejs_package_managers
+    logger.error.assert_any_call('Invalid "nodejs_package_manager" in %s.', mocker.ANY)
 
 
 def test_gather_settings_composer_without_composer_path(tmp_path: Path,

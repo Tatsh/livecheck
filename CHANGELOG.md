@@ -10,6 +10,14 @@ and this project adheres to
 
 ## [unreleased]
 
+### Added
+
+- Add configurable Node.js package manager support
+
+### Fixed
+
+- Detect compressed files with extension .gh.tar.gz
+
 ## [0.1.2]
 
 ### Added
