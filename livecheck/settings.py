@@ -9,6 +9,7 @@ import logging
 import re
 
 from . import utils
+from .constants import PACKAGE_MANAGERS
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
@@ -58,6 +59,7 @@ class LivecheckSettings:
     gomodule_path: dict[str, str] = field(default_factory=dict)
     nodejs_packages: dict[str, bool] = field(default_factory=dict)
     nodejs_path: dict[str, str] = field(default_factory=dict)
+    nodejs_package_managers: dict[str, str] = field(default_factory=dict)
     development: dict[str, bool] = field(default_factory=dict)
     composer_packages: dict[str, bool] = field(default_factory=dict)
     composer_path: dict[str, str] = field(default_factory=dict)
@@ -74,12 +76,17 @@ class LivecheckSettings:
     git_flag: bool = False
     keep_old_flag: bool = False
     progress_flag: bool = False
+    default_package_manager: str = 'npm'
     # Internal settings.
     restrict_version_process: str = ''
 
     def is_devel(self, catpkg: str) -> bool:
         """Check if the package is a development version."""
         return self.development.get(catpkg, self.development_flag)
+
+    def get_package_manager(self, catpkg: str) -> str:
+        """Return the package manager configured for a package."""
+        return self.nodejs_package_managers.get(catpkg, self.default_package_manager)
 
 
 class UnknownTransformationFunction(NameError):
@@ -115,6 +122,7 @@ def gather_settings(search_dir: Path) -> LivecheckSettings:  # noqa: C901, PLR09
     gomodule_path: dict[str, str] = {}
     nodejs_packages: dict[str, bool] = {}
     nodejs_path: dict[str, str] = {}
+    nodejs_package_managers: dict[str, str] = {}
     development: dict[str, bool] = {}
     composer_packages: dict[str, bool] = {}
     composer_path: dict[str, str] = {}
@@ -216,6 +224,14 @@ def gather_settings(search_dir: Path) -> LivecheckSettings:  # noqa: C901, PLR09
                 if settings_parsed.get('nodejs_path'):
                     check_instance(settings_parsed['nodejs_path'], 'nodejs_path', 'string', path)
                     nodejs_path[catpkg] = settings_parsed['nodejs_path']
+                if settings_parsed.get('nodejs_package_manager'):
+                    check_instance(settings_parsed['nodejs_package_manager'],
+                                   'nodejs_package_manager', 'string', path)
+                    manager = settings_parsed['nodejs_package_manager'].lower()
+                    if manager not in PACKAGE_MANAGERS:
+                        log.error('Invalid "nodejs_package_manager" in %s.', path)
+                    else:
+                        nodejs_package_managers[catpkg] = manager
             if 'development' in settings_parsed:
                 check_instance(settings_parsed['development'], 'development', 'bool', path)
                 development[catpkg] = settings_parsed['development']
@@ -264,8 +280,8 @@ def gather_settings(search_dir: Path) -> LivecheckSettings:  # noqa: C901, PLR09
         branches, custom_livechecks, dotnet_projects, golang_packages, type_packages,
         no_auto_update, sha_sources, transformations, yarn_base_packages, yarn_packages,
         jetbrains_packages, keep_old, gomodule_packages, gomodule_path, nodejs_packages,
-        nodejs_path, development, composer_packages, composer_path, maven_packages, maven_path,
-        regex_version, restrict_version, sync_version, stable_version)
+        nodejs_path, nodejs_package_managers, development, composer_packages, composer_path,
+        maven_packages, maven_path, regex_version, restrict_version, sync_version, stable_version)
 
 
 def check_instance(

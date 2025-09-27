@@ -62,6 +62,8 @@ Options:
   -H, --hook-dir               Run a hook directory scripts with various parameters.
   -k, --keep-old               Keep old ebuild versions.
   -p, --progress               Enable progress logging.
+  --package-manager [npm|pnpm|yarn]
+                               Package manager to use for Node.js packages.
   -W, --working-dir DIRECTORY  Working directory. Should be a port tree root.
   --help                       Show this message and exit.
 ```
@@ -126,6 +128,8 @@ action directory there can be several scripts that are executed in order of name
 - `no_auto_update` - boolean - Do not allow auto-updating of this package.
 - `nodejs_packages` - boolean - Download nodejs node_modules.
 - `nodejs_path` - path - Where is 'package.json' located (need nodejs_packages).
+- `nodejs_package_manager` - string - Package manager to use for Node.js packages [npm|pnpm|yarn]
+  (defaults to npm)
 - `sha_source`- string - Url to get the sha value.
 - `stable_version`- string - Regular expression to determine if it is a stable version.
 - `sync_version` - string - Category and ebuild with version to sync.
