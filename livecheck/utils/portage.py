@@ -39,12 +39,8 @@ def get_highest_matches(names: Iterable[str], repo_root: Path | None,
     log.debug('Searching for %s.', ', '.join(names))
     result: dict[str, str] = {}
     for name in names:
-        try:
-            if not (matches := P.xmatch('match-all', name)):
-                log.debug('Found no matches with xmatch("match-all").')
-                continue
-        except portage.exception.InvalidAtom:
-            log.warning('Ignoring invalid atom: %s', name)
+        if not (matches := P.xmatch('match-all', name)):
+            log.debug('Found no matches with xmatch("match-all").')
             continue
         for m in matches:
             # Check if the package structure is valid

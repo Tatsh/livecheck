@@ -12,12 +12,11 @@ and this project adheres to
 
 ### Added
 
-- Add configurable Node.js package manager support
+- Add configurable Node.js package manager support. #397 Thanks to @inode64.
 
 ### Fixed
 
 - Detect compressed files with extension .gh.tar.gz
-- Continue when found a Invalid Atom
 
 ## [0.1.2]
 
