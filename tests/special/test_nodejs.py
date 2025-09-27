@@ -59,10 +59,10 @@ def test_update_nodejs_ebuild_success(mocker: MockerFixture) -> None:
     update_nodejs_ebuild(ebuild, path, fetchlist)
 
     mock_search_ebuild.assert_called_once_with(ebuild, 'package.json', path)
-    mock_run.assert_called_once_with(('npm', 'install', '--audit false', '--color false',
-                                      '--progress false', '--ignore-scripts'),
-                                     cwd=package_path,
-                                     check=True)
+    mock_run.assert_called_once_with(
+        ('npm', 'install', '--ignore-scripts', '--no-audit', '--no-color', '--no-progress'),
+        cwd=package_path,
+        check=True)
     mock_build_compress.assert_called_once_with(temp_dir, package_path, 'node_modules',
                                                 '-node_modules.tar.xz', fetchlist)
 
@@ -108,10 +108,7 @@ def test_update_nodejs_ebuild_other_package_manager(mocker: MockerFixture) -> No
 
     update_nodejs_ebuild('dummy.ebuild', None, {}, package_manager='yarn')
 
-    mock_run.assert_called_once_with(
-        ('yarn', 'install', '--ignore-scripts', '--silent', '--non-interactive'),
-        cwd='/tmp/pkg',
-        check=True)
+    mock_run.assert_called_once_with(('yarn', 'install', '--silent'), cwd='/tmp/pkg', check=True)
     mock_build_compress.assert_called_once()
 
 

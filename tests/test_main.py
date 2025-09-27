@@ -681,7 +681,7 @@ def test_do_main_nodejs_packages_custom_manager(mocker: MockerFixture, tmp_path:
     ebuild_path.write_text('SHA="1234567"\n', encoding='utf-8')
     mock_settings.auto_update_flag = True
     mock_settings.nodejs_packages = {cp}
-    mock_settings.nodejs_package_managers = {cp: 'pnpm'}
+    mock_settings.nodejs_package_managers = {cp: 'yarn'}
     mock_settings.get_package_manager.side_effect = (
         lambda name: mock_settings.nodejs_package_managers.get(name, 'npm'))
     mocker.patch('livecheck.main.get_old_sha', return_value='1234567')
@@ -714,7 +714,7 @@ def test_do_main_nodejs_packages_custom_manager(mocker: MockerFixture, tmp_path:
             url=url)
 
     mock_update_nodejs_ebuild.assert_called_once_with(
-        f'{search_dir}/{cat}/{pkg}/{pkg}-{last_version}.ebuild', mocker.ANY, {}, 'pnpm')
+        f'{search_dir}/{cat}/{pkg}/{pkg}-{last_version}.ebuild', mocker.ANY, {}, 'yarn')
     mock_write.assert_called_once_with('abcdef1', encoding='utf-8')
 
 
