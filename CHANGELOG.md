@@ -17,6 +17,7 @@ and this project adheres to
 ### Fixed
 
 - Detect compressed files with extension .gh.tar.gz
+- Continue when found a Invalid Atom
 
 ## [0.1.2]
 
