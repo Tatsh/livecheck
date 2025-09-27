@@ -16,6 +16,7 @@ from defusedxml import ElementTree as ET  # noqa: N817
 import click
 
 from .constants import (
+    PACKAGE_MANAGERS,
     SUBMODULES,
     TAG_NAME_FUNCTIONS,
 )
@@ -509,7 +510,8 @@ def do_main(  # noqa: C901, PLR0912, PLR0915
                     or (cp in settings.composer_packages and not check_composer_requirements())
                     or (cp in settings.maven_packages and not check_maven_requirements())
                     or (cp in settings.yarn_base_packages and not check_yarn_requirements())
-                    or (cp in settings.nodejs_packages and not check_nodejs_requirements())
+                    or (cp in settings.nodejs_packages
+                        and not check_nodejs_requirements(settings.get_package_manager(cp)))
                     or (cp in settings.gomodule_packages and not check_gomodule_requirements())):
                 log.warning('Update is not possible.')
                 return
@@ -581,7 +583,8 @@ def do_main(  # noqa: C901, PLR0912, PLR0915
             if cp in settings.maven_packages:
                 update_maven_ebuild(new_filename, settings.maven_path[cp], fetchlist)
             if cp in settings.nodejs_packages:
-                update_nodejs_ebuild(new_filename, settings.nodejs_path[cp], fetchlist)
+                update_nodejs_ebuild(new_filename, settings.nodejs_path[cp], fetchlist,
+                                     settings.get_package_manager(cp))
             if cp in settings.gomodule_packages:
                 update_gomodule_ebuild(new_filename, settings.gomodule_path[cp], fetchlist)
             if cp in settings.composer_packages:
@@ -617,6 +620,11 @@ def do_main(  # noqa: C901, PLR0912, PLR0915
               type=click.Path(file_okay=False, exists=True, resolve_path=True, path_type=Path))
 @click.option('-k', '--keep-old', is_flag=True, help='Keep old ebuild versions.')
 @click.option('-p', '--progress', is_flag=True, help='Enable progress logging.')
+@click.option('--package-manager',
+              type=click.Choice(sorted(PACKAGE_MANAGERS)),
+              default='npm',
+              show_default=True,
+              help='Package manager to use for Node.js packages.')
 @click.option('-W',
               '--working-dir',
               default='.',
@@ -637,7 +645,8 @@ def main(working_dir: Path,
          development: bool = False,
          git: bool = False,
          keep_old: bool = False,
-         progress: bool = False) -> None:
+         progress: bool = False,
+         package_manager: str = 'npm') -> None:
     """Update ebuilds to their latest versions."""  # noqa: DOC501
     setup_logging(debug=debug,
                   loggers={'livecheck': {
@@ -684,6 +693,7 @@ def main(working_dir: Path,
     settings.git_flag = git
     settings.keep_old_flag = keep_old
     settings.progress_flag = progress
+    settings.default_package_manager = package_manager
 
     package_names = sorted(package_names or [])
     cat = pkg = None

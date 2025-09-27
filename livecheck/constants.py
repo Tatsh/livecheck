@@ -8,7 +8,9 @@ from .utils import prefix_v
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
 
-__all__ = ('RSS_NS', 'SUBMODULES', 'TAG_NAME_FUNCTIONS')
+__all__ = ('PACKAGE_MANAGERS', 'RSS_NS', 'SUBMODULES', 'TAG_NAME_FUNCTIONS')
+
+PACKAGE_MANAGERS = frozenset({'npm', 'pnpm', 'yarn'})
 
 RSS_NS = {'': 'http://www.w3.org/2005/Atom'}
 """
