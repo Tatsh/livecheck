@@ -19,7 +19,7 @@ keywords = ["command line", "ebuild", "gentoo", "portage"]
 license = "MIT"
 name = "livecheck"
 readme = "README.md"
-version = "0.1.2"
+version = "0.1.3"
 
 [[project.authors]]
 email = "audvare@gmail.com"
