@@ -71,10 +71,22 @@ def get_latest_github_package(url: str, ebuild: str,
     if not (r := get_content(url)):
         return last_version['version'], ''
 
-    object_url = r.json().get('object', {}).get('url', '')
-    r2 = get_content(object_url) if object_url else r
-    data = r2.json().get('object', {})
-    return last_version['version'], data.get('sha', '')
+    ref_object = r.json().get('object', {})
+    object_url = ref_object.get('url')
+
+    if object_url and ref_object.get('type') == 'tag':
+        # Get sha from the tag object (annotated tag).
+        r2 = get_content(object_url)
+        if not r2:
+            return last_version['version'], ''
+
+        tag_data = r2.json()
+        sha = tag_data.get('object', {}).get('sha')
+    else:
+        # Get sha from the ref object directly (lightweight tag or fallback).
+        sha = ref_object.get('sha')
+
+    return last_version['version'], sha or ''
 
 
 def get_latest_github_commit(url: str, branch: str) -> tuple[str, str]:
