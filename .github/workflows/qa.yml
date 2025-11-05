@@ -16,7 +16,8 @@ jobs:
         run: 'poetry run pip install git+https://github.com/gentoo/portage.git'
       - name: 'Install dependencies (Yarn)'
         run: 'yarn'
-      - name: 'Lint with mypy'
+      - if: ${{ matrix.python-version != '3.14' }}
+        name: 'Lint with mypy'
         run: 'yarn mypy .'
       - name: 'Lint with Ruff'
         run: 'yarn ruff .'
@@ -31,6 +32,7 @@ jobs:
           - '3.11'
           - '3.12'
           - '3.13'
+          - '3.14'
 name: 'QA'
 'on':
   pull_request:
