@@ -1776,35 +1776,18 @@ testing = ["coverage", "pytest", "pytest-benchmark"]
 
 [[package]]
 name = "portage-stubs"
-version = "0.0.3"
-description = "Typing stubs for Portage."
-optional = false
-python-versions = "<4,>=3.10"
-groups = ["dev"]
-markers = "python_version >= \"3.11\""
-files = [
-    {file = "portage_stubs-0.0.3-py3-none-any.whl", hash = "sha256:56f2024728f079d682a4b48e2788ec29dbfa811e238230d1786d6b0c8c52c8a0"},
-    {file = "portage_stubs-0.0.3.tar.gz", hash = "sha256:a2e160a5e5f28354aa11306e20da7491e1fc938eb787dfa6fd9cf3a0ca2314c4"},
-]
-
-[[package]]
-name = "portage-stubs"
-version = "0.0.6"
+version = "0.0.7"
 description = "PEP 561 type stubs for portage."
 optional = false
-python-versions = "<3.14,>=3.10"
+python-versions = "<4.0,>=3.10"
 groups = ["dev"]
-markers = "python_version == \"3.10\""
 files = [
-    {file = "portage_stubs-0.0.6-py3-none-any.whl", hash = "sha256:ec85e03363e6eb1b603d35a6fa4ff7ca503c604d85bdd4a86484a0dc09e89232"},
-    {file = "portage_stubs-0.0.6.tar.gz", hash = "sha256:0b9c00bb5d4c8e8f937336cc067819910893f9cce9c51f170031153e06cfe133"},
+    {file = "portage_stubs-0.0.7-py3-none-any.whl", hash = "sha256:f35c8ff812792b4741edae37564f1a4fe18b9422017f684698ed0ca37f4d6052"},
+    {file = "portage_stubs-0.0.7.tar.gz", hash = "sha256:618aa9dfec13c1c1cdf72896121552ece569569a9d4efa667f432ae501625f5e"},
 ]
 
 [package.dependencies]
-typing-extensions = ">=4.13.1,<5.0.0"
-
-[package.extras]
-erdantic = ["erdantic (<2.0)"]
+typing-extensions = ">=4.15.0,<5.0.0"
 
 [[package]]
 name = "prompt-toolkit"
