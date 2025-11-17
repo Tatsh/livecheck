@@ -130,6 +130,7 @@ qpxtool
 raphnet
 rdparty
 readlink
+referer
 regen
 repology
 rstcheck

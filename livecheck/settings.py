@@ -15,19 +15,9 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
     from pathlib import Path
 
-__all__ = (
-    'TYPE_CHECKSUM',
-    'TYPE_COMMIT',
-    'TYPE_DAVINCI',
-    'TYPE_DIRECTORY',
-    'TYPE_LOCATION_CHECKSUM',
-    'TYPE_METADATA',
-    'TYPE_NONE',
-    'TYPE_REGEX',
-    'TYPE_REPOLOGY',
-    'LivecheckSettings',
-    'gather_settings'
-)
+__all__ = ('TYPE_CHECKSUM', 'TYPE_COMMIT', 'TYPE_DAVINCI', 'TYPE_DIRECTORY',
+           'TYPE_LOCATION_CHECKSUM', 'TYPE_METADATA', 'TYPE_NONE', 'TYPE_REGEX', 'TYPE_REPOLOGY',
+           'LivecheckSettings', 'gather_settings')
 
 log = logging.getLogger(__name__)
 TYPE_CHECKSUM = 'checksum'
