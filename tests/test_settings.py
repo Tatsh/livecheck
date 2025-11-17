@@ -738,3 +738,13 @@ def test_check_instance_dict_type_logs_error_on_wrong_type(mocker: MockerFixture
     check_instance('not_dict', 'key', 'dict', 'file')
     logger.error.assert_called_with('value "%s" in key "%s" is not of type "%s" in file "%s.',
                                     'not_dict', 'key', 'dict', 'file')
+
+
+def test_gather_settings_type_location_checksum_missing_url_logs_error(
+        tmp_path: Path, mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    data = {'type': 'location+hash-check'}
+    make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
+    result = gather_settings(tmp_path)
+    logger.error.assert_any_call('No "url" in %s.', mocker.ANY)
+    assert 'cat/pkg' not in result.custom_livechecks
