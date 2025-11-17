@@ -26,7 +26,7 @@ __all__ = (
     'TYPE_REGEX',
     'TYPE_REPOLOGY',
     'LivecheckSettings',
-    'gather_settings',
+    'gather_settings'
 )
 
 log = logging.getLogger(__name__)

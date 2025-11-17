@@ -94,12 +94,11 @@ def get_content(url: str,
         for key, value in headers.items():
             session.headers[key] = value
 
-    # Prepare request
-    req = requests.Request(method=method.upper(), url=url, data=data, params=params)
-    prepared = session.prepare_request(req)
-
     r: TextDataResponse | requests.Response
     try:
+        # Prepare request
+        req = requests.Request(method=method.upper(), url=url, data=data, params=params)
+        prepared = session.prepare_request(req)
         r = session.send(prepared, allow_redirects=allow_redirects)
     except requests.RequestException:
         log.exception('Caught error attempting to fetch `%s`.', url)
