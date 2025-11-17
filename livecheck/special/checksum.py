@@ -4,18 +4,24 @@ from __future__ import annotations
 from pathlib import Path
 import re
 
-from livecheck.utils import get_last_modified, hash_url
+from livecheck.utils import get_content, get_last_modified, hash_url
 from livecheck.utils.portage import catpkg_catpkgsplit
 
 from .utils import EbuildTempFile
 
-__all__ = ('get_latest_checksum_package',)
+__all__ = ('get_latest_checksum_package', 'get_latest_location_checksum_package')
 
 PATTERN = re.compile(r'^DIST\s+(?P<file>\S+)\s+(?P<size>\d+)\s+BLAKE2B\s+'
                      r'(?P<blake2b>[a-fA-F0-9]+)\s+SHA512\s+(?P<sha512>[a-fA-F0-9]+)$')
 
 
-def get_latest_checksum_package(url: str, ebuild: str, repo_root: str) -> tuple[str, str, str]:
+def get_latest_checksum_package(
+        url: str,
+        ebuild: str,
+        repo_root: str,
+        headers: dict[str, str] | None = None,  # noqa: ARG001
+        params: dict[str, str] | None = None,  # noqa: ARG001
+) -> tuple[str, str, str]:
     """Get the latest version of a package based on its checksum."""
     catpkg, _, _, version = catpkg_catpkgsplit(ebuild)
     manifest_file = Path(repo_root) / catpkg / 'Manifest'
@@ -31,6 +37,30 @@ def get_latest_checksum_package(url: str, ebuild: str, repo_root: str) -> tuple[
                     return version, last_modified, url
 
     return '', '', ''
+
+
+def get_latest_location_checksum_package(
+    url: str,
+    ebuild: str,
+    repo_root: str,
+    headers: dict[str, str] | None = None,
+    params: dict[str, str] | None = None,
+) -> tuple[str, str, str]:
+    """Get the latest version of a package based on Location header and checksum."""
+    # First, follow the redirect to get the Location header
+    r = get_content(url, allow_redirects=False, headers=headers, params=params)
+
+    # Get the Location header from the redirect
+    location_url = r.headers.get('Location', '')
+    if not location_url:
+        return '', '', ''
+
+    # Now check the checksum of the final URL
+    return get_latest_checksum_package(location_url,
+                                       ebuild,
+                                       repo_root,
+                                       headers=headers,
+                                       params=params)
 
 
 def update_checksum_metadata(ebuild: str, url: str, repo_root: str) -> None:

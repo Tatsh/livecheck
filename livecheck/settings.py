@@ -15,8 +15,19 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
     from pathlib import Path
 
-__all__ = ('TYPE_CHECKSUM', 'TYPE_COMMIT', 'TYPE_DAVINCI', 'TYPE_DIRECTORY', 'TYPE_METADATA',
-           'TYPE_NONE', 'TYPE_REGEX', 'TYPE_REPOLOGY', 'LivecheckSettings', 'gather_settings')
+__all__ = (
+    'TYPE_CHECKSUM',
+    'TYPE_COMMIT',
+    'TYPE_DAVINCI',
+    'TYPE_DIRECTORY',
+    'TYPE_LOCATION_CHECKSUM',
+    'TYPE_METADATA',
+    'TYPE_NONE',
+    'TYPE_REGEX',
+    'TYPE_REPOLOGY',
+    'LivecheckSettings',
+    'gather_settings',
+)
 
 log = logging.getLogger(__name__)
 TYPE_CHECKSUM = 'checksum'
@@ -27,10 +38,11 @@ TYPE_METADATA = 'metadata'
 TYPE_NONE = 'none'
 TYPE_REGEX = 'regex'
 TYPE_REPOLOGY = 'repology'
+TYPE_LOCATION_CHECKSUM = 'location+hash-check'
 
 SETTINGS_TYPES = {
     TYPE_CHECKSUM, TYPE_COMMIT, TYPE_DAVINCI, TYPE_DIRECTORY, TYPE_METADATA, TYPE_NONE, TYPE_REGEX,
-    TYPE_REPOLOGY
+    TYPE_REPOLOGY, TYPE_LOCATION_CHECKSUM
 }
 
 
@@ -69,6 +81,16 @@ class LivecheckSettings:
     restrict_version: dict[str, str] = field(default_factory=dict)
     sync_version: dict[str, str] = field(default_factory=dict)
     stable_version: dict[str, str] = field(default_factory=dict)
+    request_headers: dict[str, dict[str, str]] = field(default_factory=dict)
+    """Dictionary of catpkg to custom HTTP headers."""
+    request_params: dict[str, dict[str, str]] = field(default_factory=dict)
+    """Dictionary of catpkg to query parameters."""
+    request_method: dict[str, str] = field(default_factory=dict)
+    """Dictionary of catpkg to HTTP method (GET, POST, etc)."""
+    request_data: dict[str, dict[str, str]] = field(default_factory=dict)
+    """Dictionary of catpkg to form data for POST requests."""
+    regex_multiline: dict[str, bool] = field(default_factory=dict)
+    """Dictionary of catpkg to multiline flag for regex."""
     # Settings from command line flag.
     auto_update_flag: bool = False
     debug_flag: bool = False
@@ -132,6 +154,11 @@ def gather_settings(search_dir: Path) -> LivecheckSettings:  # noqa: C901, PLR09
     restrict_version: dict[str, str] = {}
     sync_version: dict[str, str] = {}
     stable_version: dict[str, str] = {}
+    request_headers: dict[str, dict[str, str]] = {}
+    request_params: dict[str, dict[str, str]] = {}
+    request_method: dict[str, str] = {}
+    request_data: dict[str, dict[str, str]] = {}
+    regex_multiline: dict[str, bool] = {}
 
     for path in search_dir.glob('**/livecheck.json'):
         log.debug('Opening %s.', path)
@@ -159,6 +186,11 @@ def gather_settings(search_dir: Path) -> LivecheckSettings:  # noqa: C901, PLR09
                         continue
                     custom_livechecks[catpkg] = (settings_parsed.get('package'), '')
                 if type_ == TYPE_DIRECTORY:
+                    if settings_parsed.get('url') is None:
+                        log.error('No "url" in %s.', path)
+                        continue
+                    custom_livechecks[catpkg] = (settings_parsed.get('url'), '')
+                if type_ == TYPE_LOCATION_CHECKSUM:
                     if settings_parsed.get('url') is None:
                         log.error('No "url" in %s.', path)
                         continue
@@ -275,17 +307,39 @@ def gather_settings(search_dir: Path) -> LivecheckSettings:  # noqa: C901, PLR09
             if 'stable_version' in settings_parsed:
                 check_instance(settings_parsed['stable_version'], 'stable_version', 'regex', path)
                 stable_version[catpkg] = settings_parsed['stable_version']
+            if 'headers' in settings_parsed:
+                check_instance(settings_parsed['headers'], 'headers', 'dict', path)
+                request_headers[catpkg] = settings_parsed['headers']
+            if 'params' in settings_parsed:
+                check_instance(settings_parsed['params'], 'params', 'dict', path)
+                request_params[catpkg] = settings_parsed['params']
+            if 'method' in settings_parsed:
+                check_instance(settings_parsed['method'], 'method', 'string', path)
+                method = settings_parsed['method'].upper()
+                if method not in {'DELETE', 'GET', 'HEAD', 'PATCH', 'POST', 'PUT'}:
+                    log.error(
+                        'Invalid "method" in %s. Must be GET, POST, PUT, DELETE, PATCH, or '
+                        'HEAD.', path)
+                else:
+                    request_method[catpkg] = method
+            if 'data' in settings_parsed:
+                check_instance(settings_parsed['data'], 'data', 'dict', path)
+                request_data[catpkg] = settings_parsed['data']
+            if 'multiline' in settings_parsed:
+                check_instance(settings_parsed['multiline'], 'multiline', 'bool', path)
+                regex_multiline[catpkg] = settings_parsed['multiline']
 
     return LivecheckSettings(
         branches, custom_livechecks, dotnet_projects, golang_packages, type_packages,
         no_auto_update, sha_sources, transformations, yarn_base_packages, yarn_packages,
         jetbrains_packages, keep_old, gomodule_packages, gomodule_path, nodejs_packages,
         nodejs_path, nodejs_package_managers, development, composer_packages, composer_path,
-        maven_packages, maven_path, regex_version, restrict_version, sync_version, stable_version)
+        maven_packages, maven_path, regex_version, restrict_version, sync_version, stable_version,
+        request_headers, request_params, request_method, request_data, regex_multiline)
 
 
 def check_instance(
-        value: int | str | bool | list[str] | None,  # noqa: FBT001
+        value: int | str | bool | list[str] | dict[str, str] | None,  # noqa: FBT001
         key: str,
         dtype: str,
         path: str | object,
@@ -301,6 +355,8 @@ def check_instance(
         is_type = value is None
     elif dtype == 'list':
         is_type = isinstance(value, list)
+    elif dtype == 'dict':
+        is_type = isinstance(value, dict)
     elif dtype == 'url':
         if isinstance(value, str):
             parsed_url = urlparse(value)

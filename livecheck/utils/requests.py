@@ -54,7 +54,13 @@ def session_init(module: str) -> requests.Session:
     return session
 
 
-def get_content(url: str) -> requests.Response:
+def get_content(url: str,
+                headers: dict[str, str] | None = None,
+                params: dict[str, str] | None = None,
+                method: str = 'GET',
+                data: dict[str, str] | None = None,
+                *,
+                allow_redirects: bool = True) -> requests.Response:
     """"Fetch content from a URL."""
     parsed_uri = urlparse(url)
     log.debug('Fetching %s', url)
@@ -83,9 +89,25 @@ def get_content(url: str) -> requests.Response:
     else:
         session = session_init('')
 
+    # Add custom headers if provided
+    if headers:
+        for key, value in headers.items():
+            session.headers[key] = value
+
     r: TextDataResponse | requests.Response
     try:
-        r = session.get(url)
+        if method.upper() == 'POST':
+            r = session.post(url, data=data, params=params, allow_redirects=allow_redirects)
+        elif method.upper() == 'PUT':
+            r = session.put(url, data=data, params=params, allow_redirects=allow_redirects)
+        elif method.upper() == 'DELETE':
+            r = session.delete(url, params=params, allow_redirects=allow_redirects)
+        elif method.upper() == 'PATCH':
+            r = session.patch(url, data=data, params=params, allow_redirects=allow_redirects)
+        elif method.upper() == 'HEAD':
+            r = session.head(url, params=params, allow_redirects=allow_redirects)
+        else:
+            r = session.get(url, params=params, allow_redirects=allow_redirects)
     except requests.RequestException:
         log.exception('Caught error attempting to fetch `%s`.', url)
         r = requests.Response()

@@ -23,11 +23,21 @@ def get_latest_regex_package(ebuild: str, url: str, regex: str,
     """Get the latest version of a package using a regular expression."""
     _, _, _, ebuild_version = catpkg_catpkgsplit(ebuild)
 
-    if not (r := get_content(url)):
+    # Get custom request parameters from settings
+    catpkg = catpkg_catpkgsplit(ebuild)[0]
+    headers = settings.request_headers.get(catpkg, {})
+    params = settings.request_params.get(catpkg, {})
+    method = settings.request_method.get(catpkg, 'GET')
+    data = settings.request_data.get(catpkg, {})
+    multiline = settings.regex_multiline.get(catpkg, False)
+
+    if not (r := get_content(url, headers=headers, params=params, method=method, data=data)):
         return '', '', ''
 
     results: list[dict[str, str]] = []
-    for result in re.findall(regex, r.text):
+    # Use re.MULTILINE if multiline flag is set
+    regex_flags = re.MULTILINE if multiline else 0
+    for result in re.findall(regex, r.text, flags=regex_flags):
         if is_sha(result) and not results:
             logger.info('Found commit hash %s in %s.', result, url)
             hash_date = ''
