@@ -50,6 +50,11 @@ def test_livecheck_settings_defaults() -> None:
     assert isinstance(s.restrict_version, dict)
     assert isinstance(s.sync_version, dict)
     assert isinstance(s.stable_version, dict)
+    assert isinstance(s.request_headers, dict)
+    assert isinstance(s.request_params, dict)
+    assert isinstance(s.request_method, dict)
+    assert isinstance(s.request_data, dict)
+    assert isinstance(s.regex_multiline, dict)
     assert s.auto_update_flag is False
     assert s.debug_flag is False
     assert s.development_flag is False
@@ -593,3 +598,143 @@ def test_check_instance_url_not_string(mocker: MockerFixture) -> None:
     check_instance(123, 'key', 'url', 'file')
     logger.error.assert_called_with('value "%s" in key "%s" is not of type "%s" in file "%s.', 123,
                                     'key', 'url', 'file')
+
+
+def test_gather_settings_with_headers(tmp_path: Path) -> None:
+    data = {
+        'type': TYPE_REGEX,
+        'url': 'https://example.com',
+        'regex': 'v([0-9.]+)',
+        'headers': {
+            'Referer': 'https://example.com/ref',
+            'User-Agent': 'test'
+        }
+    }
+    make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
+    result = gather_settings(tmp_path)
+    assert 'cat/pkg' in result.request_headers
+    assert result.request_headers['cat/pkg'] == {
+        'Referer': 'https://example.com/ref',
+        'User-Agent': 'test'
+    }
+
+
+def test_gather_settings_with_params(tmp_path: Path) -> None:
+    data = {
+        'type': TYPE_REGEX,
+        'url': 'https://example.com',
+        'regex': 'v([0-9.]+)',
+        'params': {
+            'file': 'security',
+            'agree': 'Yes'
+        }
+    }
+    make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
+    result = gather_settings(tmp_path)
+    assert 'cat/pkg' in result.request_params
+    assert result.request_params['cat/pkg'] == {'file': 'security', 'agree': 'Yes'}
+
+
+def test_gather_settings_with_method_post(tmp_path: Path) -> None:
+    data = {
+        'type': TYPE_REGEX,
+        'url': 'https://example.com',
+        'regex': 'v([0-9.]+)',
+        'method': 'POST'
+    }
+    make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
+    result = gather_settings(tmp_path)
+    assert 'cat/pkg' in result.request_method
+    assert result.request_method['cat/pkg'] == 'POST'
+
+
+def test_gather_settings_with_method_lowercase(tmp_path: Path) -> None:
+    data = {
+        'type': TYPE_REGEX,
+        'url': 'https://example.com',
+        'regex': 'v([0-9.]+)',
+        'method': 'post'
+    }
+    make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
+    result = gather_settings(tmp_path)
+    assert 'cat/pkg' in result.request_method
+    assert result.request_method['cat/pkg'] == 'POST'
+
+
+def test_gather_settings_with_invalid_method(tmp_path: Path, mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    data = {
+        'type': TYPE_REGEX,
+        'url': 'https://example.com',
+        'regex': 'v([0-9.]+)',
+        'method': 'INVALID'
+    }
+    make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
+    result = gather_settings(tmp_path)
+    assert 'cat/pkg' not in result.request_method
+    logger.error.assert_any_call(
+        'Invalid "method" in %s. Must be GET, POST, PUT, DELETE, PATCH, or HEAD.', mocker.ANY)
+
+
+def test_gather_settings_with_data(tmp_path: Path) -> None:
+    data = {
+        'type': TYPE_REGEX,
+        'url': 'https://example.com',
+        'regex': 'v([0-9.]+)',
+        'data': {
+            'countryCode': '',
+            'productName': 'test'
+        }
+    }
+    make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
+    result = gather_settings(tmp_path)
+    assert 'cat/pkg' in result.request_data
+    assert result.request_data['cat/pkg'] == {'countryCode': '', 'productName': 'test'}
+
+
+def test_gather_settings_with_multiline(tmp_path: Path) -> None:
+    data = {
+        'type': TYPE_REGEX,
+        'url': 'https://example.com',
+        'regex': 'v([0-9.]+)',
+        'multiline': True
+    }
+    make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
+    result = gather_settings(tmp_path)
+    assert 'cat/pkg' in result.regex_multiline
+    assert result.regex_multiline['cat/pkg'] is True
+
+
+def test_gather_settings_with_multiline_false(tmp_path: Path) -> None:
+    data = {
+        'type': TYPE_REGEX,
+        'url': 'https://example.com',
+        'regex': 'v([0-9.]+)',
+        'multiline': False
+    }
+    make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
+    result = gather_settings(tmp_path)
+    assert 'cat/pkg' in result.regex_multiline
+    assert result.regex_multiline['cat/pkg'] is False
+
+
+def test_gather_settings_with_location_checksum_type(tmp_path: Path) -> None:
+    data = {'type': 'location+hash-check', 'url': 'https://example.com/redirect'}
+    make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
+    result = gather_settings(tmp_path)
+    assert 'cat/pkg' in result.custom_livechecks
+    assert result.custom_livechecks['cat/pkg'] == ('https://example.com/redirect', '')
+    assert result.type_packages['cat/pkg'] == 'location+hash-check'
+
+
+def test_check_instance_dict_type_accepts_dict(mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    check_instance({'key': 'value'}, 'key', 'dict', 'file')
+    logger.error.assert_not_called()
+
+
+def test_check_instance_dict_type_logs_error_on_wrong_type(mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    check_instance('not_dict', 'key', 'dict', 'file')
+    logger.error.assert_called_with('value "%s" in key "%s" is not of type "%s" in file "%s.',
+                                    'not_dict', 'key', 'dict', 'file')

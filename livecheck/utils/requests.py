@@ -94,20 +94,13 @@ def get_content(url: str,
         for key, value in headers.items():
             session.headers[key] = value
 
+    # Prepare request
+    req = requests.Request(method=method.upper(), url=url, data=data, params=params)
+    prepared = session.prepare_request(req)
+
     r: TextDataResponse | requests.Response
     try:
-        if method.upper() == 'POST':
-            r = session.post(url, data=data, params=params, allow_redirects=allow_redirects)
-        elif method.upper() == 'PUT':
-            r = session.put(url, data=data, params=params, allow_redirects=allow_redirects)
-        elif method.upper() == 'DELETE':
-            r = session.delete(url, params=params, allow_redirects=allow_redirects)
-        elif method.upper() == 'PATCH':
-            r = session.patch(url, data=data, params=params, allow_redirects=allow_redirects)
-        elif method.upper() == 'HEAD':
-            r = session.head(url, params=params, allow_redirects=allow_redirects)
-        else:
-            r = session.get(url, params=params, allow_redirects=allow_redirects)
+        r = session.send(prepared, allow_redirects=allow_redirects)
     except requests.RequestException:
         log.exception('Caught error attempting to fetch `%s`.', url)
         r = requests.Response()
