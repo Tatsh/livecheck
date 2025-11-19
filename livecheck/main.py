@@ -25,6 +25,7 @@ from .settings import (
     TYPE_COMMIT,
     TYPE_DAVINCI,
     TYPE_DIRECTORY,
+    TYPE_LOCATION_CHECKSUM,
     TYPE_METADATA,
     TYPE_NONE,
     TYPE_REGEX,
@@ -38,7 +39,11 @@ from .special.bitbucket import (
     get_latest_bitbucket_metadata,
     is_bitbucket,
 )
-from .special.checksum import get_latest_checksum_package, update_checksum_metadata
+from .special.checksum import (
+    get_latest_checksum_package,
+    get_latest_location_checksum_package,
+    update_checksum_metadata,
+)
 from .special.composer import (
     check_composer_requirements,
     remove_composer_url,
@@ -332,8 +337,23 @@ def get_props(  # noqa: C901, PLR0912, PLR0914
             url, regex = settings.custom_livechecks[catpkg]
             last_version, hash_date, url = get_latest_regex_package(match, url, regex, settings)
         elif settings.type_packages.get(catpkg) == TYPE_CHECKSUM:
-            last_version, hash_date, url = get_latest_checksum_package(
-                src_uri, match, str(repo_root))
+            headers = settings.request_headers.get(catpkg, {})
+            params = settings.request_params.get(catpkg, {})
+            last_version, hash_date, url = get_latest_checksum_package(src_uri,
+                                                                       match,
+                                                                       str(repo_root),
+                                                                       headers=headers,
+                                                                       params=params)
+        elif settings.type_packages.get(catpkg) == TYPE_LOCATION_CHECKSUM:
+            headers = settings.request_headers.get(catpkg, {})
+            params = settings.request_params.get(catpkg, {})
+            # Get URL from custom_livechecks if available, otherwise use src_uri
+            check_url = settings.custom_livechecks.get(catpkg, (src_uri, ''))[0]
+            last_version, hash_date, url = get_latest_location_checksum_package(check_url,
+                                                                                match,
+                                                                                str(repo_root),
+                                                                                headers=headers,
+                                                                                params=params)
         elif settings.type_packages.get(catpkg) == TYPE_COMMIT:
             last_version, top_hash, hash_date, url = parse_url(egit,
                                                                match,

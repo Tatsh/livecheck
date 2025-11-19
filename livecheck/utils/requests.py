@@ -54,7 +54,13 @@ def session_init(module: str) -> requests.Session:
     return session
 
 
-def get_content(url: str) -> requests.Response:
+def get_content(url: str,
+                headers: dict[str, str] | None = None,
+                params: dict[str, str] | None = None,
+                method: str = 'GET',
+                data: dict[str, str] | None = None,
+                *,
+                allow_redirects: bool = True) -> requests.Response:
     """"Fetch content from a URL."""
     parsed_uri = urlparse(url)
     log.debug('Fetching %s', url)
@@ -83,9 +89,17 @@ def get_content(url: str) -> requests.Response:
     else:
         session = session_init('')
 
+    # Add custom headers if provided
+    if headers:
+        for key, value in headers.items():
+            session.headers[key] = value
+
     r: TextDataResponse | requests.Response
     try:
-        r = session.get(url)
+        # Prepare request
+        req = requests.Request(method=method.upper(), url=url, data=data, params=params)
+        prepared = session.prepare_request(req)
+        r = session.send(prepared, allow_redirects=allow_redirects)
     except requests.RequestException:
         log.exception('Caught error attempting to fetch `%s`.', url)
         r = requests.Response()
