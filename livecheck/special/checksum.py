@@ -27,10 +27,22 @@ def get_latest_checksum_package(
     manifest_file = Path(repo_root) / catpkg / 'Manifest'
     bn = Path(url).name
 
+    # Gather all DIST line matches first
+    dist_lines: list[re.Match[str]] = []
     with Path(manifest_file).open(encoding='utf-8') as f:
-        for line in f:
-            m = PATTERN.match(line)
-            if m and m.group('file') == bn:
+        dist_lines.extend(m for line in f if (m := PATTERN.match(line)))
+
+    # If only one DIST entry, check it regardless of filename
+    if len(dist_lines) == 1:
+        m = dist_lines[0]
+        blake2, sha512, _ = hash_url(url, headers=headers, params=params)
+        if blake2 != m.group('blake2b') or sha512 != m.group('sha512'):
+            last_modified = get_last_modified(url, headers=headers, params=params)
+            return version, last_modified, url
+    else:
+        # Multiple entries: match by filename
+        for m in dist_lines:
+            if m.group('file') == bn:
                 blake2, sha512, _ = hash_url(url, headers=headers, params=params)
                 if blake2 != m.group('blake2b') or sha512 != m.group('sha512'):
                     last_modified = get_last_modified(url, headers=headers, params=params)
