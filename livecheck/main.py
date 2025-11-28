@@ -339,7 +339,9 @@ def get_props(  # noqa: C901, PLR0912, PLR0914
         elif settings.type_packages.get(catpkg) == TYPE_CHECKSUM:
             headers = settings.request_headers.get(catpkg, {})
             params = settings.request_params.get(catpkg, {})
-            last_version, hash_date, url = get_latest_checksum_package(src_uri,
+            # Get URL from custom_livechecks if available, otherwise use src_uri
+            check_url = settings.custom_livechecks.get(catpkg, (src_uri, ''))[0]
+            last_version, hash_date, url = get_latest_checksum_package(check_url,
                                                                        match,
                                                                        str(repo_root),
                                                                        headers=headers,

@@ -180,6 +180,8 @@ def gather_settings(search_dir: Path) -> LivecheckSettings:  # noqa: C901, PLR09
                         log.error('No "url" in %s.', path)
                         continue
                     custom_livechecks[catpkg] = (settings_parsed.get('url'), '')
+                if type_ == TYPE_CHECKSUM and settings_parsed.get('url') is not None:
+                    custom_livechecks[catpkg] = (settings_parsed.get('url'), '')
                 if type_ == TYPE_LOCATION_CHECKSUM:
                     if settings_parsed.get('url') is None:
                         log.error('No "url" in %s.', path)

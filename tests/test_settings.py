@@ -718,6 +718,23 @@ def test_gather_settings_with_multiline_false(tmp_path: Path) -> None:
     assert result.regex_multiline['cat/pkg'] is False
 
 
+def test_gather_settings_with_checksum_type_and_url(tmp_path: Path) -> None:
+    data = {'type': 'checksum', 'url': 'https://example.com/file.tar.gz'}
+    make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
+    result = gather_settings(tmp_path)
+    assert 'cat/pkg' in result.custom_livechecks
+    assert result.custom_livechecks['cat/pkg'] == ('https://example.com/file.tar.gz', '')
+    assert result.type_packages['cat/pkg'] == 'checksum'
+
+
+def test_gather_settings_with_checksum_type_no_url(tmp_path: Path) -> None:
+    data = {'type': 'checksum'}
+    make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
+    result = gather_settings(tmp_path)
+    assert 'cat/pkg' not in result.custom_livechecks
+    assert result.type_packages['cat/pkg'] == 'checksum'
+
+
 def test_gather_settings_with_location_checksum_type(tmp_path: Path) -> None:
     data = {'type': 'location+hash-check', 'url': 'https://example.com/redirect'}
     make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
