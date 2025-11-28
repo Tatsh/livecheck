@@ -1461,8 +1461,8 @@ __metadata:
   linkType: hard
 
 "glob@npm:^10.2.2":
-  version: 10.4.5
-  resolution: "glob@npm:10.4.5"
+  version: 10.5.0
+  resolution: "glob@npm:10.5.0"
   dependencies:
     foreground-child: "npm:^3.1.0"
     jackspeak: "npm:^3.1.2"
@@ -1472,7 +1472,7 @@ __metadata:
     path-scurry: "npm:^1.11.1"
   bin:
     glob: dist/esm/bin.mjs
-  checksum: 10c0/19a9759ea77b8e3ca0a43c2f07ecddc2ad46216b786bb8f993c445aee80d345925a21e5280c7b7c6c59e860a0154b84e4b2b60321fea92cd3c56b4a7489f160e
+  checksum: 10c0/100705eddbde6323e7b35e1d1ac28bcb58322095bd8e63a7d0bef1a2cdafe0d0f7922a981b2b48369a4f8c1b077be5c171804534c3509dfe950dde15fbe6d828
   languageName: node
   linkType: hard
 
@@ -1742,7 +1742,7 @@ __metadata:
   dependencies:
     "@prettier/plugin-xml": "npm:^3.4.2"
     cspell: "npm:^9.3.2"
-    markdownlint-cli2: "npm:^0.19.0"
+    markdownlint-cli2: "npm:^0.19.1"
     prettier: "npm:^3.6.2"
     prettier-plugin-ini: "npm:^1.3.0"
     prettier-plugin-sort-json: "npm:^4.1.1"
@@ -1817,9 +1817,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"markdownlint-cli2@npm:^0.19.0":
-  version: 0.19.0
-  resolution: "markdownlint-cli2@npm:0.19.0"
+"markdownlint-cli2@npm:^0.19.1":
+  version: 0.19.1
+  resolution: "markdownlint-cli2@npm:0.19.1"
   dependencies:
     globby: "npm:15.0.0"
     js-yaml: "npm:4.1.1"
@@ -1830,7 +1830,7 @@ __metadata:
     micromatch: "npm:4.0.8"
   bin:
     markdownlint-cli2: markdownlint-cli2-bin.mjs
-  checksum: 10c0/357e511477326b5ece2088389ae04d4b8be117b748f7659a2a0efd4e01e4a5c186e818b584397617db7c0a04f992ffb03cd455ec4e98aca9f3dec54e7a9a4c62
+  checksum: 10c0/fdac00f87a0a4ad155a332f5926d6ce4be153f4fac0362722d9620821bb638f2def29991ede102d245975a62084323f1a3032dfc4f39f17899b38f11f79619e5
   languageName: node
   linkType: hard
 
