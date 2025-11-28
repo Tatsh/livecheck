@@ -17,12 +17,12 @@ def test_get_content_success_github(mocker: MockerFixture) -> None:
     mock_response = mocker.Mock()
     mock_response.status_code = HTTPStatus.OK
     mock_response.text = 'data'
-    mock_session.get.return_value = mock_response
+    mock_session.send.return_value = mock_response
+    mock_session.prepare_request.return_value = mocker.Mock()
     mocker.patch('livecheck.utils.requests.session_init', return_value=mock_session)
     r = get_content(url)
     assert r.status_code == HTTPStatus.OK
     assert r.text == 'data'
-    mock_session.get.assert_called_once_with(url)
 
 
 def test_get_content_success_gitlab(mocker: MockerFixture) -> None:
@@ -31,12 +31,12 @@ def test_get_content_success_gitlab(mocker: MockerFixture) -> None:
     mock_response = mocker.Mock()
     mock_response.status_code = HTTPStatus.OK
     mock_response.text = 'gitlab'
-    mock_session.get.return_value = mock_response
+    mock_session.send.return_value = mock_response
+    mock_session.prepare_request.return_value = mocker.Mock()
     mocker.patch('livecheck.utils.requests.session_init', return_value=mock_session)
     r = get_content(url)
     assert r.status_code == HTTPStatus.OK
     assert r.text == 'gitlab'
-    mock_session.get.assert_called_once_with(url)
 
 
 def test_get_content_success_bitbucket(mocker: MockerFixture) -> None:
@@ -45,12 +45,12 @@ def test_get_content_success_bitbucket(mocker: MockerFixture) -> None:
     mock_response = mocker.Mock()
     mock_response.status_code = HTTPStatus.OK
     mock_response.text = 'bitbucket'
-    mock_session.get.return_value = mock_response
+    mock_session.send.return_value = mock_response
+    mock_session.prepare_request.return_value = mocker.Mock()
     mocker.patch('livecheck.utils.requests.session_init', return_value=mock_session)
     r = get_content(url)
     assert r.status_code == HTTPStatus.OK
     assert r.text == 'bitbucket'
-    mock_session.get.assert_called_once_with(url)
 
 
 def test_get_content_success_repology(mocker: MockerFixture) -> None:
@@ -59,12 +59,12 @@ def test_get_content_success_repology(mocker: MockerFixture) -> None:
     mock_response = mocker.Mock()
     mock_response.status_code = HTTPStatus.OK
     mock_response.text = 'repology'
-    mock_session.get.return_value = mock_response
+    mock_session.send.return_value = mock_response
+    mock_session.prepare_request.return_value = mocker.Mock()
     mocker.patch('livecheck.utils.requests.session_init', return_value=mock_session)
     r = get_content(url)
     assert r.status_code == HTTPStatus.OK
     assert r.text == 'repology'
-    mock_session.get.assert_called_once_with(url)
 
 
 def test_get_content_xml(mocker: MockerFixture) -> None:
@@ -73,12 +73,12 @@ def test_get_content_xml(mocker: MockerFixture) -> None:
     mock_response = mocker.Mock()
     mock_response.status_code = HTTPStatus.OK
     mock_response.text = '<xml></xml>'
-    mock_session.get.return_value = mock_response
+    mock_session.send.return_value = mock_response
+    mock_session.prepare_request.return_value = mocker.Mock()
     mocker.patch('livecheck.utils.requests.session_init', return_value=mock_session)
     r = get_content(url)
     assert r.status_code == HTTPStatus.OK
     assert r.text == '<xml></xml>'
-    mock_session.get.assert_called_once_with(url)
 
 
 def test_get_content_json(mocker: MockerFixture) -> None:
@@ -87,12 +87,12 @@ def test_get_content_json(mocker: MockerFixture) -> None:
     mock_response = mocker.Mock()
     mock_response.status_code = HTTPStatus.OK
     mock_response.text = '{"key": "value"}'
-    mock_session.get.return_value = mock_response
+    mock_session.send.return_value = mock_response
+    mock_session.prepare_request.return_value = mocker.Mock()
     mocker.patch('livecheck.utils.requests.session_init', return_value=mock_session)
     r = get_content(url)
     assert r.status_code == HTTPStatus.OK
     assert r.text == '{"key": "value"}'
-    mock_session.get.assert_called_once_with(url)
 
 
 def test_get_content_mirror_scheme(mocker: MockerFixture) -> None:
@@ -104,7 +104,8 @@ def test_get_content_mirror_scheme(mocker: MockerFixture) -> None:
 def test_get_content_request_exception(mocker: MockerFixture) -> None:
     url = 'https://example.com'
     mock_session = mocker.Mock()
-    mock_session.get.side_effect = requests.RequestException
+    mock_session.send.side_effect = requests.RequestException
+    mock_session.prepare_request.return_value = mocker.Mock()
     mocker.patch('livecheck.utils.requests.session_init', return_value=mock_session)
     r = get_content(url)
     assert r.status_code == HTTPStatus.SERVICE_UNAVAILABLE
@@ -116,7 +117,8 @@ def test_get_content_non_ok_status(mocker: MockerFixture) -> None:
     mock_response = mocker.Mock()
     mock_response.status_code = HTTPStatus.BAD_REQUEST
     mock_response.text = 'error'
-    mock_session.get.return_value = mock_response
+    mock_session.send.return_value = mock_response
+    mock_session.prepare_request.return_value = mocker.Mock()
     mocker.patch('livecheck.utils.requests.session_init', return_value=mock_session)
     r = get_content(url)
     assert r.status_code == HTTPStatus.BAD_REQUEST
@@ -128,7 +130,8 @@ def test_get_content_empty_text_warns(mocker: MockerFixture) -> None:
     mock_response = mocker.Mock()
     mock_response.status_code = HTTPStatus.OK
     mock_response.text = ''
-    mock_session.get.return_value = mock_response
+    mock_session.send.return_value = mock_response
+    mock_session.prepare_request.return_value = mocker.Mock()
     mocker.patch('livecheck.utils.requests.session_init', return_value=mock_session)
     r = get_content(url)
     assert r.status_code == HTTPStatus.OK
@@ -250,24 +253,49 @@ def test_hash_url_success(mocker: MockerFixture) -> None:
     mock_response.iter_content.return_value = [b'abc', b'def', b'']
     mock_response.raise_for_status.return_value = None
     mock_requests_get = mocker.patch('requests.get', return_value=mock_response)
-    hash_url.cache_clear()
     h_blake2b, h_sha512, size = hash_url(url)
     expected_blake2b = hashlib.blake2b(b'abcdef').hexdigest()
     expected_sha512 = hashlib.sha512(b'abcdef').hexdigest()
     assert h_blake2b == expected_blake2b
     assert h_sha512 == expected_sha512
     assert size == 6
-    mock_requests_get.assert_called_once_with(url, stream=True, timeout=30)
+    mock_requests_get.assert_called_once_with(url,
+                                              headers=None,
+                                              params=None,
+                                              stream=True,
+                                              timeout=30)
 
 
 def test_hash_url_request_exception(mocker: MockerFixture) -> None:
     url = 'https://example.com/file.txt'
     mocker.patch('requests.get', side_effect=requests.RequestException)
-    hash_url.cache_clear()
     h_blake2b, h_sha512, size = hash_url(url)
     assert not h_blake2b
     assert not h_sha512
     assert size == 0
+
+
+def test_hash_url_with_headers_and_params(mocker: MockerFixture) -> None:
+    url = 'https://example.com/file.txt'
+    headers = {'Referer': 'https://example.com'}
+    params = {'key': 'value'}
+    mock_response = mocker.MagicMock()
+    mock_response.__enter__.return_value = mock_response
+    mock_response.__exit__.return_value = False
+    mock_response.iter_content.return_value = [b'abc', b'']
+    mock_response.raise_for_status.return_value = None
+    mock_requests_get = mocker.patch('requests.get', return_value=mock_response)
+    h_blake2b, h_sha512, size = hash_url(url, headers=headers, params=params)
+    expected_blake2b = hashlib.blake2b(b'abc').hexdigest()
+    expected_sha512 = hashlib.sha512(b'abc').hexdigest()
+    assert h_blake2b == expected_blake2b
+    assert h_sha512 == expected_sha512
+    assert size == 3
+    mock_requests_get.assert_called_once_with(url,
+                                              headers=headers,
+                                              params=params,
+                                              stream=True,
+                                              timeout=30)
 
 
 def test_get_last_modified_success(mocker: MockerFixture) -> None:
@@ -277,10 +305,10 @@ def test_get_last_modified_success(mocker: MockerFixture) -> None:
     mock_response.__exit__.return_value = False
     mock_response.raise_for_status.return_value = None
     mock_response.headers = {'last-modified': 'Wed, 21 Oct 2015 07:28:00 GMT'}
-    mocker.patch('requests.head', return_value=mock_response)
-    get_last_modified.cache_clear()
+    mock_requests_head = mocker.patch('requests.head', return_value=mock_response)
     result = get_last_modified(url)
     assert result == '20151021'
+    mock_requests_head.assert_called_once_with(url, headers=None, params=None, timeout=30)
 
 
 def test_get_last_modified_no_last_modified_header(mocker: MockerFixture) -> None:
@@ -291,7 +319,6 @@ def test_get_last_modified_no_last_modified_header(mocker: MockerFixture) -> Non
     mock_response.raise_for_status.return_value = None
     mock_response.headers = {}
     mocker.patch('requests.head', return_value=mock_response)
-    get_last_modified.cache_clear()
     result = get_last_modified(url)
     assert not result
 
@@ -299,6 +326,84 @@ def test_get_last_modified_no_last_modified_header(mocker: MockerFixture) -> Non
 def test_get_last_modified_request_exception(mocker: MockerFixture) -> None:
     url = 'https://example.com/file.txt'
     mocker.patch('requests.head', side_effect=requests.RequestException)
-    get_last_modified.cache_clear()
     result = get_last_modified(url)
     assert not result
+
+
+def test_get_last_modified_with_headers_and_params(mocker: MockerFixture) -> None:
+    url = 'https://example.com/file.txt'
+    headers = {'Referer': 'https://example.com'}
+    params = {'key': 'value'}
+    mock_response = mocker.MagicMock()
+    mock_response.__enter__.return_value = mock_response
+    mock_response.__exit__.return_value = False
+    mock_response.raise_for_status.return_value = None
+    mock_response.headers = {'last-modified': 'Wed, 21 Oct 2015 07:28:00 GMT'}
+    mock_requests_head = mocker.patch('requests.head', return_value=mock_response)
+    result = get_last_modified(url, headers=headers, params=params)
+    assert result == '20151021'
+    mock_requests_head.assert_called_once_with(url, headers=headers, params=params, timeout=30)
+
+
+def test_get_content_with_custom_headers(mocker: MockerFixture) -> None:
+    url = 'https://example.com'
+    custom_headers = {'Referer': 'https://example.com/ref', 'User-Agent': 'test-agent'}
+    mock_session = mocker.Mock()
+    mock_session.headers = {}
+    mock_response = mocker.Mock()
+    mock_response.status_code = HTTPStatus.OK
+    mock_response.text = 'data'
+    mock_session.send.return_value = mock_response
+    mock_session.prepare_request.return_value = mocker.Mock()
+    mocker.patch('livecheck.utils.requests.session_init', return_value=mock_session)
+    r = get_content(url, headers=custom_headers)
+    assert r.status_code == HTTPStatus.OK
+    assert mock_session.headers['Referer'] == 'https://example.com/ref'
+    assert mock_session.headers['User-Agent'] == 'test-agent'
+
+
+def test_get_content_with_params(mocker: MockerFixture) -> None:
+    url = 'https://example.com'
+    params = {'file': 'security', 'agree': 'Yes'}
+    mock_session = mocker.Mock()
+    mock_response = mocker.Mock()
+    mock_response.status_code = HTTPStatus.OK
+    mock_response.text = 'data'
+    mock_session.send.return_value = mock_response
+    mock_prepared = mocker.Mock()
+    mock_session.prepare_request.return_value = mock_prepared
+    mocker.patch('livecheck.utils.requests.session_init', return_value=mock_session)
+    mocker.patch('livecheck.utils.requests.requests.Request')
+    r = get_content(url, params=params)
+    assert r.status_code == HTTPStatus.OK
+
+
+def test_get_content_with_post_method_and_data(mocker: MockerFixture) -> None:
+    url = 'https://example.com'
+    data = {'countryCode': '', 'productName': 'test'}
+    mock_session = mocker.Mock()
+    mock_response = mocker.Mock()
+    mock_response.status_code = HTTPStatus.OK
+    mock_response.text = 'data'
+    mock_session.send.return_value = mock_response
+    mock_prepared = mocker.Mock()
+    mock_session.prepare_request.return_value = mock_prepared
+    mocker.patch('livecheck.utils.requests.session_init', return_value=mock_session)
+    r = get_content(url, data=data, method='POST')
+    assert r.status_code == HTTPStatus.OK
+
+
+def test_get_content_with_allow_redirects_false(mocker: MockerFixture) -> None:
+    url = 'https://example.com'
+    mock_session = mocker.Mock()
+    mock_response = mocker.Mock()
+    mock_response.status_code = HTTPStatus.MOVED_PERMANENTLY
+    mock_response.text = ''
+    mock_response.headers = {'Location': 'https://example.com/redirect'}
+    mock_session.send.return_value = mock_response
+    mock_prepared = mocker.Mock()
+    mock_session.prepare_request.return_value = mock_prepared
+    mocker.patch('livecheck.utils.requests.session_init', return_value=mock_session)
+    r = get_content(url, allow_redirects=False)
+    assert r.status_code == HTTPStatus.MOVED_PERMANENTLY
+    mock_session.send.assert_called_once_with(mock_prepared, allow_redirects=False)

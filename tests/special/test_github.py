@@ -480,3 +480,49 @@ def test_get_latest_github_metadata(mocker: MockerFixture, remote: str, ebuild: 
     result = get_latest_github_metadata(remote, ebuild, mock_settings)
     assert result == (expected_version, expected_sha)
     mock_get_latest_github_package.assert_called_once_with(mock_url, ebuild, mock_settings)
+
+
+def test_get_latest_github_package_annotated_tag_no_response(mocker: MockerFixture) -> None:
+    xml = '<?xml version="1.0" encoding="UTF-8"?><feed xmlns="http://www.w3.org/2005/Atom"></feed>'
+    ref_response = mocker.Mock()
+    ref_response.json.return_value = {
+        'object': {
+            'type': 'tag',
+            'url': 'https://api.github.com/repos/owner/repo/git/tags/abc123'
+        }
+    }
+    mocker.patch('livecheck.special.github.get_content',
+                 side_effect=[mocker.Mock(text=xml), ref_response, None])
+    mocker.patch('livecheck.special.github.extract_owner_repo',
+                 return_value=('domain', 'owner', 'repo'))
+    mocker.patch('livecheck.special.github.get_last_version',
+                 return_value={
+                     'id': 'v1.0.0',
+                     'version': '1.0.0'
+                 })
+    result = get_latest_github_package('', 'category/repo-1.0.0.ebuild', mocker.Mock(branches={}))
+    assert result == ('1.0.0', '')
+
+
+def test_get_latest_github_package_annotated_tag_success(mocker: MockerFixture) -> None:
+    xml = '<?xml version="1.0" encoding="UTF-8"?><feed xmlns="http://www.w3.org/2005/Atom"></feed>'
+    ref_response = mocker.Mock()
+    ref_response.json.return_value = {
+        'object': {
+            'type': 'tag',
+            'url': 'https://api.github.com/repos/owner/repo/git/tags/abc123'
+        }
+    }
+    tag_response = mocker.Mock()
+    tag_response.json.return_value = {'object': {'sha': 'def456abc789'}}
+    mocker.patch('livecheck.special.github.get_content',
+                 side_effect=[mocker.Mock(text=xml), ref_response, tag_response])
+    mocker.patch('livecheck.special.github.extract_owner_repo',
+                 return_value=('domain', 'owner', 'repo'))
+    mocker.patch('livecheck.special.github.get_last_version',
+                 return_value={
+                     'id': 'v1.0.0',
+                     'version': '1.0.0'
+                 })
+    result = get_latest_github_package('', 'category/repo-1.0.0.ebuild', mocker.Mock(branches={}))
+    assert result == ('1.0.0', 'def456abc789')

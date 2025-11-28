@@ -1029,6 +1029,8 @@ def test_do_main_type_checksum_updates_checksum_metadata(mocker: MockerFixture, 
     ebuild_path.write_text('SHA="1234567"\n', encoding='utf-8')
     mock_settings.auto_update_flag = True
     mock_settings.type_packages = {cp: 'checksum'}
+    mock_settings.request_headers = {cp: {'Referer': 'https://example.com'}}
+    mock_settings.request_params = {cp: {'key': 'value'}}
     mocker.patch('livecheck.main.get_old_sha', return_value='1234567')
     mocker.patch('livecheck.main.replace_date_in_ebuild', side_effect=lambda v, _, __: v)
     mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
@@ -1057,8 +1059,12 @@ def test_do_main_type_checksum_updates_checksum_metadata(mocker: MockerFixture, 
             settings=mock_settings,
             top_hash=top_hash,
             url=url)
-    mock_update_checksum_metadata.assert_called_once_with(f'{cp}-{last_version}', url,
-                                                          str(search_dir))
+    mock_update_checksum_metadata.assert_called_once_with(
+        f'{cp}-{last_version}',
+        url,
+        str(search_dir),
+        headers={'Referer': 'https://example.com'},
+        params={'key': 'value'})
     mock_write.assert_called_once_with('abcdef1', encoding='utf-8')
 
 
@@ -1862,6 +1868,8 @@ def test_get_props_type_checksum_calls_get_latest_checksum_package(mocker: Mocke
                                                                    fake_repo: Path,
                                                                    mock_settings2: Mock) -> None:
     mock_settings2.type_packages = {'cat/pkg': 'checksum'}
+    mock_settings2.request_headers = {}
+    mock_settings2.request_params = {}
     mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
     mocker.patch('livecheck.main.catpkg_catpkgsplit',
                  return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
@@ -1884,7 +1892,45 @@ def test_get_props_type_checksum_calls_get_latest_checksum_package(mocker: Mocke
                   exclude=[]))
     assert results == [('cat', 'pkg', '1.0.0', 'cs_ver', '', 'cs_date', 'cs_url')]
     mock_get_latest_checksum_package.assert_called_once_with('https://example.com/pkg-1.0.0.tar.gz',
-                                                             'cat/pkg-1.0.0', str(fake_repo))
+                                                             'cat/pkg-1.0.0',
+                                                             str(fake_repo),
+                                                             headers={},
+                                                             params={})
+
+
+def test_get_props_type_checksum_uses_custom_url(mocker: MockerFixture, fake_repo: Path,
+                                                 mock_settings2: Mock) -> None:
+    mock_settings2.type_packages = {'cat/pkg': 'checksum'}
+    mock_settings2.custom_livechecks = {'cat/pkg': ('https://custom.example.com/file.tar.gz', '')}
+    mock_settings2.request_headers = {'cat/pkg': {'Referer': 'https://example.com'}}
+    mock_settings2.request_params = {'cat/pkg': {'key': 'value'}}
+    mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
+    mocker.patch('livecheck.main.catpkg_catpkgsplit',
+                 return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
+    mocker.patch('livecheck.main.get_first_src_uri',
+                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
+    mocker.patch('livecheck.main.get_old_sha', return_value='')
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.log')
+    mock_get_latest_checksum_package = mocker.patch('livecheck.main.get_latest_checksum_package',
+                                                    return_value=('cs_ver', 'cs_date', 'cs_url'))
+    results = list(
+        get_props(exclude=[],
+                  names=['cat/pkg'],
+                  repo_root=fake_repo,
+                  search_dir=fake_repo,
+                  settings=mock_settings2))
+    assert results == [('cat', 'pkg', '1.0.0', 'cs_ver', '', 'cs_date', 'cs_url')]
+    mock_get_latest_checksum_package.assert_called_once_with(
+        'https://custom.example.com/file.tar.gz',
+        'cat/pkg-1.0.0',
+        str(fake_repo),
+        headers={'Referer': 'https://example.com'},
+        params={'key': 'value'})
 
 
 def test_get_props_type_commit_calls_parse_url(mocker: MockerFixture, fake_repo: Path,
@@ -2660,3 +2706,43 @@ def test_main_handles_exception_in_do_main(mocker: MockerFixture, runner: CliRun
     result = runner.invoke(main, args)
     assert result.exit_code != 0
     assert mock_do_main.called
+
+
+def test_get_props_type_location_checksum_calls_get_latest_location_checksum_package(
+        mocker: MockerFixture, fake_repo: Path, mock_settings2: Mock) -> None:
+    mock_settings2.type_packages = {'cat/pkg': 'location+hash-check'}
+    mock_settings2.custom_livechecks = {'cat/pkg': ('https://redirect.example.com', '')}
+    mock_settings2.request_headers = {'cat/pkg': {'Referer': 'https://example.com'}}
+    mock_settings2.request_params = {'cat/pkg': {'agree': 'Yes'}}
+    mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
+    mocker.patch('livecheck.main.catpkg_catpkgsplit',
+                 return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
+    mocker.patch('livecheck.main.get_first_src_uri',
+                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
+    mocker.patch('livecheck.main.get_old_sha', return_value='')
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.log')
+    mock_get_latest_location_checksum_package = mocker.patch(
+        'livecheck.main.get_latest_location_checksum_package',
+        return_value=('loc_ver', 'loc_date', 'loc_url'),
+    )
+    results = list(
+        get_props(
+            exclude=[],
+            names=['cat/pkg'],
+            repo_root=fake_repo,
+            search_dir=fake_repo,
+            settings=mock_settings2,
+        ))
+    assert results == [('cat', 'pkg', '1.0.0', 'loc_ver', '', 'loc_date', 'loc_url')]
+    mock_get_latest_location_checksum_package.assert_called_once_with(
+        'https://redirect.example.com',
+        'cat/pkg-1.0.0',
+        str(fake_repo),
+        headers={'Referer': 'https://example.com'},
+        params={'agree': 'Yes'},
+    )
