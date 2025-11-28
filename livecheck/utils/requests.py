@@ -117,14 +117,15 @@ def get_content(url: str,
     return r
 
 
-@cache
-def hash_url(url: str) -> tuple[str, str, int]:
+def hash_url(url: str,
+             headers: dict[str, str] | None = None,
+             params: dict[str, str] | None = None) -> tuple[str, str, int]:
     """Hash the content of a URL using BLAKE2b and SHA-512."""
     h_blake2b = hashlib.blake2b()
     h_sha512 = hashlib.sha512()
     size = 0
     try:
-        with requests.get(url, stream=True, timeout=30) as r:
+        with requests.get(url, headers=headers, params=params, stream=True, timeout=30) as r:
             r.raise_for_status()
             for chunk in r.iter_content(chunk_size=8192):
                 if chunk:
@@ -138,11 +139,12 @@ def hash_url(url: str) -> tuple[str, str, int]:
     return '', '', 0
 
 
-@cache
-def get_last_modified(url: str) -> str:
+def get_last_modified(url: str,
+                      headers: dict[str, str] | None = None,
+                      params: dict[str, str] | None = None) -> str:
     """Get the last modified date of a URL."""
     try:
-        with requests.head(url, timeout=30) as r:
+        with requests.head(url, headers=headers, params=params, timeout=30) as r:
             r.raise_for_status()
             if last_modified := r.headers.get('last-modified'):
                 return parsedate_to_datetime(last_modified).strftime('%Y%m%d')

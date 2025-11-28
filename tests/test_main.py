@@ -1029,6 +1029,8 @@ def test_do_main_type_checksum_updates_checksum_metadata(mocker: MockerFixture, 
     ebuild_path.write_text('SHA="1234567"\n', encoding='utf-8')
     mock_settings.auto_update_flag = True
     mock_settings.type_packages = {cp: 'checksum'}
+    mock_settings.request_headers = {cp: {'Referer': 'https://example.com'}}
+    mock_settings.request_params = {cp: {'key': 'value'}}
     mocker.patch('livecheck.main.get_old_sha', return_value='1234567')
     mocker.patch('livecheck.main.replace_date_in_ebuild', side_effect=lambda v, _, __: v)
     mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
@@ -1057,8 +1059,12 @@ def test_do_main_type_checksum_updates_checksum_metadata(mocker: MockerFixture, 
             settings=mock_settings,
             top_hash=top_hash,
             url=url)
-    mock_update_checksum_metadata.assert_called_once_with(f'{cp}-{last_version}', url,
-                                                          str(search_dir))
+    mock_update_checksum_metadata.assert_called_once_with(
+        f'{cp}-{last_version}',
+        url,
+        str(search_dir),
+        headers={'Referer': 'https://example.com'},
+        params={'key': 'value'})
     mock_write.assert_called_once_with('abcdef1', encoding='utf-8')
 
 

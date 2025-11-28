@@ -16,11 +16,11 @@ PATTERN = re.compile(r'^DIST\s+(?P<file>\S+)\s+(?P<size>\d+)\s+BLAKE2B\s+'
 
 
 def get_latest_checksum_package(
-        url: str,
-        ebuild: str,
-        repo_root: str,
-        headers: dict[str, str] | None = None,  # noqa: ARG001
-        params: dict[str, str] | None = None,  # noqa: ARG001
+    url: str,
+    ebuild: str,
+    repo_root: str,
+    headers: dict[str, str] | None = None,
+    params: dict[str, str] | None = None,
 ) -> tuple[str, str, str]:
     """Get the latest version of a package based on its checksum."""
     catpkg, _, _, version = catpkg_catpkgsplit(ebuild)
@@ -31,9 +31,9 @@ def get_latest_checksum_package(
         for line in f:
             m = PATTERN.match(line)
             if m and m.group('file') == bn:
-                blake2, sha512, _ = hash_url(url)
+                blake2, sha512, _ = hash_url(url, headers=headers, params=params)
                 if blake2 != m.group('blake2b') or sha512 != m.group('sha512'):
-                    last_modified = get_last_modified(url)
+                    last_modified = get_last_modified(url, headers=headers, params=params)
                     return version, last_modified, url
 
     return '', '', ''
@@ -63,11 +63,15 @@ def get_latest_location_checksum_package(
                                        params=params)
 
 
-def update_checksum_metadata(ebuild: str, url: str, repo_root: str) -> None:
+def update_checksum_metadata(ebuild: str,
+                             url: str,
+                             repo_root: str,
+                             headers: dict[str, str] | None = None,
+                             params: dict[str, str] | None = None) -> None:
     """Update the checksum metadata in the Manifest file."""
     catpkg, _, _, _ = catpkg_catpkgsplit(ebuild)
     manifest_file = Path(repo_root) / catpkg / 'Manifest'
-    blake2, sha512, size = hash_url(url)
+    blake2, sha512, size = hash_url(url, headers=headers, params=params)
     bn = Path(url).name
 
     with (

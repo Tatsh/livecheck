@@ -593,7 +593,11 @@ def do_main(  # noqa: C901, PLR0912, PLR0915
                 update_yarn_ebuild(new_filename, settings.yarn_base_packages[cp], pkg,
                                    settings.yarn_packages.get(cp))
             if settings.type_packages.get(cp) == TYPE_CHECKSUM:
-                update_checksum_metadata(f'{cp}-{last_version}', url, str(search_dir))
+                update_checksum_metadata(f'{cp}-{last_version}',
+                                         url,
+                                         str(search_dir),
+                                         headers=settings.request_headers.get(cp, {}),
+                                         params=settings.request_params.get(cp, {}))
             if cp in settings.go_sum_uri:
                 update_go_ebuild(new_filename, top_hash, settings.go_sum_uri[cp])
             if cp in settings.dotnet_projects:
