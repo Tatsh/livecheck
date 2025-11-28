@@ -674,11 +674,7 @@ def main(working_dir: Path,
          progress: bool = False,
          package_manager: str = 'npm') -> None:
     """Update ebuilds to their latest versions."""  # noqa: DOC501
-    setup_logging(debug=debug,
-                  loggers={'livecheck': {
-                      'handlers': ('console',),
-                      'propagate': False
-                  }})
+    setup_logging(debug=debug, loggers={'livecheck': {}, 'urllib3': {}})
     chdir(working_dir)
     if exclude:
         log.debug('Excluding %s.', ', '.join(exclude))
