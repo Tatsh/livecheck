@@ -10,6 +10,13 @@ and this project adheres to
 
 ## [unreleased]
 
+## [0.1.4]
+
+### Added
+
+- Support for headers, query parameters, method, data, and `multiline` (for `regex.MULTILINE`) in
+  `livecheck.json`. #249
+
 ## [0.1.3]
 
 ### Added
@@ -116,7 +123,8 @@ and this project adheres to
 
 - When multiple ebuilds are in the same directory, only the latest one will be considered for updating.
 
-[unreleased]: https://github.com/Tatsh/livecheck/compare/v0.1.3...HEAD
+[unreleased]: https://github.com/Tatsh/livecheck/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/Tatsh/livecheck/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/Tatsh/livecheck/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/Tatsh/livecheck/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/Tatsh/livecheck/compare/v0.1.0...v0.1.1
