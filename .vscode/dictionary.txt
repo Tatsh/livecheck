@@ -24,6 +24,7 @@ colorlog
 commitizen
 conftest
 coveragerc
+coverallsapp
 cpan
 dataclasses
 datatable
@@ -79,6 +80,7 @@ keepends
 launchable
 lextudio
 libchdr
+libera
 libfat
 libjsonnet
 libshared
@@ -106,6 +108,7 @@ numpydoc
 nvchecker
 onefile
 patchlevel
+pavelzw
 pecl
 phpstorm
 pipx
@@ -121,6 +124,7 @@ pydantic
 pydocstyle
 pyinstaller
 pylint
+pypa
 pypi
 pyproject
 pytest
