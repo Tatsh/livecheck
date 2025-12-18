@@ -296,8 +296,8 @@ def get_props(  # noqa: C901, PLR0912, PLR0914
     if not matches_list:
         log.error('No matches!')
         raise click.Abort
-    for _match in matches_list:
-        match, settings.restrict_version_process = extract_restrict_version(_match)
+    for match_ in matches_list:
+        match, settings.restrict_version_process = extract_restrict_version(match_)
         catpkg, cat, pkg, ebuild_version = catpkg_catpkgsplit(match)
         if catpkg in exclude or pkg in exclude:
             log.debug('Ignoring %s.', catpkg)
