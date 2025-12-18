@@ -11,6 +11,7 @@ local utils = import 'utils.libjsonnet';
     '.history',
     '.idea',
   ],
+  supported_platforms: 'linux',
   pyproject+: {
     tool+: {
       coverage+: {

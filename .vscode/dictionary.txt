@@ -20,7 +20,6 @@ catpkgsplit
 citra
 clion
 codeowners
-colorlog
 commitizen
 conftest
 coveragerc
@@ -55,7 +54,6 @@ eselect
 excinfo
 fetchlist
 fhdk
-filevers
 findname
 fontawesome
 foxundermoon
@@ -64,7 +62,6 @@ glabels
 globaltoc
 gomodule
 grepmail
-hoverxref
 htmlcov
 icingaweb
 imgui
@@ -88,6 +85,7 @@ linters
 livecheck
 livechecks
 lodepng
+manylinux
 mbedtls
 metacpan
 modindex
@@ -106,7 +104,6 @@ nugets
 numpy
 numpydoc
 nvchecker
-onefile
 patchlevel
 pavelzw
 pecl
@@ -118,11 +115,9 @@ pkgs
 platformdirs
 portdir
 porttree
-prodvers
 pycache
 pydantic
 pydocstyle
-pyinstaller
 pylint
 pypa
 pypi
@@ -160,13 +155,11 @@ testpaths
 toctree
 tomlkit
 tomlq
-tonumber
 tryfirst
 tsschecker
 udvare
 venv
 vercmp
-vers
 virtualenv
 wiswa
 xbyak

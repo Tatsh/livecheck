@@ -51,6 +51,9 @@
   "license": "MIT",
   "markdownlint-cli2": {
     "config": {
+      "MD024": {
+        "siblings_only": true
+      },
       "MD033": {
         "allowed_elements": ["kbd"]
       },
