@@ -64,7 +64,6 @@ glabels
 globaltoc
 gomodule
 grepmail
-hoverxref
 htmlcov
 icingaweb
 imgui
@@ -88,6 +87,7 @@ linters
 livecheck
 livechecks
 lodepng
+manylinux
 mbedtls
 metacpan
 modindex
