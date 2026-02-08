@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from shutil import copyfile
-from typing import TYPE_CHECKING, TypedDict, cast
+from typing import TYPE_CHECKING, TextIO, TypedDict, cast
 import json
 import logging
 import re
@@ -78,6 +78,13 @@ def yarn_pkgs(project_path: Path) -> Iterator[str]:
         yield f'{dep_name}-{val["version"]}'
 
 
+def _write_yarn_packages(tf: TextIO, project_path: Path, package_re: re.Pattern[str]) -> None:
+    """Write sorted yarn packages to the temp file."""
+    tf.writelines(f'\t{new_pkg}\n'
+                  for new_pkg in sorted(set(yarn_pkgs(project_path)),
+                                        key=lambda x: -1 if re.match(package_re, x) else 0))
+
+
 def update_yarn_ebuild(ebuild: str,
                        yarn_base_package: str,
                        pkg: str,
@@ -93,6 +100,7 @@ def update_yarn_ebuild(ebuild: str,
     project_path = create_project(yarn_base_package, yarn_packages)
     package_re = re.compile(r'^' + re.escape(yarn_base_package) + r'-[0-9]+')
     in_yarn_pkgs = False
+    written_new_pkgs = False
     with (
             EbuildTempFile(ebuild) as temp_file,
             temp_file.open('w', encoding='utf-8') as tf,
@@ -106,12 +114,16 @@ def update_yarn_ebuild(ebuild: str,
                 in_yarn_pkgs = True
             elif in_yarn_pkgs:
                 if line.strip() == ')':
+                    # If we haven't written new packages yet (empty YARN_PKGS), write them now
+                    if not written_new_pkgs:
+                        _write_yarn_packages(tf, project_path, package_re)
                     in_yarn_pkgs = False
                     tf.write(line)
-                else:
-                    for new_pkg in sorted(set(yarn_pkgs(project_path)),
-                                          key=lambda x: -1 if re.match(package_re, x) else 0):
-                        tf.write(f'\t{new_pkg}\n')
+                elif not written_new_pkgs:
+                    # Write all new packages once, replacing all old lines
+                    _write_yarn_packages(tf, project_path, package_re)
+                    written_new_pkgs = True
+                # else: Skip all old package lines (they're being replaced)
             else:
                 tf.write(line)
     for item in ('package.json', 'yarn.lock'):

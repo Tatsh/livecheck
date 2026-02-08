@@ -90,9 +90,14 @@ def test_update_yarn_ebuild_replaces_yarn_pkgs_section(mocker: MockerFixture) ->
     mock_yarn_pkgs.assert_called_once()
     mock_ebuild_temp_file.assert_called_once_with(ebuild_path)
     tf_mock.write.assert_any_call('YARN_PKGS=(\n')
-    tf_mock.write.assert_any_call('\tbar-2.3.4\n')
-    tf_mock.write.assert_any_call('\tfoo-1.2.3\n')
     tf_mock.write.assert_any_call(')\n')
+    # Check that writelines was called with the package list
+    writelines_calls = [call for call in tf_mock.writelines.call_args_list]
+    assert len(writelines_calls) == 1
+    # Convert generator to list to check contents
+    written_pkgs = list(writelines_calls[0][0][0])
+    assert '\tbar-2.3.4\n' in written_pkgs
+    assert '\tfoo-1.2.3\n' in written_pkgs
     mock_copyfile.assert_any_call(
         Path('/tmp/project') / 'package.json',
         Path('/tmp/test.ebuild').parent / 'files' / 'foo-package.json')
@@ -146,3 +151,53 @@ def test_check_yarn_requirements_node_missing(mocker: MockerFixture) -> None:
     assert check_yarn_requirements() is False
     mock_logger.error.assert_called_once_with('yarn is not installed')
     assert mock_check_program.call_count == 2
+
+
+def test_update_yarn_ebuild_with_multiple_old_packages(mocker: MockerFixture) -> None:
+    """Test that multiple old packages are replaced correctly without duplication."""
+    ebuild_path = '/tmp/test.ebuild'
+    yarn_base_package = 'foo'
+    pkg = 'cat/foo'
+    yarn_packages = None
+    mocker.patch('pathlib.Path.chmod')
+    mocker.patch('livecheck.special.yarn.create_project', return_value=Path('/tmp/project'))
+    mocker.patch('livecheck.special.yarn.yarn_pkgs', return_value=['foo-1.2.3', 'bar-2.3.4'])
+    mocker.patch('livecheck.special.yarn.copyfile')
+    mock_ebuild_temp_file = mocker.patch('livecheck.special.yarn.EbuildTempFile')
+    mock_temp_file = mock_ebuild_temp_file.return_value
+    mock_temp_file.__enter__.return_value = mock_temp_file
+    mock_temp_file.open.return_value.__enter__.return_value = mocker.MagicMock()
+    mock_temp_file.exists.return_value = True
+    mock_temp_file.stat.return_value.st_size = 10
+
+    # Ebuild with multiple old packages
+    ebuild_content = [
+        'EAPI=8\n',
+        'YARN_PKGS=(\n',
+        '\told-pkg-1-0.1.0\n',
+        '\told-pkg-2-0.2.0\n',
+        '\told-pkg-3-0.3.0\n',
+        ')\n',
+        'SRC_URI=...\n',
+    ]
+    mocker.patch('pathlib.Path.open', mocker.mock_open(read_data=''.join(ebuild_content)))
+    tf_mock = mock_temp_file.open.return_value.__enter__.return_value
+
+    update_yarn_ebuild(ebuild_path, yarn_base_package, pkg, yarn_packages)
+
+    # Verify new packages are written exactly once (using writelines)
+    write_calls = [call[0][0] for call in tf_mock.write.call_args_list]
+    writelines_calls = [call for call in tf_mock.writelines.call_args_list]
+
+    # Should have writelines called once
+    assert len(writelines_calls) == 1
+    written_pkgs = list(writelines_calls[0][0][0])
+
+    # New packages should appear exactly once
+    assert written_pkgs.count('\tbar-2.3.4\n') == 1
+    assert written_pkgs.count('\tfoo-1.2.3\n') == 1
+
+    # Old packages should not appear in write calls
+    assert '\told-pkg-1-0.1.0\n' not in write_calls
+    assert '\told-pkg-2-0.2.0\n' not in write_calls
+    assert '\told-pkg-3-0.3.0\n' not in write_calls
