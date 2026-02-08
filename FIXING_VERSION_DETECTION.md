@@ -72,8 +72,8 @@ The following packages need investigation and fixes:
 ### Media Packages
 
 1. **`media-video/vapoursynth`**
-    - Check release tag format
-    - May need version normalization
+   - Check release tag format
+   - May need version normalization
 
 ## How to Fix
 
