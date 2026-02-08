@@ -7,6 +7,7 @@ This document explains how to fix version detection issues for packages in tatsh
 ### Libretro Packages (✅ Fixed)
 
 **Affected packages:**
+
 - `games-emulation/fuse-libretro`
 - `games-emulation/pcsx-rearmed-libretro`
 
@@ -15,6 +16,7 @@ This document explains how to fix version detection issues for packages in tatsh
 **Solution:** Use the `handle_libretro` transformation function which converts slashes to dots.
 
 **Usage in `livecheck.json`:**
+
 ```json
 {
   "transformation_function": "handle_libretro"
@@ -37,39 +39,39 @@ The following packages need investigation and fixes:
 
 ### Development Packages
 
-3. **`dev-db/prisma-engines`**
+1. **`dev-db/prisma-engines`**
    - May need regex-based version extraction
    - Check if tags include prefixes that need stripping
 
-4. **`dev-python/thinc`**
+2. **`dev-python/thinc`**
    - Check PyPI versioning vs GitHub tags
    - May need `stable_version` regex to filter pre-releases
 
-5. **`dev-qt/qtwebkit`**
+3. **`dev-qt/qtwebkit`**
    - Likely has complex versioning scheme
    - May need custom transformation or regex pattern
 
 ### Games Packages
 
-6. **`games-arcade/stepmania`**
+1. **`games-arcade/stepmania`**
    - Check if version tags include prefixes
    - May need transformation to normalize versions
 
-7. **`games-emulation/cemu`**
+2. **`games-emulation/cemu`**
    - Investigate tag format (likely date-based or custom)
    - May need custom handler similar to `handle_outfox`
 
-8. **`games-emulation/mupen64plus-video-gliden64`**
+3. **`games-emulation/mupen64plus-video-gliden64`**
    - Check if tags match plugin versioning scheme
    - May need regex or transformation
 
-9. **`games-emulation/rpcs3`**
+4. **`games-emulation/rpcs3`**
    - Already has `prefix_v` in TAG_NAME_FUNCTIONS
    - If still inaccurate, check `stable_version` regex
 
 ### Media Packages
 
-10. **`media-video/vapoursynth`**
+1. **`media-video/vapoursynth`**
     - Check release tag format
     - May need version normalization
 
@@ -80,6 +82,7 @@ The following packages need investigation and fixes:
 For each package, check:
 
 1. **Upstream repository tags:**
+
    ```bash
    curl -s "https://api.github.com/repos/{owner}/{repo}/tags" | jq '.[].name' | head -20
    ```
@@ -101,6 +104,7 @@ Based on the investigation, use one of these approaches:
 #### A. Use Existing Transformation Function
 
 Add to `livecheck.json`:
+
 ```json
 {
   "transformation_function": "handle_libretro"
@@ -108,6 +112,7 @@ Add to `livecheck.json`:
 ```
 
 Available functions:
+
 - `dotize` - Convert dashes and underscores to dots
 - `prefix_v` - Add `v` prefix
 - `handle_libretro` - Convert slashes to dots
@@ -119,6 +124,7 @@ Available functions:
 #### B. Use Regex Version Replacement
 
 Add to `livecheck.json`:
+
 ```json
 {
   "pattern_version": "^release-(.*)$",
@@ -131,6 +137,7 @@ This allows removing prefixes, suffixes, or reformatting versions using regex.
 #### C. Use Stable Version Filter
 
 To filter out development versions:
+
 ```json
 {
   "stable_version": "^\\d+\\.\\d+\\.\\d+$"
@@ -159,15 +166,18 @@ Then add tests in `tests/special/test_handlers.py` and import in the module.
 
 1. Add the configuration to `livecheck.json` in tatsh-overlay
 2. Run livecheck on the package:
+
    ```bash
    livecheck category/package-name
    ```
+
 3. Verify the correct version is detected
 4. Ensure the version can be used in an ebuild filename
 
 ### Step 4: Document
 
 Update this file with:
+
 - The problem identified
 - The solution implemented
 - Example usage

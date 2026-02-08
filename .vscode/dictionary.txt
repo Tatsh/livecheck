@@ -8,6 +8,7 @@ atrac
 autodoc
 automodule
 bascom
+basiliskii
 beautifulsoup
 beefcafe
 beefdead
@@ -17,6 +18,7 @@ bsnes
 caplog
 catpkg
 catpkgsplit
+cemu
 citra
 clion
 codeowners
@@ -25,6 +27,7 @@ conftest
 coveragerc
 coverallsapp
 cpan
+cython
 dataclasses
 datatable
 datatables
@@ -59,6 +62,7 @@ fontawesome
 foxundermoon
 genindex
 glabels
+gliden
 globaltoc
 gomodule
 grepmail
@@ -80,9 +84,11 @@ libchdr
 libera
 libfat
 libjsonnet
+libretro
 libshared
 libb
 libzrif
+limitedapitest
 linters
 livecheck
 livechecks
@@ -91,6 +97,7 @@ manylinux
 mbedtls
 metacpan
 modindex
+mupen
 mypy
 mytree
 namedtuples
@@ -107,8 +114,11 @@ nugets
 numpy
 numpydoc
 nvchecker
+otherthing
+packagename
 patchlevel
 pavelzw
+pcsx
 pecl
 phpstorm
 pipx
@@ -132,6 +142,7 @@ pytest
 pythonhosted
 pythonpath
 qpxtool
+qtwebkit
 raphnet
 rdparty
 readlink
@@ -142,6 +153,7 @@ rstcheck
 rubygems
 schemafile
 sdist
+sheepshaver
 shellformat
 simpleini
 sirit
@@ -153,6 +165,8 @@ sourcehut
 sphinxcontrib
 spirv
 srcname
+steinberg
+stepmania
 subelem
 submod
 sudachi
@@ -160,12 +174,14 @@ tasksh
 tatsh
 tempy
 testpaths
+thinc
 toctree
 tomlkit
 tomlq
 tryfirst
 tsschecker
 udvare
+vapoursynth
 venv
 vercmp
 virtualenv

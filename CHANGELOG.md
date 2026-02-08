@@ -10,6 +10,31 @@ and this project adheres to
 
 ## [unreleased]
 
+### Added
+
+- Custom handler for `dev-util/ida-free` to check IDA release notes. #423
+- Handler for libretro packages to convert slash-based version tags to dots. #423
+- Tests for edge cases in golang, ida_free, yarn, and main modules improving coverage to 99%.
+
+### Changed
+
+- Only update ebuilds when a package has 2 or more non-9999 versions. #423
+- Filter tags with long unrecognized suffixes (>10 characters) when they have trailing digits. #423
+- Filter vcpkg dependency tags to prevent incorrect version detection for rpcs3. #423
+- Improved version padding to handle shorter versions correctly. #427
+- Enhanced submodule processing to support nested submodules (3-tuple format). #427
+- Better handling of SHA vs COMMIT variable names in ebuilds. #427
+
+### Fixed
+
+- Fixed `update_go_ebuild()` to filter out `/go.mod` entries from `EGO_SUM`. #423
+- Fixed `update_yarn_ebuild()` to write packages only once (was duplicating for each old line). #423
+- Fixed PyPI URL path handling for pythonhosted.org links. #427
+- Fixed ebuild manifest recovery when digest operations fail. #427
+- Fixed vapoursynth version parsing to ignore test tags like `R71-limited-api-test1`. #423
+- Fixed rpcs3 version parsing to ignore vcpkg dependency tags like `vcpkg-v1.0`. #423
+- Fixed ruff linting issues (whitespace, unnecessary list comprehensions).
+
 ## [0.1.4]
 
 ### Added

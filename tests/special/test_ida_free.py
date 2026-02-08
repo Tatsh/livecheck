@@ -103,4 +103,3 @@ def test_get_latest_ida_free_package_all_invalid_versions(mocker: MockerFixture)
 
     # Should return empty string when all versions are invalid
     assert not result
-

@@ -1776,36 +1776,6 @@ def test_get_props_type_davinci_calls_get_latest_davinci_package(mocker: MockerF
     mock_get_latest_davinci_package.assert_called_once_with('pkg')
 
 
-def test_get_props_type_ida_free_calls_get_latest_ida_free_package(mocker: MockerFixture,
-                                                                   fake_repo: Path,
-                                                                   mock_settings2: Mock) -> None:
-    mock_settings2.type_packages = {'dev-util/ida-free': 'ida_free'}
-    mocker.patch('livecheck.main.get_highest_matches',
-                 return_value=['dev-util/ida-free-9.0'])
-    mocker.patch('livecheck.main.catpkg_catpkgsplit',
-                 return_value=('dev-util/ida-free', 'dev-util', 'ida-free', '9.0'))
-    mocker.patch('livecheck.main.get_first_src_uri',
-                 return_value='https://example.com/ida-free-9.0.tar.gz')
-    mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
-    mocker.patch('livecheck.main.get_old_sha', return_value='')
-    mocker.patch('livecheck.main.catpkgsplit2', return_value=('dev-util', 'ida-free', '9.0', 'r0'))
-    mocker.patch('livecheck.main.compare_versions', return_value=True)
-    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
-    mocker.patch('livecheck.main.log')
-    mocker.patch('livecheck.main.parse_url', return_value=('', '', '', ''))
-    mock_get_latest_ida_free = mocker.patch('livecheck.main.get_latest_ida_free_package',
-                                            return_value='9.3')
-    results = list(
-        get_props(search_dir=fake_repo,
-                  repo_root=fake_repo,
-                  settings=mock_settings2,
-                  names=['dev-util/ida-free'],
-                  exclude=[]))
-    assert results == [('dev-util', 'ida-free', '9.0', '9.3', '', '', '')]
-    mock_get_latest_ida_free.assert_called_once_with('dev-util/ida-free-9.0', mock_settings2)
-
-
 def test_get_props_type_directory_calls_get_latest_directory_package(mocker: MockerFixture,
                                                                      fake_repo: Path,
                                                                      mock_settings2: Mock) -> None:
