@@ -85,6 +85,14 @@ if TYPE_CHECKING:
     ('0.0.8a5', '0.0.8_alpha5'),
     ('0.1.8b0', '0.1.8_beta'),
     ('1.4.1-build.2', '1.4.1'),
+    # VapourSynth: filter tags with long unrecognized suffixes (test/dev tags)
+    ('R71-limited-api-test1', ''),
+    ('R73', '73'),
+    ('R73-RC1', '73_rc1'),
+    # rpcs3: filter vcpkg dependency tags
+    ('vcpkg-v1.0', ''),
+    ('vcpkg-prebuilt-v1.0', ''),
+    ('v0.0.39', '0.0.39'),
 ])
 def test_sanitize_version(version: str, expected: str) -> None:
     assert sanitize_version(version) == expected

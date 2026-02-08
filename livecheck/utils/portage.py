@@ -189,8 +189,13 @@ def remove_initial_match(a: str, b: str) -> str:
 def extract_version(s: str, repo: str) -> str:
     # force convert to string to avoid a int object has no attribute lower
     s = str(s).lower().strip()
+    
+    # Filter out tags with known invalid prefixes (e.g., vcpkg- for dependency tags)
+    invalid_prefixes = ('vcpkg-', 'vcpkg_')
+    if any(s.startswith(prefix) for prefix in invalid_prefixes):
+        return ''
+    
     # check if first word of s is equal to repo and remove repo from s
-
     s = remove_initial_match(s, repo.lower())
     s.strip()
 
@@ -284,6 +289,10 @@ def normalize_version(ver: str) -> str:
     # Single-letter suffix with no digits -> preserve as lowercase
     if len(letters) == 1 and not digits:
         return f'{main}{letters}'
+    # Discard tags with long unrecognized suffixes (likely test/development tags)
+    # e.g., "limitedapitest1" from "R71-limited-api-test1"
+    if len(letters) > 10:  # noqa: PLR2004
+        return ''
     # No recognized suffix
     if digits:
         # Just attach the digits directly (e.g. "1.2.3" + "4")
