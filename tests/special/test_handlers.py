@@ -6,6 +6,7 @@ from livecheck.special.handlers import (
     handle_bsnes_hd,
     handle_cython_post_suffix,
     handle_glabels,
+    handle_libretro,
     handle_outfox,
     handle_outfox_serenity,
     handle_pl,
@@ -162,3 +163,27 @@ def test_handle_pl_non_numeric_pl() -> None:
     input_version = '1.2.3-plx'
     result = handle_pl(input_version)
     assert not result
+
+
+def test_handle_libretro_single_slash() -> None:
+    input_version = '1/1/1'
+    result = handle_libretro(input_version)
+    assert result == '1.1.1'
+
+
+def test_handle_libretro_date_format() -> None:
+    input_version = '12/31/2023'
+    result = handle_libretro(input_version)
+    assert result == '12.31.2023'
+
+
+def test_handle_libretro_no_slash() -> None:
+    input_version = '1.2.3'
+    result = handle_libretro(input_version)
+    assert result == '1.2.3'
+
+
+def test_handle_libretro_mixed_separators() -> None:
+    input_version = '1/2.3/4'
+    result = handle_libretro(input_version)
+    assert result == '1.2.3.4'

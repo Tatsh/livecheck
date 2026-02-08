@@ -68,3 +68,16 @@ def handle_pl(s: str) -> str:
     ret = f'{major}.{minor}.{mm}.{pl}'
     logger.debug('handle_pl() -> "%s"', ret)
     return ret
+
+
+def handle_libretro(s: str) -> str:
+    """
+    Handle libretro date-based versioning with slashes.
+    
+    Converts tags like "1/1/1" or "12/31/2023" to dotted format "1.1.1" or "12.31.2023".
+    """
+    logger.debug('handle_libretro() <- "%s"', s)
+    ret = s.replace('/', '.')
+    logger.debug('handle_libretro() -> "%s"', ret)
+    return ret
+
