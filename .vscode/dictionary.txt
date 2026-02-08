@@ -114,6 +114,7 @@ nugets
 numpy
 numpydoc
 nvchecker
+onlyhash
 otherthing
 packagename
 patchlevel

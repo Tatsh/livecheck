@@ -82,3 +82,27 @@ def test_update_go_ebuild_ego_sum_not_found(mocker: MockerFixture, tmp_path: Pat
     content = ebuild.read_text(encoding='utf-8')
     # Should not add new EGO_SUM if not present
     assert 'pkg1 v1.2.3' not in content
+
+
+def test_update_go_ebuild_line_with_only_hash(mocker: MockerFixture, tmp_path: Path) -> None:
+    """Test handling of go.sum lines that become empty after removing hash."""
+    ebuild = tmp_path / 'test4.ebuild'
+    ebuild.write_text('EGO_SUM=(\n'
+                      '\t"old-pkg v1.0.0"\n'
+                      ')\n'
+                      'SHA="test123"\n',
+                      encoding='utf-8')
+    mock_response = mocker.Mock()
+    # Lines with only space and hash should be skipped
+    mock_response.text = (
+        'pkg1 v1.2.3 h1:abc\n'
+        ' h1:onlyhash\n'  # This should result in empty string after regex
+        'pkg2 v2.3.4 h256:xyz')
+    mocker.patch('livecheck.special.golang.get_content', return_value=mock_response)
+    update_go_ebuild(str(ebuild), '1.2.3', 'https://example/@PV@/@SHA@/gosum')
+    content = ebuild.read_text(encoding='utf-8')
+    assert '"pkg1 v1.2.3"' in content
+    assert '"pkg2 v2.3.4"' in content
+    # The line with only hash should not appear - verify only 2 packages in EGO_SUM
+    ego_sum_section = content.split('EGO_SUM=(')[1].split(')')[0]
+    assert ego_sum_section.count('"') == 4  # Only two packages, each with opening and closing quote

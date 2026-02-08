@@ -103,3 +103,55 @@ def test_get_latest_ida_free_package_all_invalid_versions(mocker: MockerFixture)
 
     # Should return empty string when all versions are invalid
     assert not result
+
+
+def test_get_latest_ida_free_package_three_part_versions(mocker: MockerFixture) -> None:
+    """Test handling of three-part version numbers (not major.minor format)."""
+    mock_response = mocker.Mock()
+    mock_response.text = """
+    IDA 9.5
+    IDA 9.0.1
+    IDA 8.4.2
+    """
+    mocker.patch('livecheck.special.ida_free.get_content', return_value=mock_response)
+    mock_settings = mocker.Mock()
+
+    result = get_latest_ida_free_package('dev-util/ida-free-9.0', mock_settings)
+
+    # Should only consider 9.5 which has major.minor format
+    # Three-part versions (9.0.1, 8.4.2) should be skipped (len(parts) != 2)
+    assert result == '9.5'
+
+
+def test_get_latest_ida_free_package_only_three_part_versions(mocker: MockerFixture) -> None:
+    """Test when version strings have more than 2 parts after split."""
+    mock_response = mocker.Mock()
+    mock_response.text = 'IDA versions here'
+    mocker.patch('livecheck.special.ida_free.get_content', return_value=mock_response)
+    # Mock re.findall to return versions with 3 parts (simulating edge case)
+    mocker.patch('livecheck.special.ida_free.re.findall',
+                 return_value=['9.0.1', '10.0.2'])
+    mock_settings = mocker.Mock()
+
+    result = get_latest_ida_free_package('dev-util/ida-free-9.0', mock_settings)
+
+    # Should return empty string when no valid major.minor versions found
+    # (all have 3 parts: len(parts) != 2)
+    assert not result
+
+
+def test_get_latest_ida_free_package_value_error_in_conversion(mocker: MockerFixture) -> None:
+    """Test ValueError handling when version parts can't be converted to int."""
+    mock_response = mocker.Mock()
+    mock_response.text = 'IDA versions here'
+    mocker.patch('livecheck.special.ida_free.get_content', return_value=mock_response)
+    # Mock re.findall to return versions that will cause ValueError
+    # Even though regex wouldn't match these, test the defensive code
+    mocker.patch('livecheck.special.ida_free.re.findall',
+                 return_value=['alpha.beta', 'foo.bar'])
+    mock_settings = mocker.Mock()
+
+    result = get_latest_ida_free_package('dev-util/ida-free-9.0', mock_settings)
+
+    # Should return empty string when all conversions fail
+    assert not result

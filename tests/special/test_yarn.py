@@ -201,3 +201,40 @@ def test_update_yarn_ebuild_with_multiple_old_packages(mocker: MockerFixture) ->
     assert '\told-pkg-1-0.1.0\n' not in write_calls
     assert '\told-pkg-2-0.2.0\n' not in write_calls
     assert '\told-pkg-3-0.3.0\n' not in write_calls
+
+
+def test_update_yarn_ebuild_with_empty_yarn_pkgs(mocker: MockerFixture) -> None:
+    """Test handling of empty YARN_PKGS section."""
+    ebuild_path = '/tmp/test.ebuild'
+    yarn_base_package = 'foo'
+    pkg = 'cat/foo'
+    yarn_packages = None
+    mocker.patch('pathlib.Path.chmod')
+    mocker.patch('livecheck.special.yarn.create_project', return_value=Path('/tmp/project'))
+    mocker.patch('livecheck.special.yarn.yarn_pkgs', return_value=['foo-1.2.3', 'bar-2.3.4'])
+    mocker.patch('livecheck.special.yarn.copyfile')
+    mock_ebuild_temp_file = mocker.patch('livecheck.special.yarn.EbuildTempFile')
+    mock_temp_file = mock_ebuild_temp_file.return_value
+    mock_temp_file.__enter__.return_value = mock_temp_file
+    mock_temp_file.open.return_value.__enter__.return_value = mocker.MagicMock()
+    mock_temp_file.exists.return_value = True
+    mock_temp_file.stat.return_value.st_size = 10
+
+    # Ebuild with empty YARN_PKGS
+    ebuild_content = [
+        'EAPI=8\n',
+        'YARN_PKGS=(\n',
+        ')\n',
+        'SRC_URI=...\n',
+    ]
+    mocker.patch('pathlib.Path.open', mocker.mock_open(read_data=''.join(ebuild_content)))
+    tf_mock = mock_temp_file.open.return_value.__enter__.return_value
+
+    update_yarn_ebuild(ebuild_path, yarn_base_package, pkg, yarn_packages)
+
+    # Verify packages are still written even when YARN_PKGS was empty
+    writelines_calls = list(tf_mock.writelines.call_args_list)
+    assert len(writelines_calls) == 1
+    written_pkgs = list(writelines_calls[0][0][0])
+    assert '\tbar-2.3.4\n' in written_pkgs
+    assert '\tfoo-1.2.3\n' in written_pkgs
