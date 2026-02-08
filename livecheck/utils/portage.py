@@ -283,16 +283,35 @@ def normalize_version(ver: str) -> str:
     return main
 
 
+def _pad_version_components(ver1: str, ver2: str) -> tuple[str, str]:
+    """Pad version components with trailing zeros for consistent precision comparison."""
+    parts1 = ver1.split('.')
+    parts2 = ver2.split('.')
+    new_parts1 = list(parts1)
+    new_parts2 = list(parts2)
+    for i in range(min(len(parts1), len(parts2))):
+        p1, p2 = parts1[i], parts2[i]
+        if p1.isdigit() and p2.isdigit():
+            max_len = max(len(p1), len(p2))
+            new_parts1[i] = p1.ljust(max_len, '0')
+            new_parts2[i] = p2.ljust(max_len, '0')
+    return '.'.join(new_parts1), '.'.join(new_parts2)
+
+
 def compare_versions(old: str, new: str) -> bool:
     """
     Compare two version strings.
+
+    Pads version components with trailing zeros to handle cases where upstream considers a version
+    like ``0.7`` to be newer than ``0.69``.
 
     Returns
     -------
     bool
         ``True`` if the old version is less than the new version, ``False`` otherwise.
     """
-    return bool(vercmp(old, new) == -1)
+    old_padded, new_padded = _pad_version_components(old, new)
+    return bool(vercmp(old_padded, new_padded) == -1)
 
 
 def get_distdir() -> Path:

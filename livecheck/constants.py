@@ -18,7 +18,7 @@ Namespace for RSS feeds.
 
 :meta hide-value:
 """
-SUBMODULES: Mapping[str, set[str | tuple[str, str]]] = {
+SUBMODULES: Mapping[str, set[str | tuple[str, str] | tuple[str, str, str]]] = {
     'app-misc/tasksh': {'src/libshared'},
     'app-pda/tsschecker': {'external/jssy'},
     'games-emulation/citra': {
@@ -71,6 +71,9 @@ SUBMODULES: Mapping[str, set[str | tuple[str, str]]] = {
         'external/stb',
         'external/unicorn',
         'external/vita-toolchain',
+        ('libb64', 'LIBB64_SHA', 'external/psvpfstools'),
+        ('libzrif', 'LIBZRIF_SHA', 'external/psvpfstools'),
+        ('psvpfsparser', 'PSVPFSPARSER_SHA', 'external/psvpfstools'),
     },
     'games-emulation/yuzu': {
         'externals/SDL',

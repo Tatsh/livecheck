@@ -140,13 +140,31 @@ def process_submodules(pkg_name: str, ref: str, contents: str, repo_uri: str) ->
     ebuild_lines = contents.splitlines(keepends=True)
     for item in SUBMODULES[pkg_name]:
         name = item
-        if isinstance(item, tuple):
+        if isinstance(item, tuple) and len(item) == 3:  # noqa: PLR2004
+            nested_path, grep_for_var, parent_path = item
+            grep_for = f'{grep_for_var}="'
+            parent_r = get_content(f'https://api.github.com/repos/{repo_root}/contents/'
+                                   f'{parent_path}?ref={ref}')
+            if not parent_r.ok:
+                continue
+            parent_data = parent_r.json()
+            parent_sha = parent_data['sha']
+            parent_git_url = parent_data.get('submodule_git_url', '')
+            if not parent_git_url:
+                continue
+            parent_repo = '/'.join(
+                [x for x in urlparse(parent_git_url).path.replace('.git', '').split('/') if x][:2])
+            r = get_content(f'https://api.github.com/repos/{parent_repo}/contents/'
+                            f'{nested_path}?ref={parent_sha}')
+        elif isinstance(item, tuple):
             grep_for = f'{item[1]}="'
             name = item[0]
+            r = get_content(f'https://api.github.com/repos/{repo_root}/contents/{name}'
+                            f'?ref={ref}')
         else:
             grep_for = f'{Path(item).name.upper().replace("-", "_")}_SHA="'
-        r = get_content(f'https://api.github.com/repos/{repo_root}/contents/{name}'
-                        f'?ref={ref}')
+            r = get_content(f'https://api.github.com/repos/{repo_root}/contents/{name}'
+                            f'?ref={ref}')
         if not r.ok:
             continue
         remote_sha = r.json()['sha']
@@ -405,12 +423,20 @@ def get_props(  # noqa: C901, PLR0912, PLR0914
 
 
 def get_old_sha(ebuild: Path, url: str) -> str:
+    """Get the old SHA from an ebuild file, checking named variables, bare hex strings, and URL."""
     sha_pattern = re.compile(r'(SHA|COMMIT|EGIT_COMMIT)=["\']?([a-f0-9]{40})')
+    bare_sha_pattern = re.compile(r'\b[a-f0-9]{40}\b')
 
     with Path(ebuild).open(encoding='utf-8') as file:
-        for line in file:
-            if match := sha_pattern.search(line):
-                return match.group(2)
+        lines = file.readlines()
+
+    for line in lines:
+        if match := sha_pattern.search(line):
+            return match.group(2)
+
+    for line in lines:
+        if match := bare_sha_pattern.search(line):
+            return match.group(0)
 
     last_part = urlparse(url).path.rsplit('/', 1)[-1] if '/' in url else url
     return extract_sha(last_part)
@@ -472,6 +498,24 @@ def execute_hooks(hook_dir: Path | None, action: str, search_dir: Path, cp: str,
             if result.returncode != 0:
                 click.echo(f'Error running hook {hook}.', err=True)
                 raise click.Abort
+
+
+def _recover_ebuild(new_filename: str, ebuild: Path, cp: str, search_dir: Path,
+                    settings: LivecheckSettings) -> None:
+    """Recover ebuild to its original state after a failed digest."""
+    try:
+        if settings.keep_old.get(cp, not settings.keep_old_flag):
+            if settings.git_flag:
+                sp.run(('git', 'mv', new_filename, str(ebuild)), check=True)
+            else:
+                Path(new_filename).rename(ebuild)
+        else:
+            Path(new_filename).unlink(missing_ok=True)
+        if settings.git_flag:
+            manifest_path = str(Path(search_dir) / cp / 'Manifest')
+            sp.run(('git', 'checkout', manifest_path), check=True)
+    except (sp.CalledProcessError, OSError):
+        log.exception('Error recovering `%s`.', new_filename)
 
 
 def do_main(  # noqa: C901, PLR0912, PLR0915
@@ -541,10 +585,19 @@ def do_main(  # noqa: C901, PLR0912, PLR0915
             # Only update the version if it is not a commit
             if top_hash and old_sha:
                 content = content.replace(old_sha, top_hash)
+                # Also replace the short SHA prefix if the old SHA is a full 40-char hash
+                if len(old_sha) == 40 and len(top_hash) >= 7:  # noqa: PLR2004
+                    content = content.replace(old_sha[:7], top_hash[:7])
             ps_ref = top_hash
             if not is_sha(top_hash) and cp in TAG_NAME_FUNCTIONS:
                 ps_ref = TAG_NAME_FUNCTIONS[cp](top_hash)
             content = process_submodules(cp, ps_ref, content, url)
+            # Replace files.pythonhosted.org hash-based URL paths with new paths
+            if url and 'files.pythonhosted.org/packages/' in url:
+                new_path_dir = urlparse(url).path.rsplit('/', 1)[0]
+                if (m := re.search(r'files\.pythonhosted\.org(/packages/'
+                                   r'[a-f0-9]{2}/[a-f0-9]{2}/[a-f0-9]+)/', content)):
+                    content = content.replace(m.group(1), new_path_dir)
             dn = Path(ebuild).parent
             log.debug('%s -> %s', ebuild, new_filename)
             if settings.keep_old.get(cp, not settings.keep_old_flag):
@@ -588,8 +641,8 @@ def do_main(  # noqa: C901, PLR0912, PLR0915
                 Path(new_filename).write_text(content, encoding='utf-8')
             if not digest_ebuild(new_filename):
                 log.error('Error digesting %s.', new_filename)
+                _recover_ebuild(new_filename, ebuild, cp, search_dir, settings)
                 return
-            # Second pass
             # Update ebuild or download news file
             if cp in settings.yarn_base_packages:
                 update_yarn_ebuild(new_filename, settings.yarn_base_packages[cp], pkg,
@@ -620,6 +673,7 @@ def do_main(  # noqa: C901, PLR0912, PLR0915
                 Path(new_filename).write_text(old_content, encoding='utf-8')
                 if not digest_ebuild(new_filename):
                     log.error('Error digesting %s.', new_filename)
+                    _recover_ebuild(new_filename, ebuild, cp, search_dir, settings)
                     return
             if settings.git_flag and sp.run(
                 ('ebuild', new_filename, 'digest'), check=False).returncode == 0:
