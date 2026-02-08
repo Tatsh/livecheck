@@ -25,6 +25,7 @@ from .settings import (
     TYPE_COMMIT,
     TYPE_DAVINCI,
     TYPE_DIRECTORY,
+    TYPE_IDA_FREE,
     TYPE_LOCATION_CHECKSUM,
     TYPE_METADATA,
     TYPE_NONE,
@@ -71,6 +72,7 @@ from .special.gomodule import (
     remove_gomodule_url,
     update_gomodule_ebuild,
 )
+from .special.ida_free import get_latest_ida_free_package
 from .special.jetbrains import get_latest_jetbrains_package, is_jetbrains, update_jetbrains_ebuild
 from .special.maven import (
     check_maven_requirements,
@@ -343,6 +345,8 @@ def get_props(  # noqa: C901, PLR0912, PLR0914
             last_version = re.sub(r'-r\d+$', '', last_version)
         if settings.type_packages.get(catpkg) == TYPE_DAVINCI:
             last_version = get_latest_davinci_package(pkg)
+        elif settings.type_packages.get(catpkg) == TYPE_IDA_FREE:
+            last_version = get_latest_ida_free_package(match, settings)
         elif settings.type_packages.get(catpkg) == TYPE_METADATA:
             last_version, top_hash, hash_date, url = parse_metadata(str(repo_root), match, settings)
         elif settings.type_packages.get(catpkg) == TYPE_DIRECTORY:
