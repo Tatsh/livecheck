@@ -3049,12 +3049,11 @@ def test_do_main_digest_failure_calls_recover(mocker: MockerFixture, tmp_path: P
 
 
 def test_get_props_type_ida_free_calls_handler(mocker: MockerFixture, fake_repo: Path,
-                                                mock_settings2: Mock) -> None:
+                                               mock_settings2: Mock) -> None:
     """Test that TYPE_IDA_FREE calls get_latest_ida_free_package."""
     from livecheck.settings import TYPE_IDA_FREE
     mock_settings2.type_packages = {'dev-util/ida-free': TYPE_IDA_FREE}
-    mocker.patch('livecheck.main.get_highest_matches',
-                 return_value=['dev-util/ida-free-9.2'])
+    mocker.patch('livecheck.main.get_highest_matches', return_value=['dev-util/ida-free-9.2'])
     mocker.patch('livecheck.main.catpkg_catpkgsplit',
                  return_value=('dev-util/ida-free', 'dev-util', 'ida-free', '9.2'))
     mocker.patch('livecheck.main.get_first_src_uri',

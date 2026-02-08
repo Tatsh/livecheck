@@ -129,8 +129,7 @@ def test_get_latest_ida_free_package_only_three_part_versions(mocker: MockerFixt
     mock_response.text = 'IDA versions here'
     mocker.patch('livecheck.special.ida_free.get_content', return_value=mock_response)
     # Mock re.findall to return versions with 3 parts (simulating edge case)
-    mocker.patch('livecheck.special.ida_free.re.findall',
-                 return_value=['9.0.1', '10.0.2'])
+    mocker.patch('livecheck.special.ida_free.re.findall', return_value=['9.0.1', '10.0.2'])
     mock_settings = mocker.Mock()
 
     result = get_latest_ida_free_package('dev-util/ida-free-9.0', mock_settings)
@@ -147,8 +146,7 @@ def test_get_latest_ida_free_package_value_error_in_conversion(mocker: MockerFix
     mocker.patch('livecheck.special.ida_free.get_content', return_value=mock_response)
     # Mock re.findall to return versions that will cause ValueError
     # Even though regex wouldn't match these, test the defensive code
-    mocker.patch('livecheck.special.ida_free.re.findall',
-                 return_value=['alpha.beta', 'foo.bar'])
+    mocker.patch('livecheck.special.ida_free.re.findall', return_value=['alpha.beta', 'foo.bar'])
     mock_settings = mocker.Mock()
 
     result = get_latest_ida_free_package('dev-util/ida-free-9.0', mock_settings)
