@@ -20,7 +20,7 @@ and this project adheres to
 
 - Only update ebuilds when a package has 2 or more non-9999 versions. #423
 - Filter tags with long unrecognized suffixes (>10 characters) when they have trailing digits. #423
-- Filter vcpkg dependency tags to prevent incorrect version detection for rpcs3. #423
+- Filter `^vcpkg-.*` tags to prevent incorrect version detection for rpcs3. #423
 - Improved version padding to handle shorter versions correctly. #427
 - Enhanced submodule processing to support nested submodules (3-tuple format). #427
 - Better handling of SHA vs COMMIT variable names in ebuilds. #427
@@ -33,7 +33,6 @@ and this project adheres to
 - Fixed ebuild manifest recovery when digest operations fail. #427
 - Fixed vapoursynth version parsing to ignore test tags like `R71-limited-api-test1`. #423
 - Fixed rpcs3 version parsing to ignore vcpkg dependency tags like `vcpkg-v1.0`. #423
-- Fixed ruff linting issues (whitespace, unnecessary list comprehensions).
 
 ## [0.1.4]
 

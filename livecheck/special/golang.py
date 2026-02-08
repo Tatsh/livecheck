@@ -45,7 +45,7 @@ def update_go_ebuild(ebuild: str, version: str, go_sum_uri_template: str) -> Non
     # Filter out /go.mod lines and strip hash part.
     new_ego_sum_lines = []
     for line in r.text.splitlines():
-        # Skip empty lines
+        # Skip empty lines.
         if not line.strip():
             continue
         # Skip /go.mod entries

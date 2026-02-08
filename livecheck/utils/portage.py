@@ -190,7 +190,7 @@ def extract_version(s: str, repo: str) -> str:
     # force convert to string to avoid a int object has no attribute lower
     s = str(s).lower().strip()
 
-    # Filter out tags with known invalid prefixes (e.g., vcpkg- for dependency tags)
+    # Filter out tags with known invalid prefixes.
     invalid_prefixes = ('vcpkg-', 'vcpkg_')
     if any(s.startswith(prefix) for prefix in invalid_prefixes):
         return ''
