@@ -123,8 +123,13 @@ def test_mask_version(cp: str, version: str, restrict_version: str | None, expec
 
 def test_get_highest_matches_basic(mocker: MockerFixture) -> None:
     mock_p = mocker.patch('livecheck.utils.portage.P')
-    mocker.patch('livecheck.utils.portage.catpkg_catpkgsplit',
-                 side_effect=lambda _: ('cat/pkg', 'cat', 'pkg', '1.2.3'))
+
+    def catpkg_side_effect(atom: str) -> tuple[str, str, str, str]:
+        if 'cat/pkg-1.2.3' in atom:
+            return ('cat/pkg', 'cat', 'pkg', '1.2.3')
+        return ('cat/pkg', 'cat', 'pkg', '1.2.2')
+
+    mocker.patch('livecheck.utils.portage.catpkg_catpkgsplit', side_effect=catpkg_side_effect)
     mock_p.xmatch.return_value = ['cat/pkg-1.2.3', 'cat/pkg-1.2.2']
     mock_p.findname2.return_value = ('cat/pkg-1.2.3', '/repo/root')
 
@@ -186,6 +191,87 @@ def test_get_highest_matches_ignores_9999(mocker: MockerFixture) -> None:
     dummy_settings = mocker.Mock()
     result = get_highest_matches(names, repo_root, dummy_settings)
     assert result == []
+
+
+def test_get_highest_matches_single_version_excluded(mocker: MockerFixture) -> None:
+    """Test that packages with only one version are excluded."""
+    mock_p = mocker.patch('livecheck.utils.portage.P')
+    mock_p.xmatch.return_value = ['cat/pkg-1.2.3']
+    mocker.patch('livecheck.utils.portage.catpkg_catpkgsplit',
+                 return_value=('cat/pkg', 'cat', 'pkg', '1.2.3'))
+    mock_p.findname2.return_value = ('cat/pkg-1.2.3', '/repo/root')
+    names = ['cat/pkg']
+    repo_root = Path('/repo/root')
+    dummy_settings = mocker.Mock()
+    dummy_settings.restrict_version = {}
+    result = get_highest_matches(names, repo_root, dummy_settings)
+    assert result == []
+
+
+def test_get_highest_matches_9999_not_counted(mocker: MockerFixture) -> None:
+    """Test that 9999 versions don't count toward the version count."""
+    mock_p = mocker.patch('livecheck.utils.portage.P')
+    mock_p.xmatch.return_value = ['cat/pkg-1.2.3', 'cat/pkg-9999']
+
+    def catpkg_side_effect(atom: str) -> tuple[str, str, str, str]:
+        if '9999' in atom:
+            return ('cat/pkg', 'cat', 'pkg', '9999')
+        return ('cat/pkg', 'cat', 'pkg', '1.2.3')
+
+    mocker.patch('livecheck.utils.portage.catpkg_catpkgsplit', side_effect=catpkg_side_effect)
+    mock_p.findname2.return_value = ('cat/pkg-1.2.3', '/repo/root')
+    names = ['cat/pkg']
+    repo_root = Path('/repo/root')
+    dummy_settings = mocker.Mock()
+    dummy_settings.restrict_version = {}
+    result = get_highest_matches(names, repo_root, dummy_settings)
+    # Should be empty because only 1 non-9999 version exists
+    assert result == []
+
+
+def test_get_highest_matches_multiple_versions_included(mocker: MockerFixture) -> None:
+    """Test that packages with 2+ versions are included."""
+    mock_p = mocker.patch('livecheck.utils.portage.P')
+    mock_p.xmatch.return_value = ['cat/pkg-1.2.3', 'cat/pkg-1.2.2', 'cat/pkg-1.2.1']
+
+    def catpkg_side_effect(atom: str) -> tuple[str, str, str, str]:
+        if '1.2.3' in atom:
+            return ('cat/pkg', 'cat', 'pkg', '1.2.3')
+        if '1.2.2' in atom:
+            return ('cat/pkg', 'cat', 'pkg', '1.2.2')
+        return ('cat/pkg', 'cat', 'pkg', '1.2.1')
+
+    mocker.patch('livecheck.utils.portage.catpkg_catpkgsplit', side_effect=catpkg_side_effect)
+    mock_p.findname2.return_value = ('cat/pkg-1.2.3', '/repo/root')
+    names = ['cat/pkg']
+    repo_root = Path('/repo/root')
+    dummy_settings = mocker.Mock()
+    dummy_settings.restrict_version = {}
+    result = get_highest_matches(names, repo_root, dummy_settings)
+    assert result == ['cat/pkg-1.2.3']
+
+
+def test_get_highest_matches_with_9999_and_multiple_versions(mocker: MockerFixture) -> None:
+    """Test package with multiple non-9999 versions and a 9999 version."""
+    mock_p = mocker.patch('livecheck.utils.portage.P')
+    mock_p.xmatch.return_value = ['cat/pkg-1.2.3', 'cat/pkg-1.2.2', 'cat/pkg-9999']
+
+    def catpkg_side_effect(atom: str) -> tuple[str, str, str, str]:
+        if '9999' in atom:
+            return ('cat/pkg', 'cat', 'pkg', '9999')
+        if '1.2.3' in atom:
+            return ('cat/pkg', 'cat', 'pkg', '1.2.3')
+        return ('cat/pkg', 'cat', 'pkg', '1.2.2')
+
+    mocker.patch('livecheck.utils.portage.catpkg_catpkgsplit', side_effect=catpkg_side_effect)
+    mock_p.findname2.return_value = ('cat/pkg-1.2.3', '/repo/root')
+    names = ['cat/pkg']
+    repo_root = Path('/repo/root')
+    dummy_settings = mocker.Mock()
+    dummy_settings.restrict_version = {}
+    result = get_highest_matches(names, repo_root, dummy_settings)
+    # Should include the package because there are 2 non-9999 versions
+    assert result == ['cat/pkg-1.2.3']
 
 
 def test_catpkgsplit2_valid_atom(mocker: MockerFixture) -> None:
