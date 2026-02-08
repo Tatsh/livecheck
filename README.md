@@ -99,52 +99,6 @@ This package can do automated lookups based on commonly used hosts. Currently:
 This works as long as the version system is usable with Portage's version
 comparison function. For anything else, see [Package configuration](#package-configuration).
 
-## Known Issues with Specific Packages
-
-Some packages in tatsh-overlay are known to produce inaccurate version detection or have tag formats
-that livecheck cannot currently handle. These packages should be excluded when running livecheck
-using the `-e, --exclude` option.
-
-### Packages with Inaccurate Version Detection
-
-The following packages may detect incorrect versions due to non-standard versioning schemes or
-ambiguous release tags:
-
-- `app-emulation/basiliskii`
-- `app-emulation/sheepshaver`
-- `dev-db/prisma-engines`
-- `dev-python/thinc`
-- `dev-qt/qtwebkit`
-- `games-arcade/stepmania`
-- `games-emulation/cemu`
-- `games-emulation/mupen64plus-video-gliden64`
-- `games-emulation/rpcs3`
-- `media-video/vapoursynth`
-
-### Packages with Unusual Tag Formats
-
-The following packages use tag formats that livecheck cannot parse:
-
-- `games-emulation/fuse-libretro`
-- `games-emulation/pcsx-rearmed-libretro`
-
-### Example Usage
-
-To exclude these packages when running livecheck in tatsh-overlay:
-
-```shell
-livecheck -e app-emulation/basiliskii -e app-emulation/sheepshaver \
-  -e dev-db/prisma-engines -e dev-python/thinc -e dev-qt/qtwebkit \
-  -e games-arcade/stepmania -e games-emulation/cemu \
-  -e games-emulation/mupen64plus-video-gliden64 -e games-emulation/rpcs3 \
-  -e media-video/vapoursynth -e games-emulation/fuse-libretro \
-  -e games-emulation/pcsx-rearmed-libretro
-```
-
-Alternatively, these packages can be configured with `"no_auto_update": true` in their respective
-`livecheck.json` files to prevent automatic updates. See
-[Package configuration](#package-configuration) for more details.
-
 ## Package configuration
 
 For packages that will not work with currently heuristic checking, a configuration file named
