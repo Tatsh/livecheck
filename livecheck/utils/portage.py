@@ -23,8 +23,9 @@ __all__ = ('P', 'catpkg_catpkgsplit', 'catpkgsplit2', 'compare_versions', 'fetch
 
 P = portage.db[portage.root]['porttree'].dbapi
 log = logging.getLogger(__name__)
+
+# Minimum number of ebuild versions required to process a package for updates
 MIN_EBUILD_COUNT = 2
-"""Minimum number of ebuild versions required to process a package for updates."""
 
 
 def mask_version(cp: str, version: str, restrict_version: str | None = 'full') -> str:
