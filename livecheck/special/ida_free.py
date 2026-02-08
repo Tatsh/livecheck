@@ -29,10 +29,10 @@ def get_latest_ida_free_package(_ebuild: str, _settings: LivecheckSettings) -> s
     # Extract all "IDA X.Y" version mentions from the page
     versions = re.findall(r'IDA (\d+\.\d+)', r.text)
     if not versions:
-        logger.debug('No IDA versions found in release notes')
+        logger.debug('No IDA versions found in release notes.')
         return ''
 
-    # Convert to comparable tuples and find the max
+    # Convert to comparable tuples and find the max.
     version_tuples = []
     for v in versions:
         parts = v.split('.')
@@ -50,5 +50,5 @@ def get_latest_ida_free_package(_ebuild: str, _settings: LivecheckSettings) -> s
     version_tuples.sort(reverse=True)
     latest_version: str = version_tuples[0][2]
 
-    logger.debug('Latest IDA version found: %s', latest_version)
+    logger.debug('Latest IDA version found: `%s`.', latest_version)
     return latest_version

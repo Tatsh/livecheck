@@ -42,7 +42,7 @@ def update_go_ebuild(ebuild: str, version: str, go_sum_uri_template: str) -> Non
     uri = go_sum_uri_template.replace('@PV@', version).replace('@SHA@', sha)
     if not (r := get_content(uri)):
         return
-    # Filter out /go.mod lines and strip hash part
+    # Filter out /go.mod lines and strip hash part.
     new_ego_sum_lines = []
     for line in r.text.splitlines():
         # Skip empty lines
