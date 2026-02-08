@@ -459,6 +459,10 @@ def str_version(version: str, sha: str) -> str:
 
 DATE_LENGTH_8 = 8
 DATE_LENGTH_6 = 6
+FULL_SHA_LENGTH = 40
+"""Length of a full SHA-1 hash."""
+SHORT_SHA_LENGTH = 7
+"""Length of a short SHA-1 hash."""
 
 
 def replace_date_in_ebuild(ebuild: str, new_date: str, cp: str) -> str:
@@ -537,8 +541,8 @@ def do_main(  # noqa: C901, PLR0912, PLR0914, PLR0915
             return
     if top_hash:
         old_sha = get_old_sha(ebuild, url)
-        if len(old_sha) == 7:  # noqa: PLR2004
-            top_hash = top_hash[:7]
+        if len(old_sha) == SHORT_SHA_LENGTH:
+            top_hash = top_hash[:SHORT_SHA_LENGTH]
         log.debug('Get old_sha = %s', old_sha)
     if not last_version:
         last_version = ebuild_version
@@ -586,8 +590,9 @@ def do_main(  # noqa: C901, PLR0912, PLR0914, PLR0915
             if top_hash and old_sha:
                 content = content.replace(old_sha, top_hash)
                 # Also replace the short SHA prefix if the old SHA is a full 40-char hash
-                if len(old_sha) == 40 and len(top_hash) >= 7:  # noqa: PLR2004
-                    content = content.replace(old_sha[:7], top_hash[:7])
+                if len(old_sha) == FULL_SHA_LENGTH and len(top_hash) >= SHORT_SHA_LENGTH:
+                    content = content.replace(old_sha[:SHORT_SHA_LENGTH],
+                                              top_hash[:SHORT_SHA_LENGTH])
             ps_ref = top_hash
             if not is_sha(top_hash) and cp in TAG_NAME_FUNCTIONS:
                 ps_ref = TAG_NAME_FUNCTIONS[cp](top_hash)
