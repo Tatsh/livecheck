@@ -81,6 +81,8 @@ libera
 libfat
 libjsonnet
 libshared
+libb
+libzrif
 linters
 livecheck
 livechecks
@@ -93,6 +95,7 @@ mypy
 mytree
 namedtuples
 netcore
+nestedsha
 newbeef
 newcafe
 norecursedirs
@@ -115,6 +118,9 @@ pkgs
 platformdirs
 portdir
 porttree
+parentsha
+psvpfsparser
+psvpfstools
 pycache
 pydantic
 pydocstyle
@@ -148,9 +154,11 @@ sphinxcontrib
 spirv
 srcname
 subelem
+submod
 sudachi
 tasksh
 tatsh
+tempy
 testpaths
 toctree
 tomlkit

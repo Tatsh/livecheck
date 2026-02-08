@@ -7,7 +7,7 @@ import subprocess as sp
 
 from defusedxml import ElementTree as ET  # noqa: N817
 from livecheck.main import (
-    _recover_ebuild,
+    _recover_ebuild,  # noqa: PLC2701
     do_main,
     execute_hooks,
     extract_restrict_version,
@@ -2772,19 +2772,18 @@ def test_process_submodules_3tuple_success(mocker: MockerFixture) -> None:
     mocker.patch('livecheck.main.SUBMODULES',
                  {'foo': [('nested/path', 'NESTED_SHA', 'parent/submod')]})
     mock_get_content = mocker.patch('livecheck.main.get_content')
-    parent_response = mocker.Mock(
-        ok=True,
-        json=lambda: {
-            'sha': 'parentsha123',
-            'submodule_git_url': 'https://github.com/other/repo.git',
-        })
+    parent_response = mocker.Mock(ok=True,
+                                  json=lambda: {
+                                      'sha': 'parentsha123',
+                                      'submodule_git_url': 'https://github.com/other/repo.git',
+                                  })
     nested_response = mocker.Mock(ok=True, json=lambda: {'sha': 'nestedsha456'})
     mock_get_content.side_effect = [parent_response, nested_response]
     contents = 'NESTED_SHA="old_sha"\n'
     repo_uri = 'https://api.github.com/repos/org/repo'
     mocker.patch('livecheck.main.urlparse',
-                 side_effect=lambda u: mocker.Mock(
-                     path='/org/repo' if 'org/repo' in u else '/other/repo'))
+                 side_effect=lambda u: mocker.Mock(path='/org/repo'
+                                                   if 'org/repo' in u else '/other/repo'))
     result = process_submodules('foo', 'main', contents, repo_uri)
     assert result == 'NESTED_SHA="nestedsha456"\n'
 

@@ -6,7 +6,7 @@ import operator
 import re as real_re
 
 from livecheck.utils.portage import (
-    _pad_version_components,
+    _pad_version_components,  # noqa: PLC2701
     accept_version,
     catpkg_catpkgsplit,
     catpkgsplit2,

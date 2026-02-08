@@ -518,7 +518,7 @@ def _recover_ebuild(new_filename: str, ebuild: Path, cp: str, search_dir: Path,
         log.exception('Error recovering `%s`.', new_filename)
 
 
-def do_main(  # noqa: C901, PLR0912, PLR0915
+def do_main(  # noqa: C901, PLR0912, PLR0914, PLR0915
         *, cat: str, ebuild_version: str, pkg: str, search_dir: Path, settings: LivecheckSettings,
         last_version: str, top_hash: str, hash_date: str, url: str, hook_dir: Path | None) -> None:
     cp = f'{cat}/{pkg}'
@@ -595,8 +595,9 @@ def do_main(  # noqa: C901, PLR0912, PLR0915
             # Replace files.pythonhosted.org hash-based URL paths with new paths
             if url and 'files.pythonhosted.org/packages/' in url:
                 new_path_dir = urlparse(url).path.rsplit('/', 1)[0]
-                if (m := re.search(r'files\.pythonhosted\.org(/packages/'
-                                   r'[a-f0-9]{2}/[a-f0-9]{2}/[a-f0-9]+)/', content)):
+                if (m := re.search(
+                        r'files\.pythonhosted\.org(/packages/'
+                        r'[a-f0-9]{2}/[a-f0-9]{2}/[a-f0-9]+)/', content)):
                     content = content.replace(m.group(1), new_path_dir)
             dn = Path(ebuild).parent
             log.debug('%s -> %s', ebuild, new_filename)
