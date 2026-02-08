@@ -25,9 +25,12 @@ def test_update_go_ebuild_success(mocker: MockerFixture, ebuild_file: str) -> No
     # Mock get_content to return a fake response with .text attribute
     mock_response = mocker.Mock()
     # Include /go.mod lines which should be filtered out
+    # Also include empty lines which should be skipped
     mock_response.text = ('pkg1 v1.2.3 h1:abc\n'
+                          '\n'  # Empty line
                           'pkg1 v1.2.3/go.mod h1:def\n'
                           'pkg2 v2.3.4 h256:xyz\n'
+                          '   \n'  # Whitespace-only line
                           'pkg2 v2.3.4/go.mod h256:uvw')
     mocker.patch('livecheck.special.golang.get_content', return_value=mock_response)
     update_go_ebuild(ebuild_file, '1.2.3', 'https://example/@PV@/@SHA@/gosum')

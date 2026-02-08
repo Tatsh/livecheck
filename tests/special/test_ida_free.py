@@ -86,3 +86,21 @@ def test_get_latest_ida_free_package_invalid_version_format(mocker: MockerFixtur
 
     # Should get 9.5, ignoring the invalid format
     assert result == '9.5'
+
+
+def test_get_latest_ida_free_package_all_invalid_versions(mocker: MockerFixture) -> None:
+    """Test when all version formats are invalid (non-numeric)."""
+    mock_response = mocker.Mock()
+    mock_response.text = """
+    IDA alpha.beta
+    IDA foo.bar
+    IDA x.y
+    """
+    mocker.patch('livecheck.special.ida_free.get_content', return_value=mock_response)
+    mock_settings = mocker.Mock()
+
+    result = get_latest_ida_free_package('dev-util/ida-free-9.0', mock_settings)
+
+    # Should return empty string when all versions are invalid
+    assert not result
+

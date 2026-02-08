@@ -92,7 +92,7 @@ def test_update_yarn_ebuild_replaces_yarn_pkgs_section(mocker: MockerFixture) ->
     tf_mock.write.assert_any_call('YARN_PKGS=(\n')
     tf_mock.write.assert_any_call(')\n')
     # Check that writelines was called with the package list
-    writelines_calls = [call for call in tf_mock.writelines.call_args_list]
+    writelines_calls = list(tf_mock.writelines.call_args_list)
     assert len(writelines_calls) == 1
     # Convert generator to list to check contents
     written_pkgs = list(writelines_calls[0][0][0])
@@ -187,7 +187,7 @@ def test_update_yarn_ebuild_with_multiple_old_packages(mocker: MockerFixture) ->
 
     # Verify new packages are written exactly once (using writelines)
     write_calls = [call[0][0] for call in tf_mock.write.call_args_list]
-    writelines_calls = [call for call in tf_mock.writelines.call_args_list]
+    writelines_calls = list(tf_mock.writelines.call_args_list)
 
     # Should have writelines called once
     assert len(writelines_calls) == 1
@@ -201,3 +201,31 @@ def test_update_yarn_ebuild_with_multiple_old_packages(mocker: MockerFixture) ->
     assert '\told-pkg-1-0.1.0\n' not in write_calls
     assert '\told-pkg-2-0.2.0\n' not in write_calls
     assert '\told-pkg-3-0.3.0\n' not in write_calls
+
+
+def test_update_yarn_ebuild_with_empty_yarn_pkgs(mocker: MockerFixture, tmp_path: Path) -> None:
+    """Test updating ebuild when YARN_PKGS section is empty."""
+    ebuild = tmp_path / 'test.ebuild'
+    ebuild.write_text('YARN_PKGS=(\n)\nOTHER="value"\n', encoding='utf-8')
+    
+    project_path = tmp_path / 'project'
+    project_path.mkdir()
+    
+    # Mock subprocess calls that yarn_pkgs makes
+    mocker.patch('livecheck.special.yarn.sp.run')
+    mocker.patch('livecheck.special.yarn.json.loads',
+                 return_value={'foo@^1.0.0': {
+                     'version': '1.2.3',
+                     'resolved': 'https://example.com/foo-1.2.3.tgz',
+                     'integrity': 'sha512-...'
+                 }})
+
+    update_yarn_ebuild(str(ebuild), project_path, r'\bfoo\b')
+    
+    content = ebuild.read_text(encoding='utf-8')
+    # Check that packages were written
+    assert 'YARN_PKGS=(' in content
+    assert 'foo-1.2.3' in content
+    assert ')' in content
+
+
