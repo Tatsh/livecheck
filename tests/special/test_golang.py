@@ -24,13 +24,19 @@ def ebuild_file(tmp_path: Path) -> str:
 def test_update_go_ebuild_success(mocker: MockerFixture, ebuild_file: str) -> None:
     # Mock get_content to return a fake response with .text attribute
     mock_response = mocker.Mock()
-    mock_response.text = 'pkg1 v1.2.3 h1:abc\npkg2 v2.3.4 h1:def'
+    # Include /go.mod lines which should be filtered out
+    mock_response.text = ('pkg1 v1.2.3 h1:abc\n'
+                          'pkg1 v1.2.3/go.mod h1:def\n'
+                          'pkg2 v2.3.4 h256:xyz\n'
+                          'pkg2 v2.3.4/go.mod h256:uvw')
     mocker.patch('livecheck.special.golang.get_content', return_value=mock_response)
     update_go_ebuild(ebuild_file, '1.2.3', 'https://example/@PV@/@SHA@/gosum')
     content = Path(ebuild_file).read_text(encoding='utf-8')
     assert 'EGO_SUM=(' in content
     assert '"pkg1 v1.2.3"' in content
     assert '"pkg2 v2.3.4"' in content
+    # /go.mod entries should not be in the output
+    assert '/go.mod' not in content
     assert 'SHA="abcdef123456"' in content
 
 

@@ -42,8 +42,20 @@ def update_go_ebuild(ebuild: str, version: str, go_sum_uri_template: str) -> Non
     uri = go_sum_uri_template.replace('@PV@', version).replace('@SHA@', sha)
     if not (r := get_content(uri)):
         return
-    new_ego_sum_lines = (f'"{line}"'
-                         for line in (re.sub(r' h1\:.*$', '', x) for x in r.text.splitlines()))
+    # Filter out /go.mod lines and strip hash part
+    new_ego_sum_lines = []
+    for line in r.text.splitlines():
+        # Skip empty lines
+        if not line.strip():
+            continue
+        # Skip /go.mod entries
+        if '/go.mod' in line:
+            continue
+        # Remove hash part (e.g., " h1:..." or " h256:...")
+        cleaned = re.sub(r' h\d+:.*$', '', line).strip()
+        if cleaned:
+            new_ego_sum_lines.append(f'"{cleaned}"')
+
     with EbuildTempFile(ebuild) as temp_file, temp_file.open('w', encoding='utf-8') as tf:
         updated = False
         found_closing_bracket = False
