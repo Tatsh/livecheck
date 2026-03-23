@@ -22,9 +22,13 @@ __all__ = ('P', 'catpkg_catpkgsplit', 'catpkgsplit2', 'compare_versions', 'fetch
            'unpack_ebuild')
 
 P = portage.db[portage.root]['porttree'].dbapi
+"""Portage tree database API instance.
+
+:meta hide-value:
+"""
 log = logging.getLogger(__name__)
 
-# Minimum number of ebuild versions required to process a package for updates
+# Minimum number of ebuild versions required to process a package for updates.
 MIN_EBUILD_COUNT = 2
 
 
@@ -38,7 +42,23 @@ def mask_version(cp: str, version: str, restrict_version: str | None = 'full') -
 
 def get_highest_matches(names: Iterable[str], repo_root: Path | None,
                         settings: LivecheckSettings) -> list[str]:
-    """Get the highest matching versions for an iterable of package names."""
+    """
+    Get the highest matching versions for an iterable of package names.
+
+    Parameters
+    ----------
+    names : Iterable[str]
+        Package names to search for.
+    repo_root : Path | None
+        Repository root path to filter matches, or ``None`` to accept any repository.
+    settings : LivecheckSettings
+        Livecheck settings instance.
+
+    Returns
+    -------
+    list[str]
+        List of highest matching package version strings.
+    """
     log.debug('Searching for %s.', ', '.join(names))
     result: dict[str, str] = {}
     version_counts: dict[str, int] = {}
@@ -47,7 +67,7 @@ def get_highest_matches(names: Iterable[str], repo_root: Path | None,
             log.debug('Found no matches with xmatch("match-all").')
             continue
         for m in matches:
-            # Check if the package structure is valid
+            # Check if the package structure is valid.
             try:
                 cp_a, _, _, version = catpkg_catpkgsplit(m)
             except ValueError:
@@ -66,13 +86,13 @@ def get_highest_matches(names: Iterable[str], repo_root: Path | None,
             restrict_version = settings.restrict_version.get(name, 'full')
             cp_mask = mask_version(cp_a, version, restrict_version)
 
-            # Count non-9999 versions for each package
+            # Count non-9999 versions for each package.
             version_counts[cp_mask] = version_counts.get(cp_mask, 0) + 1
 
             if cp_mask not in result or (vercmp(version, result[cp_mask]) or 0) > 0:
                 result[cp_mask] = version
 
-    # Only include packages with 2 or more non-9999 versions
+    # Only include packages with 2 or more non-9999 versions.
     return [
         f'{cp}-{version}' for cp, version in result.items()
         if version_counts.get(cp, 0) >= MIN_EBUILD_COUNT
@@ -80,7 +100,6 @@ def get_highest_matches(names: Iterable[str], repo_root: Path | None,
 
 
 CATPKGSPLIT_SIZE = 4
-"""Size of the tuple returned by :py:func:`catpkgsplit`."""
 
 
 @cache
@@ -116,6 +135,11 @@ def catpkg_catpkgsplit(atom: str) -> tuple[str, str, str, str]:
     """
     Split an atom string into category, package, and version, but also return CP.
 
+    Parameters
+    ----------
+    atom : str
+        Atom string to split.
+
     Returns
     -------
     tuple[str, str, str, str]
@@ -131,7 +155,21 @@ def catpkg_catpkgsplit(atom: str) -> tuple[str, str, str, str]:
 
 
 def get_first_src_uri(match: str, search_dir: Path | None = None) -> str:
-    """Get the first source URI for a match string (passed to :py:func:`P.aux_get`)."""
+    """
+    Get the first source URI for a match string.
+
+    Parameters
+    ----------
+    match : str
+        Match string passed to :py:func:`P.aux_get`.
+    search_dir : Path | None
+        Directory to search in, or ``None`` to use the default.
+
+    Returns
+    -------
+    str
+        The first source URI, or an empty string if none is found.
+    """
     try:
         if (found_uri := next((uri for uri in chain(
                 *(x.split()
@@ -145,25 +183,37 @@ def get_first_src_uri(match: str, search_dir: Path | None = None) -> str:
 
 
 def get_repository_root_if_inside(directory: Path) -> tuple[str, str]:
-    """Get the repository root if the current working directory is inside a repository."""
-    # Get Portage configuration
+    """
+    Get the repository root if the current working directory is inside a repository.
+
+    Parameters
+    ----------
+    directory : Path
+        Directory path to check.
+
+    Returns
+    -------
+    tuple[str, str]
+        Tuple of repository root path and repository name, or empty strings if not found.
+    """
+    # Get Portage configuration.
     settings = portage.config(clone=portage.settings)
 
-    # Get repositories from the settings object
+    # Get repositories from the settings object.
     repos = [*settings['PORTDIR_OVERLAY'].split(), settings['PORTDIR']]
 
-    # Normalize the directory path to check
+    # Normalise the directory path to check.
     directory = directory.resolve(strict=True)
     directory_str = str(directory) + '/'
     selected_repo_root = ''
     selected_repo_name = ''
 
-    # Check each repository
+    # Check each repository.
     for repo_root in repos:
         if Path(repo_root).is_dir():
             repo_root_ = str(Path(repo_root).resolve(strict=True))
-            # Check if the directory is inside the repository root
-            # Select the most specific repository (deepest path)
+            # Check if the directory is inside the repository root.
+            # Select the most specific repository (deepest path).
             if directory_str.startswith(f'{repo_root_}/') and not selected_repo_root:
                 selected_repo_root = repo_root_
                 selected_repo_name = Path(repo_root_).name
@@ -171,7 +221,7 @@ def get_repository_root_if_inside(directory: Path) -> tuple[str, str]:
     if '/local/' in directory_str and '/local/' not in str(selected_repo_root):
         return '', ''
 
-    # Return the most specific repository root, if found
+    # Return the most specific repository root, if found.
     return selected_repo_root, selected_repo_name
 
 
@@ -187,7 +237,7 @@ def remove_initial_match(a: str, b: str) -> str:
 
 
 def extract_version(s: str, repo: str) -> str:
-    # force convert to string to avoid a int object has no attribute lower
+    # Force-convert to string to avoid an int object having no attribute 'lower'.
     s = str(s).lower().strip()
 
     # Filter out tags with known invalid prefixes.
@@ -195,7 +245,7 @@ def extract_version(s: str, repo: str) -> str:
     if any(s.startswith(prefix) for prefix in invalid_prefixes):
         return ''
 
-    # check if first word of s is equal to repo and remove repo from s
+    # Check if the first word of s is equal to repo and remove repo from s.
     s = remove_initial_match(s, repo.lower())
     s.strip()
 
@@ -207,14 +257,40 @@ def extract_version(s: str, repo: str) -> str:
 
 
 def sanitize_version(ver: str, repo: str = '') -> str:
-    """Sanitise a version string."""
+    """
+    Sanitise a version string.
+
+    Parameters
+    ----------
+    ver : str
+        The version string to sanitise.
+    repo : str
+        Repository name used to strip matching prefixes.
+
+    Returns
+    -------
+    str
+        The sanitised version string.
+    """
     ver = extract_version(ver, repo)
     ver = normalize_version(ver)
     return remove_leading_zeros(ver)
 
 
 def remove_leading_zeros(ver: str) -> str:
-    """Check if version has a date string like ``2022.12.26``."""
+    """
+    Remove leading zeros from date-like version components.
+
+    Parameters
+    ----------
+    ver : str
+        The version string to process.
+
+    Returns
+    -------
+    str
+        The version string with leading zeros removed from date-like components.
+    """
     if not re.match(r'\d{4}|\d{2}\.\d{2}\.\d{2}', ver):
         return ver
     if match := re.match(r'(\d+)\.(\d+)\.(\d+)(.*)', ver):
@@ -225,21 +301,21 @@ def remove_leading_zeros(ver: str) -> str:
 
 def normalize_version(ver: str) -> str:
     """
-    Normalize version string to Gentoo Ebuild format.
-
-    See Also
-    --------
-    `Guide <https://devmanual.gentoo.org/ebuild-writing/file-format/ebuild-format.html>`_
+    Normalise a version string to Gentoo ebuild format.
 
     Parameters
     ----------
     ver : str
-        The version string to normalize.
+        The version string to normalise.
 
     Returns
     -------
     str
-        The normalized version string.
+        The normalised version string.
+
+    See Also
+    --------
+    `Guide <https://devmanual.gentoo.org/ebuild-writing/file-format/ebuild-format.html>`_
     """
     i = 0
     sep = '._-'
@@ -286,25 +362,24 @@ def normalize_version(ver: str) -> str:
             return f'{main}_{letters}{digits}'
         return f'{main}_{letters}'
 
-    # Single-letter suffix with no digits -> preserve as lowercase
+    # Single-letter suffix with no digits -> preserve as lowercase.
     if len(letters) == 1 and not digits:
         return f'{main}{letters}'
-    # Discard tags with long unrecognized suffixes (likely test/development tags)
-    # e.g., "limitedapitest1" from "R71-limited-api-test1"
+    # Discard tags with long unrecognised suffixes (likely test/development tags),
+    # e.g. 'limitedapitest1' from 'R71-limited-api-test1'.
     if len(letters) > 10 and digits:  # noqa: PLR2004
         return ''
-    # No recognized suffix
+    # No recognised suffix.
     if digits:
-        # Just attach the digits directly (e.g. "1.2.3" + "4")
+        # Just attach the digits directly (e.g. '1.2.3' + '4').
         return f'{main}{digits}'
-    # If the version ends with a letter like 1.2.20a (and not recognized),
-    # the requirement says "it is preserved" only if it is exactly a single letter.
+    # If the version ends with a letter like 1.2.20a (and not recognised),
+    # the requirement says 'it is preserved' only if it is exactly a single letter.
     # For multi-letter unknown suffix -> discard.
     return main
 
 
 def _pad_version_components(ver1: str, ver2: str) -> tuple[str, str]:
-    """Pad version components with trailing zeros for consistent precision comparison."""
     parts1 = ver1.split('.')
     parts2 = ver2.split('.')
     new_parts1 = list(parts1)
@@ -325,6 +400,13 @@ def compare_versions(old: str, new: str) -> bool:
     Pads version components with trailing zeros to handle cases where upstream considers a version
     like ``0.7`` to be newer than ``0.69``.
 
+    Parameters
+    ----------
+    old : str
+        The old version string.
+    new : str
+        The new version string.
+
     Returns
     -------
     bool
@@ -339,6 +421,11 @@ def get_distdir() -> Path:
     Get the ``DISTDIR`` path from Portage settings.
 
     Falls back to default ``/var/cache/distfiles``.
+
+    Returns
+    -------
+    Path
+        The distfiles directory path.
     """
     settings = portage.config(clone=portage.settings)
     if distdir := settings.get('DISTDIR'):
@@ -347,19 +434,42 @@ def get_distdir() -> Path:
 
 
 def fetch_ebuild(ebuild_path: str) -> bool:
-    """Perform ``ebuild fetch`` operation."""
+    """
+    Perform ``ebuild fetch`` operation.
+
+    Parameters
+    ----------
+    ebuild_path : str
+        Path to the ebuild file.
+
+    Returns
+    -------
+    bool
+        ``True`` if the fetch succeeded.
+    """
     settings = portage.config(clone=portage.settings)
     return bool(portage.doebuild(ebuild_path, 'fetch', settings=settings, tree='porttree') == 0)
 
 
 def digest_ebuild(ebuild_path: str) -> bool:
-    """Perform ``ebuild digest`` operation."""
     settings = portage.config(clone=portage.settings)
     return bool(portage.doebuild(ebuild_path, 'digest', settings=settings, tree='porttree') == 0)
 
 
 def unpack_ebuild(ebuild_path: str) -> str:
-    """Perform ``ebuild unpack`` operation and return the WORKDIR path."""
+    """
+    Perform ``ebuild unpack`` operation and return the ``WORKDIR`` path.
+
+    Parameters
+    ----------
+    ebuild_path : str
+        Path to the ebuild file.
+
+    Returns
+    -------
+    str
+        The ``WORKDIR`` path, or an empty string on failure.
+    """
     settings = portage.config(clone=portage.settings)
 
     if portage.doebuild(ebuild_path, 'clean', settings=settings, tree='porttree') != 0:
@@ -384,9 +494,18 @@ def get_last_version(results: Collection[Mapping[str, str]], repo: str, ebuild: 
     Parameters
     ----------
     results : Collection[Mapping[str, str]]
+        Collection of result mappings containing version information.
     repo : str
+        Repository name.
     ebuild : str
+        Ebuild atom string.
     settings : LivecheckSettings
+        Livecheck settings instance.
+
+    Returns
+    -------
+    dict[str, str]
+        Dictionary with the latest version information, or an empty dictionary if no update found.
     """
     log.debug('Result count: %d', len(results))
 
@@ -407,11 +526,11 @@ def get_last_version(results: Collection[Mapping[str, str]], repo: str, ebuild: 
             log.debug('Convert Tag: %s -> %s', tag, version)
         if not version:
             continue
-        # skip version extraneous without dots, example Post120ToMaster
+        # Skip extraneous version without dots, e.g. Post120ToMaster.
         if ebuild_version.count('.') > 1 and version.count('.') == 0:
             log.debug('Skip version without dots: %s', version)
             continue
-        # Check valid version
+        # Check valid version.
         try:
             _, _, _, _ = catpkg_catpkgsplit(f'{catpkg}-{version}')
         except ValueError:
@@ -433,19 +552,6 @@ def get_last_version(results: Collection[Mapping[str, str]], repo: str, ebuild: 
 
 def accept_version(ebuild_version: str, version: str, catpkg: str,
                    settings: LivecheckSettings) -> bool:
-    """
-    Determine if version is acceptable for the given CP.
-
-    Parameters
-    ----------
-    ebuild_version : str
-        The version of the ebuild.
-    version : str
-        The version to check against the ebuild version.
-    catpkg : str
-        The category/package name in the format 'category/package'.
-    settings : LivecheckSettings
-    """
     stable_version = settings.stable_version.get(catpkg, '')
     if is_version_development(ebuild_version) or settings.is_devel(catpkg) or (
             stable_version and re.match(stable_version, version)):

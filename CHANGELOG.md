@@ -33,6 +33,8 @@ and this project adheres to
 - Fixed ebuild manifest recovery when digest operations fail. #427
 - Fixed vapoursynth version parsing to ignore test tags like `R71-limited-api-test1`. #423
 - Fixed rpcs3 version parsing to ignore vcpkg dependency tags like `vcpkg-v1.0`. #423
+- Fixed docstring section ordering in `livecheck/utils/portage.py` to resolve pydocstyle D420
+  errors where "See Also" appeared before "Parameters" and "Returns" sections.
 
 ## [0.1.4]
 
