@@ -54,13 +54,6 @@ local utils = import 'utils.libjsonnet';
     intro: 'Livecheck is a tool to update Portage ebuilds using upstream information.',
   },
   readthedocs+: {
-    build+: {
-      jobs+: {
-        post_install+: [
-          'VIRTUAL_ENV="$READTHEDOCS_VIRTUALENV_PATH" poetry run pip install git+https://github.com/gentoo/portage.git',
-        ],
-      },
-    },
     sphinx+: {
       fail_on_warning: false,
     },

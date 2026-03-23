@@ -12,7 +12,7 @@ jobs:
             python:
               - '**/*.py'
               - '**/*.pyi'
-              - 'pyproject.toml'
+              - '**/*.toml'
   qa:
     needs: 'changes'
     runs-on: 'ubuntu-latest'
