@@ -40,7 +40,7 @@ It is recommended to use OAuth tokens for both Github and GitLab to avoid rate l
 with the REST API. Use your secret storage to store `github.com`, `bitbucket.org` or `gitlab.com`
 tokens with the `livecheck` user. See [keyring](https://github.com/jaraco/keyring) to manage tokens.
 
-### Example for store credentials
+### Example: storing credentials
 
 ```shell
 secret-tool store --label="Password for 'livecheck' on 'bitbucket.org'" service bitbucket.org username livecheck
