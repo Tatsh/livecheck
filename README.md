@@ -37,8 +37,14 @@ using logic for github, PyPI, PECL or if it is configured in the `livecheck.json
 same package directory. The ebuild is automatically updated if `--auto-update` is passed.
 
 It is recommended to use OAuth tokens for both Github and GitLab to avoid rate limiting problems
-with the REST API. Use your secret storage to store `github.com` or `gitlab.com` tokens with the
-`livecheck` user. See [keyring](https://github.com/jaraco/keyring) to manage tokens.
+with the REST API. Use your secret storage to store `github.com`, `bitbucket.org` or `gitlab.com`
+tokens with the `livecheck` user. See [keyring](https://github.com/jaraco/keyring) to manage tokens.
+
+### Example for store credentials
+
+```shell
+secret-tool store --label="Password for 'livecheck' on 'bitbucket.org'" service bitbucket.org username livecheck
+```
 
 ## Installation
 
