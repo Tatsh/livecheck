@@ -36,6 +36,14 @@ if TYPE_CHECKING:
 CP = 'sys-devel/gcc'
 
 
+def _patch_main_resolved_executables(mocker: MockerFixture) -> None:
+    """Stub PATH resolution so git workflows in do_main need no portage tools."""
+    mocker.patch(
+        'livecheck.main._resolved_executable',
+        side_effect=lambda name: f'/fake/bin/{name}',
+    )
+
+
 def test_replace_date_in_ebuild_full_date() -> None:
     ebuild = '20230101'
     new_date = '20240101'
@@ -353,6 +361,7 @@ def test_do_main_keep_old_true_git_flag_true(mocker: MockerFixture, tmp_path: Pa
     mocker.patch('livecheck.main.Path.read_text', return_value='SHA="1234567"\n')
     mock_write = mocker.patch('livecheck.main.Path.write_text')
     mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    _patch_main_resolved_executables(mocker)
     mocker.patch('livecheck.main.sp.run', return_value=mocker.Mock(returncode=0))
     do_main(cat=cat,
             ebuild_version=ebuild_version,
@@ -401,6 +410,7 @@ def test_do_main_keep_old_true_git_flag_true_rename_failure(mocker: MockerFixtur
     mocker.patch('livecheck.main.Path.read_text', return_value='SHA="1234567"\n')
     mock_log = mocker.patch('livecheck.main.log')
     mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    _patch_main_resolved_executables(mocker)
     mocker.patch('livecheck.main.sp.run',
                  side_effect=sp.CalledProcessError(1, 'git', 'Git command failed'))
     do_main(cat=cat,
@@ -452,6 +462,7 @@ def test_do_main_keep_old_true_git_flag_true_write_text_failure(mocker: MockerFi
     mock_log = mocker.patch('livecheck.main.log')
     mocker.patch('livecheck.main.Path.write_text', side_effect=OSError)
     mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    _patch_main_resolved_executables(mocker)
     mocker.patch('livecheck.main.sp.run', return_value=mocker.Mock(returncode=0))
     do_main(cat=cat,
             ebuild_version=ebuild_version,
@@ -499,6 +510,7 @@ def test_do_main_pkgdev_commit_raises_called_process_error(mocker: MockerFixture
     mocker.patch('livecheck.main.Path.read_text', return_value='SHA="1234567"\n')
     mocker.patch('livecheck.main.Path.write_text')
     mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    _patch_main_resolved_executables(mocker)
 
     def fake_sp_run(args: Any, **kwargs: Any) -> Any:
         exe = str(args[0]).rsplit('/', maxsplit=1)[-1]
