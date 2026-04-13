@@ -13,7 +13,7 @@ from .utils import log_unhandled_commit
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-    from livecheck.settings import LivecheckSettings
+    from livecheck.settings_model import LivecheckSettings
 
 __all__ = ('GITLAB_METADATA', 'get_latest_gitlab', 'get_latest_gitlab_metadata',
            'get_latest_gitlab_package', 'is_gitlab')
@@ -48,7 +48,23 @@ def extract_domain_and_namespace(url: str) -> tuple[str, str, str]:
 
 def get_latest_gitlab_package(url: str, ebuild: str,
                               settings: LivecheckSettings) -> tuple[str, str]:
-    """Get the latest version of a GitLab package."""
+    """
+    Get the latest version of a GitLab package.
+
+    Parameters
+    ----------
+    url : str
+        GitLab project URL.
+    ebuild : str
+        Ebuild atom string.
+    settings : LivecheckSettings
+        Livecheck settings.
+
+    Returns
+    -------
+    tuple[str, str]
+        Latest tag version and commit id, or empty strings if unavailable.
+    """
     domain, path_with_namespace, repo = extract_domain_and_namespace(url)
     encoded_path = quote(path_with_namespace, safe='')
 
@@ -70,7 +86,25 @@ def get_latest_gitlab_package(url: str, ebuild: str,
 
 def get_latest_gitlab(url: str, ebuild: str, settings: LivecheckSettings, *,
                       force_sha: bool) -> tuple[str, str, str]:
-    """Get the latest version of a GitLab package."""
+    """
+    Get the latest version of a GitLab package.
+
+    Parameters
+    ----------
+    url : str
+        GitLab project URL.
+    ebuild : str
+        Ebuild atom string.
+    settings : LivecheckSettings
+        Livecheck settings.
+    force_sha : bool
+        Whether to retain commit hashes when not required.
+
+    Returns
+    -------
+    tuple[str, str, str]
+        Latest version, commit hash, and hash date (date often empty here).
+    """
     last_version = top_hash = hash_date = ''
 
     if is_sha(urlparse(url).path):
@@ -84,12 +118,26 @@ def get_latest_gitlab(url: str, ebuild: str, settings: LivecheckSettings, *,
 
 
 def is_gitlab(url: str) -> bool:
-    """Check if the URL is a GitLab repository."""
+    """
+    Check if the URL is a GitLab repository.
+
+    Returns
+    -------
+    bool
+        Whether the URL identifies a GitLab repository.
+    """
     return bool(extract_domain_and_namespace(url)[0])
 
 
 def get_latest_gitlab_metadata(remote: str, _type: str, ebuild: str,
                                settings: LivecheckSettings) -> tuple[str, str]:
-    """Get the latest version of a GitLab package from metadata."""
+    """
+    Get the latest version of a GitLab package from metadata.
+
+    Returns
+    -------
+    tuple[str, str]
+        Latest version string and associated hash or tag information.
+    """
     uri = GITLAB_HOSTNAMES[_type]
     return get_latest_gitlab_package(f'https://{uri}/{remote}', ebuild, settings)

@@ -1,6 +1,7 @@
 """Maven functions."""
 from __future__ import annotations
 
+from shutil import which
 from typing import TYPE_CHECKING
 import logging
 import subprocess as sp
@@ -18,7 +19,14 @@ log = logging.getLogger(__name__)
 
 
 def remove_maven_url(ebuild_content: str) -> str:
-    """Remove the URL for the Maven dependency tarball from the ebuild content."""
+    """
+    Remove the URL for the Maven dependency tarball from the ebuild content.
+
+    Returns
+    -------
+    str
+        Ebuild text with the Maven tarball URL line removed.
+    """
     return remove_url_ebuild(ebuild_content, '-mvn.tar.xz')
 
 
@@ -29,8 +37,13 @@ def update_maven_ebuild(ebuild: str, path: str | None, fetchlist: Mapping[str, t
     if not maven_path:
         return
 
+    mvn_exe = which('mvn')
+    if not mvn_exe:
+        log.error('mvn is not installed')
+        return
+
     try:
-        sp.run(('mvn', '--batch-mode', '-Dmaven.repo.local=.m2', 'dependency:go-offline',
+        sp.run((mvn_exe, '--batch-mode', '-Dmaven.repo.local=.m2', 'dependency:go-offline',
                 '-Drat.ignoreErrors=true', 'package'),
                cwd=maven_path,
                check=True)
@@ -42,7 +55,14 @@ def update_maven_ebuild(ebuild: str, path: str | None, fetchlist: Mapping[str, t
 
 
 def check_maven_requirements() -> bool:
-    """Check if Maven is installed."""
+    """
+    Check if Maven is installed.
+
+    Returns
+    -------
+    bool
+        ``True`` if ``mvn`` is available, otherwise ``False``.
+    """
     if not check_program('mvn', ['--version']):
         log.error('mvn is not installed')
         return False

@@ -1,9 +1,11 @@
 """Main command."""
 from __future__ import annotations
 
+from functools import cache
 from os import chdir
 from pathlib import Path
 from re import Match
+from shutil import which
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 import logging
@@ -133,8 +135,53 @@ log = logging.getLogger(__name__)
 __all__ = ('main',)
 
 
+@cache
+def _resolved_executable(name: str) -> str:
+    """
+    Resolve an executable name to an absolute path from ``PATH``.
+
+    Parameters
+    ----------
+    name : str
+        Executable basename (for example ``git``).
+
+    Returns
+    -------
+    str
+        Absolute path to the executable.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the executable is not found in ``PATH``.
+    """
+    path = which(name)
+    if path is None:
+        msg = f'{name!r} not found in PATH'
+        raise FileNotFoundError(msg)
+    return path
+
+
 def process_submodules(pkg_name: str, ref: str, contents: str, repo_uri: str) -> str:
-    """Process submodules in the ebuild contents."""
+    """
+    Process submodules in the ebuild contents.
+
+    Parameters
+    ----------
+    pkg_name : str
+        Package name.
+    ref : str
+        Git reference for API requests.
+    contents : str
+        Ebuild file contents.
+    repo_uri : str
+        Upstream repository URI.
+
+    Returns
+    -------
+    str
+        Ebuild contents with submodule SHAs updated where applicable.
+    """
     if pkg_name not in SUBMODULES:
         return contents
     offset_a, offset_b = ((1, 3) if 'api.github.com/repos/' in repo_uri else (0, 2))
@@ -143,7 +190,7 @@ def process_submodules(pkg_name: str, ref: str, contents: str, repo_uri: str) ->
     for item in SUBMODULES[pkg_name]:
         name = item
         if isinstance(item, tuple) and len(item) == 3:  # noqa: PLR2004
-            nested_path, grep_for_var, parent_path = item
+            nested_path, grep_for_var, parent_path = item  # ty: ignore[invalid-assignment]
             grep_for = f'{grep_for_var}="'
             parent_r = get_content(f'https://api.github.com/repos/{repo_root}/contents/'
                                    f'{parent_path}?ref={ref}')
@@ -184,7 +231,25 @@ def log_unhandled_pkg(ebuild: str, src_uri: str) -> None:  # pragma: no cover
 
 def parse_url(src_uri: str, ebuild: str, settings: LivecheckSettings, *,
               force_sha: bool) -> tuple[str, str, str, str]:
-    """Parse a URL and return the last version, top hash, hash date, and URL."""
+    """
+    Parse a URL and return the last version, top hash, hash date, and URL.
+
+    Parameters
+    ----------
+    src_uri : str
+        Source URI to parse.
+    ebuild : str
+        Ebuild atom string for context.
+    settings : LivecheckSettings
+        Livecheck settings.
+    force_sha : bool
+        Whether to retain commit hashes when not required.
+
+    Returns
+    -------
+    tuple[str, str, str, str]
+        Last version, top hash, hash date, and resolved URL.
+    """
     parsed_uri = urlparse(src_uri)
     last_version = top_hash = hash_date = ''
     url = src_uri
@@ -237,7 +302,23 @@ def parse_url(src_uri: str, ebuild: str, settings: LivecheckSettings, *,
 
 def parse_metadata(repo_root: str, ebuild: str,
                    settings: LivecheckSettings) -> tuple[str, str, str, str]:
-    """Parse ``metadata.xml`` for upstream information."""
+    """
+    Parse ``metadata.xml`` for upstream information.
+
+    Parameters
+    ----------
+    repo_root : str
+        Repository root path.
+    ebuild : str
+        Ebuild atom string for context.
+    settings : LivecheckSettings
+        Livecheck settings.
+
+    Returns
+    -------
+    tuple[str, str, str, str]
+        Last version, top hash, hash date, and URL from metadata remotes.
+    """
     catpkg, _, _, _ = catpkg_catpkgsplit(ebuild)
     metadata_file = Path(repo_root) / catpkg / 'metadata.xml'
     if not metadata_file.exists():
@@ -247,7 +328,8 @@ def parse_metadata(repo_root: str, ebuild: str,
     except ET.ParseError:
         log.exception('Error parsing %s.', metadata_file)
         return '', '', '', ''
-    assert root is not None
+    if root is None:
+        return '', '', '', ''
     for upstream in root.findall('upstream'):
         for subelem in upstream:
             last_version = top_hash = hash_date = url = ''
@@ -280,7 +362,19 @@ def parse_metadata(repo_root: str, ebuild: str,
 
 
 def extract_restrict_version(cp: str) -> tuple[str, str]:
-    """Extract the restrict version from a package string."""
+    """
+    Extract the restrict version from a package string.
+
+    Parameters
+    ----------
+    cp : str
+        Category-package string, optionally with slot and restrict syntax.
+
+    Returns
+    -------
+    tuple[str, str]
+        Cleaned package-version string and slot, or the original string and an empty slot.
+    """
     if match := re.match(r'(.*?):(.*):-(.*)', cp):
         package, slot, version = match.groups()
         cleaned_string = f'{package}-{version}'
@@ -427,7 +521,21 @@ def get_props(  # noqa: C901, PLR0912, PLR0914
 
 
 def get_old_sha(ebuild: Path, url: str) -> str:
-    """Get the old SHA from an ebuild file, checking named variables, bare hex strings, and URL."""
+    """
+    Get the old SHA from an ebuild file, checking named variables, bare hex strings, and URL.
+
+    Parameters
+    ----------
+    ebuild : Path
+        Path to the ebuild file.
+    url : str
+        Source URI used to derive a fallback hash from the path segment.
+
+    Returns
+    -------
+    str
+        Commit hash if found, otherwise a hash extracted from the URL tail.
+    """
     sha_pattern = re.compile(r'(SHA|COMMIT|EGIT_COMMIT)=["\']?([a-f0-9]{40})')
     bare_sha_pattern = re.compile(r'\b[a-f0-9]{40}\b')
 
@@ -514,14 +622,14 @@ def _recover_ebuild(new_filename: str, ebuild: Path, cp: str, search_dir: Path,
     try:
         if settings.keep_old.get(cp, not settings.keep_old_flag):
             if settings.git_flag:
-                sp.run(('git', 'mv', new_filename, str(ebuild)), check=True)
+                sp.run((_resolved_executable('git'), 'mv', new_filename, str(ebuild)), check=True)
             else:
                 Path(new_filename).rename(ebuild)
         else:
             Path(new_filename).unlink(missing_ok=True)
         if settings.git_flag:
             manifest_path = str(Path(search_dir) / cp / 'Manifest')
-            sp.run(('git', 'checkout', manifest_path), check=True)
+            sp.run((_resolved_executable('git'), 'checkout', manifest_path), check=True)
     except (sp.CalledProcessError, OSError):
         log.exception('Error recovering `%s`.', new_filename)
 
@@ -613,7 +721,8 @@ def do_main(  # noqa: C901, PLR0912, PLR0914, PLR0915
             if settings.keep_old.get(cp, not settings.keep_old_flag):
                 try:
                     if settings.git_flag:
-                        sp.run(('git', 'mv', str(ebuild), new_filename), check=True)
+                        sp.run((_resolved_executable('git'), 'mv', str(ebuild), new_filename),
+                               check=True)
                     else:
                         ebuild.rename(new_filename)
                 except (sp.CalledProcessError, OSError):
@@ -686,11 +795,15 @@ def do_main(  # noqa: C901, PLR0912, PLR0914, PLR0915
                     _recover_ebuild(new_filename, ebuild, cp, search_dir, settings)
                     return
             if settings.git_flag and sp.run(
-                ('ebuild', new_filename, 'digest'), check=False).returncode == 0:
-                sp.run(('git', 'add', new_filename, str(Path(search_dir) / cp / 'Manifest')),
+                (_resolved_executable('ebuild'), new_filename, 'digest'),
+                    check=False).returncode == 0:
+                sp.run((_resolved_executable('git'), 'add', new_filename,
+                        str(Path(search_dir) / cp / 'Manifest')),
                        check=True)
                 try:
-                    sp.run(('pkgdev', 'commit'), cwd=Path(search_dir) / cp, check=True)
+                    sp.run((_resolved_executable('pkgdev'), 'commit'),
+                           cwd=Path(search_dir) / cp,
+                           check=True)
                 except sp.CalledProcessError:
                     log.exception('Error committing %s.', new_filename)
             execute_hooks(hook_dir, 'post', search_dir, cp, ebuild_version, last_version, old_sha,

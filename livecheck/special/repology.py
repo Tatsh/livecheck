@@ -7,7 +7,7 @@ from livecheck.utils import get_content
 from livecheck.utils.portage import catpkg_catpkgsplit, get_last_version
 
 if TYPE_CHECKING:
-    from livecheck.settings import LivecheckSettings
+    from livecheck.settings_model import LivecheckSettings
 
 __all__ = ('get_latest_repology',)
 
@@ -15,7 +15,14 @@ REPOLOGY_DOWNLOAD_URL = 'https://repology.org/api/v1/project/%s'
 
 
 def get_latest_repology(ebuild: str, settings: LivecheckSettings, package: str = '') -> str:
-    """Get the latest version of a package from Repology."""
+    """
+    Get the latest version of a package from Repology.
+
+    Returns
+    -------
+    str
+        Latest version string from Repology, or an empty string if none.
+    """
     catpkg, _, pkg, _ = catpkg_catpkgsplit(ebuild)
 
     results: list[dict[str, str]] = []

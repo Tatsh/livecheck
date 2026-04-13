@@ -22,7 +22,28 @@ def get_latest_checksum_package(
     headers: dict[str, str] | None = None,
     params: dict[str, str] | None = None,
 ) -> tuple[str, str, str]:
-    """Get the latest version of a package based on its checksum."""
+    """
+    Get the latest version of a package based on its checksum.
+
+    Parameters
+    ----------
+    url : str
+        URL of the distfile to verify.
+    ebuild : str
+        Ebuild atom string.
+    repo_root : str
+        Repository root containing the package ``Manifest``.
+    headers : dict[str, str] | None
+        Optional HTTP headers for fetches.
+    params : dict[str, str] | None
+        Optional query parameters for fetches.
+
+    Returns
+    -------
+    tuple[str, str, str]
+        Current ebuild version, last-modified hint, and URL when checksums differ; otherwise empty
+        strings.
+    """
     catpkg, _, _, version = catpkg_catpkgsplit(ebuild)
     manifest_file = Path(repo_root) / catpkg / 'Manifest'
     bn = Path(url).name
@@ -58,7 +79,28 @@ def get_latest_location_checksum_package(
     headers: dict[str, str] | None = None,
     params: dict[str, str] | None = None,
 ) -> tuple[str, str, str]:
-    """Get the latest version of a package based on Location header and checksum."""
+    """
+    Get the latest version of a package based on Location header and checksum.
+
+    Parameters
+    ----------
+    url : str
+        Initial URL that may redirect.
+    ebuild : str
+        Ebuild atom string.
+    repo_root : str
+        Repository root containing the package ``Manifest``.
+    headers : dict[str, str] | None
+        Optional HTTP headers for fetches.
+    params : dict[str, str] | None
+        Optional query parameters for fetches.
+
+    Returns
+    -------
+    tuple[str, str, str]
+        Version, last-modified hint, and final URL when the redirected distfile differs; otherwise
+        empty strings.
+    """
     # First, follow the redirect to get the Location header
     r = get_content(url, allow_redirects=False, headers=headers, params=params)
 

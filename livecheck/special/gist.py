@@ -19,7 +19,19 @@ def extract_id(url: str) -> str:
 
 
 def get_latest_gist_package(url: str) -> tuple[str, str]:
-    """Get the latest version of a Gist."""
+    """
+    Get the latest version of a Gist.
+
+    Parameters
+    ----------
+    url : str
+        Gist URL.
+
+    Returns
+    -------
+    tuple[str, str]
+        Latest revision identifier and commit date string, or empty strings if unavailable.
+    """
     if not (gist_id := extract_id(url)):
         return '', ''
 
@@ -43,5 +55,17 @@ def get_latest_gist_package(url: str) -> tuple[str, str]:
 
 
 def is_gist(url: str) -> bool:
-    """Check if the URL is to a Gist."""
+    """
+    Check if the URL is to a Gist.
+
+    Parameters
+    ----------
+    url : str
+        URL to inspect.
+
+    Returns
+    -------
+    bool
+        True if the URL matches a Gist host pattern.
+    """
     return bool(extract_id(url))

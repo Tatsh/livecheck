@@ -13,7 +13,7 @@ from .utils import get_archive_extension
 if TYPE_CHECKING:
     from collections.abc import Collection, Mapping
 
-    from livecheck.settings import LivecheckSettings
+    from livecheck.settings_model import LivecheckSettings
 
 __all__ = ('PYPI_METADATA', 'get_latest_pypi_metadata', 'get_latest_pypi_package', 'is_pypi')
 
@@ -47,7 +47,14 @@ def get_url(ext: str, item: Collection[Mapping[str, str]]) -> str:
 
 def get_latest_pypi_package(src_uri: str, ebuild: str,
                             settings: LivecheckSettings) -> tuple[str, str]:
-    """Get the latest version of a PyPI package."""
+    """
+    Get the latest version of a PyPI package.
+
+    Returns
+    -------
+    tuple[str, str]
+        Latest version string and matching source archive URL.
+    """
     project_name = extract_project(src_uri)
     return get_latest_pypi_package2(project_name, src_uri, ebuild, settings)
 
@@ -69,11 +76,39 @@ def get_latest_pypi_package2(project_name: str, src_uri: str, ebuild: str,
 
 
 def is_pypi(url: str) -> bool:
-    """Check if the URL is a PyPI URL."""
+    """
+    Check whether the URL is a PyPI URL.
+
+    Parameters
+    ----------
+    url : str
+        URL to inspect.
+
+    Returns
+    -------
+    bool
+        ``True`` if the URL refers to PyPI, otherwise ``False``.
+    """
     return bool(extract_project(url))
 
 
 def get_latest_pypi_metadata(remote: str, ebuild: str,
                              settings: LivecheckSettings) -> tuple[str, str]:
-    """Get the latest version of a PyPI package."""
+    """
+    Get the latest version of a PyPI package using metadata.
+
+    Parameters
+    ----------
+    remote : str
+        PyPI project name from ebuild metadata.
+    ebuild : str
+        Ebuild content or path context for version selection.
+    settings : LivecheckSettings
+        Livecheck configuration.
+
+    Returns
+    -------
+    tuple[str, str]
+        Latest version string and matching source archive URL.
+    """
     return get_latest_pypi_package2(remote, '', ebuild, settings)

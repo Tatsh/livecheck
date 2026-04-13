@@ -12,7 +12,7 @@ from livecheck.utils import get_content, is_sha
 from livecheck.utils.portage import catpkg_catpkgsplit, get_last_version
 
 if TYPE_CHECKING:
-    from livecheck.settings import LivecheckSettings
+    from livecheck.settings_model import LivecheckSettings
 
 __all__ = ('GITHUB_METADATA', 'get_latest_github', 'get_latest_github_commit',
            'get_latest_github_commit2', 'get_latest_github_metadata', 'get_latest_github_package',
@@ -45,7 +45,23 @@ def extract_owner_repo(url: str) -> tuple[str, str, str]:
 
 def get_latest_github_package(url: str, ebuild: str,
                               settings: LivecheckSettings) -> tuple[str, str]:
-    """Get the latest version of a Github package."""
+    """
+    Get the latest version of a Github package.
+
+    Parameters
+    ----------
+    url : str
+        GitHub-related URL (pages, releases, or API-derived domain).
+    ebuild : str
+        Ebuild atom string.
+    settings : LivecheckSettings
+        Livecheck settings.
+
+    Returns
+    -------
+    tuple[str, str]
+        Latest tag version and resolved commit SHA, or empty strings if unavailable.
+    """
     domain, owner, repo = extract_owner_repo(url)
     url = GITHUB_DOWNLOAD_URL % (domain)
     if not owner or not repo or not (r := get_content(url)):
@@ -90,7 +106,21 @@ def get_latest_github_package(url: str, ebuild: str,
 
 
 def get_latest_github_commit(url: str, branch: str) -> tuple[str, str]:
-    """Get the latest commit hash and date for a Github repository."""
+    """
+    Get the latest commit hash and date for a Github repository.
+
+    Parameters
+    ----------
+    url : str
+        Repository URL in a form understood by :py:func:`extract_owner_repo`.
+    branch : str
+        Branch name.
+
+    Returns
+    -------
+    tuple[str, str]
+        Commit SHA and formatted date string, or empty strings if the API call fails.
+    """
     _, owner, repo = extract_owner_repo(url)
     if not owner or not repo:
         return '', ''
@@ -99,7 +129,23 @@ def get_latest_github_commit(url: str, branch: str) -> tuple[str, str]:
 
 
 def get_latest_github_commit2(owner: str, repo: str, branch: str) -> tuple[str, str]:
-    """Get the latest commit hash and date for a Github repository."""
+    """
+    Get the latest commit hash and date for a Github repository.
+
+    Parameters
+    ----------
+    owner : str
+        Repository owner or organisation.
+    repo : str
+        Repository name.
+    branch : str
+        Branch name.
+
+    Returns
+    -------
+    tuple[str, str]
+        Commit SHA and formatted date string, or empty strings if the API call fails.
+    """
     url = GITHUB_COMMIT_URL % (owner, repo, branch)
     if not (r := get_content(url)):
         return '', ''
@@ -113,7 +159,19 @@ def get_latest_github_commit2(owner: str, repo: str, branch: str) -> tuple[str, 
 
 
 def is_github(url: str) -> bool:
-    """Check if the URL is a Github repository."""
+    """
+    Check if the URL is a Github repository.
+
+    Parameters
+    ----------
+    url : str
+        URL to inspect.
+
+    Returns
+    -------
+    bool
+        True if :py:func:`extract_owner_repo` yields a non-empty domain.
+    """
     return bool(extract_owner_repo(url)[0])
 
 
@@ -138,7 +196,25 @@ def get_branch(url: str, ebuild: str, settings: LivecheckSettings) -> str:
 
 def get_latest_github(url: str, ebuild: str, settings: LivecheckSettings, *,
                       force_sha: bool) -> tuple[str, str, str]:
-    """Get the latest version of a Github package."""
+    """
+    Get the latest version of a Github package.
+
+    Parameters
+    ----------
+    url : str
+        GitHub-related URL.
+    ebuild : str
+        Ebuild atom string.
+    settings : LivecheckSettings
+        Livecheck settings.
+    force_sha : bool
+        Whether to retain commit hashes when not required.
+
+    Returns
+    -------
+    tuple[str, str, str]
+        Latest version, commit hash, and hash date.
+    """
     last_version = top_hash = hash_date = ''
 
     if (branch := get_branch(url, ebuild, settings)):
@@ -154,5 +230,21 @@ def get_latest_github(url: str, ebuild: str, settings: LivecheckSettings, *,
 
 def get_latest_github_metadata(remote: str, ebuild: str,
                                settings: LivecheckSettings) -> tuple[str, str]:
-    """Get the latest version of a Github package from metadata."""
+    """
+    Get the latest version of a Github package from metadata.
+
+    Parameters
+    ----------
+    remote : str
+        ``remote-id`` path from ``metadata.xml``.
+    ebuild : str
+        Ebuild atom string.
+    settings : LivecheckSettings
+        Livecheck settings.
+
+    Returns
+    -------
+    tuple[str, str]
+        Latest tag version and commit SHA.
+    """
     return get_latest_github_package(f'https://github.com/{remote}', ebuild, settings)

@@ -12,7 +12,7 @@ from livecheck.utils.portage import catpkg_catpkgsplit, get_last_version
 from .utils import EbuildTempFile, search_ebuild
 
 if TYPE_CHECKING:
-    from livecheck.settings import LivecheckSettings
+    from livecheck.settings_model import LivecheckSettings
 
 __all__ = ('get_latest_jetbrains_package', 'is_jetbrains', 'update_jetbrains_ebuild')
 
@@ -21,7 +21,21 @@ logger = logging.getLogger(__name__)
 
 
 def get_latest_jetbrains_package(ebuild: str, settings: LivecheckSettings) -> str:
-    """Get the latest version of a JetBrains package."""
+    """
+    Get the latest version of a JetBrains package.
+
+    Parameters
+    ----------
+    ebuild : str
+        Ebuild atom string.
+    settings : LivecheckSettings
+        Livecheck settings.
+
+    Returns
+    -------
+    str
+        Latest Linux release version from the JetBrains product feed, or an empty string.
+    """
     product_name = {
         'phpstorm': 'PhpStorm',
         'pycharm-community': 'PyCharm Community Edition',
@@ -74,5 +88,12 @@ def update_jetbrains_ebuild(ebuild: str) -> None:
 
 
 def is_jetbrains(url: str) -> bool:
-    """Check if the URL is a JetBrains download URL."""
+    """
+    Check if the URL is a JetBrains download URL.
+
+    Returns
+    -------
+    bool
+        Whether the host is ``download.jetbrains.com``.
+    """
     return urlparse(url).netloc == 'download.jetbrains.com'

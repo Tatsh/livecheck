@@ -9,7 +9,7 @@ from livecheck.utils import get_content
 from livecheck.utils.portage import get_last_version
 
 if TYPE_CHECKING:
-    from livecheck.settings import LivecheckSettings
+    from livecheck.settings_model import LivecheckSettings
 
 __all__ = ('METACPAN_METADATA', 'get_latest_metacpan_metadata', 'get_latest_metacpan_package',
            'is_metacpan')
@@ -29,7 +29,14 @@ def extract_perl_package(url: str) -> str:
 
 
 def get_latest_metacpan_package(url: str, ebuild: str, settings: LivecheckSettings) -> str:
-    """Get the latest version of a MetaCPAN package."""
+    """
+    Get the latest version of a MetaCPAN package.
+
+    Returns
+    -------
+    str
+        Latest stable or selected version string, or an empty string if none.
+    """
     package_name = extract_perl_package(url)
     return get_latest_metacpan_package2(package_name, ebuild, settings)
 
@@ -56,10 +63,24 @@ def get_latest_metacpan_package2(package_name: str, ebuild: str,
 
 
 def is_metacpan(url: str) -> bool:
-    """Check if the URL is a MetaCPAN URL."""
+    """
+    Check if the URL is a MetaCPAN URL.
+
+    Returns
+    -------
+    bool
+        Whether the URL points at MetaCPAN or CPAN with a recognisable package path.
+    """
     return bool(extract_perl_package(url))
 
 
 def get_latest_metacpan_metadata(remote: str, ebuild: str, settings: LivecheckSettings) -> str:
-    """Get the latest version of a MetaCPAN package."""
+    """
+    Get the latest version of a MetaCPAN package.
+
+    Returns
+    -------
+    str
+        Latest version string from metadata lookup, or an empty string if none.
+    """
     return get_latest_metacpan_package2(remote, ebuild, settings)

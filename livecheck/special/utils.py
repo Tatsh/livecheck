@@ -21,12 +21,38 @@ logger = logging.getLogger(__name__)
 
 
 def get_project_path(package_name: str) -> Path:
-    """Get the project path for a given package name."""
+    """
+    Get the project cache path for a given package name.
+
+    Parameters
+    ----------
+    package_name : str
+        Package name used as a subdirectory under the cache root.
+
+    Returns
+    -------
+    pathlib.Path
+        Absolute path to the package cache directory.
+    """
     return Path(user_cache_dir('livecheck')) / package_name
 
 
 def remove_url_ebuild(ebuild: str, remove: str) -> str:
-    """Remove URLs from the ebuild content."""
+    """
+    Remove lines that reference a given URL fragment from ebuild content.
+
+    Parameters
+    ----------
+    ebuild : str
+        Full ebuild file text.
+    remove : str
+        Substring identifying URLs to strip.
+
+    Returns
+    -------
+    str
+        Ebuild text with matching URL lines removed or shortened.
+    """
     lines = ebuild.split('\n')
     filtered_lines = []
     for line in lines:
@@ -45,7 +71,23 @@ def remove_url_ebuild(ebuild: str, remove: str) -> str:
 
 
 def search_ebuild(ebuild: str, archive: str, path: str | None = None) -> tuple[str, str]:
-    """Search for an archive in the unpacked ebuild directory."""
+    """
+    Search for an archive file inside an unpacked ebuild tree.
+
+    Parameters
+    ----------
+    ebuild : str
+        Ebuild path or content for :py:func:`~livecheck.utils.portage.unpack_ebuild`.
+    archive : str
+        Archive filename to locate.
+    path : str | None
+        Optional relative directory suffix to match under the temp tree.
+
+    Returns
+    -------
+    tuple[str, str]
+        Directory containing the archive and temp root path, or empty strings if not found.
+    """
     temp_dir = unpack_ebuild(ebuild)
     if not temp_dir:
         logger.warning('Error unpacking the ebuild.')
@@ -69,7 +111,27 @@ def search_ebuild(ebuild: str, archive: str, path: str | None = None) -> tuple[s
 
 def build_compress(temp_dir: str, base_dir: str, directory: str, extension: str,
                    fetchlist: Mapping[str, Collection[str]]) -> bool:
-    """Build dist archive."""
+    """
+    Build a compressed dist archive from vendor sources.
+
+    Parameters
+    ----------
+    temp_dir : str
+        Temporary build root.
+    base_dir : str
+        Base directory containing vendor output.
+    directory : str
+        Vendor subdirectory name under ``base_dir``.
+    extension : str
+        Filename suffix to apply when renaming the archive.
+    fetchlist : Mapping[str, Collection[str]]
+        Map of upstream filenames to mirror lists.
+
+    Returns
+    -------
+    bool
+        ``True`` if the archive was written, otherwise ``False``.
+    """
     vendor_dir = Path(base_dir) / directory
     if not vendor_dir.exists():
         logger.warning('The directory vendor was not created.')
@@ -101,7 +163,19 @@ def build_compress(temp_dir: str, base_dir: str, directory: str, extension: str,
 
 
 def get_archive_extension(filename: str) -> str:
-    """Get archive extension from a filename."""
+    """
+    Detect a known archive extension at the end of a filename.
+
+    Parameters
+    ----------
+    filename : str
+        File or URL basename to inspect.
+
+    Returns
+    -------
+    str
+        Extension including the leading dot, or an empty string if none matched.
+    """
     filename = filename.lower()
     for ext in ('gh.tar.gz', 'tar.gz', 'tar.xz', 'tar.bz2', 'tar.lz', 'tar.zst', 'tc.gz', 'tar.z',
                 'gz', 'xz', 'zip', 'tbz2', 'bz2', 'tbz', 'txz', 'tar', 'tgz', 'rar', '7z'):
@@ -118,7 +192,14 @@ class EbuildTempFile:
         self.temp_file: Path | None = None
 
     def __enter__(self) -> Path:
-        """Create a temporary file."""
+        """
+        Create a temporary file next to the ebuild.
+
+        Returns
+        -------
+        pathlib.Path
+            Path to the writable temporary file.
+        """
         self.temp_file = Path(
             tempfile.NamedTemporaryFile(mode='w',
                                         prefix=self.ebuild.stem,

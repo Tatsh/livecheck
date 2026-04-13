@@ -10,7 +10,7 @@ from livecheck.utils.portage import get_last_version
 from .utils import get_archive_extension, log_unhandled_commit
 
 if TYPE_CHECKING:
-    from livecheck.settings import LivecheckSettings
+    from livecheck.settings_model import LivecheckSettings
 
 __all__ = ('BITBUCKET_METADATA', 'get_latest_bitbucket', 'get_latest_bitbucket_metadata',
            'get_latest_bitbucket_package', 'is_bitbucket')
@@ -37,7 +37,23 @@ def extract_workspace_and_repository(url: str) -> tuple[str, str]:
 
 def get_latest_bitbucket_package(url: str, cpv: str,
                                  settings: LivecheckSettings) -> tuple[str, str]:
-    """Get the latest version of a Bitbucket package."""
+    """
+    Get the latest version of a Bitbucket package.
+
+    Parameters
+    ----------
+    url : str
+        Bitbucket repository URL.
+    cpv : str
+        Category-package-version context for version selection.
+    settings : LivecheckSettings
+        Livecheck settings.
+
+    Returns
+    -------
+    tuple[str, str]
+        Latest version string and commit hash, or empty strings if unavailable.
+    """
     workspace, repository = extract_workspace_and_repository(url)
 
     url = BITBUCKET_TAG_URL % (workspace, repository)
@@ -76,7 +92,25 @@ def get_latest_bitbucket_package(url: str, cpv: str,
 
 def get_latest_bitbucket(url: str, cpv: str, settings: LivecheckSettings, *,
                          force_sha: bool) -> tuple[str, str, str]:
-    """Get the latest version of a Bitbucket package."""
+    """
+    Get the latest version of a Bitbucket package.
+
+    Parameters
+    ----------
+    url : str
+        Bitbucket repository URL.
+    cpv : str
+        Category-package-version context.
+    settings : LivecheckSettings
+        Livecheck settings.
+    force_sha : bool
+        Whether to retain commit hashes when not required.
+
+    Returns
+    -------
+    tuple[str, str, str]
+        Latest version, commit hash, and hash date (date often empty for Bitbucket).
+    """
     last_version = top_hash = hash_date = ''
 
     if is_sha(urlparse(url).path):
@@ -90,11 +124,39 @@ def get_latest_bitbucket(url: str, cpv: str, settings: LivecheckSettings, *,
 
 
 def is_bitbucket(url: str) -> bool:
-    """Check if the URL is a Bitbucket repository."""
+    """
+    Check if the URL is a Bitbucket repository.
+
+    Parameters
+    ----------
+    url : str
+        URL to inspect.
+
+    Returns
+    -------
+    bool
+        True if the host and path look like a Bitbucket project.
+    """
     return bool(extract_workspace_and_repository(url)[0])
 
 
 def get_latest_bitbucket_metadata(remote: str, cpv: str,
                                   settings: LivecheckSettings) -> tuple[str, str]:
-    """Get the latest version of a Bitbucket package from metadata."""
+    """
+    Get the latest version of a Bitbucket package from metadata.
+
+    Parameters
+    ----------
+    remote : str
+        ``remote-id`` value from ``metadata.xml``.
+    cpv : str
+        Category-package-version context.
+    settings : LivecheckSettings
+        Livecheck settings.
+
+    Returns
+    -------
+    tuple[str, str]
+        Latest version string and commit hash.
+    """
     return get_latest_bitbucket_package(f'https://bitbucket.org/{remote}', cpv, settings)

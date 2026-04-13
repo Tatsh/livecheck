@@ -29,7 +29,19 @@ class TextDataResponse:
 
 @cache
 def session_init(module: str) -> requests.Session:
-    """Create a session."""
+    """
+    Create a session.
+
+    Parameters
+    ----------
+    module : str
+        Module name determining default headers and authentication (for example ``github``).
+
+    Returns
+    -------
+    requests.Session
+        Configured HTTP session.
+    """
     session = requests.Session()
     if module == 'github':
         token = get_api_credentials('github.com')
@@ -61,7 +73,29 @@ def get_content(url: str,
                 data: dict[str, str] | None = None,
                 *,
                 allow_redirects: bool = True) -> requests.Response:
-    """"Fetch content from a URL."""
+    """
+    Fetch content from a URL.
+
+    Parameters
+    ----------
+    url : str
+        URL to request.
+    headers : dict[str, str] | None
+        Optional extra HTTP headers.
+    params : dict[str, str] | None
+        Optional query string parameters.
+    method : str
+        HTTP method name (for example ``GET``).
+    data : dict[str, str] | None
+        Optional form body for the request.
+    allow_redirects : bool
+        Whether to follow redirects.
+
+    Returns
+    -------
+    requests.Response
+        Response object, or a synthetic response on failure or unimplemented schemes.
+    """
     parsed_uri = urlparse(url)
     log.debug('Fetching %s', url)
 
@@ -120,7 +154,24 @@ def get_content(url: str,
 def hash_url(url: str,
              headers: dict[str, str] | None = None,
              params: dict[str, str] | None = None) -> tuple[str, str, int]:
-    """Hash the content of a URL using BLAKE2b and SHA-512."""
+    """
+    Hash the content of a URL using BLAKE2b and SHA-512.
+
+    Parameters
+    ----------
+    url : str
+        URL whose body will be hashed.
+    headers : dict[str, str] | None
+        Optional HTTP headers for the GET request.
+    params : dict[str, str] | None
+        Optional query string parameters.
+
+    Returns
+    -------
+    tuple[str, str, int]
+        BLAKE2b hex digest, SHA-512 hex digest, and byte length; or two empty strings and ``0`` on
+        failure.
+    """
     h_blake2b = hashlib.blake2b()
     h_sha512 = hashlib.sha512()
     size = 0
@@ -142,7 +193,23 @@ def hash_url(url: str,
 def get_last_modified(url: str,
                       headers: dict[str, str] | None = None,
                       params: dict[str, str] | None = None) -> str:
-    """Get the last modified date of a URL."""
+    """
+    Get the last modified date of a URL.
+
+    Parameters
+    ----------
+    url : str
+        URL to request with ``HEAD``.
+    headers : dict[str, str] | None
+        Optional HTTP headers.
+    params : dict[str, str] | None
+        Optional query string parameters.
+
+    Returns
+    -------
+    str
+        ``Last-Modified`` as ``YYYYMMDD``, or an empty string if unavailable or on error.
+    """
     try:
         with requests.head(url, headers=headers, params=params, timeout=30) as r:
             r.raise_for_status()

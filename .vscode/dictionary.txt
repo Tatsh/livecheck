@@ -13,6 +13,7 @@ beautifulsoup
 beefcafe
 beefdead
 bitrock
+blackmagic
 bsky
 bsnes
 caplog
@@ -23,6 +24,7 @@ citra
 clion
 commitizen
 conftest
+cooldown
 coveragerc
 coverallsapp
 cpan
@@ -36,13 +38,14 @@ dcoppit
 debugpy
 defusedxml
 distdir
+distfile
 distfiles
 dlmalloc
 dmaven
 docstrings
+doctree
 doctrees
 doebuild
-dorny
 dosbox
 dotize
 dunder
@@ -60,7 +63,7 @@ excinfo
 fetchlist
 fhdk
 findname
-fontawesome
+flathub
 foxundermoon
 functools
 genindex
@@ -76,6 +79,7 @@ intersphinx
 isort
 itertools
 jimevins
+jinja
 jsonnet
 jsonschema
 jssy
@@ -143,6 +147,7 @@ pydantic
 pydocstyle
 pyinstaller
 pylint
+pylock
 pypa
 pypi
 pyproject
@@ -159,6 +164,7 @@ repology
 rstcheck
 rubygems
 schemafile
+sdist
 setattr
 shellcheck
 shellformat
@@ -197,6 +203,7 @@ venv
 vercmp
 virtualenv
 wiswa
+wiswa's
 xbyak
 xemu
 xmatch
@@ -205,4 +212,4 @@ yapfignore
 yarnpkg
 yarnrc
 yuzu
-ångström
+Ångström

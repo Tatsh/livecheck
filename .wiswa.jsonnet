@@ -1,12 +1,15 @@
 local utils = import 'utils.libjsonnet';
 
 {
+  uses_user_defaults: true,
   // Project-specific
   description: 'Tool to update ebuilds.',
   keywords: ['command line', 'ebuild', 'gentoo', 'portage'],
   project_name: 'livecheck',
   version: '0.1.4',
   want_main: true,
+  want_flatpak: true,
+  publishing+: { flathub: 'sh.tat.livecheck' },
   gitignore+: [
     '.history',
     '.idea',
@@ -50,9 +53,6 @@ local utils = import 'utils.libjsonnet';
     },
   },
   security_policy_supported_versions: { '0.1.x': ':white_check_mark:' },
-  copilot: {
-    intro: 'Livecheck is a tool to update Portage ebuilds using upstream information.',
-  },
   readthedocs+: {
     sphinx+: {
       fail_on_warning: false,

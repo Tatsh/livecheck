@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from shutil import copyfile
+from shutil import copyfile, which
 from typing import TYPE_CHECKING, TextIO, TypedDict, cast
 import json
 import logging
@@ -27,6 +27,14 @@ __all__ = ('check_yarn_requirements', 'update_yarn_ebuild')
 logger = logging.getLogger(__name__)
 
 
+def _resolved_executable(name: str) -> str:
+    path = which(name)
+    if path is None:
+        msg = f'{name!r} not found in PATH'
+        raise FileNotFoundError(msg)
+    return path
+
+
 class LockfilePackage(TypedDict):
     dependencies: NotRequired[dict[str, str]]
     integrity: str
@@ -38,16 +46,17 @@ Lockfile = dict[str, LockfilePackage]
 
 
 def create_project(base_package_name: str, yarn_packages: set[str] | None = None) -> Path:
+    yarn_exe = _resolved_executable('yarn')
     path = get_project_path(base_package_name)
-    sp.run(('yarn', 'config', 'set', 'ignore-engines', 'true'),
+    sp.run((yarn_exe, 'config', 'set', 'ignore-engines', 'true'),
            check=True,
            cwd=path,
            stdout=sp.PIPE)
-    sp.run(('yarn', 'add', base_package_name, *tuple(yarn_packages or [])),
+    sp.run((yarn_exe, 'add', base_package_name, *tuple(yarn_packages or [])),
            cwd=path,
            check=True,
            stdout=sp.PIPE)
-    sp.run(('yarn', 'upgrade', '--latest', '--non-interactive'),
+    sp.run((yarn_exe, 'upgrade', '--latest', '--non-interactive'),
            cwd=path,
            check=True,
            stdout=sp.PIPE)
@@ -55,10 +64,11 @@ def create_project(base_package_name: str, yarn_packages: set[str] | None = None
 
 
 def parse_lockfile(project_path: Path) -> Lockfile:
+    node_exe = _resolved_executable('node')
     return cast(
         'Lockfile',
         json.loads(
-            sp.run(('node', '-', '--', str(project_path / 'yarn.lock')),
+            sp.run((node_exe, '-', '--', str(project_path / 'yarn.lock')),
                    input=CONVERSION_CODE,
                    timeout=10,
                    cwd=create_project('@yarnpkg/lockfile'),
@@ -95,7 +105,7 @@ def update_yarn_ebuild(ebuild: str,
     Raises
     ------
     RuntimeError
-        If the ``YARN_PKGS`` section is malformed
+        If the ``YARN_PKGS`` section is malformed.
     """
     project_path = create_project(yarn_base_package, yarn_packages)
     package_re = re.compile(r'^' + re.escape(yarn_base_package) + r'-[0-9]+')
@@ -133,7 +143,14 @@ def update_yarn_ebuild(ebuild: str,
 
 
 def check_yarn_requirements() -> bool:
-    """Check if Yarn and Node are installed."""
+    """
+    Check if Yarn and Node are installed.
+
+    Returns
+    -------
+    bool
+        ``True`` if both ``yarn`` and ``node`` are available, otherwise ``False``.
+    """
     if not check_program('yarn', ['--version']):
         logger.error('yarn is not installed')
         return False

@@ -14,7 +14,19 @@ logger = logging.getLogger(__name__)
 
 @lru_cache
 def handle_glabels(s: str) -> str:
-    """Handle glabels-qt versioning."""
+    """
+    Handle glabels-qt versioning.
+
+    Parameters
+    ----------
+    s : str
+        Input version string.
+
+    Returns
+    -------
+    str
+        Version with a ``3.99_p`` prefix and date suffix from GitHub, or ``s`` if lookup fails.
+    """
     _, hash_date = get_latest_github_commit2('jimevins', 'glabels-qt', 'master')
     if not hash_date:
         return s
@@ -22,12 +34,26 @@ def handle_glabels(s: str) -> str:
 
 
 def handle_re(s: str) -> str:
-    """Handle re3, reVC, and reLCS versioning."""
+    """
+    Handle re3, reVC, and reLCS versioning.
+
+    Returns
+    -------
+    str
+        Version string with the re-prefix removed.
+    """
     return re.sub(r'^re(3|VC|LCS)_v?', '', s)
 
 
 def handle_cython_post_suffix(s: str) -> str:
-    """Handle Cython ``.post`` suffix."""
+    """
+    Handle Cython ``.post`` suffix.
+
+    Returns
+    -------
+    str
+        Version string with ``.post`` normalised to a dot.
+    """
     return s.replace('.post', '.')
 
 
@@ -35,7 +61,14 @@ OUTFOX_MAXSPLIT = 2
 
 
 def handle_outfox(s: str) -> str:
-    """Handle Outfox versioning."""
+    """
+    Handle Outfox versioning.
+
+    Returns
+    -------
+    str
+        Normalised Outfox version string.
+    """
     x = re.split(r'-pre(?:0+)?', s, maxsplit=OUTFOX_MAXSPLIT)
     if len(x) == OUTFOX_MAXSPLIT:
         return f'{x[0]}_p{x[1]}'
@@ -43,12 +76,26 @@ def handle_outfox(s: str) -> str:
 
 
 def handle_outfox_serenity(s: str) -> str:
-    """Handle Outfox Serenity versioning."""
+    """
+    Handle Outfox Serenity versioning.
+
+    Returns
+    -------
+    str
+        Version string with ``s`` replaced by dots.
+    """
     return s.replace('s', '.')
 
 
 def handle_bsnes_hd(s: str) -> str:
-    """Handle bsnes-hd versioning."""
+    """
+    Handle bsnes-hd versioning.
+
+    Returns
+    -------
+    str
+        Dotted beta version derived from the bsnes-hd tag format.
+    """
     logger.debug('handle_bsnes_hd() <- "%s"', s)
     major, minor = assert_not_none(re.match(r'^beta_(\d+)_(\d+(?:h\d+)?)', s)).groups()
     minor = re.sub(r'h\d+', '', minor)
@@ -58,7 +105,14 @@ def handle_bsnes_hd(s: str) -> str:
 
 
 def handle_pl(s: str) -> str:
-    r"""Handle ``-pl\d+`` versioning."""
+    r"""
+    Handle ``-pl\d+`` versioning.
+
+    Returns
+    -------
+    str
+        Dotted version including the patch level, or an empty string if no match.
+    """
     logger.debug('handle_pl() < "%s"', s)
     res = re.match(r'^v?(\d+)\.(\d+)\.(\d+)-pl(\d+)', s)
     if not res:
@@ -75,6 +129,11 @@ def handle_libretro(s: str) -> str:
     Handle libretro date-based versioning with slashes.
 
     Converts tags like "1/1/1" or "12/31/2023" to dotted format "1.1.1" or "12.31.2023".
+
+    Returns
+    -------
+    str
+        Version string with slash separators replaced by dots.
     """
     logger.debug('handle_libretro() <- "%s"', s)
     ret = s.replace('/', '.')

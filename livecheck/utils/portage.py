@@ -14,7 +14,7 @@ import portage
 if TYPE_CHECKING:
     from collections.abc import Collection, Iterable, Mapping
 
-    from livecheck.settings import LivecheckSettings
+    from livecheck.settings_model import LivecheckSettings
 
 __all__ = ('P', 'catpkg_catpkgsplit', 'catpkgsplit2', 'compare_versions', 'fetch_ebuild',
            'get_distdir', 'get_first_src_uri', 'get_highest_matches', 'get_last_version',
@@ -144,9 +144,16 @@ def catpkg_catpkgsplit(atom: str) -> tuple[str, str, str, str]:
     -------
     tuple[str, str, str, str]
         Tuple consisting of CP, category, PN, and PV.
+
+    Raises
+    ------
+    ValueError
+        If the atom has no category after splitting.
     """
     cat, pkg, ebuild_version, revision = catpkgsplit2(atom)
-    assert cat is not None
+    if cat is None:
+        msg = f'Atom missing category: {atom}'
+        raise ValueError(msg)
 
     if revision and revision != 'r0':
         return f'{cat}/{pkg}', cat, pkg, f'{ebuild_version}-{revision}'

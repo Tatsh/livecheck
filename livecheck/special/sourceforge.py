@@ -13,7 +13,7 @@ from livecheck.utils.portage import get_last_version
 from .utils import get_archive_extension
 
 if TYPE_CHECKING:
-    from livecheck.settings import LivecheckSettings
+    from livecheck.settings_model import LivecheckSettings
 
 __all__ = ('SOURCEFORGE_METADATA', 'get_latest_sourceforge_metadata',
            'get_latest_sourceforge_package', 'is_sourceforge')
@@ -38,7 +38,14 @@ def extract_repository(url: str) -> str:
 
 
 def get_latest_sourceforge_package(src_uri: str, ebuild: str, settings: LivecheckSettings) -> str:
-    """Get the latest version of a SourceForge package."""
+    """
+    Get the latest version of a SourceForge package.
+
+    Returns
+    -------
+    str
+        Latest release filename version from the RSS feed, or an empty string if none.
+    """
     repository = extract_repository(src_uri)
     return get_latest_sourceforge_package2(repository, ebuild, settings)
 
@@ -64,10 +71,38 @@ def get_latest_sourceforge_package2(repository: str, ebuild: str,
 
 
 def is_sourceforge(url: str) -> bool:
-    """Check if the URL is a SourceForge repository."""
+    """
+    Check whether the URL refers to a SourceForge repository.
+
+    Parameters
+    ----------
+    url : str
+        URL to inspect.
+
+    Returns
+    -------
+    bool
+        ``True`` if a SourceForge project slug can be extracted, otherwise ``False``.
+    """
     return bool(extract_repository(url))
 
 
 def get_latest_sourceforge_metadata(remote: str, ebuild: str, settings: LivecheckSettings) -> str:
-    """Get the latest version of a SourceForge package using metadata."""
+    """
+    Get the latest version of a SourceForge package using metadata.
+
+    Parameters
+    ----------
+    remote : str
+        SourceForge project slug from ebuild metadata.
+    ebuild : str
+        Ebuild content or path context for version selection.
+    settings : LivecheckSettings
+        Livecheck configuration.
+
+    Returns
+    -------
+    str
+        Latest release version from the RSS feed, or an empty string if none.
+    """
     return get_latest_sourceforge_package2(remote, ebuild, settings)

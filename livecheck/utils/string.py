@@ -18,7 +18,19 @@ RE_NON_SCOPED = r'^([^@\/]+)(?:@([^\/]+))?(\/.*)?$'
 
 @cache
 def dotize(s: str) -> str:
-    """Convert dashes and underscores in a string to full stops."""
+    """
+    Convert dashes and underscores in a string to full stops.
+
+    Parameters
+    ----------
+    s : str
+        Input string.
+
+    Returns
+    -------
+    str
+        String with ``-`` and ``_`` replaced by ``.``.
+    """
     ret = s.replace('-', '.').replace('_', '.')
     log.debug('dotize(): %s -> %s', s, ret)
     return ret
@@ -99,11 +111,35 @@ def parse_npm_package_name(s: str) -> tuple[str, str | None, str | None]:
 
 @cache
 def prefix_v(s: str) -> str:
-    """Prefix a version string with 'v'."""
+    """
+    Prefix a version string with ``v``.
+
+    Parameters
+    ----------
+    s : str
+        Version string without a leading ``v``.
+
+    Returns
+    -------
+    str
+        Version string with a leading ``v``.
+    """
     return f'v{s}'
 
 
 @cache
 def dash_to_underscore(s: str) -> str:
-    """Convert dashes in a string to underscores."""
+    """
+    Convert dashes in a string to underscores.
+
+    Parameters
+    ----------
+    s : str
+        Input string.
+
+    Returns
+    -------
+    str
+        String with ``-`` replaced by ``_``.
+    """
     return s.replace('-', '_')

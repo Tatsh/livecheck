@@ -8,7 +8,7 @@ from livecheck.utils import get_content
 from livecheck.utils.portage import get_last_version
 
 if TYPE_CHECKING:
-    from livecheck.settings import LivecheckSettings
+    from livecheck.settings_model import LivecheckSettings
 
 __all__ = ('get_latest_package', 'is_package')
 
@@ -27,7 +27,14 @@ def extract_project(url: str) -> tuple[str, str]:
 
 
 def get_latest_package(src_uri: str, ebuild: str, settings: LivecheckSettings) -> str:
-    """Get the latest version of an NPM package."""
+    """
+    Get the latest version of an NPM package.
+
+    Returns
+    -------
+    str
+        Latest release tag from the registry, or an empty string if none.
+    """
     domain, project = extract_project(src_uri)
 
     url = PACKAGE_DOWNLOAD_URL % (domain, project)
@@ -44,5 +51,12 @@ def get_latest_package(src_uri: str, ebuild: str, settings: LivecheckSettings) -
 
 
 def is_package(url: str) -> bool:
-    """Check if the URL is an NPM package URL."""
+    """
+    Check if the URL is an NPM package URL.
+
+    Returns
+    -------
+    bool
+        Whether the URL targets an NPM or Yarn registry package.
+    """
     return bool(extract_project(url)[0])

@@ -8,7 +8,7 @@ import re
 from livecheck.utils import get_content
 
 if TYPE_CHECKING:
-    from livecheck.settings import LivecheckSettings
+    from livecheck.settings_model import LivecheckSettings
 
 __all__ = ('get_latest_ida_free_package',)
 
@@ -21,6 +21,18 @@ def get_latest_ida_free_package(_ebuild: str, _settings: LivecheckSettings) -> s
     Get the latest version of IDA Free.
 
     Checks the release notes page for the latest major.minor version.
+
+    Parameters
+    ----------
+    _ebuild : str
+        Unused ebuild atom (kept for handler signature compatibility).
+    _settings : LivecheckSettings
+        Unused livecheck settings (kept for handler signature compatibility).
+
+    Returns
+    -------
+    str
+        Latest ``major.minor`` string from release notes, or an empty string if parsing fails.
     """
     if not (r := get_content(IDA_RELEASE_NOTES_URL)):
         logger.debug('Failed to fetch IDA release notes')

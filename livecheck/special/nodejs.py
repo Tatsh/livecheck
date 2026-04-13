@@ -24,7 +24,14 @@ PACKAGE_MANAGER_COMMANDS: dict[str, tuple[str, ...]] = {
 
 
 def remove_nodejs_url(ebuild_content: str) -> str:
-    """Remove ``node_modules.tar.xz`` line from ebuild."""
+    """
+    Remove ``node_modules.tar.xz`` line from ebuild.
+
+    Returns
+    -------
+    str
+        Ebuild text with the Node modules archive URL line removed.
+    """
     return remove_url_ebuild(ebuild_content, '-node_modules.tar.xz')
 
 
@@ -53,7 +60,14 @@ def update_nodejs_ebuild(ebuild: str,
 
 
 def check_nodejs_requirements(package_manager: str = 'npm') -> bool:
-    """Check if the requested package manager is installed."""
+    """
+    Check if the requested package manager is installed.
+
+    Returns
+    -------
+    bool
+        ``True`` if the package manager executable is available, otherwise ``False``.
+    """
     manager = package_manager.lower()
     command = PACKAGE_MANAGER_COMMANDS.get(manager)
     if not command:

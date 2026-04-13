@@ -13,14 +13,30 @@ from livecheck.utils.portage import get_last_version
 from .utils import get_archive_extension
 
 if TYPE_CHECKING:
-    from livecheck.settings import LivecheckSettings
+    from livecheck.settings_model import LivecheckSettings
 
 __all__ = ('get_latest_directory_package',)
 
 
 def get_latest_directory_package(url: str, ebuild: str,
                                  settings: LivecheckSettings) -> tuple[str, str]:
-    """Get the latest version of a package from a directory listing."""
+    """
+    Get the latest version of a package from a directory listing.
+
+    Parameters
+    ----------
+    url : str
+        URL of a distfile or directory listing.
+    ebuild : str
+        Ebuild atom string.
+    settings : LivecheckSettings
+        Livecheck settings.
+
+    Returns
+    -------
+    tuple[str, str]
+        Latest version string and resolved URL, or empty strings if none found.
+    """
     if m := re.search(r'^(.*?)(?=-\d)', Path(url).name):
         directory = re.sub(r'/[^/]+$', '', url) + '/'
         if not (r := get_content(directory)):

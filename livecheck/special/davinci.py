@@ -9,7 +9,19 @@ DAVINCI_TAG_URL = 'https://www.blackmagicdesign.com/api/support/latest-stable-ve
 
 
 def get_latest_davinci_package(pkg: str) -> str:
-    """Get the latest version of a DaVinci package."""
+    """
+    Get the latest version of a DaVinci package.
+
+    Parameters
+    ----------
+    pkg : str
+        Package key passed to the Blackmagic support API.
+
+    Returns
+    -------
+    str
+        Latest stable version string, or an empty string if the API call fails.
+    """
     url = DAVINCI_TAG_URL % (pkg)
 
     if not (r := get_content(url)):

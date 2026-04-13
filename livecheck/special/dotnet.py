@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from shutil import which
 from typing import TYPE_CHECKING
 import logging
 import re
@@ -21,13 +22,36 @@ log = logging.getLogger(__name__)
 
 
 def dotnet_restore(project_or_solution: str | Path) -> Iterator[str]:
+    """
+    Restore NuGet packages for a project and yield cache-relative package paths.
+
+    Parameters
+    ----------
+    project_or_solution : str | Path
+        Project or solution file passed to ``dotnet restore``.
+
+    Yields
+    ------
+    str
+        Package directory names suitable for ``NUGETS`` entries.
+
+    Raises
+    ------
+    FileNotFoundError
+        If ``dotnet`` or ``find`` is not available on ``PATH``.
+    """
+    dotnet_exe = which('dotnet')
+    find_exe = which('find')
+    if dotnet_exe is None or find_exe is None:
+        msg = 'dotnet and find must be available on PATH'
+        raise FileNotFoundError(msg)
     with tempfile.TemporaryDirectory(prefix='livecheck-dotnet-', ignore_cleanup_errors=True) as td:
-        sp.run(
-            ('dotnet', 'restore', str(project_or_solution), '--force', '-v', 'm', '--packages', td),
-            check=True)
+        sp.run((dotnet_exe, 'restore', str(project_or_solution), '--force', '-v', 'm', '--packages',
+                td),
+               check=True)
         yield from (x for x in (re.sub(f'^{re.escape(td)}/', '', line).replace('/', '@')
-                                for line in sp.run(('find', td, '-maxdepth', '1', '-type', 'd',
-                                                    '-exec', 'find', '{}', '-maxdepth', '1',
+                                for line in sp.run((find_exe, td, '-maxdepth', '1', '-type', 'd',
+                                                    '-exec', find_exe, '{}', '-maxdepth', '1',
                                                     '-type', 'd', ';'),
                                                    check=True,
                                                    text=True,
@@ -111,7 +135,14 @@ def update_dotnet_ebuild(ebuild: str, project_or_solution: str | Path) -> None:
 
 
 def check_dotnet_requirements() -> bool:
-    """Check if dotnet is installed and its version is at least 9.0.0."""
+    """
+    Check if dotnet is installed and its version is at least 9.0.0.
+
+    Returns
+    -------
+    bool
+        ``True`` if ``dotnet`` meets the version requirement, otherwise ``False``.
+    """
     if not check_program('dotnet', ['--version'], '10.0.0'):
         log.error('dotnet is not installed or version is less than 9.0.0.')
         return False

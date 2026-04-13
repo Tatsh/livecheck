@@ -11,7 +11,7 @@ from livecheck.utils import get_content, is_sha
 from livecheck.utils.portage import catpkg_catpkgsplit, get_last_version
 
 if TYPE_CHECKING:
-    from livecheck.settings import LivecheckSettings
+    from livecheck.settings_model import LivecheckSettings
 
 __all__ = ('get_latest_regex_package',)
 
@@ -20,7 +20,25 @@ logger = logging.getLogger(__name__)
 
 def get_latest_regex_package(ebuild: str, url: str, regex: str,
                              settings: LivecheckSettings) -> tuple[str, str, str]:
-    """Get the latest version of a package using a regular expression."""
+    """
+    Get the latest version of a package using a regular expression.
+
+    Parameters
+    ----------
+    ebuild : str
+        Ebuild atom string.
+    url : str
+        URL to fetch and scan.
+    regex : str
+        Regular expression for version or commit extraction.
+    settings : LivecheckSettings
+        Livecheck settings for HTTP behaviour.
+
+    Returns
+    -------
+    tuple[str, str, str]
+        Version or commit hash, optional hash date, and URL.
+    """
     _, _, _, ebuild_version = catpkg_catpkgsplit(ebuild)
 
     # Get custom request parameters from settings
@@ -35,7 +53,7 @@ def get_latest_regex_package(ebuild: str, url: str, regex: str,
         return '', '', ''
 
     results: list[dict[str, str]] = []
-    # Use re.MULTILINE if multiline flag is set
+    # Use re.MULTILINE if multiline flag is set.
     regex_flags = re.MULTILINE if multiline else 0
     for result in re.findall(regex, r.text, flags=regex_flags):
         if is_sha(result) and not results:
@@ -46,8 +64,8 @@ def get_latest_regex_package(ebuild: str, url: str, regex: str,
             except ET.ParseError:
                 logger.debug('Ignoring XML parse error (URL: %s).', url)
                 continue
-            assert updated_el is not None
-            assert updated_el.text is not None
+            if updated_el is None or updated_el.text is None:
+                continue
             if re.search(r'(2[0-9]{7})', ebuild_version):
                 hash_date = updated_el.text.split('T')[0].replace('-', '')
                 logger.debug('Using updated date %s for commit %s.', hash_date, result)
