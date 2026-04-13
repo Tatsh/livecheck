@@ -32,6 +32,8 @@ def test_remove_gomodule_url_no_vendor_line(mocker: MockerFixture) -> None:
 def test_update_gomodule_ebuild_success(mocker: MockerFixture) -> None:
     mock_search = mocker.patch('livecheck.special.gomodule.search_ebuild',
                                return_value=('/some/path', '/tmp/dir'))
+    go_exe = '/usr/bin/go'
+    mocker.patch('livecheck.special.gomodule.which', return_value=go_exe)
     mock_run = mocker.patch('livecheck.special.gomodule.sp.run', return_value=None)
     mock_build = mocker.patch('livecheck.special.gomodule.build_compress')
     ebuild = 'dummy.ebuild'
@@ -39,7 +41,7 @@ def test_update_gomodule_ebuild_success(mocker: MockerFixture) -> None:
     fetchlist = {'foo': ('bar',)}
     update_gomodule_ebuild(ebuild, path, fetchlist)
     mock_search.assert_called_once_with(ebuild, 'go.mod', path)
-    mock_run.assert_called_once_with(('go', 'mod', 'vendor'), cwd='/some/path', check=True)
+    mock_run.assert_called_once_with((go_exe, 'mod', 'vendor'), cwd='/some/path', check=True)
     mock_build.assert_called_once_with('/tmp/dir', '/some/path', 'vendor', '-vendor.tar.xz',
                                        fetchlist)
 
@@ -55,9 +57,23 @@ def test_update_gomodule_ebuild_no_go_mod_path(mocker: MockerFixture) -> None:
     mock_build.assert_not_called()
 
 
+def test_update_gomodule_ebuild_go_not_on_path(mocker: MockerFixture) -> None:
+    mocker.patch('livecheck.special.gomodule.search_ebuild',
+                 return_value=('/some/path', '/tmp/dir'))
+    mocker.patch('livecheck.special.gomodule.which', return_value=None)
+    mock_run = mocker.patch('livecheck.special.gomodule.sp.run')
+    mock_build = mocker.patch('livecheck.special.gomodule.build_compress')
+    mock_logger = mocker.patch('livecheck.special.gomodule.logger')
+    update_gomodule_ebuild('ebuild', '/some/path', {})
+    mock_run.assert_not_called()
+    mock_build.assert_not_called()
+    mock_logger.error.assert_called_once_with('go executable not found in PATH')
+
+
 def test_update_gomodule_ebuild_subprocess_error(mocker: MockerFixture) -> None:
     mock_search = mocker.patch('livecheck.special.gomodule.search_ebuild',
                                return_value=('/some/path', '/tmp/dir'))
+    mocker.patch('livecheck.special.gomodule.which', return_value='/usr/bin/go')
     mock_run = mocker.patch('livecheck.special.gomodule.sp.run',
                             side_effect=sp.CalledProcessError(1, 'go mod vendor'))
     mock_build = mocker.patch('livecheck.special.gomodule.build_compress')

@@ -8,6 +8,7 @@ import subprocess as sp
 from defusedxml import ElementTree as ET  # noqa: N817
 from livecheck.main import (
     _recover_ebuild,  # noqa: PLC2701
+    _resolved_executable,  # noqa: PLC2701
     do_main,
     execute_hooks,
     extract_restrict_version,
@@ -500,7 +501,8 @@ def test_do_main_pkgdev_commit_raises_called_process_error(mocker: MockerFixture
     mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
 
     def fake_sp_run(args: Any, **kwargs: Any) -> Any:
-        if args[0] == 'pkgdev' and args[1] == 'commit':
+        exe = str(args[0]).rsplit('/', maxsplit=1)[-1]
+        if exe == 'pkgdev' and args[1] == 'commit':
             raise sp.CalledProcessError(1, args, 'pkgdev commit failed')
         return mocker.Mock(returncode=0)
 
@@ -1483,6 +1485,20 @@ def test_parse_metadata_cases(attrib_type: str, get_latest_meta_func: str,
 def test_parse_metadata_parse_error(mocker: MockerFixture, tmp_path: Path) -> None:
     mock_et_parse = mocker.patch('livecheck.main.ET.parse')
     mock_et_parse.side_effect = ET.ParseError('Parse error')
+    repo_root = tmp_path
+    cat_dir = tmp_path / 'cat' / 'pkg'
+    cat_dir.mkdir(parents=True)
+    metadata_file = cat_dir / 'metadata.xml'
+    metadata_file.write_text('<pkgmetadata></pkgmetadata>', encoding='utf-8')
+    ebuild = 'cat/pkg-1.0.0'
+    settings = mocker.Mock()
+    result = parse_metadata(str(repo_root), ebuild, settings)
+    assert result == ('', '', '', '')
+
+
+def test_parse_metadata_root_none(mocker: MockerFixture, tmp_path: Path) -> None:
+    mock_et_parse = mocker.patch('livecheck.main.ET.parse')
+    mock_et_parse.return_value.getroot.return_value = None
     repo_root = tmp_path
     cat_dir = tmp_path / 'cat' / 'pkg'
     cat_dir.mkdir(parents=True)
@@ -2823,9 +2839,21 @@ def test_recover_ebuild_git_flag(mocker: MockerFixture, tmp_path: Path) -> None:
     old_ebuild = tmp_path / 'old.ebuild'
     _recover_ebuild('new.ebuild', old_ebuild, 'cat/pkg', tmp_path, settings)
     assert mock_run.call_count == 2
-    mock_run.assert_any_call(('git', 'mv', 'new.ebuild', str(old_ebuild)), check=True)
-    mock_run.assert_any_call(('git', 'checkout', str(tmp_path / 'cat/pkg' / 'Manifest')),
+    mock_run.assert_any_call((mocker.ANY, 'mv', 'new.ebuild', str(old_ebuild)), check=True)
+    mock_run.assert_any_call((mocker.ANY, 'checkout', str(tmp_path / 'cat/pkg' / 'Manifest')),
                              check=True)
+
+
+def test_recover_ebuild_logs_when_git_not_on_path(mocker: MockerFixture, tmp_path: Path) -> None:
+    settings = mocker.MagicMock()
+    settings.keep_old = {'cat/pkg': True}
+    settings.keep_old_flag = False
+    settings.git_flag = True
+    _resolved_executable.cache_clear()
+    mocker.patch('livecheck.main.which', return_value=None)
+    mock_log = mocker.patch('livecheck.main.log')
+    _recover_ebuild('new.ebuild', tmp_path / 'old.ebuild', 'cat/pkg', tmp_path, settings)
+    mock_log.exception.assert_called_once_with('Error recovering `%s`.', 'new.ebuild')
 
 
 def test_recover_ebuild_no_git_flag(mocker: MockerFixture, tmp_path: Path) -> None:

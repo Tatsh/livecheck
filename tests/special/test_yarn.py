@@ -20,18 +20,31 @@ def test_create_project_runs_yarn_commands(mocker: MockerFixture) -> None:
     mock_run = mocker.patch('livecheck.special.yarn.sp.run')
     mock_get_project_path = mocker.patch('livecheck.special.yarn.get_project_path',
                                          return_value=Path('/tmp/project'))
+    mocker.patch('livecheck.special.yarn.which', return_value='/usr/bin/yarn')
     base_package = 'foo'
     yarn_packages = {'bar', 'baz'}
     result = create_project(base_package, yarn_packages)
     assert result == Path('/tmp/project')
     assert mock_get_project_path.call_count == 1
     assert mock_run.call_count == 3
-    assert mock_run.call_args_list[0][0][0][:4] == ('yarn', 'config', 'set', 'ignore-engines')
+    cmd0 = mock_run.call_args_list[0][0][0]
+    assert Path(cmd0[0]).name == 'yarn'
+    assert cmd0[1:4] == ('config', 'set', 'ignore-engines')
     add_args = mock_run.call_args_list[1][0][0]
-    assert add_args[0:2] == ('yarn', 'add')
+    assert Path(add_args[0]).name == 'yarn'
+    assert add_args[1] == 'add'
     assert base_package in add_args
     assert all(pkg in add_args for pkg in yarn_packages)
-    assert mock_run.call_args_list[2][0][0][:2] == ('yarn', 'upgrade')
+    upgrade_args = mock_run.call_args_list[2][0][0]
+    assert Path(upgrade_args[0]).name == 'yarn'
+    assert upgrade_args[1] == 'upgrade'
+
+
+def test_create_project_raises_when_yarn_missing(mocker: MockerFixture) -> None:
+    mocker.patch('livecheck.special.yarn.get_project_path', return_value=Path('/tmp/project'))
+    mocker.patch('livecheck.special.yarn.which', return_value=None)
+    with pytest.raises(FileNotFoundError, match="'yarn' not found in PATH"):
+        create_project('foo')
 
 
 def test_yarn_pkgs_returns_expected_packages(mocker: MockerFixture) -> None:

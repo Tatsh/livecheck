@@ -43,6 +43,20 @@ def test_get_latest_regex_package_commit_hash_parse_error(mocker: MockerFixture)
     assert result == ('', '', '')
 
 
+def test_get_latest_regex_package_commit_missing_updated_element(mocker: MockerFixture) -> None:
+    mocker.patch('livecheck.special.regex.catpkg_catpkgsplit',
+                 return_value=('cat', 'pkg', '', '20240601'))
+    mock_response = mocker.Mock()
+    mock_response.text = '<feed>abc123</feed>'
+    mocker.patch('livecheck.special.regex.get_content', return_value=mock_response)
+    mocker.patch('livecheck.special.regex.is_sha', return_value=True)
+    mocker.patch('livecheck.special.regex.ET.fromstring',
+                 return_value=mocker.Mock(find=mocker.Mock(return_value=None)))
+    result = get_latest_regex_package('cat/pkg-20240601', 'http://example.com', r'(abc123)',
+                                      mocker.Mock())
+    assert result == ('', '', '')
+
+
 def test_get_latest_regex_package_commit_invalid_date(mocker: MockerFixture) -> None:
     mocker.patch('livecheck.special.regex.catpkg_catpkgsplit',
                  return_value=('cat', 'pkg', '', '202'))

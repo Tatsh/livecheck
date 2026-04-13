@@ -350,7 +350,7 @@ def test_catpkg_catpkgsplit_category_none(mocker: MockerFixture) -> None:
     mock_catpkgsplit2 = mocker.patch('livecheck.utils.portage.catpkgsplit2')
     mock_catpkgsplit2.return_value = (None, 'pkg', '1.2.3', 'r0')
     catpkg_catpkgsplit.cache_clear()
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError, match='Atom missing category'):
         catpkg_catpkgsplit('pkg-1.2.3')
 
 

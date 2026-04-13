@@ -40,6 +40,7 @@ def _get_fake_temp_dir(path: str) -> Any:
 def test_dotnet_restore_yields_expected_packages(mocker: MockerFixture, tmp_path: Path) -> None:
     mocker.patch('livecheck.special.dotnet.tempfile.TemporaryDirectory',
                  _get_fake_temp_dir(str(tmp_path)))
+    mocker.patch('livecheck.special.dotnet.which', side_effect=lambda n: f'/bin/{n}')
     mock_run = mocker.patch('livecheck.special.dotnet.sp.run')
     find_output = (f'{tmp_path}/Newtonsoft.Json@13.0.1\n'
                    f'{tmp_path}/SomeOther.Package@2.1.0\n'
@@ -48,9 +49,9 @@ def test_dotnet_restore_yields_expected_packages(mocker: MockerFixture, tmp_path
                    f'{tmp_path}/NotAPackage\n')
 
     def run_side_effect(args: list[str], **kwargs: Any) -> Any:
-        if args[0] == 'dotnet':
+        if args[0] == '/bin/dotnet':
             return mocker.Mock()
-        if args[0] == 'find':
+        if args[0] == '/bin/find':
             return mocker.Mock(stdout=find_output)
         raise ValueError
 
@@ -65,15 +66,16 @@ def test_dotnet_restore_yields_expected_packages(mocker: MockerFixture, tmp_path
 def test_dotnet_restore_filters_correctly(mocker: MockerFixture, tmp_path: Path) -> None:
     mocker.patch('livecheck.special.dotnet.tempfile.TemporaryDirectory',
                  _get_fake_temp_dir(str(tmp_path)))
+    mocker.patch('livecheck.special.dotnet.which', side_effect=lambda n: f'/bin/{n}')
     mock_run = mocker.patch('livecheck.special.dotnet.sp.run')
     find_output = (f'{tmp_path}/microsoft.netcore.app.ref@9.0.0\n'
                    f'{tmp_path}/runtime.win@8.0.0\n'
                    f'{tmp_path}/Valid.Package@1.2.3\n')
 
     def run_side_effect(args: Any, **kwargs: Any) -> Any:
-        if args[0] == 'dotnet':
+        if args[0] == '/bin/dotnet':
             return mocker.Mock()
-        if args[0] == 'find':
+        if args[0] == '/bin/find':
             return mocker.Mock(stdout=find_output)
         return None
 
@@ -85,13 +87,14 @@ def test_dotnet_restore_filters_correctly(mocker: MockerFixture, tmp_path: Path)
 
 
 def test_dotnet_restore_handles_no_packages(mocker: MockerFixture, tmp_path: Path) -> None:
-    mock_run = mocker.patch('subprocess.run')
+    mocker.patch('livecheck.special.dotnet.which', side_effect=lambda n: f'/bin/{n}')
+    mock_run = mocker.patch('livecheck.special.dotnet.sp.run')
     find_output = ''
 
     def run_side_effect(args: Any, **kwargs: Any) -> Any:
-        if args[0] == 'dotnet':
+        if args[0] == '/bin/dotnet':
             return mocker.Mock()
-        if args[0] == 'find':
+        if args[0] == '/bin/find':
             return mocker.Mock(stdout=find_output)
         return None
 
@@ -103,19 +106,29 @@ def test_dotnet_restore_handles_no_packages(mocker: MockerFixture, tmp_path: Pat
 
 
 def test_dotnet_restore_raises_on_dotnet_failure(mocker: MockerFixture, tmp_path: Path) -> None:
-    # Simulate dotnet restore failing
+    mocker.patch('livecheck.special.dotnet.which', side_effect=lambda n: f'/bin/{n}')
+
     def run_side_effect(args: Any, **kwargs: Any) -> Any:
-        if args[0] == 'dotnet':
+        if args[0] == '/bin/dotnet':
             msg = 'dotnet restore failed'
             raise RuntimeError(msg)
-        if args[0] == 'find':
+        if args[0] == '/bin/find':
             return mocker.Mock(stdout='')
         return None
 
-    mocker.patch('subprocess.run', side_effect=run_side_effect)
+    mocker.patch('livecheck.special.dotnet.sp.run', side_effect=run_side_effect)
     project_file = tmp_path / 'proj.csproj'
     project_file.write_text('<Project></Project>')
     with pytest.raises(RuntimeError):
+        list(dotnet_restore(project_file))
+
+
+def test_dotnet_restore_raises_when_dotnet_or_find_missing(mocker: MockerFixture,
+                                                           tmp_path: Path) -> None:
+    mocker.patch('livecheck.special.dotnet.which', return_value=None)
+    project_file = tmp_path / 'proj.csproj'
+    project_file.write_text('<Project></Project>')
+    with pytest.raises(FileNotFoundError, match='dotnet and find must be available on PATH'):
         list(dotnet_restore(project_file))
 
 

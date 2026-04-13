@@ -29,6 +29,19 @@ def test_remove_maven_url_returns_expected_value(mocker: MockerFixture) -> None:
     assert remove_maven_url('dummy') == expected
 
 
+def test_update_maven_ebuild_mvn_not_on_path(mocker: MockerFixture) -> None:
+    mock_search_ebuild = mocker.patch('livecheck.special.maven.search_ebuild')
+    mock_search_ebuild.return_value = ('/tmp/maven', '/tmp/temp')
+    mocker.patch('livecheck.special.maven.which', return_value=None)
+    mock_sp_run = mocker.patch('livecheck.special.maven.sp.run')
+    mock_build_compress = mocker.patch('livecheck.special.maven.build_compress')
+    mock_log = mocker.patch('livecheck.special.maven.log')
+    update_maven_ebuild('ebuild', 'path', {})
+    mock_sp_run.assert_not_called()
+    mock_build_compress.assert_not_called()
+    mock_log.error.assert_called_once_with('mvn is not installed')
+
+
 def test_update_maven_ebuild_no_maven_path(mocker: MockerFixture) -> None:
     mock_search_ebuild = mocker.patch('livecheck.special.maven.search_ebuild')
     mock_search_ebuild.return_value = (None, None)
@@ -45,6 +58,8 @@ def test_update_maven_ebuild_success(mocker: MockerFixture) -> None:
     maven_path = '/tmp/maven'
     temp_dir = '/tmp/temp'
     mock_search_ebuild.return_value = (maven_path, temp_dir)
+    mvn_exe = '/usr/bin/mvn'
+    mocker.patch('livecheck.special.maven.which', return_value=mvn_exe)
     mock_sp_run = mocker.patch('livecheck.special.maven.sp.run')
     mock_build_compress = mocker.patch('livecheck.special.maven.build_compress')
 
@@ -52,7 +67,7 @@ def test_update_maven_ebuild_success(mocker: MockerFixture) -> None:
     update_maven_ebuild('ebuild', 'path', fetchlist)
 
     mock_sp_run.assert_called_once_with(
-        ('mvn', '--batch-mode', '-Dmaven.repo.local=.m2', 'dependency:go-offline',
+        (mvn_exe, '--batch-mode', '-Dmaven.repo.local=.m2', 'dependency:go-offline',
          '-Drat.ignoreErrors=true', 'package'),
         cwd=maven_path,
         check=True,
@@ -66,6 +81,7 @@ def test_update_maven_ebuild_sp_run_raises(mocker: MockerFixture) -> None:
     maven_path = '/tmp/maven'
     temp_dir = '/tmp/temp'
     mock_search_ebuild.return_value = (maven_path, temp_dir)
+    mocker.patch('livecheck.special.maven.which', return_value='/usr/bin/mvn')
     mock_sp_run = mocker.patch('livecheck.special.maven.sp.run')
     mock_sp_run.side_effect = __import__('subprocess').CalledProcessError(1, 'mvn')
     mock_build_compress = mocker.patch('livecheck.special.maven.build_compress')

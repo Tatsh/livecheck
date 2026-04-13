@@ -28,6 +28,19 @@ def test_remove_composer_url_returns_expected_value(mocker: MockerFixture) -> No
     assert remove_composer_url('dummy') == expected
 
 
+def test_update_composer_ebuild_composer_not_on_path(mocker: MockerFixture) -> None:
+    mock_search_ebuild = mocker.patch('livecheck.special.composer.search_ebuild')
+    mock_search_ebuild.return_value = ('/tmp/composer', '/tmp/temp')
+    mocker.patch('livecheck.special.composer.which', return_value=None)
+    mock_sp_run = mocker.patch('livecheck.special.composer.sp.run')
+    mock_build_compress = mocker.patch('livecheck.special.composer.build_compress')
+    mock_log = mocker.patch('livecheck.special.composer.log')
+    update_composer_ebuild('ebuild', 'path', {})
+    mock_sp_run.assert_not_called()
+    mock_build_compress.assert_not_called()
+    mock_log.error.assert_called_once_with('composer executable not found in PATH')
+
+
 def test_update_composer_ebuild_no_composer_path(mocker: MockerFixture) -> None:
     mock_search_ebuild = mocker.patch('livecheck.special.composer.search_ebuild')
     mock_search_ebuild.return_value = (None, None)
@@ -44,15 +57,18 @@ def test_update_composer_ebuild_success(mocker: MockerFixture) -> None:
     composer_path = '/tmp/composer'
     temp_dir = '/tmp/temp'
     mock_search_ebuild.return_value = (composer_path, temp_dir)
+    composer_exe = '/usr/bin/composer'
+    mocker.patch('livecheck.special.composer.which', return_value=composer_exe)
     mock_sp_run = mocker.patch('livecheck.special.composer.sp.run')
     mock_build_compress = mocker.patch('livecheck.special.composer.build_compress')
 
     fetchlist = {'foo': ('bar',)}
     update_composer_ebuild('ebuild', 'path', fetchlist)
 
-    mock_sp_run.assert_called_once_with(('composer', '--no-interaction', '--no-scripts', 'install'),
-                                        cwd=composer_path,
-                                        check=True)
+    mock_sp_run.assert_called_once_with(
+        (composer_exe, '--no-interaction', '--no-scripts', 'install'),
+        cwd=composer_path,
+        check=True)
     mock_build_compress.assert_called_once_with(temp_dir, composer_path, 'vendor', '-vendor.tar.xz',
                                                 fetchlist)
 
@@ -62,6 +78,7 @@ def test_update_composer_ebuild_sp_run_raises(mocker: MockerFixture) -> None:
     composer_path = '/tmp/composer'
     temp_dir = '/tmp/temp'
     mock_search_ebuild.return_value = (composer_path, temp_dir)
+    mocker.patch('livecheck.special.composer.which', return_value='/usr/bin/composer')
     mock_sp_run = mocker.patch('livecheck.special.composer.sp.run')
     mock_sp_run.side_effect = __import__('subprocess').CalledProcessError(1, 'composer')
     mock_build_compress = mocker.patch('livecheck.special.composer.build_compress')
