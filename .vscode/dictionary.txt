@@ -1,4 +1,5 @@
 anchore
+Ångström
 appdir
 appimage
 appinfo
@@ -56,6 +57,7 @@ eclass
 eeyore
 egit
 elif
+esac
 esbenp
 esbonio
 eselect
@@ -161,6 +163,7 @@ readlink
 referer
 regen
 repology
+ripgreprc
 rstcheck
 rubygems
 schemafile
@@ -193,6 +196,7 @@ toctree
 tomlkit
 tomllib
 tomlq
+tostring
 tryfirst
 tsschecker
 ubyte
@@ -212,4 +216,3 @@ yapfignore
 yarnpkg
 yarnrc
 yuzu
-Ångström
