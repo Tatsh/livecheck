@@ -24,6 +24,11 @@ and this project adheres to
 - Improved version padding to handle shorter versions correctly. #427
 - Enhanced submodule processing to support nested submodules (3-tuple format). #427
 - Better handling of SHA vs COMMIT variable names in ebuilds. #427
+- Migrated the HTTP stack from `requests` to `niquests` with async sessions, SQLite-backed caching,
+  and a shared concurrency semaphore. The GitHub session honours `retry-after`,
+  `x-ratelimit-remaining`/`x-ratelimit-reset`, and 403 rate-limit bodies.
+- Ebuild file I/O and portage metadata calls (`aux_get`, `xmatch`, `getFetchMap`) now run through
+  async helpers so heuristic checks no longer block the event loop.
 
 ### Fixed
 
@@ -35,6 +40,8 @@ and this project adheres to
 - Fixed rpcs3 version parsing to ignore vcpkg dependency tags like `vcpkg-v1.0`. #423
 - Fixed docstring section ordering in `livecheck/utils/portage.py` to resolve pydocstyle D420
   errors where "See Also" appeared before "Parameters" and "Returns" sections.
+- Closed the temporary file descriptor in `EbuildTempFile` explicitly rather than relying on
+  garbage collection to release it.
 
 ## [0.1.4]
 
