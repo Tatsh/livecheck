@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-import subprocess as sp
+from unittest.mock import AsyncMock
 
 from livecheck.special.gomodule import remove_gomodule_url, update_gomodule_ebuild
+import pytest
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
@@ -29,57 +30,90 @@ def test_remove_gomodule_url_no_vendor_line(mocker: MockerFixture) -> None:
     assert result == ebuild_content
 
 
-def test_update_gomodule_ebuild_success(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_update_gomodule_ebuild_success(mocker: MockerFixture) -> None:
     mock_search = mocker.patch('livecheck.special.gomodule.search_ebuild',
+                               new_callable=AsyncMock,
                                return_value=('/some/path', '/tmp/dir'))
     go_exe = '/usr/bin/go'
     mocker.patch('livecheck.special.gomodule.which', return_value=go_exe)
-    mock_run = mocker.patch('livecheck.special.gomodule.sp.run', return_value=None)
-    mock_build = mocker.patch('livecheck.special.gomodule.build_compress')
+
+    mock_proc = mocker.MagicMock()
+    mock_proc.wait = AsyncMock(return_value=0)
+    mocker.patch('livecheck.special.gomodule.asyncio.create_subprocess_exec',
+                 new_callable=AsyncMock,
+                 return_value=mock_proc)
+    mock_build = mocker.patch('livecheck.special.gomodule.build_compress', new_callable=AsyncMock)
+
     ebuild = 'dummy.ebuild'
     path = '/some/path'
     fetchlist = {'foo': ('bar',)}
-    update_gomodule_ebuild(ebuild, path, fetchlist)
+    await update_gomodule_ebuild(ebuild, path, fetchlist)
     mock_search.assert_called_once_with(ebuild, 'go.mod', path)
-    mock_run.assert_called_once_with((go_exe, 'mod', 'vendor'), cwd='/some/path', check=True)
     mock_build.assert_called_once_with('/tmp/dir', '/some/path', 'vendor', '-vendor.tar.xz',
                                        fetchlist)
 
 
-def test_update_gomodule_ebuild_no_go_mod_path(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_update_gomodule_ebuild_no_go_mod_path(mocker: MockerFixture) -> None:
     mock_search = mocker.patch('livecheck.special.gomodule.search_ebuild',
+                               new_callable=AsyncMock,
                                return_value=(None, None))
-    mock_run = mocker.patch('livecheck.special.gomodule.sp.run')
-    mock_build = mocker.patch('livecheck.special.gomodule.build_compress')
-    update_gomodule_ebuild('ebuild', None, {})
+    mock_create = mocker.patch('livecheck.special.gomodule.asyncio.create_subprocess_exec',
+                               new_callable=AsyncMock)
+    mock_build = mocker.patch('livecheck.special.gomodule.build_compress', new_callable=AsyncMock)
+    await update_gomodule_ebuild('ebuild', None, {})
     mock_search.assert_called_once()
-    mock_run.assert_not_called()
+    mock_create.assert_not_called()
     mock_build.assert_not_called()
 
 
-def test_update_gomodule_ebuild_go_not_on_path(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_update_gomodule_ebuild_go_not_on_path(mocker: MockerFixture) -> None:
     mocker.patch('livecheck.special.gomodule.search_ebuild',
+                 new_callable=AsyncMock,
                  return_value=('/some/path', '/tmp/dir'))
     mocker.patch('livecheck.special.gomodule.which', return_value=None)
-    mock_run = mocker.patch('livecheck.special.gomodule.sp.run')
-    mock_build = mocker.patch('livecheck.special.gomodule.build_compress')
+    mock_create = mocker.patch('livecheck.special.gomodule.asyncio.create_subprocess_exec',
+                               new_callable=AsyncMock)
+    mock_build = mocker.patch('livecheck.special.gomodule.build_compress', new_callable=AsyncMock)
     mock_logger = mocker.patch('livecheck.special.gomodule.logger')
-    update_gomodule_ebuild('ebuild', '/some/path', {})
-    mock_run.assert_not_called()
+    await update_gomodule_ebuild('ebuild', '/some/path', {})
+    mock_create.assert_not_called()
     mock_build.assert_not_called()
     mock_logger.error.assert_called_once_with('go executable not found in PATH')
 
 
-def test_update_gomodule_ebuild_subprocess_error(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_update_gomodule_ebuild_nonzero_returncode(mocker: MockerFixture) -> None:
+    mocker.patch('livecheck.special.gomodule.search_ebuild',
+                 new_callable=AsyncMock,
+                 return_value=('/some/path', '/tmp/dir'))
+    mocker.patch('livecheck.special.gomodule.which', return_value='/usr/bin/go')
+    mock_proc = mocker.MagicMock()
+    mock_proc.wait = AsyncMock(return_value=1)
+    mocker.patch('livecheck.special.gomodule.asyncio.create_subprocess_exec',
+                 new_callable=AsyncMock,
+                 return_value=mock_proc)
+    mock_build = mocker.patch('livecheck.special.gomodule.build_compress', new_callable=AsyncMock)
+    mock_logger = mocker.patch('livecheck.special.gomodule.logger')
+    await update_gomodule_ebuild('ebuild', '/some/path', {})
+    mock_build.assert_not_called()
+    mock_logger.error.assert_called_once_with("Error running 'go mod vendor'.")
+
+
+@pytest.mark.asyncio
+async def test_update_gomodule_ebuild_subprocess_error(mocker: MockerFixture) -> None:
     mock_search = mocker.patch('livecheck.special.gomodule.search_ebuild',
+                               new_callable=AsyncMock,
                                return_value=('/some/path', '/tmp/dir'))
     mocker.patch('livecheck.special.gomodule.which', return_value='/usr/bin/go')
-    mock_run = mocker.patch('livecheck.special.gomodule.sp.run',
-                            side_effect=sp.CalledProcessError(1, 'go mod vendor'))
-    mock_build = mocker.patch('livecheck.special.gomodule.build_compress')
-    update_gomodule_ebuild('ebuild', '/some/path', {})
+    mocker.patch('livecheck.special.gomodule.asyncio.create_subprocess_exec',
+                 new_callable=AsyncMock,
+                 side_effect=OSError('go mod vendor failed'))
+    mock_build = mocker.patch('livecheck.special.gomodule.build_compress', new_callable=AsyncMock)
+    await update_gomodule_ebuild('ebuild', '/some/path', {})
     mock_search.assert_called_once()
-    mock_run.assert_called_once()
     mock_build.assert_not_called()
 
 

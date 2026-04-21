@@ -3,11 +3,13 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from unittest.mock import AsyncMock
 
 from livecheck.special.utils import (
     EbuildTempFile,
     build_compress,
     get_archive_extension,
+    get_project_path,
     log_unhandled_commit,
     remove_url_ebuild,
     search_ebuild,
@@ -152,8 +154,9 @@ def test_remove_url_ebuild(ebuild: str, remove: str, expected: str) -> None:
         # Test when path is provided and not found
         ('foo.ebuild', 'archive.tar.gz', 'notfound/path', False, '')
     ])
-def test_search_ebuild(mocker: MockerFixture, ebuild: str, archive: str, path: str | None,
-                       found: bool, expected_root: str) -> None:
+@pytest.mark.asyncio
+async def test_search_ebuild(mocker: MockerFixture, ebuild: str, archive: str, path: str | None,
+                             found: bool, expected_root: str) -> None:
     temp_dir = '/tmp/unpacked_dir'
     mocker.patch('livecheck.special.utils.unpack_ebuild', return_value=temp_dir)
     mock_logger = mocker.patch('livecheck.special.utils.logger')
@@ -179,7 +182,8 @@ def test_search_ebuild(mocker: MockerFixture, ebuild: str, archive: str, path: s
             (temp_dir + '/another-path', [], []),
         ]
     mocker.patch('os.walk', return_value=walk_result)
-    root, returned_temp_dir = search_ebuild(ebuild, archive, path)
+    mocker.patch('livecheck.special.utils.to_thread.run_sync', side_effect=lambda fn: fn())
+    root, returned_temp_dir = await search_ebuild(ebuild, archive, path)
     if expected_root:
         assert root == expected_root
         assert returned_temp_dir == temp_dir
@@ -191,10 +195,12 @@ def test_search_ebuild(mocker: MockerFixture, ebuild: str, archive: str, path: s
                                                       archive)
 
 
-def test_search_ebuild_unpack_error(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_search_ebuild_unpack_error(mocker: MockerFixture) -> None:
     mocker.patch('livecheck.special.utils.unpack_ebuild', return_value=None)
     mock_logger = mocker.patch('livecheck.special.utils.logger')
-    root, temp_dir = search_ebuild('foo.ebuild', 'archive.tar.gz')
+    mocker.patch('livecheck.special.utils.to_thread.run_sync', side_effect=lambda fn: fn())
+    root, temp_dir = await search_ebuild('foo.ebuild', 'archive.tar.gz')
     assert not root
     assert not temp_dir
     mock_logger.warning.assert_called_once_with('Error unpacking the ebuild.')
@@ -223,10 +229,11 @@ def test_search_ebuild_unpack_error(mocker: MockerFixture) -> None:
             'foo.tar.gz': ('url',)
         }, True, 'foo.tar.gz', '.tar.gz', True, None)
     ])
-def test_build_compress(mocker: MockerFixture, temp_dir: str, base_dir: str, directory: str,
-                        extension: str, fetchlist: Mapping[str, Collection[str]], exists: bool,
-                        filename: str, archive_ext: str, expected_result: bool,
-                        expected_warning: str | None) -> None:
+@pytest.mark.asyncio
+async def test_build_compress(mocker: MockerFixture, temp_dir: str, base_dir: str, directory: str,
+                              extension: str, fetchlist: Mapping[str, Collection[str]],
+                              exists: bool, filename: str, archive_ext: str, expected_result: bool,
+                              expected_warning: str | None) -> None:
     mocker.patch('pathlib.Path.exists', return_value=exists)
     mocker.patch('livecheck.special.utils.get_distdir', return_value=Path('/tmp/distdir'))
     mocker.patch('livecheck.special.utils.get_archive_extension',
@@ -234,7 +241,8 @@ def test_build_compress(mocker: MockerFixture, temp_dir: str, base_dir: str, dir
     mock_tarfile_open = mocker.patch('tarfile.open')
     mock_logger = mocker.patch('livecheck.special.utils.logger')
     mocker.patch('pathlib.Path.resolve', side_effect=lambda: Path(base_dir))
-    result = build_compress(temp_dir, base_dir, directory, extension, fetchlist)
+    mocker.patch('livecheck.special.utils.to_thread.run_sync', side_effect=lambda fn: fn())
+    result = await build_compress(temp_dir, base_dir, directory, extension, fetchlist)
     assert result == expected_result
     if not exists:
         mock_logger.warning.assert_called_once_with('The directory vendor was not created.')
@@ -250,60 +258,73 @@ def test_build_compress(mocker: MockerFixture, temp_dir: str, base_dir: str, dir
     mock_tarfile_open.reset_mock()
 
 
-def test_ebuild_tempfile_context_manager_success(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_ebuild_tempfile_context_manager_success(mocker: MockerFixture) -> None:
     ebuild_path = '/tmp/test.ebuild'
     temp_file_path = '/tmp/test-abcdef.ebuild'
     mock_tempfile = mocker.patch('tempfile.NamedTemporaryFile')
     mock_tempfile.return_value.name = temp_file_path
-    mock_path = mocker.patch('livecheck.special.utils.Path')
-    mock_ebuild = mock_path.return_value
-    mock_temp = mock_path.return_value
-    mock_ebuild.stem = 'test'
-    mock_ebuild.suffix = '.ebuild'
-    mock_ebuild.parent = '/tmp'
-    mock_temp.exists.return_value = True
-    mock_temp.stat.return_value.st_size = 1
-    mock_ebuild.exists.return_value = False
-    with EbuildTempFile(ebuild_path) as temp_file:
-        assert temp_file == mock_temp
-    mock_ebuild.unlink.assert_not_called()
+    mock_ebuild = AsyncMock()
+    mock_ebuild.unlink = AsyncMock()
+    mock_temp = AsyncMock()
+    mock_temp.exists = AsyncMock(return_value=True)
+    mock_stat = AsyncMock()
+    mock_stat.return_value.st_size = 1
+    mock_temp.stat = mock_stat
+    mock_temp.rename = AsyncMock()
+    # After rename, temp file no longer exists.
+    mock_temp.exists = AsyncMock(side_effect=[True, False])
+    mocker.patch('livecheck.special.utils.AnyioPath',
+                 side_effect=lambda p: mock_ebuild if p == ebuild_path else mock_temp)
+    mocker.patch('pathlib.Path.chmod')
+    async with EbuildTempFile(ebuild_path) as temp_file:
+        assert temp_file == Path(temp_file_path)
+    mock_ebuild.unlink.assert_called_once_with(missing_ok=True)
 
 
-def test_ebuild_tempfile_tempfile_empty(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_ebuild_tempfile_tempfile_empty(mocker: MockerFixture) -> None:
     ebuild_path = '/tmp/test.ebuild'
     temp_file_path = '/tmp/test-abcdef.ebuild'
     mock_tempfile = mocker.patch('tempfile.NamedTemporaryFile')
     mock_tempfile.return_value.name = temp_file_path
-    mock_path = mocker.patch('livecheck.special.utils.Path')
-    mock_ebuild = mock_path.return_value
-    mock_temp = mock_path.return_value
-    mock_ebuild.stem = 'test'
-    mock_ebuild.suffix = '.ebuild'
-    mock_ebuild.parent = '/tmp'
-    mock_temp.exists.return_value = True
-    mock_temp.stat.return_value.st_size = 0
+    mock_ebuild = AsyncMock()
+    mock_ebuild.unlink = AsyncMock()
+    mock_temp = AsyncMock()
+    mock_temp.exists = AsyncMock(return_value=True)
+    mock_stat = AsyncMock()
+    mock_stat.return_value.st_size = 0
+    mock_temp.stat = mock_stat
+    mock_temp.rename = AsyncMock()
+    mock_temp.unlink = AsyncMock()
+    mocker.patch('livecheck.special.utils.AnyioPath',
+                 side_effect=lambda p: mock_ebuild if p == ebuild_path else mock_temp)
     mock_logger = mocker.patch('livecheck.special.utils.logger')
-    with EbuildTempFile(ebuild_path):
+    async with EbuildTempFile(ebuild_path):
         pass
     mock_logger.error.assert_called_once_with('The temporary file is empty or missing.')
 
 
-def test_ebuild_tempfile_exception_cleanup(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_ebuild_tempfile_exception_cleanup(mocker: MockerFixture) -> None:
     ebuild_path = '/tmp/test.ebuild'
-    temp_file_path = '/tmp/test-abcdef.ebuild'
-    mock_tempfile = mocker.patch('tempfile.NamedTemporaryFile')
-    mock_tempfile.return_value.name = temp_file_path
-    mock_path = mocker.patch('livecheck.special.utils.Path')
-    mock_ebuild = mock_path.return_value
-    mock_temp = mock_path.return_value
-    mock_ebuild.stem = 'test'
-    mock_ebuild.suffix = '.ebuild'
-    mock_ebuild.parent = '/tmp'
-    mock_temp.exists.return_value = True
+    mock_temp = AsyncMock()
+    mock_temp.exists = AsyncMock(return_value=True)
+    mock_temp.unlink = AsyncMock()
+    mock_ebuild = AsyncMock()
+    mocker.patch('livecheck.special.utils.AnyioPath',
+                 side_effect=lambda p: mock_ebuild if p == ebuild_path else mock_temp)
     etf = EbuildTempFile(ebuild_path)
     etf.temp_file = mock_temp
-    etf.__exit__(Exception, Exception('fail'), None)
+    await etf.__aexit__(Exception, Exception('fail'), None)
     mock_temp.unlink.assert_called_once_with(missing_ok=True)
+
+
+def test_get_project_path_returns_cache_path(mocker: MockerFixture) -> None:
+    mocker.patch('livecheck.special.utils.user_cache_dir',
+                 return_value='/home/user/.cache/livecheck')
+    result = get_project_path('some-package')
+    assert result == Path('/home/user/.cache/livecheck/some-package')
 
 
 def test_log_unhandled_commit_logs_warning(mocker: MockerFixture) -> None:

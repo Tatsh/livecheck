@@ -1,7 +1,6 @@
 """Very special handlers."""
 from __future__ import annotations
 
-from functools import lru_cache
 import logging
 import re
 
@@ -12,8 +11,7 @@ from .github import get_latest_github_commit2
 logger = logging.getLogger(__name__)
 
 
-@lru_cache
-def handle_glabels(s: str) -> str:
+async def handle_glabels(s: str) -> str:
     """
     Handle glabels-qt versioning.
 
@@ -27,7 +25,7 @@ def handle_glabels(s: str) -> str:
     str
         Version with a ``3.99_p`` prefix and date suffix from GitHub, or ``s`` if lookup fails.
     """
-    _, hash_date = get_latest_github_commit2('jimevins', 'glabels-qt', 'master')
+    _, hash_date = await get_latest_github_commit2('jimevins', 'glabels-qt', 'master')
     if not hash_date:
         return s
     return '3.99_p' + hash_date

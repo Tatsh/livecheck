@@ -28,7 +28,7 @@ def extract_perl_package(url: str) -> str:
     return match.group(1) if match else ''
 
 
-def get_latest_metacpan_package(url: str, ebuild: str, settings: LivecheckSettings) -> str:
+async def get_latest_metacpan_package(url: str, ebuild: str, settings: LivecheckSettings) -> str:
     """
     Get the latest version of a MetaCPAN package.
 
@@ -38,21 +38,21 @@ def get_latest_metacpan_package(url: str, ebuild: str, settings: LivecheckSettin
         Latest stable or selected version string, or an empty string if none.
     """
     package_name = extract_perl_package(url)
-    return get_latest_metacpan_package2(package_name, ebuild, settings)
+    return await get_latest_metacpan_package2(package_name, ebuild, settings)
 
 
-def get_latest_metacpan_package2(package_name: str, ebuild: str,
-                                 settings: LivecheckSettings) -> str:
+async def get_latest_metacpan_package2(package_name: str, ebuild: str,
+                                       settings: LivecheckSettings) -> str:
     results: list[dict[str, str]] = []
     url = METACPAN_DOWNLOAD_URL1 % (package_name)
-    if r := get_content(url):
+    if r := await get_content(url):
         for hit in r.json().get('hits', {}).get('hits', []):
             results.extend([{'tag': hit['_source']['version']}])
 
     # Many times it does not exist as in the previous list,
     # that is why the latest version is checked again.
     url = METACPAN_DOWNLOAD_URL2 % (package_name)
-    if r := get_content(url):
+    if r := await get_content(url):
         results.append({'tag': r.json().get('version')})
 
     last_version = get_last_version(results, package_name, ebuild, settings)
@@ -74,7 +74,8 @@ def is_metacpan(url: str) -> bool:
     return bool(extract_perl_package(url))
 
 
-def get_latest_metacpan_metadata(remote: str, ebuild: str, settings: LivecheckSettings) -> str:
+async def get_latest_metacpan_metadata(remote: str, ebuild: str,
+                                       settings: LivecheckSettings) -> str:
     """
     Get the latest version of a MetaCPAN package.
 
@@ -83,4 +84,4 @@ def get_latest_metacpan_metadata(remote: str, ebuild: str, settings: LivecheckSe
     str
         Latest version string from metadata lookup, or an empty string if none.
     """
-    return get_latest_metacpan_package2(remote, ebuild, settings)
+    return await get_latest_metacpan_package2(remote, ebuild, settings)

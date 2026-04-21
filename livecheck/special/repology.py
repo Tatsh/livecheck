@@ -14,7 +14,7 @@ __all__ = ('get_latest_repology',)
 REPOLOGY_DOWNLOAD_URL = 'https://repology.org/api/v1/project/%s'
 
 
-def get_latest_repology(ebuild: str, settings: LivecheckSettings, package: str = '') -> str:
+async def get_latest_repology(ebuild: str, settings: LivecheckSettings, package: str = '') -> str:
     """
     Get the latest version of a package from Repology.
 
@@ -30,9 +30,9 @@ def get_latest_repology(ebuild: str, settings: LivecheckSettings, package: str =
     if package:
         pkg = package
     url = REPOLOGY_DOWNLOAD_URL % (pkg)
-    if not (r := get_content(url)):
+    if not (r := await get_content(url)):
         url = REPOLOGY_DOWNLOAD_URL % (pkg.split('-')[0])
-        if not (r := get_content(url)):
+        if not (r := await get_content(url)):
             return ''
 
     for release in r.json():

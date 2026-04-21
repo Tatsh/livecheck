@@ -20,7 +20,7 @@ PECL_METADATA = 'pecl'
 NAMESPACE = '{http://pear.php.net/dtd/rest.allreleases}'
 
 
-def get_latest_pecl_package(ebuild: str, settings: LivecheckSettings) -> str:
+async def get_latest_pecl_package(ebuild: str, settings: LivecheckSettings) -> str:
     """
     Get the latest version of a PECL package.
 
@@ -34,19 +34,20 @@ def get_latest_pecl_package(ebuild: str, settings: LivecheckSettings) -> str:
     # Remove 'pecl-' prefix if present
     if program_name.startswith('pecl-'):
         program_name = program_name.replace('pecl-', '', 1)
-    return get_latest_pecl_package2(program_name, ebuild, settings)
+    return await get_latest_pecl_package2(program_name, ebuild, settings)
 
 
-def get_latest_pecl_package2(program_name: str, ebuild: str, settings: LivecheckSettings) -> str:
+async def get_latest_pecl_package2(program_name: str, ebuild: str,
+                                   settings: LivecheckSettings) -> str:
     catpkg, _, _, _ = catpkg_catpkgsplit(ebuild)
 
     url = PECL_DOWNLOAD_URL % (program_name)
 
-    if not (r := get_content(url)):
+    if not (r := await get_content(url)):
         return ''
 
     results: list[dict[str, str]] = []
-    for release in ET.fromstring(r.text).findall(f'{NAMESPACE}r'):
+    for release in ET.fromstring(r.text or '').findall(f'{NAMESPACE}r'):
         stability = release.find(f'{NAMESPACE}s')
         stability = assert_not_none(stability)
         if settings.is_devel(catpkg) or assert_not_none(stability.text) == 'stable':
@@ -72,7 +73,7 @@ def is_pecl(url: str) -> bool:
     return urlparse(url).netloc == 'pecl.php.net'
 
 
-def get_latest_pecl_metadata(remote: str, ebuild: str, settings: LivecheckSettings) -> str:
+async def get_latest_pecl_metadata(remote: str, ebuild: str, settings: LivecheckSettings) -> str:
     """
     Get the latest version of a PECL package.
 
@@ -81,4 +82,4 @@ def get_latest_pecl_metadata(remote: str, ebuild: str, settings: LivecheckSettin
     str
         Latest version string from metadata lookup, or an empty string if none.
     """
-    return get_latest_pecl_package2(remote, ebuild, settings)
+    return await get_latest_pecl_package2(remote, ebuild, settings)

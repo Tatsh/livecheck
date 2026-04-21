@@ -11,26 +11,29 @@ from livecheck.special.handlers import (
     handle_outfox_serenity,
     handle_pl,
 )
+import pytest
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
 
 
-def test_handle_glabels_returns_modified_version_when_hash_date_present(
+@pytest.mark.asyncio
+async def test_handle_glabels_returns_modified_version_when_hash_date_present(
         mocker: MockerFixture) -> None:
     mock_get_latest = mocker.patch('livecheck.special.handlers.get_latest_github_commit2',
+                                   new_callable=mocker.AsyncMock,
                                    return_value=('abcdef', '20240601'))
-    handle_glabels.cache_clear()
-    result = handle_glabels('some-ver')
+    result = await handle_glabels('some-ver')
     assert result == '3.99_p20240601'
     mock_get_latest.assert_called_once_with('jimevins', 'glabels-qt', 'master')
 
 
-def test_handle_glabels_returns_input_when_hash_date_missing(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_handle_glabels_returns_input_when_hash_date_missing(mocker: MockerFixture) -> None:
     mock_get_latest = mocker.patch('livecheck.special.handlers.get_latest_github_commit2',
+                                   new_callable=mocker.AsyncMock,
                                    return_value=('abcdef', None))
-    handle_glabels.cache_clear()
-    result = handle_glabels('orig-ver')
+    result = await handle_glabels('orig-ver')
     assert result == 'orig-ver'
     mock_get_latest.assert_called_once_with('jimevins', 'glabels-qt', 'master')
 

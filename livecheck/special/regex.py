@@ -18,8 +18,8 @@ __all__ = ('get_latest_regex_package',)
 logger = logging.getLogger(__name__)
 
 
-def get_latest_regex_package(ebuild: str, url: str, regex: str,
-                             settings: LivecheckSettings) -> tuple[str, str, str]:
+async def get_latest_regex_package(ebuild: str, url: str, regex: str,
+                                   settings: LivecheckSettings) -> tuple[str, str, str]:
     """
     Get the latest version of a package using a regular expression.
 
@@ -49,18 +49,19 @@ def get_latest_regex_package(ebuild: str, url: str, regex: str,
     data = settings.request_data.get(catpkg, {})
     multiline = settings.regex_multiline.get(catpkg, False)
 
-    if not (r := get_content(url, headers=headers, params=params, method=method, data=data)):
+    if not (r := await get_content(url, headers=headers, params=params, method=method, data=data)):
         return '', '', ''
 
     results: list[dict[str, str]] = []
     # Use re.MULTILINE if multiline flag is set.
     regex_flags = re.MULTILINE if multiline else 0
-    for result in re.findall(regex, r.text, flags=regex_flags):
+    text = r.text or ''
+    for result in re.findall(regex, text, flags=regex_flags):
         if is_sha(result) and not results:
             logger.info('Found commit hash %s in %s.', result, url)
             hash_date = ''
             try:
-                updated_el = ET.fromstring(r.text).find('entry/updated', RSS_NS)
+                updated_el = ET.fromstring(text).find('entry/updated', RSS_NS)
             except ET.ParseError:
                 logger.debug('Ignoring XML parse error (URL: %s).', url)
                 continue

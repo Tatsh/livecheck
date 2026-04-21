@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+import asyncio
 import logging
-import subprocess as sp
 
 from livecheck.utils import check_program
 
@@ -35,12 +35,12 @@ def remove_nodejs_url(ebuild_content: str) -> str:
     return remove_url_ebuild(ebuild_content, '-node_modules.tar.xz')
 
 
-def update_nodejs_ebuild(ebuild: str,
-                         path: str | None,
-                         fetchlist: Mapping[str, tuple[str, ...]],
-                         package_manager: str = 'npm') -> None:
+async def update_nodejs_ebuild(ebuild: str,
+                               path: str | None,
+                               fetchlist: Mapping[str, tuple[str, ...]],
+                               package_manager: str = 'npm') -> None:
     """Update a NodeJS-based ebuild."""
-    package_path, temp_dir = search_ebuild(ebuild, 'package.json', path)
+    package_path, temp_dir = await search_ebuild(ebuild, 'package.json', path)
     if not package_path:
         return
 
@@ -51,12 +51,16 @@ def update_nodejs_ebuild(ebuild: str,
         return
 
     try:
-        sp.run(command, cwd=package_path, check=True)
-    except sp.CalledProcessError:
+        proc = await asyncio.create_subprocess_exec(*command, cwd=package_path)
+        returncode = await proc.wait()
+        if returncode != 0:
+            logger.error("Error running '%s install'.", manager)
+            return
+    except OSError:
         logger.exception("Error running '%s install'.", manager)
         return
 
-    build_compress(temp_dir, package_path, 'node_modules', '-node_modules.tar.xz', fetchlist)
+    await build_compress(temp_dir, package_path, 'node_modules', '-node_modules.tar.xz', fetchlist)
 
 
 def check_nodejs_requirements(package_manager: str = 'npm') -> bool:

@@ -12,7 +12,6 @@ dev = [
   "ty>=0.0.29",
   "types-beautifulsoup4>=4.12.0.20250516",
   "types-defusedxml>=0.7.0.20260408",
-  "types-requests>=2.33.0.20260408",
   "yapf>=0.43.0",
 ]
 docs = [
@@ -32,6 +31,8 @@ docs = [
 tests = [
   "coveralls>=4.1.0",
   "mock>=5.2.0",
+  "niquests-mock>=0.3.1",
+  "pytest-asyncio>=0.25.0",
   "pytest-cov>=7.1.0",
   "pytest-mock>=3.15.1",
   "pytest>=9.0.3",
@@ -50,15 +51,17 @@ classifiers = [
   "Typing :: Typed",
 ]
 dependencies = [
+  "anyio>=4.9.0",
   "bascom>=0.1.2",
   "beautifulsoup4>=4.14.3",
   "click>=8.3.2",
   "defusedxml>=0.7.1",
   "html5lib>=1.1",
   "keyring>=25.7.0",
+  "niquests-cache>=0.2.1",
+  "niquests>=3.12.1",
   "platformdirs>=4.9.6",
   "portage>=3.0.77",
-  "requests>=2.33.1",
   "typing-extensions>=4.15.0",
 ]
 description = "Tool to update ebuilds."
@@ -168,6 +171,7 @@ venv = ".venv"
 venvPath = "."
 
 [tool.pytest.ini_options]
+asyncio_mode = "auto"
 mock_use_standalone_module = true
 norecursedirs = ["node_modules"]
 python_files = ["tests.py", "test_*.py", "*_tests.py"]
@@ -189,7 +193,20 @@ quote-style = "single"
 
 [tool.ruff.lint]
 extend-select = ["ALL"]
-ignore = ["ANN401", "COM812", "CPY001", "D203", "D204", "D212", "N818", "S404", "S603", "TD002"]
+ignore = [
+  "ANN401",
+  "ASYNC230",
+  "ASYNC240",
+  "COM812",
+  "CPY001",
+  "D203",
+  "D204",
+  "D212",
+  "N818",
+  "S404",
+  "S603",
+  "TD002",
+]
 preview = true
 
 [tool.ruff.lint.flake8-builtins]
@@ -214,6 +231,7 @@ extend-ignore-names = ["test_*"]
 
 [tool.ruff.lint.per-file-ignores]
 "livecheck/main.py" = ["PLR0913"]
+"tests/**/*.py" = ["RUF029"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
@@ -230,6 +248,7 @@ max-statements = 100
 [tool.uv]
 default-groups = "all"
 exclude-newer = "1 week"
+exclude-newer-package = { niquests-cache = false, niquests-mock = false }
 
 [tool.yapf]
 align_closing_bracket_with_visual_indent = true
@@ -278,4 +297,4 @@ split_penalty_logical_operator = 300
 use_tabs = false
 
 [tool.yapfignore]
-ignore_patterns = [".venv/**", "node_modules/**"]
+ignore_patterns = [".venv", ".wiswa-ci", "node_modules"]

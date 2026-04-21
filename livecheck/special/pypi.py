@@ -45,8 +45,8 @@ def get_url(ext: str, item: Collection[Mapping[str, str]]) -> str:
     return ''
 
 
-def get_latest_pypi_package(src_uri: str, ebuild: str,
-                            settings: LivecheckSettings) -> tuple[str, str]:
+async def get_latest_pypi_package(src_uri: str, ebuild: str,
+                                  settings: LivecheckSettings) -> tuple[str, str]:
     """
     Get the latest version of a PyPI package.
 
@@ -56,16 +56,16 @@ def get_latest_pypi_package(src_uri: str, ebuild: str,
         Latest version string and matching source archive URL.
     """
     project_name = extract_project(src_uri)
-    return get_latest_pypi_package2(project_name, src_uri, ebuild, settings)
+    return await get_latest_pypi_package2(project_name, src_uri, ebuild, settings)
 
 
-def get_latest_pypi_package2(project_name: str, src_uri: str, ebuild: str,
-                             settings: LivecheckSettings) -> tuple[str, str]:
+async def get_latest_pypi_package2(project_name: str, src_uri: str, ebuild: str,
+                                   settings: LivecheckSettings) -> tuple[str, str]:
     url = PYPI_DOWNLOAD_URL % (project_name)
     ext = get_archive_extension(src_uri)
 
     results: list[dict[str, str]] = []
-    if r := get_content(url):
+    if r := await get_content(url):
         for release, item in r.json().get('releases', {}).items():
             results.extend([{'tag': release, 'url': get_url(ext, item)}])
 
@@ -92,8 +92,8 @@ def is_pypi(url: str) -> bool:
     return bool(extract_project(url))
 
 
-def get_latest_pypi_metadata(remote: str, ebuild: str,
-                             settings: LivecheckSettings) -> tuple[str, str]:
+async def get_latest_pypi_metadata(remote: str, ebuild: str,
+                                   settings: LivecheckSettings) -> tuple[str, str]:
     """
     Get the latest version of a PyPI package using metadata.
 
@@ -111,4 +111,4 @@ def get_latest_pypi_metadata(remote: str, ebuild: str,
     tuple[str, str]
         Latest version string and matching source archive URL.
     """
-    return get_latest_pypi_package2(remote, '', ebuild, settings)
+    return await get_latest_pypi_package2(remote, '', ebuild, settings)

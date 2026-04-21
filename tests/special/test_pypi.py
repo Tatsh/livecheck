@@ -147,8 +147,10 @@ def test_get_url(mocker: MockerFixture, ext: str, item: Collection[Mapping[str, 
     ('https://files.pythonhosted.org/packages/source/s/another/another-0.1.0.zip', 'another',
      '0.2.0', 'https://files.pythonhosted.org/packages/source/s/another/another-0.2.0.zip'),
 ])
-def test_get_latest_pypi_package_success(mocker: MockerFixture, src_uri: str, project_name: str,
-                                         latest_version: str, latest_url: str) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_pypi_package_success(mocker: MockerFixture, src_uri: str,
+                                               project_name: str, latest_version: str,
+                                               latest_url: str) -> None:
     mocker.patch('livecheck.special.pypi.extract_project', return_value=project_name)
     ext = '.tar.gz' if src_uri.endswith('.tar.gz') else '.zip'
     mocker.patch('livecheck.special.pypi.get_archive_extension', return_value=ext)
@@ -162,30 +164,32 @@ def test_get_latest_pypi_package_success(mocker: MockerFixture, src_uri: str, pr
                      'url': latest_url
                  })
 
-    version, url = get_latest_pypi_package(src_uri, 'dummy.ebuild', mocker.Mock())
+    version, url = await get_latest_pypi_package(src_uri, 'dummy.ebuild', mocker.Mock())
     assert version == latest_version
     assert url == latest_url
 
 
-def test_get_latest_pypi_package_no_content(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_pypi_package_no_content(mocker: MockerFixture) -> None:
     mocker.patch('livecheck.special.pypi.extract_project', return_value='someproject')
     mocker.patch('livecheck.special.pypi.get_archive_extension', return_value='.tar.gz')
     mocker.patch('livecheck.special.pypi.get_content', return_value=None)
-    version, url = get_latest_pypi_package(
+    version, url = await get_latest_pypi_package(
         'https://files.pythonhosted.org/packages/source/s/someproject/someproject-1.0.0.tar.gz',
         'dummy.ebuild', mocker.Mock())
     assert not version
     assert not url
 
 
-def test_get_latest_pypi_package_no_last_version(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_pypi_package_no_last_version(mocker: MockerFixture) -> None:
     mocker.patch('livecheck.special.pypi.extract_project', return_value='someproject')
     mocker.patch('livecheck.special.pypi.get_archive_extension', return_value='.tar.gz')
     mock_response = mocker.Mock()
     mock_response.json.return_value = {'releases': {'1.0.0': [{'url': 'url'}]}}
     mocker.patch('livecheck.special.pypi.get_content', return_value=mock_response)
     mocker.patch('livecheck.special.pypi.get_last_version', return_value=None)
-    version, url = get_latest_pypi_package(
+    version, url = await get_latest_pypi_package(
         'https://files.pythonhosted.org/packages/source/s/someproject/someproject-1.0.0.tar.gz',
         'dummy.ebuild', mocker.Mock())
     assert not version
@@ -215,17 +219,19 @@ def test_is_pypi(mocker: MockerFixture, url: str, extract_project_return: str,
     ('another', 'another.ebuild', '0.2.0',
      'https://files.pythonhosted.org/packages/source/s/another/another-0.2.0.zip'),
 ])
-def test_get_latest_pypi_metadata_success(mocker: MockerFixture, remote: str, ebuild: str,
-                                          latest_version: str, latest_url: str) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_pypi_metadata_success(mocker: MockerFixture, remote: str, ebuild: str,
+                                                latest_version: str, latest_url: str) -> None:
     mocker.patch('livecheck.special.pypi.get_latest_pypi_package2',
                  return_value=(latest_version, latest_url))
-    version, url = get_latest_pypi_metadata(remote, ebuild, mocker.Mock())
+    version, url = await get_latest_pypi_metadata(remote, ebuild, mocker.Mock())
     assert version == latest_version
     assert url == latest_url
 
 
-def test_get_latest_pypi_metadata_empty(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_pypi_metadata_empty(mocker: MockerFixture) -> None:
     mocker.patch('livecheck.special.pypi.get_latest_pypi_package2', return_value=('', ''))
-    version, url = get_latest_pypi_metadata('remote', 'ebuild', mocker.Mock())
+    version, url = await get_latest_pypi_metadata('remote', 'ebuild', mocker.Mock())
     assert not version
     assert not url

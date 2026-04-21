@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from shutil import which
 from typing import TYPE_CHECKING
+import asyncio
 import logging
-import subprocess as sp
 
 from livecheck.utils import check_program
 
@@ -35,8 +35,8 @@ def remove_composer_url(ebuild_content: str) -> str:
     return remove_url_ebuild(ebuild_content, '-vendor.tar.xz')
 
 
-def update_composer_ebuild(ebuild: str, path: str | None,
-                           fetchlist: Mapping[str, tuple[str, ...]]) -> None:
+async def update_composer_ebuild(ebuild: str, path: str | None,
+                                 fetchlist: Mapping[str, tuple[str, ...]]) -> None:
     """
     Update a Composer package ebuild.
 
@@ -49,7 +49,7 @@ def update_composer_ebuild(ebuild: str, path: str | None,
     fetchlist : Mapping[str, tuple[str, ...]]
         Fetch map used when compressing vendor output.
     """
-    composer_path, temp_dir = search_ebuild(ebuild, 'composer.json', path)
+    composer_path, temp_dir = await search_ebuild(ebuild, 'composer.json', path)
     if not composer_path:
         return
 
@@ -58,14 +58,20 @@ def update_composer_ebuild(ebuild: str, path: str | None,
         log.error('composer executable not found in PATH')
         return
     try:
-        sp.run((composer_exe, '--no-interaction', '--no-scripts', 'install'),
-               cwd=composer_path,
-               check=True)
-    except sp.CalledProcessError:
+        proc = await asyncio.create_subprocess_exec(composer_exe,
+                                                    '--no-interaction',
+                                                    '--no-scripts',
+                                                    'install',
+                                                    cwd=composer_path)
+        returncode = await proc.wait()
+        if returncode != 0:
+            log.error("Error running 'composer'.")
+            return
+    except OSError:
         log.exception("Error running 'composer'.")
         return
 
-    build_compress(temp_dir, composer_path, 'vendor', '-vendor.tar.xz', fetchlist)
+    await build_compress(temp_dir, composer_path, 'vendor', '-vendor.tar.xz', fetchlist)
 
 
 def check_composer_requirements() -> bool:

@@ -43,8 +43,8 @@ def extract_owner_repo(url: str) -> tuple[str, str, str]:
     return '', '', ''
 
 
-def get_latest_github_package(url: str, ebuild: str,
-                              settings: LivecheckSettings) -> tuple[str, str]:
+async def get_latest_github_package(url: str, ebuild: str,
+                                    settings: LivecheckSettings) -> tuple[str, str]:
     """
     Get the latest version of a Github package.
 
@@ -64,11 +64,11 @@ def get_latest_github_package(url: str, ebuild: str,
     """
     domain, owner, repo = extract_owner_repo(url)
     url = GITHUB_DOWNLOAD_URL % (domain)
-    if not owner or not repo or not (r := get_content(url)):
+    if not owner or not repo or not (r := await get_content(url)):
         return '', ''
 
     try:
-        root = ET.fromstring(r.text)
+        root = ET.fromstring(r.text or '')
     except ET.ParseError:
         return '', ''
 
@@ -84,28 +84,26 @@ def get_latest_github_package(url: str, ebuild: str,
         return '', ''
 
     url = GITHUB_DATE_URL % (owner, repo, last_version['id'])
-    if not (r := get_content(url)):
+    if not (r := await get_content(url)):
         return last_version['version'], ''
 
     ref_object = r.json().get('object', {})
     object_url = ref_object.get('url')
 
     if object_url and ref_object.get('type') == 'tag':
-        # Get sha from the tag object (annotated tag).
-        r2 = get_content(object_url)
+        r2 = await get_content(object_url)
         if not r2:
             return last_version['version'], ''
 
         tag_data = r2.json()
         sha = tag_data.get('object', {}).get('sha')
     else:
-        # Get sha from the ref object directly (lightweight tag or fallback).
         sha = ref_object.get('sha')
 
     return last_version['version'], sha or ''
 
 
-def get_latest_github_commit(url: str, branch: str) -> tuple[str, str]:
+async def get_latest_github_commit(url: str, branch: str) -> tuple[str, str]:
     """
     Get the latest commit hash and date for a Github repository.
 
@@ -125,10 +123,10 @@ def get_latest_github_commit(url: str, branch: str) -> tuple[str, str]:
     if not owner or not repo:
         return '', ''
 
-    return get_latest_github_commit2(owner, repo, branch)
+    return await get_latest_github_commit2(owner, repo, branch)
 
 
-def get_latest_github_commit2(owner: str, repo: str, branch: str) -> tuple[str, str]:
+async def get_latest_github_commit2(owner: str, repo: str, branch: str) -> tuple[str, str]:
     """
     Get the latest commit hash and date for a Github repository.
 
@@ -147,7 +145,7 @@ def get_latest_github_commit2(owner: str, repo: str, branch: str) -> tuple[str, 
         Commit SHA and formatted date string, or empty strings if the API call fails.
     """
     url = GITHUB_COMMIT_URL % (owner, repo, branch)
-    if not (r := get_content(url)):
+    if not (r := await get_content(url)):
         return '', ''
     d = r.json()['commit']['commit']['committer']['date'][:10]
     try:
@@ -194,8 +192,8 @@ def get_branch(url: str, ebuild: str, settings: LivecheckSettings) -> str:
     return ''
 
 
-def get_latest_github(url: str, ebuild: str, settings: LivecheckSettings, *,
-                      force_sha: bool) -> tuple[str, str, str]:
+async def get_latest_github(url: str, ebuild: str, settings: LivecheckSettings, *,
+                            force_sha: bool) -> tuple[str, str, str]:
     """
     Get the latest version of a Github package.
 
@@ -218,9 +216,9 @@ def get_latest_github(url: str, ebuild: str, settings: LivecheckSettings, *,
     last_version = top_hash = hash_date = ''
 
     if (branch := get_branch(url, ebuild, settings)):
-        top_hash, hash_date = get_latest_github_commit(url, branch)
+        top_hash, hash_date = await get_latest_github_commit(url, branch)
     else:
-        last_version, top_hash = get_latest_github_package(url, ebuild, settings)
+        last_version, top_hash = await get_latest_github_package(url, ebuild, settings)
 
     if not force_sha:
         top_hash = ''
@@ -228,8 +226,8 @@ def get_latest_github(url: str, ebuild: str, settings: LivecheckSettings, *,
     return last_version, top_hash, hash_date
 
 
-def get_latest_github_metadata(remote: str, ebuild: str,
-                               settings: LivecheckSettings) -> tuple[str, str]:
+async def get_latest_github_metadata(remote: str, ebuild: str,
+                                     settings: LivecheckSettings) -> tuple[str, str]:
     """
     Get the latest version of a Github package from metadata.
 
@@ -247,4 +245,4 @@ def get_latest_github_metadata(remote: str, ebuild: str,
     tuple[str, str]
         Latest tag version and commit SHA.
     """
-    return get_latest_github_package(f'https://github.com/{remote}', ebuild, settings)
+    return await get_latest_github_package(f'https://github.com/{remote}', ebuild, settings)

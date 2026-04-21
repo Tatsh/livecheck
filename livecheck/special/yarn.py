@@ -4,10 +4,10 @@ from __future__ import annotations
 from pathlib import Path
 from shutil import copyfile, which
 from typing import TYPE_CHECKING, TextIO, TypedDict, cast
+import asyncio
 import json
 import logging
 import re
-import subprocess as sp
 
 from livecheck.utils import check_program
 from typing_extensions import NotRequired
@@ -45,41 +45,50 @@ class LockfilePackage(TypedDict):
 Lockfile = dict[str, LockfilePackage]
 
 
-def create_project(base_package_name: str, yarn_packages: set[str] | None = None) -> Path:
+async def create_project(base_package_name: str, yarn_packages: set[str] | None = None) -> Path:
     yarn_exe = _resolved_executable('yarn')
     path = get_project_path(base_package_name)
-    sp.run((yarn_exe, 'config', 'set', 'ignore-engines', 'true'),
-           check=True,
-           cwd=path,
-           stdout=sp.PIPE)
-    sp.run((yarn_exe, 'add', base_package_name, *tuple(yarn_packages or [])),
-           cwd=path,
-           check=True,
-           stdout=sp.PIPE)
-    sp.run((yarn_exe, 'upgrade', '--latest', '--non-interactive'),
-           cwd=path,
-           check=True,
-           stdout=sp.PIPE)
+    proc = await asyncio.create_subprocess_exec(yarn_exe,
+                                                'config',
+                                                'set',
+                                                'ignore-engines',
+                                                'true',
+                                                cwd=str(path),
+                                                stdout=asyncio.subprocess.PIPE)
+    await proc.wait()
+    proc = await asyncio.create_subprocess_exec(yarn_exe,
+                                                'add',
+                                                base_package_name,
+                                                *tuple(yarn_packages or []),
+                                                cwd=str(path),
+                                                stdout=asyncio.subprocess.PIPE)
+    await proc.wait()
+    proc = await asyncio.create_subprocess_exec(yarn_exe,
+                                                'upgrade',
+                                                '--latest',
+                                                '--non-interactive',
+                                                cwd=str(path),
+                                                stdout=asyncio.subprocess.PIPE)
+    await proc.wait()
     return path
 
 
-def parse_lockfile(project_path: Path) -> Lockfile:
+async def parse_lockfile(project_path: Path) -> Lockfile:
     node_exe = _resolved_executable('node')
-    return cast(
-        'Lockfile',
-        json.loads(
-            sp.run((node_exe, '-', '--', str(project_path / 'yarn.lock')),
-                   input=CONVERSION_CODE,
-                   timeout=10,
-                   cwd=create_project('@yarnpkg/lockfile'),
-                   stdout=sp.PIPE,
-                   check=True,
-                   text=True).stdout))
+    lockfile_project = await create_project('@yarnpkg/lockfile')
+    proc = await asyncio.create_subprocess_exec(node_exe,
+                                                '-',
+                                                '--',
+                                                str(project_path / 'yarn.lock'),
+                                                cwd=str(lockfile_project),
+                                                stdin=asyncio.subprocess.PIPE,
+                                                stdout=asyncio.subprocess.PIPE)
+    stdout, _ = await proc.communicate(input=CONVERSION_CODE.encode())
+    return cast('Lockfile', json.loads(stdout.decode()))
 
 
-def yarn_pkgs(project_path: Path) -> Iterator[str]:
-    deps = parse_lockfile(project_path).items()
-    for key, val in deps:
+def yarn_pkgs(lockfile: Lockfile) -> Iterator[str]:
+    for key, val in lockfile.items():
         has_prefix_at = key.startswith('@')
         suffix = key[1 if has_prefix_at else 0:].split('@', maxsplit=1)[0]
         dep_name = f'{"@" if has_prefix_at else ""}{suffix}'
@@ -88,17 +97,17 @@ def yarn_pkgs(project_path: Path) -> Iterator[str]:
         yield f'{dep_name}-{val["version"]}'
 
 
-def _write_yarn_packages(tf: TextIO, project_path: Path, package_re: re.Pattern[str]) -> None:
+def _write_yarn_packages(tf: TextIO, lockfile: Lockfile, package_re: re.Pattern[str]) -> None:
     """Write sorted yarn packages to the temp file."""
     tf.writelines(f'\t{new_pkg}\n'
-                  for new_pkg in sorted(set(yarn_pkgs(project_path)),
+                  for new_pkg in sorted(set(yarn_pkgs(lockfile)),
                                         key=lambda x: -1 if re.match(package_re, x) else 0))
 
 
-def update_yarn_ebuild(ebuild: str,
-                       yarn_base_package: str,
-                       pkg: str,
-                       yarn_packages: set[str] | None = None) -> None:
+async def update_yarn_ebuild(ebuild: str,
+                             yarn_base_package: str,
+                             pkg: str,
+                             yarn_packages: set[str] | None = None) -> None:
     """
     Update a Yarn-based ebuild.
 
@@ -107,35 +116,33 @@ def update_yarn_ebuild(ebuild: str,
     RuntimeError
         If the ``YARN_PKGS`` section is malformed.
     """
-    project_path = create_project(yarn_base_package, yarn_packages)
+    project_path = await create_project(yarn_base_package, yarn_packages)
+    lockfile = await parse_lockfile(project_path)
     package_re = re.compile(r'^' + re.escape(yarn_base_package) + r'-[0-9]+')
     in_yarn_pkgs = False
     written_new_pkgs = False
-    with (
-            EbuildTempFile(ebuild) as temp_file,
-            temp_file.open('w', encoding='utf-8') as tf,
-            Path(ebuild).open('r', encoding='utf-8') as f,
-    ):
-        for line in f:
-            if line.startswith('YARN_PKGS=('):
-                tf.write(line)
-                if in_yarn_pkgs:
-                    raise RuntimeError
-                in_yarn_pkgs = True
-            elif in_yarn_pkgs:
-                if line.strip() == ')':
-                    # If we haven't written new packages yet (empty YARN_PKGS), write them now
-                    if not written_new_pkgs:
-                        _write_yarn_packages(tf, project_path, package_re)
-                    in_yarn_pkgs = False
+    async with EbuildTempFile(ebuild) as temp_file:  # noqa: PLR1702
+        with (
+                temp_file.open('w', encoding='utf-8') as tf,
+                Path(ebuild).open('r', encoding='utf-8') as f,
+        ):
+            for line in f:
+                if line.startswith('YARN_PKGS=('):
                     tf.write(line)
-                elif not written_new_pkgs:
-                    # Write all new packages once, replacing all old lines
-                    _write_yarn_packages(tf, project_path, package_re)
-                    written_new_pkgs = True
-                # else: Skip all old package lines (they're being replaced)
-            else:
-                tf.write(line)
+                    if in_yarn_pkgs:
+                        raise RuntimeError
+                    in_yarn_pkgs = True
+                elif in_yarn_pkgs:
+                    if line.strip() == ')':
+                        if not written_new_pkgs:
+                            _write_yarn_packages(tf, lockfile, package_re)
+                        in_yarn_pkgs = False
+                        tf.write(line)
+                    elif not written_new_pkgs:
+                        _write_yarn_packages(tf, lockfile, package_re)
+                        written_new_pkgs = True
+                else:
+                    tf.write(line)
     for item in ('package.json', 'yarn.lock'):
         target = Path(ebuild).parent / 'files' / f'{Path(pkg).name}-{item}'
         copyfile(project_path / item, target)

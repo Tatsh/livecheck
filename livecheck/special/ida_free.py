@@ -16,7 +16,7 @@ IDA_RELEASE_NOTES_URL = 'https://docs.hex-rays.com/release-notes/'
 logger = logging.getLogger(__name__)
 
 
-def get_latest_ida_free_package(_ebuild: str, _settings: LivecheckSettings) -> str:
+async def get_latest_ida_free_package(_ebuild: str, _settings: LivecheckSettings) -> str:
     """
     Get the latest version of IDA Free.
 
@@ -34,12 +34,12 @@ def get_latest_ida_free_package(_ebuild: str, _settings: LivecheckSettings) -> s
     str
         Latest ``major.minor`` string from release notes, or an empty string if parsing fails.
     """
-    if not (r := get_content(IDA_RELEASE_NOTES_URL)):
+    if not (r := await get_content(IDA_RELEASE_NOTES_URL)):
         logger.debug('Failed to fetch IDA release notes')
         return ''
 
     # Extract all "IDA X.Y" version mentions from the page
-    versions = re.findall(r'IDA (\d+\.\d+)', r.text)
+    versions = re.findall(r'IDA (\d+\.\d+)', r.text or '')
     if not versions:
         logger.debug('No IDA versions found in release notes.')
         return ''

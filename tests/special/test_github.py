@@ -121,9 +121,10 @@ def test_is_github(test_case: dict[str, Any]) -> None:
             '',
             ''),
     ])
-def test_get_latest_github_package(mocker: MockerFixture, url: str, ebuild: str, owner: str,
-                                   repo: str, tag: str, sha: str, expected_version: str,
-                                   expected_sha: str) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_github_package(mocker: MockerFixture, url: str, ebuild: str, owner: str,
+                                         repo: str, tag: str, sha: str, expected_version: str,
+                                         expected_sha: str) -> None:
     # Patch extract_owner_repo to control owner/repo/domain extraction
     mocker.patch(
         'livecheck.special.github.extract_owner_repo',
@@ -163,19 +164,22 @@ def test_get_latest_github_package(mocker: MockerFixture, url: str, ebuild: str,
         mock_get_content.return_value = mock_response_tags
         mock_get_last_version.return_value = None
 
-    result = get_latest_github_package(url, ebuild, mocker.Mock(branches={}))
+    result = await get_latest_github_package(url, ebuild, mocker.Mock(branches={}))
     assert result == (expected_version, expected_sha)
 
 
-def test_get_latest_github_package_no_response(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_github_package_no_response(mocker: MockerFixture) -> None:
     mocker.patch('livecheck.special.github.get_content', return_value=None)
     mocker.patch('livecheck.special.github.extract_owner_repo',
                  return_value=('domain', 'owner', 'repo'))
-    result = get_latest_github_package('', 'category/repo-1.0.0.ebuild', mocker.Mock(branches={}))
+    result = await get_latest_github_package('', 'category/repo-1.0.0.ebuild',
+                                             mocker.Mock(branches={}))
     assert result == ('', '')
 
 
-def test_get_latest_github_package_xml_parse_error(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_github_package_xml_parse_error(mocker: MockerFixture) -> None:
     # Patch extract_owner_repo to return valid values
     mocker.patch('livecheck.special.github.extract_owner_repo',
                  return_value=('https://github.com/owner/repo', 'owner', 'repo'))
@@ -185,12 +189,13 @@ def test_get_latest_github_package_xml_parse_error(mocker: MockerFixture) -> Non
     mocker.patch('livecheck.special.github.get_content', return_value=mock_response)
     # Patch ET.fromstring to raise ParseError
     mocker.patch('livecheck.special.github.ET.fromstring', side_effect=ET.ParseError)
-    result = get_latest_github_package('https://github.com/owner/repo', 'cat/repo-1.0.0.ebuild',
-                                       mocker.Mock())
+    result = await get_latest_github_package('https://github.com/owner/repo',
+                                             'cat/repo-1.0.0.ebuild', mocker.Mock())
     assert result == ('', '')
 
 
-def test_get_latest_github_package_no_response_2(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_github_package_no_response_2(mocker: MockerFixture) -> None:
     xml = '<?xml version="1.0" encoding="UTF-8"?><feed xmlns="http://www.w3.org/2005/Atom"></feed>'
     mocker.patch('livecheck.special.github.get_content', side_effect=[mocker.Mock(text=xml), None])
     mocker.patch('livecheck.special.github.extract_owner_repo',
@@ -200,7 +205,8 @@ def test_get_latest_github_package_no_response_2(mocker: MockerFixture) -> None:
                      'version': 'version',
                      'id': 'id'
                  })
-    result = get_latest_github_package('', 'category/repo-1.0.0.ebuild', mocker.Mock(branches={}))
+    result = await get_latest_github_package('', 'category/repo-1.0.0.ebuild',
+                                             mocker.Mock(branches={}))
     assert result == ('version', '')
 
 
@@ -235,9 +241,10 @@ def test_get_latest_github_package_no_response_2(mocker: MockerFixture) -> None:
             ('', ''),
         ),
     ])
-def test_get_latest_github_commit(mocker: MockerFixture, url: str, branch: str, owner: str,
-                                  repo: str, commit_sha: str, commit_date: str,
-                                  expected: tuple[str, str]) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_github_commit(mocker: MockerFixture, url: str, branch: str, owner: str,
+                                        repo: str, commit_sha: str, commit_date: str,
+                                        expected: tuple[str, str]) -> None:
     # Patch extract_owner_repo to control owner/repo extraction
     mocker.patch('livecheck.special.github.extract_owner_repo',
                  return_value=('', owner, repo) if owner and repo else ('', '', ''))
@@ -248,7 +255,7 @@ def test_get_latest_github_commit(mocker: MockerFixture, url: str, branch: str, 
     else:
         mock_commit2.return_value = ('', '')
 
-    result = get_latest_github_commit(url, branch)
+    result = await get_latest_github_commit(url, branch)
     assert result == expected
 
 
@@ -294,9 +301,10 @@ def test_get_latest_github_commit(mocker: MockerFixture, url: str, branch: str, 
         ),
     ],
 )
-def test_get_latest_github_commit2_success(mocker: MockerFixture, owner: str, repo: str,
-                                           branch: str, commit_sha: str, commit_date: str,
-                                           expected_sha: str, expected_date: str) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_github_commit2_success(mocker: MockerFixture, owner: str, repo: str,
+                                                 branch: str, commit_sha: str, commit_date: str,
+                                                 expected_sha: str, expected_date: str) -> None:
     mock_response = mocker.Mock()
     mock_response.json.return_value = {
         'commit': {
@@ -309,22 +317,24 @@ def test_get_latest_github_commit2_success(mocker: MockerFixture, owner: str, re
         }
     }
     mocker.patch('livecheck.special.github.get_content', return_value=mock_response)
-    result = get_latest_github_commit2(owner, repo, branch)
+    result = await get_latest_github_commit2(owner, repo, branch)
     assert result == (expected_sha, expected_date)
 
 
-def test_get_latest_github_commit2_no_response(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_github_commit2_no_response(mocker: MockerFixture) -> None:
     mocker.patch('livecheck.special.github.get_content', return_value=None)
-    result = get_latest_github_commit2('owner', 'repo', 'main')
+    result = await get_latest_github_commit2('owner', 'repo', 'main')
     assert result == ('', '')
 
 
-def test_get_latest_github_commit2_missing_commit_key(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_github_commit2_missing_commit_key(mocker: MockerFixture) -> None:
     mock_response = mocker.Mock()
     mock_response.json.return_value = {}
     mocker.patch('livecheck.special.github.get_content', return_value=mock_response)
     with pytest.raises(KeyError):
-        get_latest_github_commit2('owner', 'repo', 'main')
+        await get_latest_github_commit2('owner', 'repo', 'main')
 
 
 @pytest.mark.parametrize(
@@ -425,7 +435,8 @@ def test_get_branch(mocker: MockerFixture, url: str, ebuild: str, branches_dict:
             ('', '', ''),
         ),
     ])
-def test_get_latest_github(
+@pytest.mark.asyncio
+async def test_get_latest_github(
         mocker: MockerFixture,
         url: str,
         ebuild: str,
@@ -443,7 +454,7 @@ def test_get_latest_github(
     else:
         mock_package.return_value = (last_version, top_hash)
     settings = mocker.Mock()
-    result = get_latest_github(url, ebuild, settings, force_sha=force_sha)
+    result = await get_latest_github(url, ebuild, settings, force_sha=force_sha)
     assert result == expected
 
 
@@ -467,8 +478,10 @@ def test_get_latest_github(
             '',  # expected_sha
         ),
     ])
-def test_get_latest_github_metadata(mocker: MockerFixture, remote: str, ebuild: str, owner: str,
-                                    repo: str, expected_version: str, expected_sha: str) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_github_metadata(mocker: MockerFixture, remote: str, ebuild: str,
+                                          owner: str, repo: str, expected_version: str,
+                                          expected_sha: str) -> None:
     mock_get_latest_github_package = mocker.patch(
         'livecheck.special.github.get_latest_github_package')
     mock_settings = mocker.Mock()
@@ -477,12 +490,13 @@ def test_get_latest_github_metadata(mocker: MockerFixture, remote: str, ebuild: 
         mock_get_latest_github_package.return_value = (expected_version, expected_sha)
     else:
         mock_get_latest_github_package.return_value = ('', '')
-    result = get_latest_github_metadata(remote, ebuild, mock_settings)
+    result = await get_latest_github_metadata(remote, ebuild, mock_settings)
     assert result == (expected_version, expected_sha)
     mock_get_latest_github_package.assert_called_once_with(mock_url, ebuild, mock_settings)
 
 
-def test_get_latest_github_package_annotated_tag_no_response(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_github_package_annotated_tag_no_response(mocker: MockerFixture) -> None:
     xml = '<?xml version="1.0" encoding="UTF-8"?><feed xmlns="http://www.w3.org/2005/Atom"></feed>'
     ref_response = mocker.Mock()
     ref_response.json.return_value = {
@@ -500,11 +514,13 @@ def test_get_latest_github_package_annotated_tag_no_response(mocker: MockerFixtu
                      'id': 'v1.0.0',
                      'version': '1.0.0'
                  })
-    result = get_latest_github_package('', 'category/repo-1.0.0.ebuild', mocker.Mock(branches={}))
+    result = await get_latest_github_package('', 'category/repo-1.0.0.ebuild',
+                                             mocker.Mock(branches={}))
     assert result == ('1.0.0', '')
 
 
-def test_get_latest_github_package_annotated_tag_success(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_github_package_annotated_tag_success(mocker: MockerFixture) -> None:
     xml = '<?xml version="1.0" encoding="UTF-8"?><feed xmlns="http://www.w3.org/2005/Atom"></feed>'
     ref_response = mocker.Mock()
     ref_response.json.return_value = {
@@ -524,5 +540,6 @@ def test_get_latest_github_package_annotated_tag_success(mocker: MockerFixture) 
                      'id': 'v1.0.0',
                      'version': '1.0.0'
                  })
-    result = get_latest_github_package('', 'category/repo-1.0.0.ebuild', mocker.Mock(branches={}))
+    result = await get_latest_github_package('', 'category/repo-1.0.0.ebuild',
+                                             mocker.Mock(branches={}))
     assert result == ('1.0.0', 'def456abc789')

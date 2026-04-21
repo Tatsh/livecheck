@@ -20,7 +20,7 @@ JETBRAINS_TAG_URL = 'https://data.services.jetbrains.com/products'
 logger = logging.getLogger(__name__)
 
 
-def get_latest_jetbrains_package(ebuild: str, settings: LivecheckSettings) -> str:
+async def get_latest_jetbrains_package(ebuild: str, settings: LivecheckSettings) -> str:
     """
     Get the latest version of a JetBrains package.
 
@@ -47,7 +47,7 @@ def get_latest_jetbrains_package(ebuild: str, settings: LivecheckSettings) -> st
 
     catpkg, _, product_code, _ = catpkg_catpkgsplit(ebuild)
 
-    if not (r := get_content(JETBRAINS_TAG_URL)):
+    if not (r := await get_content(JETBRAINS_TAG_URL)):
         return ''
 
     product_code = product_name.get(product_code, product_code)
@@ -68,23 +68,24 @@ def get_latest_jetbrains_package(ebuild: str, settings: LivecheckSettings) -> st
     return ''
 
 
-def update_jetbrains_ebuild(ebuild: str) -> None:
+async def update_jetbrains_ebuild(ebuild: str) -> None:
     """Update a JetBrains package ebuild."""
-    package_path, _ = search_ebuild(str(ebuild), 'product-info.json')
+    package_path, _ = await search_ebuild(str(ebuild), 'product-info.json')
     if not (version := package_path.split('/')[-1]):
         logger.warning('No version found in the tar.gz file.')
         return
 
     version = version.split('-', 1)[-1]
 
-    with EbuildTempFile(ebuild) as temp_file, temp_file.open(
-            'w', encoding='utf-8') as tf, Path(ebuild).open('r', encoding='utf-8') as f:
-        for line in f:
-            if line.startswith('MY_PV='):
-                logger.debug('Found MY_PV= line.')
-                tf.write(f'MY_PV="{version}"\n')
-            else:
-                tf.write(line)
+    async with EbuildTempFile(ebuild) as temp_file:
+        with temp_file.open('w', encoding='utf-8') as tf, Path(ebuild).open('r',
+                                                                            encoding='utf-8') as f:
+            for line in f:
+                if line.startswith('MY_PV='):
+                    logger.debug('Found MY_PV= line.')
+                    tf.write(f'MY_PV="{version}"\n')
+                else:
+                    tf.write(line)
 
 
 def is_jetbrains(url: str) -> bool:

@@ -18,7 +18,7 @@ def extract_id(url: str) -> str:
     return m.group(1) if m else ''
 
 
-def get_latest_gist_package(url: str) -> tuple[str, str]:
+async def get_latest_gist_package(url: str) -> tuple[str, str]:
     """
     Get the latest version of a Gist.
 
@@ -36,7 +36,7 @@ def get_latest_gist_package(url: str) -> tuple[str, str]:
         return '', ''
 
     url = GIST_COMMIT_URL % (gist_id)
-    if not (r := get_content(url)):
+    if not (r := await get_content(url)):
         return '', ''
 
     history = r.json().get('history', [])

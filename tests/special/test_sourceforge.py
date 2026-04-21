@@ -36,7 +36,8 @@ def test_extract_repository(url: str, expected: str) -> None:
         assert not result
 
 
-def test_get_latest_sourceforge_package_returns_latest_version(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_sourceforge_package_returns_latest_version(mocker: MockerFixture) -> None:
     # Mock extract_repository to return a repository name
     mocker.patch('livecheck.special.sourceforge.extract_repository', return_value='sample_project')
     # Mock get_content to return a dummy RSS feed
@@ -60,18 +61,20 @@ def test_get_latest_sourceforge_package_returns_latest_version(mocker: MockerFix
     # Mock get_last_version to return the latest version dict
     mocker.patch('livecheck.special.sourceforge.get_last_version',
                  return_value={'version': '1.2.3'})
-    result = get_latest_sourceforge_package('dummy_url', 'dummy_ebuild', mocker.Mock())
+    result = await get_latest_sourceforge_package('dummy_url', 'dummy_ebuild', mocker.Mock())
     assert result == '1.2.3'
 
 
-def test_get_latest_sourceforge_package_no_content(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_sourceforge_package_no_content(mocker: MockerFixture) -> None:
     mocker.patch('livecheck.special.sourceforge.extract_repository', return_value='sample_project')
     mocker.patch('livecheck.special.sourceforge.get_content', return_value=None)
-    result = get_latest_sourceforge_package('dummy_url', 'dummy_ebuild', mocker.Mock())
+    result = await get_latest_sourceforge_package('dummy_url', 'dummy_ebuild', mocker.Mock())
     assert not result
 
 
-def test_get_latest_sourceforge_package_no_versions_found(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_sourceforge_package_no_versions_found(mocker: MockerFixture) -> None:
     mocker.patch('livecheck.special.sourceforge.extract_repository', return_value='sample_project')
     dummy_rss = """
     <rss>
@@ -87,11 +90,13 @@ def test_get_latest_sourceforge_package_no_versions_found(mocker: MockerFixture)
     mocker.patch('livecheck.special.sourceforge.get_content', return_value=mock_response)
     mocker.patch('livecheck.special.sourceforge.get_archive_extension', return_value=False)
     mocker.patch('livecheck.special.sourceforge.get_last_version', return_value=None)
-    result = get_latest_sourceforge_package('dummy_url', 'dummy_ebuild', mocker.Mock())
+    result = await get_latest_sourceforge_package('dummy_url', 'dummy_ebuild', mocker.Mock())
     assert not result
 
 
-def test_get_latest_sourceforge_package2_calls_get_last_version(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_sourceforge_package2_calls_get_last_version(
+        mocker: MockerFixture) -> None:
     dummy_rss = """
     <rss>
         <channel>
@@ -107,12 +112,13 @@ def test_get_latest_sourceforge_package2_calls_get_last_version(mocker: MockerFi
     mocker.patch('livecheck.special.sourceforge.get_archive_extension', return_value=True)
     get_last_version = mocker.patch('livecheck.special.sourceforge.get_last_version',
                                     return_value={'version': '2.0.0'})
-    result = get_latest_sourceforge_package2('sample_project', 'dummy_ebuild', mocker.Mock())
+    result = await get_latest_sourceforge_package2('sample_project', 'dummy_ebuild', mocker.Mock())
     assert result == '2.0.0'
     assert get_last_version.called
 
 
-def test_get_latest_sourceforge_package2_returns_empty_if_no_last_version(
+@pytest.mark.asyncio
+async def test_get_latest_sourceforge_package2_returns_empty_if_no_last_version(
         mocker: MockerFixture) -> None:
     dummy_rss = """
     <rss>
@@ -128,7 +134,7 @@ def test_get_latest_sourceforge_package2_returns_empty_if_no_last_version(
     mocker.patch('livecheck.special.sourceforge.get_content', return_value=mock_response)
     mocker.patch('livecheck.special.sourceforge.get_archive_extension', return_value=True)
     mocker.patch('livecheck.special.sourceforge.get_last_version', return_value=None)
-    result = get_latest_sourceforge_package2('sample_project', 'dummy_ebuild', mocker.Mock())
+    result = await get_latest_sourceforge_package2('sample_project', 'dummy_ebuild', mocker.Mock())
     assert not result
 
 
@@ -146,31 +152,35 @@ def test_is_sourceforge_false_for_invalid_urls(mocker: MockerFixture) -> None:
     assert not is_sourceforge('https://not-sourceforge.org/project/sample_project')
 
 
-def test_get_latest_sourceforge_metadata_calls_get_latest_sourceforge_package2(
+@pytest.mark.asyncio
+async def test_get_latest_sourceforge_metadata_calls_get_latest_sourceforge_package2(
         mocker: MockerFixture) -> None:
     mock_get_latest_sourceforge_package2 = mocker.patch(
         'livecheck.special.sourceforge.get_latest_sourceforge_package2', return_value='3.1.4')
     remote = 'sample_project'
     ebuild = 'dummy_ebuild'
     settings = mocker.Mock()
-    result = get_latest_sourceforge_metadata(remote, ebuild, settings)
+    result = await get_latest_sourceforge_metadata(remote, ebuild, settings)
     assert result == '3.1.4'
     mock_get_latest_sourceforge_package2.assert_called_once_with(remote, ebuild, settings)
 
 
-def test_get_latest_sourceforge_metadata_returns_empty_if_no_version(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_sourceforge_metadata_returns_empty_if_no_version(
+        mocker: MockerFixture) -> None:
     mocker.patch('livecheck.special.sourceforge.get_latest_sourceforge_package2', return_value='')
     remote = 'sample_project'
     ebuild = 'dummy_ebuild'
     settings = mocker.Mock()
-    result = get_latest_sourceforge_metadata(remote, ebuild, settings)
+    result = await get_latest_sourceforge_metadata(remote, ebuild, settings)
     assert not result
 
 
-def test_get_latest_sourceforge_metadata_with_none_return(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_sourceforge_metadata_with_none_return(mocker: MockerFixture) -> None:
     mocker.patch('livecheck.special.sourceforge.get_latest_sourceforge_package2', return_value=None)
     remote = 'sample_project'
     ebuild = 'dummy_ebuild'
     settings = mocker.Mock()
-    result = get_latest_sourceforge_metadata(remote, ebuild, settings)
+    result = await get_latest_sourceforge_metadata(remote, ebuild, settings)
     assert result is None

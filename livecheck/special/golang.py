@@ -21,7 +21,7 @@ class InvalidGoSumURITemplate(ValueError):
         super().__init__('URI template missing @PV@ or @SHA@.')
 
 
-def update_go_ebuild(ebuild: str, version: str, go_sum_uri_template: str) -> None:
+async def update_go_ebuild(ebuild: str, version: str, go_sum_uri_template: str) -> None:
     """
     Update a Go ebuild with the latest EGO_SUM content.
 
@@ -40,26 +40,25 @@ def update_go_ebuild(ebuild: str, version: str, go_sum_uri_template: str) -> Non
                      if y is not None)):
             sha = first_match.group(1)
     uri = go_sum_uri_template.replace('@PV@', version).replace('@SHA@', sha)
-    if not (r := get_content(uri)):
+    if not (r := await get_content(uri)) or not r.text:
         return
-    # Filter out /go.mod lines and strip hash part.
     new_ego_sum_lines = []
     for line in r.text.splitlines():
-        # Skip empty lines.
         if not line.strip():
             continue
-        # Skip /go.mod entries
         if '/go.mod' in line:
             continue
-        # Remove hash part (e.g., " h1:..." or " h256:...")
         cleaned = re.sub(r' h\d+:.*$', '', line).strip()
         if cleaned:
             new_ego_sum_lines.append(f'"{cleaned}"')
 
-    with EbuildTempFile(ebuild) as temp_file, temp_file.open('w', encoding='utf-8') as tf:
-        updated = False
-        found_closing_bracket = False
-        with Path(ebuild).open('r', encoding='utf-8') as f:
+    async with EbuildTempFile(ebuild) as temp_file:
+        with (
+                temp_file.open('w', encoding='utf-8') as tf,
+                Path(ebuild).open('r', encoding='utf-8') as f,
+        ):
+            updated = False
+            found_closing_bracket = False
             for line in f:
                 if line.startswith('EGO_SUM=(') and not updated:
                     logger.debug('Found EGO_SUM=( line.')

@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from shutil import which
 from typing import TYPE_CHECKING
+import asyncio
 import logging
-import subprocess as sp
 
 from livecheck.utils import check_program
 
@@ -35,8 +35,8 @@ def remove_gomodule_url(ebuild_content: str) -> str:
     return remove_url_ebuild(ebuild_content, '-vendor.tar.xz')
 
 
-def update_gomodule_ebuild(ebuild: str, path: str | None,
-                           fetchlist: Mapping[str, tuple[str, ...]]) -> None:
+async def update_gomodule_ebuild(ebuild: str, path: str | None,
+                                 fetchlist: Mapping[str, tuple[str, ...]]) -> None:
     """
     Update a Go module-based ebuild.
 
@@ -49,7 +49,7 @@ def update_gomodule_ebuild(ebuild: str, path: str | None,
     fetchlist : Mapping[str, tuple[str, ...]]
         Fetch map used when compressing vendor output.
     """
-    go_mod_path, temp_dir = search_ebuild(ebuild, 'go.mod', path)
+    go_mod_path, temp_dir = await search_ebuild(ebuild, 'go.mod', path)
     if not go_mod_path:
         return
 
@@ -58,12 +58,16 @@ def update_gomodule_ebuild(ebuild: str, path: str | None,
         logger.error('go executable not found in PATH')
         return
     try:
-        sp.run((go_exe, 'mod', 'vendor'), cwd=go_mod_path, check=True)
-    except sp.CalledProcessError:
+        proc = await asyncio.create_subprocess_exec(go_exe, 'mod', 'vendor', cwd=go_mod_path)
+        returncode = await proc.wait()
+        if returncode != 0:
+            logger.error("Error running 'go mod vendor'.")
+            return
+    except OSError:
         logger.exception("Error running 'go mod vendor'.")
         return
 
-    build_compress(temp_dir, go_mod_path, 'vendor', '-vendor.tar.xz', fetchlist)
+    await build_compress(temp_dir, go_mod_path, 'vendor', '-vendor.tar.xz', fetchlist)
 
 
 def check_gomodule_requirements() -> bool:

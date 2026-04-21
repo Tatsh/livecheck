@@ -8,6 +8,7 @@ import os
 import tarfile
 import tempfile
 
+from anyio import Path as AnyioPath, to_thread
 from livecheck.utils.portage import get_distdir, unpack_ebuild
 from platformdirs import user_cache_dir
 
@@ -70,7 +71,7 @@ def remove_url_ebuild(ebuild: str, remove: str) -> str:
     return '\n'.join(filtered_lines)
 
 
-def search_ebuild(ebuild: str, archive: str, path: str | None = None) -> tuple[str, str]:
+async def search_ebuild(ebuild: str, archive: str, path: str | None = None) -> tuple[str, str]:
     """
     Search for an archive file inside an unpacked ebuild tree.
 
@@ -88,29 +89,30 @@ def search_ebuild(ebuild: str, archive: str, path: str | None = None) -> tuple[s
     tuple[str, str]
         Directory containing the archive and temp root path, or empty strings if not found.
     """
-    temp_dir = unpack_ebuild(ebuild)
+    temp_dir = await to_thread.run_sync(lambda: unpack_ebuild(ebuild))
     if not temp_dir:
         logger.warning('Error unpacking the ebuild.')
         return '', ''
 
-    if path:
-        # Search first directory in temp_dir
-        for root, _, _ in os.walk(temp_dir):
-            # check if relative path is in the end of root
-            if root.endswith(path):
-                return root, temp_dir
-    else:
-        for root, _, files in os.walk(temp_dir):
-            if archive in files:
-                return root, temp_dir
+    def _walk_search() -> tuple[str, str]:
+        if path:
+            for root, _, _ in os.walk(temp_dir):
+                if root.endswith(path):
+                    return root, temp_dir
+        else:
+            for root, _, files in os.walk(temp_dir):
+                if archive in files:
+                    return root, temp_dir
+        return '', ''
 
-    logger.error('Error searching the `%s` inside package.', archive)
+    result = await to_thread.run_sync(_walk_search)
+    if result == ('', ''):
+        logger.error('Error searching the `%s` inside package.', archive)
+    return result
 
-    return '', ''
 
-
-def build_compress(temp_dir: str, base_dir: str, directory: str, extension: str,
-                   fetchlist: Mapping[str, Collection[str]]) -> bool:
+async def build_compress(temp_dir: str, base_dir: str, directory: str, extension: str,
+                         fetchlist: Mapping[str, Collection[str]]) -> bool:
     """
     Build a compressed dist archive from vendor sources.
 
@@ -156,9 +158,11 @@ def build_compress(temp_dir: str, base_dir: str, directory: str, extension: str,
 
     relative_path = vendor_path.relative_to(base_path) / directory
 
-    with tarfile.open(vendor_archive_path, 'w:xz') as tar:
-        tar.add(vendor_dir, arcname=str(relative_path))
+    def _compress() -> None:
+        with tarfile.open(vendor_archive_path, 'w:xz') as tar:
+            tar.add(vendor_dir, arcname=str(relative_path))
 
+    await to_thread.run_sync(_compress)
     return True
 
 
@@ -188,10 +192,11 @@ def get_archive_extension(filename: str) -> str:
 class EbuildTempFile:
     """Ebuild temporary file context manager."""
     def __init__(self, ebuild: str) -> None:
-        self.ebuild = Path(ebuild)
-        self.temp_file: Path | None = None
+        self.ebuild = AnyioPath(ebuild)
+        self._std_ebuild = Path(ebuild)
+        self.temp_file: AnyioPath | None = None
 
-    def __enter__(self) -> Path:
+    async def __aenter__(self) -> Path:
         """
         Create a temporary file next to the ebuild.
 
@@ -200,28 +205,29 @@ class EbuildTempFile:
         pathlib.Path
             Path to the writable temporary file.
         """
-        self.temp_file = Path(
-            tempfile.NamedTemporaryFile(mode='w',
-                                        prefix=self.ebuild.stem,
-                                        suffix=self.ebuild.suffix,
-                                        delete=False,
-                                        dir=self.ebuild.parent,
-                                        encoding='utf-8').name)
-        return self.temp_file
+        name = tempfile.NamedTemporaryFile(  # noqa: SIM115
+            mode='w',
+            prefix=self._std_ebuild.stem,
+            suffix=self._std_ebuild.suffix,
+            delete=False,
+            dir=str(self._std_ebuild.parent),
+            encoding='utf-8').name
+        self.temp_file = AnyioPath(name)
+        return Path(name)
 
-    def __exit__(self, exc_type: object, exc_value: BaseException | None,
-                 traceback: object) -> None:
+    async def __aexit__(self, exc_type: object, exc_value: BaseException | None,
+                        traceback: object) -> None:
         """Handle the context exit."""
         if exc_type is None:
-            if not self.temp_file or not self.temp_file.exists() or self.temp_file.stat(
-            ).st_size == 0:
+            if not self.temp_file or not await self.temp_file.exists() or (
+                    await self.temp_file.stat()).st_size == 0:
                 logger.error('The temporary file is empty or missing.')
                 return
-            self.ebuild.unlink(missing_ok=True)
-            self.temp_file.rename(self.ebuild)
-            self.ebuild.chmod(0o0644)
-        if self.temp_file and self.temp_file.exists():
-            self.temp_file.unlink(missing_ok=True)
+            await self.ebuild.unlink(missing_ok=True)
+            await self.temp_file.rename(self.ebuild)
+            self._std_ebuild.chmod(0o0644)
+        if self.temp_file and await self.temp_file.exists():
+            await self.temp_file.unlink(missing_ok=True)
 
 
 def log_unhandled_commit(catpkg: str, src_uri: str) -> None:

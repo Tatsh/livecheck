@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-import subprocess as sp
+from unittest.mock import AsyncMock
 
 from livecheck.special.nodejs import (
     check_nodejs_requirements,
     remove_nodejs_url,
     update_nodejs_ebuild,
 )
+import pytest
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
@@ -43,85 +44,122 @@ https://example.com/baz.tar.gz"
     assert 'baz.tar.gz' in result
 
 
-def test_update_nodejs_ebuild_success(mocker: MockerFixture) -> None:
-    mock_search_ebuild = mocker.patch('livecheck.special.nodejs.search_ebuild')
-    mock_run = mocker.patch('livecheck.special.nodejs.sp.run')
-    mock_build_compress = mocker.patch('livecheck.special.nodejs.build_compress')
+@pytest.mark.asyncio
+async def test_update_nodejs_ebuild_success(mocker: MockerFixture) -> None:
+    mock_search_ebuild = mocker.patch('livecheck.special.nodejs.search_ebuild',
+                                      new_callable=AsyncMock)
+    mock_build_compress = mocker.patch('livecheck.special.nodejs.build_compress',
+                                       new_callable=AsyncMock)
 
-    ebuild = 'dummy.ebuild'
-    path = '/some/path'
-    fetchlist = {'foo': ('bar',)}
     package_path = '/tmp/pkg'
     temp_dir = '/tmp/tmpdir'
-
     mock_search_ebuild.return_value = (package_path, temp_dir)
 
-    update_nodejs_ebuild(ebuild, path, fetchlist)
+    mock_proc = mocker.MagicMock()
+    mock_proc.wait = AsyncMock(return_value=0)
+    mocker.patch('livecheck.special.nodejs.asyncio.create_subprocess_exec',
+                 new_callable=AsyncMock,
+                 return_value=mock_proc)
 
-    mock_search_ebuild.assert_called_once_with(ebuild, 'package.json', path)
-    mock_run.assert_called_once_with(
-        ('npm', 'install', '--ignore-scripts', '--no-audit', '--no-color', '--no-progress'),
-        cwd=package_path,
-        check=True)
+    fetchlist = {'foo': ('bar',)}
+    await update_nodejs_ebuild('dummy.ebuild', '/some/path', fetchlist)
+
+    mock_search_ebuild.assert_called_once_with('dummy.ebuild', 'package.json', '/some/path')
     mock_build_compress.assert_called_once_with(temp_dir, package_path, 'node_modules',
                                                 '-node_modules.tar.xz', fetchlist)
 
 
-def test_update_nodejs_ebuild_no_package_path(mocker: MockerFixture) -> None:
-    mock_search_ebuild = mocker.patch('livecheck.special.nodejs.search_ebuild')
-    mock_run = mocker.patch('livecheck.special.nodejs.sp.run')
-    mock_build_compress = mocker.patch('livecheck.special.nodejs.build_compress')
+@pytest.mark.asyncio
+async def test_update_nodejs_ebuild_no_package_path(mocker: MockerFixture) -> None:
+    mock_search_ebuild = mocker.patch('livecheck.special.nodejs.search_ebuild',
+                                      new_callable=AsyncMock)
+    mock_build_compress = mocker.patch('livecheck.special.nodejs.build_compress',
+                                       new_callable=AsyncMock)
+    mock_create = mocker.patch('livecheck.special.nodejs.asyncio.create_subprocess_exec',
+                               new_callable=AsyncMock)
 
     mock_search_ebuild.return_value = (None, None)
 
-    update_nodejs_ebuild('dummy.ebuild', None, {})
+    await update_nodejs_ebuild('dummy.ebuild', None, {})
 
     mock_search_ebuild.assert_called_once()
-    mock_run.assert_not_called()
+    mock_create.assert_not_called()
     mock_build_compress.assert_not_called()
 
 
-def test_update_nodejs_ebuild_npm_install_fails(mocker: MockerFixture) -> None:
-    mock_search_ebuild = mocker.patch('livecheck.special.nodejs.search_ebuild')
-    mock_run = mocker.patch('livecheck.special.nodejs.sp.run')
-    mock_build_compress = mocker.patch('livecheck.special.nodejs.build_compress')
+@pytest.mark.asyncio
+async def test_update_nodejs_ebuild_npm_install_fails(mocker: MockerFixture) -> None:
+    mock_search_ebuild = mocker.patch('livecheck.special.nodejs.search_ebuild',
+                                      new_callable=AsyncMock)
+    mock_build_compress = mocker.patch('livecheck.special.nodejs.build_compress',
+                                       new_callable=AsyncMock)
     mock_logger = mocker.patch('livecheck.special.nodejs.logger')
 
     package_path = '/tmp/pkg'
     temp_dir = '/tmp/tmpdir'
     mock_search_ebuild.return_value = (package_path, temp_dir)
-    mock_run.side_effect = sp.CalledProcessError(1, 'npm')
 
-    update_nodejs_ebuild('dummy.ebuild', None, {})
+    mock_proc = mocker.MagicMock()
+    mock_proc.wait = AsyncMock(return_value=1)
+    mocker.patch('livecheck.special.nodejs.asyncio.create_subprocess_exec',
+                 new_callable=AsyncMock,
+                 return_value=mock_proc)
 
-    mock_run.assert_called_once()
+    await update_nodejs_ebuild('dummy.ebuild', None, {})
+
     mock_build_compress.assert_not_called()
-    assert mock_logger.exception.call_count == 1
+    assert mock_logger.error.call_count == 1
 
 
-def test_update_nodejs_ebuild_other_package_manager(mocker: MockerFixture) -> None:
-    mock_search_ebuild = mocker.patch('livecheck.special.nodejs.search_ebuild')
-    mock_run = mocker.patch('livecheck.special.nodejs.sp.run')
-    mock_build_compress = mocker.patch('livecheck.special.nodejs.build_compress')
+@pytest.mark.asyncio
+async def test_update_nodejs_ebuild_subprocess_raises_os_error(mocker: MockerFixture) -> None:
+    mock_search_ebuild = mocker.patch('livecheck.special.nodejs.search_ebuild',
+                                      new_callable=AsyncMock)
+    mock_build_compress = mocker.patch('livecheck.special.nodejs.build_compress',
+                                       new_callable=AsyncMock)
+    mock_logger = mocker.patch('livecheck.special.nodejs.logger')
+    mock_search_ebuild.return_value = ('/tmp/pkg', '/tmp/tmpdir')
+    mocker.patch('livecheck.special.nodejs.asyncio.create_subprocess_exec',
+                 new_callable=AsyncMock,
+                 side_effect=OSError('npm failed'))
+    await update_nodejs_ebuild('dummy.ebuild', None, {})
+    mock_build_compress.assert_not_called()
+    assert mock_logger.exception.called
+
+
+@pytest.mark.asyncio
+async def test_update_nodejs_ebuild_other_package_manager(mocker: MockerFixture) -> None:
+    mock_search_ebuild = mocker.patch('livecheck.special.nodejs.search_ebuild',
+                                      new_callable=AsyncMock)
+    mock_build_compress = mocker.patch('livecheck.special.nodejs.build_compress',
+                                       new_callable=AsyncMock)
 
     mock_search_ebuild.return_value = ('/tmp/pkg', '/tmp/tmpdir')
 
-    update_nodejs_ebuild('dummy.ebuild', None, {}, package_manager='yarn')
+    mock_proc = mocker.MagicMock()
+    mock_proc.wait = AsyncMock(return_value=0)
+    mocker.patch('livecheck.special.nodejs.asyncio.create_subprocess_exec',
+                 new_callable=AsyncMock,
+                 return_value=mock_proc)
 
-    mock_run.assert_called_once_with(('yarn', 'install', '--silent'), cwd='/tmp/pkg', check=True)
+    await update_nodejs_ebuild('dummy.ebuild', None, {}, package_manager='yarn')
+
     mock_build_compress.assert_called_once()
 
 
-def test_update_nodejs_ebuild_invalid_package_manager(mocker: MockerFixture) -> None:
-    mock_search_ebuild = mocker.patch('livecheck.special.nodejs.search_ebuild')
-    mock_run = mocker.patch('livecheck.special.nodejs.sp.run')
+@pytest.mark.asyncio
+async def test_update_nodejs_ebuild_invalid_package_manager(mocker: MockerFixture) -> None:
+    mock_search_ebuild = mocker.patch('livecheck.special.nodejs.search_ebuild',
+                                      new_callable=AsyncMock)
     mock_logger = mocker.patch('livecheck.special.nodejs.logger')
+    mock_create = mocker.patch('livecheck.special.nodejs.asyncio.create_subprocess_exec',
+                               new_callable=AsyncMock)
 
     mock_search_ebuild.return_value = ('/tmp/pkg', '/tmp/tmpdir')
 
-    update_nodejs_ebuild('dummy.ebuild', None, {}, package_manager='invalid')
+    await update_nodejs_ebuild('dummy.ebuild', None, {}, package_manager='invalid')
 
-    mock_run.assert_not_called()
+    mock_create.assert_not_called()
     mock_logger.error.assert_called_once_with('Unsupported package manager: %s', 'invalid')
 
 

@@ -31,13 +31,15 @@ local utils = import 'utils.libjsonnet';
       },
       poetry+: {
         dependencies+: {
+          anyio: utils.latestPypiPackageVersionCaret('anyio'),
           beautifulsoup4: utils.latestPypiPackageVersionCaret('beautifulsoup4'),
           defusedxml: utils.latestPypiPackageVersionCaret('defusedxml'),
           html5lib: utils.latestPypiPackageVersionCaret('html5lib'),
           keyring: utils.latestPypiPackageVersionCaret('keyring'),
-          portage: utils.latestPypiPackageVersionCaret('portage'),
+          niquests: utils.latestPypiPackageVersionCaret('niquests'),
+          'niquests-cache': utils.latestPypiPackageVersionCaret('niquests-cache'),
           platformdirs: utils.latestPypiPackageVersionCaret('platformdirs'),
-          requests: utils.latestPypiPackageVersionCaret('requests'),
+          portage: utils.latestPypiPackageVersionCaret('portage'),
         },
         group+: {
           dev+: {
@@ -45,7 +47,11 @@ local utils = import 'utils.libjsonnet';
               'portage-stubs': '^0',
               'types-beautifulsoup4': utils.latestPypiPackageVersionCaret('types-beautifulsoup4'),
               'types-defusedxml': utils.latestPypiPackageVersionCaret('types-defusedxml'),
-              'types-requests': utils.latestPypiPackageVersionCaret('types-requests'),
+            },
+          },
+          tests+: {
+            dependencies+: {
+              'niquests-mock': utils.latestPypiPackageVersionCaret('niquests-mock'),
             },
           },
         },

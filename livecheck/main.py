@@ -2,17 +2,19 @@
 from __future__ import annotations
 
 from functools import cache
+from itertools import starmap
 from os import chdir
 from pathlib import Path
 from re import Match
 from shutil import which
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
+import asyncio
 import logging
 import os
 import re
-import subprocess as sp
 
+from anyio import Path as AnyioPath
 from bascom import setup_logging
 from defusedxml import ElementTree as ET  # noqa: N817
 import click
@@ -112,7 +114,7 @@ from .special.sourcehut import (
     is_sourcehut,
 )
 from .special.yarn import check_yarn_requirements, update_yarn_ebuild
-from .utils import check_program, extract_sha, get_content, is_sha
+from .utils import check_program, close_sessions, extract_sha, get_content, init_sessions, is_sha
 from .utils.portage import (
     P,
     catpkg_catpkgsplit,
@@ -126,7 +128,7 @@ from .utils.portage import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Sequence
+    from collections.abc import Sequence
 
     from .typing import PropTuple
 
@@ -162,7 +164,7 @@ def _resolved_executable(name: str) -> str:
     return path
 
 
-def process_submodules(pkg_name: str, ref: str, contents: str, repo_uri: str) -> str:
+async def process_submodules(pkg_name: str, ref: str, contents: str, repo_uri: str) -> str:
     """
     Process submodules in the ebuild contents.
 
@@ -187,40 +189,49 @@ def process_submodules(pkg_name: str, ref: str, contents: str, repo_uri: str) ->
     offset_a, offset_b = ((1, 3) if 'api.github.com/repos/' in repo_uri else (0, 2))
     repo_root = '/'.join([x for x in urlparse(repo_uri).path.split('/') if x][offset_a:offset_b])
     ebuild_lines = contents.splitlines(keepends=True)
-    for item in SUBMODULES[pkg_name]:
+
+    async def _fetch_one(item: object) -> tuple[str, str] | None:
         name = item
         if isinstance(item, tuple) and len(item) == 3:  # noqa: PLR2004
-            nested_path, grep_for_var, parent_path = item  # ty: ignore[invalid-assignment]
+            nested_path, grep_for_var, parent_path = item
             grep_for = f'{grep_for_var}="'
-            parent_r = get_content(f'https://api.github.com/repos/{repo_root}/contents/'
-                                   f'{parent_path}?ref={ref}')
+            parent_r = await get_content(f'https://api.github.com/repos/{repo_root}/contents/'
+                                         f'{parent_path}?ref={ref}')
             if not parent_r.ok:
-                continue
+                return None
             parent_data = parent_r.json()
             parent_sha = parent_data['sha']
             parent_git_url = parent_data.get('submodule_git_url', '')
             if not parent_git_url:
-                continue
+                return None
             parent_repo = '/'.join(
                 [x for x in urlparse(parent_git_url).path.replace('.git', '').split('/') if x][:2])
-            r = get_content(f'https://api.github.com/repos/{parent_repo}/contents/'
-                            f'{nested_path}?ref={parent_sha}')
+            r = await get_content(f'https://api.github.com/repos/{parent_repo}/contents/'
+                                  f'{nested_path}?ref={parent_sha}')
         elif isinstance(item, tuple):
             grep_for = f'{item[1]}="'
             name = item[0]
-            r = get_content(f'https://api.github.com/repos/{repo_root}/contents/{name}'
-                            f'?ref={ref}')
+            r = await get_content(f'https://api.github.com/repos/{repo_root}/contents/{name}'
+                                  f'?ref={ref}')
         else:
-            grep_for = f'{Path(item).name.upper().replace("-", "_")}_SHA="'
-            r = get_content(f'https://api.github.com/repos/{repo_root}/contents/{name}'
-                            f'?ref={ref}')
+            name = str(item)
+            grep_for = f'{Path(name).name.upper().replace("-", "_")}_SHA="'
+            r = await get_content(f'https://api.github.com/repos/{repo_root}/contents/{name}'
+                                  f'?ref={ref}')
         if not r.ok:
-            continue
+            return None
         remote_sha = r.json()['sha']
         for line in ebuild_lines:
             if (line.startswith(grep_for)
                     and (local_sha := line.split('=')[1].replace('"', '').strip()) != remote_sha):
-                contents = contents.replace(local_sha, remote_sha)
+                return local_sha, remote_sha
+        return None
+
+    results = await asyncio.gather(*(_fetch_one(item) for item in SUBMODULES[pkg_name]))
+    for result in results:
+        if result:
+            local_sha, remote_sha = result
+            contents = contents.replace(local_sha, remote_sha)
     return contents
 
 
@@ -229,8 +240,8 @@ def log_unhandled_pkg(ebuild: str, src_uri: str) -> None:  # pragma: no cover
     log.debug('Unhandled: %s, SRC_URI: %s', ebuild, src_uri)
 
 
-def parse_url(src_uri: str, ebuild: str, settings: LivecheckSettings, *,
-              force_sha: bool) -> tuple[str, str, str, str]:
+async def parse_url(src_uri: str, ebuild: str, settings: LivecheckSettings, *,
+                    force_sha: bool) -> tuple[str, str, str, str]:
     """
     Parse a URL and return the last version, top hash, hash date, and URL.
 
@@ -259,49 +270,49 @@ def parse_url(src_uri: str, ebuild: str, settings: LivecheckSettings, *,
 
     log.debug('Parsed URI: %s', parsed_uri)
     if is_gist(src_uri):
-        top_hash, hash_date = get_latest_gist_package(src_uri)
+        top_hash, hash_date = await get_latest_gist_package(src_uri)
     elif is_github(src_uri):
-        last_version, top_hash, hash_date = get_latest_github(src_uri,
-                                                              ebuild,
-                                                              settings,
-                                                              force_sha=force_sha)
+        last_version, top_hash, hash_date = await get_latest_github(src_uri,
+                                                                    ebuild,
+                                                                    settings,
+                                                                    force_sha=force_sha)
     elif is_sourcehut(src_uri):
-        last_version, top_hash, hash_date = get_latest_sourcehut(src_uri,
-                                                                 ebuild,
-                                                                 settings,
-                                                                 force_sha=force_sha)
+        last_version, top_hash, hash_date = await get_latest_sourcehut(src_uri,
+                                                                       ebuild,
+                                                                       settings,
+                                                                       force_sha=force_sha)
     elif is_pypi(src_uri):
-        last_version, url = get_latest_pypi_package(src_uri, ebuild, settings)
+        last_version, url = await get_latest_pypi_package(src_uri, ebuild, settings)
     elif is_jetbrains(src_uri):
-        last_version = get_latest_jetbrains_package(ebuild, settings)
+        last_version = await get_latest_jetbrains_package(ebuild, settings)
     elif is_gitlab(src_uri):
-        last_version, top_hash, hash_date = get_latest_gitlab(src_uri,
-                                                              ebuild,
-                                                              settings,
-                                                              force_sha=force_sha)
+        last_version, top_hash, hash_date = await get_latest_gitlab(src_uri,
+                                                                    ebuild,
+                                                                    settings,
+                                                                    force_sha=force_sha)
     elif is_package(src_uri):
-        last_version = get_latest_package(src_uri, ebuild, settings)
+        last_version = await get_latest_package(src_uri, ebuild, settings)
     elif is_pecl(src_uri):
-        last_version = get_latest_pecl_package(ebuild, settings)
+        last_version = await get_latest_pecl_package(ebuild, settings)
     elif is_metacpan(src_uri):
-        last_version = get_latest_metacpan_package(src_uri, ebuild, settings)
+        last_version = await get_latest_metacpan_package(src_uri, ebuild, settings)
     elif is_rubygems(src_uri):
-        last_version = get_latest_rubygems_package(ebuild, settings)
+        last_version = await get_latest_rubygems_package(ebuild, settings)
     elif is_sourceforge(src_uri):
-        last_version = get_latest_sourceforge_package(src_uri, ebuild, settings)
+        last_version = await get_latest_sourceforge_package(src_uri, ebuild, settings)
     elif is_bitbucket(src_uri):
-        last_version, top_hash, hash_date = get_latest_bitbucket(src_uri,
-                                                                 ebuild,
-                                                                 settings,
-                                                                 force_sha=force_sha)
+        last_version, top_hash, hash_date = await get_latest_bitbucket(src_uri,
+                                                                       ebuild,
+                                                                       settings,
+                                                                       force_sha=force_sha)
     else:
         log_unhandled_pkg(ebuild, src_uri)
 
     return last_version, top_hash, hash_date, url
 
 
-def parse_metadata(repo_root: str, ebuild: str,
-                   settings: LivecheckSettings) -> tuple[str, str, str, str]:
+async def parse_metadata(repo_root: str, ebuild: str,
+                         settings: LivecheckSettings) -> tuple[str, str, str, str]:
     """
     Parse ``metadata.xml`` for upstream information.
 
@@ -338,24 +349,26 @@ def parse_metadata(repo_root: str, ebuild: str,
                     continue
                 type_ = subelem.attrib['type']
                 if GITHUB_METADATA in type_:
-                    last_version, top_hash = get_latest_github_metadata(remote, ebuild, settings)
+                    last_version, top_hash = await get_latest_github_metadata(
+                        remote, ebuild, settings)
                 if BITBUCKET_METADATA in type_:
-                    last_version, top_hash = get_latest_bitbucket_metadata(remote, ebuild, settings)
+                    last_version, top_hash = await get_latest_bitbucket_metadata(
+                        remote, ebuild, settings)
                 if GITLAB_METADATA in type_:
-                    last_version, top_hash = get_latest_gitlab_metadata(
+                    last_version, top_hash = await get_latest_gitlab_metadata(
                         remote, type_, ebuild, settings)
                 if SOURCEHUT_METADATA in type_:
-                    last_version = get_latest_sourcehut_metadata(remote, ebuild, settings)
+                    last_version = await get_latest_sourcehut_metadata(remote, ebuild, settings)
                 if METACPAN_METADATA in type_:
-                    last_version = get_latest_metacpan_metadata(remote, ebuild, settings)
+                    last_version = await get_latest_metacpan_metadata(remote, ebuild, settings)
                 if PECL_METADATA in type_:
-                    last_version = get_latest_pecl_metadata(remote, ebuild, settings)
+                    last_version = await get_latest_pecl_metadata(remote, ebuild, settings)
                 if RUBYGEMS_METADATA in type_:
-                    last_version = get_latest_rubygems_metadata(remote, ebuild, settings)
+                    last_version = await get_latest_rubygems_metadata(remote, ebuild, settings)
                 if SOURCEFORGE_METADATA in type_:
-                    last_version = get_latest_sourceforge_metadata(remote, ebuild, settings)
+                    last_version = await get_latest_sourceforge_metadata(remote, ebuild, settings)
                 if PYPI_METADATA in type_:
-                    last_version, url = get_latest_pypi_metadata(remote, ebuild, settings)
+                    last_version, url = await get_latest_pypi_metadata(remote, ebuild, settings)
                 if last_version or top_hash:
                     return last_version, top_hash, hash_date, url
     return '', '', '', ''
@@ -382,18 +395,140 @@ def extract_restrict_version(cp: str) -> tuple[str, str]:
     return cp, ''
 
 
-def get_props(  # noqa: C901, PLR0912, PLR0914
-        search_dir: Path,
-        repo_root: Path,
-        settings: LivecheckSettings,
-        names: Sequence[str] | None = None,
-        exclude: Sequence[str] | None = None) -> Iterator[PropTuple]:
+async def _check_one_package(  # noqa: C901, PLR0912, PLR0914
+        match_: str, settings: LivecheckSettings, repo_root: Path,
+        exclude: Sequence[str]) -> PropTuple | None:
+    match, _settings_copy_restrict = extract_restrict_version(match_)
+    catpkg, cat, pkg, ebuild_version = catpkg_catpkgsplit(match)
+    if catpkg in exclude or pkg in exclude:
+        log.debug('Ignoring %s.', catpkg)
+        return None
+    src_uri = get_first_src_uri(match, repo_root)
+    if cat.startswith(('acct-', 'virtual')) or settings.type_packages.get(catpkg) == TYPE_NONE:
+        log.debug('Ignoring %s.', catpkg)
+        return None
+    log.info('Processing: %s | Version: %s', catpkg, ebuild_version)
+    last_version = hash_date = top_hash = url = ''
+    ebuild = Path(repo_root) / catpkg / f'{pkg}-{ebuild_version}.ebuild'
+    egit, branch = get_egit_repo(ebuild)
+    if egit:
+        old_sha = get_old_sha(ebuild, '')
+        egit = egit + '/commit/' + old_sha
+    if branch:
+        settings.branches[catpkg] = branch
+    if catpkg in settings.sync_version:
+        matches_sync = get_highest_matches([settings.sync_version[catpkg]], None, settings)
+        if not matches_sync:
+            log.error('No matches for %s.', catpkg)
+            return None
+        _, _, _, last_version = catpkg_catpkgsplit(matches_sync[0])
+        last_version = re.sub(r'-r\d+$', '', last_version)
+    if settings.type_packages.get(catpkg) == TYPE_DAVINCI:
+        last_version = await get_latest_davinci_package(pkg)
+    elif settings.type_packages.get(catpkg) == TYPE_IDA_FREE:
+        last_version = await get_latest_ida_free_package(match, settings)
+    elif settings.type_packages.get(catpkg) == TYPE_METADATA:
+        last_version, top_hash, hash_date, url = await parse_metadata(str(repo_root), match,
+                                                                      settings)
+    elif settings.type_packages.get(catpkg) == TYPE_DIRECTORY:
+        url, _ = settings.custom_livechecks[catpkg]
+        last_version, url = await get_latest_directory_package(url, match, settings)
+    elif settings.type_packages.get(catpkg) == TYPE_REPOLOGY:
+        package, _ = settings.custom_livechecks[catpkg]
+        last_version = await get_latest_repology(match, settings, package)
+    elif settings.type_packages.get(catpkg) == TYPE_REGEX:
+        url, regex = settings.custom_livechecks[catpkg]
+        last_version, hash_date, url = await get_latest_regex_package(match, url, regex, settings)
+    elif settings.type_packages.get(catpkg) == TYPE_CHECKSUM:
+        headers = settings.request_headers.get(catpkg, {})
+        params = settings.request_params.get(catpkg, {})
+        check_url = settings.custom_livechecks.get(catpkg, (src_uri, ''))[0]
+        last_version, hash_date, url = await get_latest_checksum_package(check_url,
+                                                                         match,
+                                                                         str(repo_root),
+                                                                         headers=headers,
+                                                                         params=params)
+    elif settings.type_packages.get(catpkg) == TYPE_LOCATION_CHECKSUM:
+        headers = settings.request_headers.get(catpkg, {})
+        params = settings.request_params.get(catpkg, {})
+        check_url = settings.custom_livechecks.get(catpkg, (src_uri, ''))[0]
+        last_version, hash_date, url = await get_latest_location_checksum_package(check_url,
+                                                                                  match,
+                                                                                  str(repo_root),
+                                                                                  headers=headers,
+                                                                                  params=params)
+    elif settings.type_packages.get(catpkg) == TYPE_COMMIT:
+        last_version, top_hash, hash_date, url = await parse_url(egit,
+                                                                 match,
+                                                                 settings,
+                                                                 force_sha=True)
+    else:
+        if egit:
+            last_version, top_hash, hash_date, url = await parse_url(egit,
+                                                                     match,
+                                                                     settings,
+                                                                     force_sha=True)
+        if not last_version and not top_hash:
+            last_version, top_hash, hash_date, url = await parse_url(src_uri,
+                                                                     match,
+                                                                     settings,
+                                                                     force_sha=False)
+        if not last_version and not top_hash:
+            last_version, top_hash, hash_date, url = await parse_metadata(
+                str(repo_root), match, settings)
+        homes = [
+            x for x in ' '.join(P.aux_get(match, ['HOMEPAGE'], mytree=str(repo_root))).split(' ')
+            if x
+        ]
+        for home in homes:
+            if not last_version and not top_hash:
+                last_version, top_hash, hash_date, url = await parse_url(home,
+                                                                         match,
+                                                                         settings,
+                                                                         force_sha=False)
+        if not last_version and not top_hash:
+            last_version = await get_latest_repology(match, settings)
+        if not last_version and not top_hash:
+            last_version, url = await get_latest_directory_package(src_uri, match, settings)
+            for home in homes:
+                last_version, url = await get_latest_directory_package(home, match, settings)
+                if last_version:
+                    break
+
+    if last_version or top_hash:
+        log.debug('Inserting %s: %s -> %s : %s', catpkg, ebuild_version, last_version, top_hash)
+        return (cat, pkg, ebuild_version, last_version, top_hash, hash_date, url)
+    log.debug('Ignoring %s. Update not available.', catpkg)
+    return None
+
+
+async def get_props(search_dir: Path,
+                    repo_root: Path,
+                    settings: LivecheckSettings,
+                    names: Sequence[str] | None = None,
+                    exclude: Sequence[str] | None = None,
+                    parallel: int = 20) -> list[PropTuple]:
     """
     Get properties for packages in the search directory.
 
-    Yields
-    ------
-    PropTuple
+    Parameters
+    ----------
+    search_dir : Path
+        Directory to search for ebuilds.
+    repo_root : Path
+        Repository root path.
+    settings : LivecheckSettings
+        Livecheck configuration.
+    names : Sequence[str] | None
+        Package names to check.
+    exclude : Sequence[str] | None
+        Package names to exclude.
+    parallel : int
+        Maximum number of packages to check concurrently.
+
+    Returns
+    -------
+    list[PropTuple]
 
     Raises
     ------
@@ -410,114 +545,14 @@ def get_props(  # noqa: C901, PLR0912, PLR0914
     if not matches_list:
         log.error('No matches!')
         raise click.Abort
-    for match_ in matches_list:
-        match, settings.restrict_version_process = extract_restrict_version(match_)
-        catpkg, cat, pkg, ebuild_version = catpkg_catpkgsplit(match)
-        if catpkg in exclude or pkg in exclude:
-            log.debug('Ignoring %s.', catpkg)
-            continue
-        src_uri = get_first_src_uri(match, repo_root)
-        if cat.startswith(('acct-', 'virtual')) or settings.type_packages.get(catpkg) == TYPE_NONE:
-            log.debug('Ignoring %s.', catpkg)
-            continue
-        log.info('Processing: %s | Version: %s', catpkg, ebuild_version)
-        last_version = hash_date = top_hash = url = ''
-        ebuild = Path(repo_root) / catpkg / f'{pkg}-{ebuild_version}.ebuild'
-        egit, branch = get_egit_repo(ebuild)
-        if egit:
-            old_sha = get_old_sha(ebuild, '')
-            egit = egit + '/commit/' + old_sha
-        if branch:
-            settings.branches[catpkg] = branch
-        if catpkg in settings.sync_version:
-            matches_sync = get_highest_matches([settings.sync_version[catpkg]], None, settings)
-            if not matches_sync:
-                log.error('No matches for %s.', catpkg)
-                continue
-            _, _, _, last_version = catpkg_catpkgsplit(matches_sync[0])
-            # remove -r* from version
-            last_version = re.sub(r'-r\d+$', '', last_version)
-        if settings.type_packages.get(catpkg) == TYPE_DAVINCI:
-            last_version = get_latest_davinci_package(pkg)
-        elif settings.type_packages.get(catpkg) == TYPE_IDA_FREE:
-            last_version = get_latest_ida_free_package(match, settings)
-        elif settings.type_packages.get(catpkg) == TYPE_METADATA:
-            last_version, top_hash, hash_date, url = parse_metadata(str(repo_root), match, settings)
-        elif settings.type_packages.get(catpkg) == TYPE_DIRECTORY:
-            url, _ = settings.custom_livechecks[catpkg]
-            last_version, url = get_latest_directory_package(url, match, settings)
-        elif settings.type_packages.get(catpkg) == TYPE_REPOLOGY:
-            package, _ = settings.custom_livechecks[catpkg]
-            last_version = get_latest_repology(match, settings, package)
-        elif settings.type_packages.get(catpkg) == TYPE_REGEX:
-            url, regex = settings.custom_livechecks[catpkg]
-            last_version, hash_date, url = get_latest_regex_package(match, url, regex, settings)
-        elif settings.type_packages.get(catpkg) == TYPE_CHECKSUM:
-            headers = settings.request_headers.get(catpkg, {})
-            params = settings.request_params.get(catpkg, {})
-            # Get URL from custom_livechecks if available, otherwise use src_uri
-            check_url = settings.custom_livechecks.get(catpkg, (src_uri, ''))[0]
-            last_version, hash_date, url = get_latest_checksum_package(check_url,
-                                                                       match,
-                                                                       str(repo_root),
-                                                                       headers=headers,
-                                                                       params=params)
-        elif settings.type_packages.get(catpkg) == TYPE_LOCATION_CHECKSUM:
-            headers = settings.request_headers.get(catpkg, {})
-            params = settings.request_params.get(catpkg, {})
-            # Get URL from custom_livechecks if available, otherwise use src_uri
-            check_url = settings.custom_livechecks.get(catpkg, (src_uri, ''))[0]
-            last_version, hash_date, url = get_latest_location_checksum_package(check_url,
-                                                                                match,
-                                                                                str(repo_root),
-                                                                                headers=headers,
-                                                                                params=params)
-        elif settings.type_packages.get(catpkg) == TYPE_COMMIT:
-            last_version, top_hash, hash_date, url = parse_url(egit,
-                                                               match,
-                                                               settings,
-                                                               force_sha=True)
-        else:
-            if egit:
-                last_version, top_hash, hash_date, url = parse_url(egit,
-                                                                   match,
-                                                                   settings,
-                                                                   force_sha=True)
-            if not last_version and not top_hash:
-                last_version, top_hash, hash_date, url = parse_url(src_uri,
-                                                                   match,
-                                                                   settings,
-                                                                   force_sha=False)
-            if not last_version and not top_hash:
-                last_version, top_hash, hash_date, url = parse_metadata(
-                    str(repo_root), match, settings)
-            # Try check for homepage
-            homes = [
-                x
-                for x in ' '.join(P.aux_get(match, ['HOMEPAGE'], mytree=str(repo_root))).split(' ')
-                if x
-            ]
-            for home in homes:
-                if not last_version and not top_hash:
-                    last_version, top_hash, hash_date, url = parse_url(home,
-                                                                       match,
-                                                                       settings,
-                                                                       force_sha=False)
-            if not last_version and not top_hash:
-                last_version = get_latest_repology(match, settings)
-            # Only check directory if no other method was found
-            if not last_version and not top_hash:
-                last_version, url = get_latest_directory_package(src_uri, match, settings)
-                for home in homes:
-                    last_version, url = get_latest_directory_package(home, match, settings)
-                    if last_version:
-                        break
+    sem = asyncio.Semaphore(parallel)
 
-        if last_version or top_hash:
-            log.debug('Inserting %s: %s -> %s : %s', catpkg, ebuild_version, last_version, top_hash)
-            yield (cat, pkg, ebuild_version, last_version, top_hash, hash_date, url)
-        else:
-            log.debug('Ignoring %s. Update not available.', catpkg)
+    async def _bounded(match_: str) -> PropTuple | None:
+        async with sem:
+            return await _check_one_package(match_, settings, repo_root, exclude)
+
+    results = await asyncio.gather(*(_bounded(m) for m in matches_list))
+    return [r for r in results if r is not None]
 
 
 def get_old_sha(ebuild: Path, url: str) -> str:
@@ -596,9 +631,9 @@ def replace_date_in_ebuild(ebuild: str, new_date: str, cp: str) -> str:
     return str(new_version) if old_version != new_version else n
 
 
-def execute_hooks(hook_dir: Path | None, action: str, search_dir: Path, cp: str,
-                  str_old_version: str, str_new_version: str, old_sha: str, new_sha: str,
-                  hash_date: str) -> None:
+async def execute_hooks(hook_dir: Path | None, action: str, search_dir: Path, cp: str,
+                        str_old_version: str, str_new_version: str, old_sha: str, new_sha: str,
+                        hash_date: str) -> None:
     if not hook_dir:
         return
     hook_path = hook_dir / action
@@ -607,34 +642,38 @@ def execute_hooks(hook_dir: Path | None, action: str, search_dir: Path, cp: str,
     for hook in sorted(hook_path.iterdir()):
         if hook.is_file() and os.access(hook, os.X_OK):
             log.debug('Running hook {hook}')
-            result = sp.run([
-                hook, search_dir, cp, str_old_version, str_new_version, old_sha, new_sha, hash_date
-            ],
-                            check=False)
-            if result.returncode != 0:
+            proc = await asyncio.create_subprocess_exec(str(hook), str(search_dir), cp,
+                                                        str_old_version, str_new_version, old_sha,
+                                                        new_sha, hash_date)
+            returncode = await proc.wait()
+            if returncode != 0:
                 click.echo(f'Error running hook {hook}.', err=True)
                 raise click.Abort
 
 
-def _recover_ebuild(new_filename: str, ebuild: Path, cp: str, search_dir: Path,
-                    settings: LivecheckSettings) -> None:
+async def _recover_ebuild(new_filename: str, ebuild: Path, cp: str, search_dir: Path,
+                          settings: LivecheckSettings) -> None:
     """Recover ebuild to its original state after a failed digest."""
     try:
         if settings.keep_old.get(cp, not settings.keep_old_flag):
             if settings.git_flag:
-                sp.run((_resolved_executable('git'), 'mv', new_filename, str(ebuild)), check=True)
+                proc = await asyncio.create_subprocess_exec(_resolved_executable('git'), 'mv',
+                                                            new_filename, str(ebuild))
+                await proc.wait()
             else:
                 Path(new_filename).rename(ebuild)
         else:
             Path(new_filename).unlink(missing_ok=True)
         if settings.git_flag:
             manifest_path = str(Path(search_dir) / cp / 'Manifest')
-            sp.run((_resolved_executable('git'), 'checkout', manifest_path), check=True)
-    except (sp.CalledProcessError, OSError):
+            proc = await asyncio.create_subprocess_exec(_resolved_executable('git'), 'checkout',
+                                                        manifest_path)
+            await proc.wait()
+    except OSError:
         log.exception('Error recovering `%s`.', new_filename)
 
 
-def do_main(  # noqa: C901, PLR0912, PLR0914, PLR0915
+async def do_main(  # noqa: C901, PLR0912, PLR0914, PLR0915
         *, cat: str, ebuild_version: str, pkg: str, search_dir: Path, settings: LivecheckSettings,
         last_version: str, top_hash: str, hash_date: str, url: str, hook_dir: Path | None) -> None:
     cp = f'{cat}/{pkg}'
@@ -642,12 +681,11 @@ def do_main(  # noqa: C901, PLR0912, PLR0914, PLR0915
     old_sha = ''
     if update_sha_too_source := settings.sha_sources.get(cp, None):
         log.debug('Package also needs a SHA update.')
-        _, top_hash, hash_date, _ = parse_url(update_sha_too_source,
-                                              f'{cp}-{ebuild_version}',
-                                              settings,
-                                              force_sha=True)
+        _, top_hash, hash_date, _ = await parse_url(update_sha_too_source,
+                                                    f'{cp}-{ebuild_version}',
+                                                    settings,
+                                                    force_sha=True)
 
-        # if empty, it means that the source is not supported
         if not top_hash:
             log.warning('Could not get new SHA for %s.', update_sha_too_source)
             return
@@ -667,13 +705,12 @@ def do_main(  # noqa: C901, PLR0912, PLR0914, PLR0915
         last_version = f'{new_version}-{new_revision}'
     log.debug('top_hash = %s', last_version)
 
-    # Remove leading zeros to prevent issues with version comparison
     last_version = remove_leading_zeros(last_version)
     ebuild_version = remove_leading_zeros(ebuild_version)
 
     log.debug('Comparing current ebuild version %s with live version %s.', ebuild_version,
               last_version)
-    if compare_versions(ebuild_version, last_version):
+    if compare_versions(ebuild_version, last_version):  # noqa: PLR1702
         dn = Path(ebuild).parent
         new_filename = f'{dn}/{pkg}-{last_version}.ebuild'
         _, _, _, new_version = catpkg_catpkgsplit(f'{cp}-{last_version}')
@@ -686,7 +723,6 @@ def do_main(  # noqa: C901, PLR0912, PLR0914, PLR0915
                  no_auto_update_str)
 
         if settings.auto_update_flag and cp not in settings.no_auto_update:
-            # First check requirements before update
             if ((  # noqa: PLR0916
                     cp in settings.dotnet_projects and not check_dotnet_requirements())
                     or (cp in settings.composer_packages and not check_composer_requirements())
@@ -697,19 +733,17 @@ def do_main(  # noqa: C901, PLR0912, PLR0914, PLR0915
                     or (cp in settings.gomodule_packages and not check_gomodule_requirements())):
                 log.warning('Update is not possible.')
                 return
-            old_content = content = Path(ebuild).read_text(encoding='utf-8')
-            # Only update the version if it is not a commit
+            ebuild_path = AnyioPath(ebuild)
+            old_content = content = await ebuild_path.read_text(encoding='utf-8')
             if top_hash and old_sha:
                 content = content.replace(old_sha, top_hash)
-                # Also replace the short SHA prefix if the old SHA is a full 40-char hash
                 if len(old_sha) == FULL_SHA_LENGTH and len(top_hash) >= SHORT_SHA_LENGTH:
                     content = content.replace(old_sha[:SHORT_SHA_LENGTH],
                                               top_hash[:SHORT_SHA_LENGTH])
             ps_ref = top_hash
             if not is_sha(top_hash) and cp in TAG_NAME_FUNCTIONS:
                 ps_ref = TAG_NAME_FUNCTIONS[cp](top_hash)
-            content = process_submodules(cp, ps_ref, content, url)
-            # Replace files.pythonhosted.org hash-based URL paths with new paths
+            content = await process_submodules(cp, ps_ref, content, url)
             if url and 'files.pythonhosted.org/packages/' in url:
                 new_path_dir = urlparse(url).path.rsplit('/', 1)[0]
                 if (m := re.search(
@@ -721,33 +755,28 @@ def do_main(  # noqa: C901, PLR0912, PLR0914, PLR0915
             if settings.keep_old.get(cp, not settings.keep_old_flag):
                 try:
                     if settings.git_flag:
-                        sp.run((_resolved_executable('git'), 'mv', str(ebuild), new_filename),
-                               check=True)
+                        proc = await asyncio.create_subprocess_exec(_resolved_executable('git'),
+                                                                    'mv', str(ebuild), new_filename)
+                        returncode = await proc.wait()
+                        if returncode != 0:
+                            log.error('Error moving `%s` to `%s`.', ebuild, new_filename)
+                            return
                     else:
                         ebuild.rename(new_filename)
-                except (sp.CalledProcessError, OSError):
+                except OSError:
                     log.exception('Error moving `%s` to `%s`.', ebuild, new_filename)
                     return
 
             try:
-                Path(new_filename).write_text(content, encoding='utf-8')
+                await AnyioPath(new_filename).write_text(content, encoding='utf-8')
             except OSError:
                 log.exception('Error writing `%s`.', new_filename)
                 return
-            execute_hooks(hook_dir, 'pre', search_dir, cp, ebuild_version, last_version, old_sha,
-                          top_hash, hash_date)
-            # We do not check the digest because it may happen that additional files need to be
-            # created that have not yet been generated until the main ebuild is downloaded for
-            # the first time and the hooks create those additional files.
-            # And you cannot remove the digest generation either, but rather the repositories
-            # that do not have thin-Manifests ( metadata/layout.conf -> thin-manifests = true)
-            # see: https://devmanual.gentoo.org/general-concepts/manifest/index.html
+            await execute_hooks(hook_dir, 'pre', search_dir, cp, ebuild_version, last_version,
+                                old_sha, top_hash, hash_date)
             digest_ebuild(new_filename)
             fetchlist = P.getFetchMap(f'{cp}-{last_version}')
-            # Stores the content so that it can be recovered because it had to be modified
             old_content = content
-            # First pass
-            # Remove URLs that do not yet exist to be able to correctly generate the digest
             if cp in settings.gomodule_packages:
                 content = remove_gomodule_url(content)
             if cp in settings.nodejs_packages:
@@ -757,57 +786,100 @@ def do_main(  # noqa: C901, PLR0912, PLR0914, PLR0915
             if cp in settings.maven_packages:
                 content = remove_maven_url(content)
             if old_content != content:
-                Path(new_filename).write_text(content, encoding='utf-8')
+                await AnyioPath(new_filename).write_text(content, encoding='utf-8')
             if not digest_ebuild(new_filename):
                 log.error('Error digesting %s.', new_filename)
-                _recover_ebuild(new_filename, ebuild, cp, search_dir, settings)
+                await _recover_ebuild(new_filename, ebuild, cp, search_dir, settings)
                 return
-            # Update ebuild or download news file
             if cp in settings.yarn_base_packages:
-                update_yarn_ebuild(new_filename, settings.yarn_base_packages[cp], pkg,
-                                   settings.yarn_packages.get(cp))
+                await update_yarn_ebuild(new_filename, settings.yarn_base_packages[cp], pkg,
+                                         settings.yarn_packages.get(cp))
             if settings.type_packages.get(cp) == TYPE_CHECKSUM:
-                update_checksum_metadata(f'{cp}-{last_version}',
-                                         url,
-                                         str(search_dir),
-                                         headers=settings.request_headers.get(cp, {}),
-                                         params=settings.request_params.get(cp, {}))
+                await update_checksum_metadata(f'{cp}-{last_version}',
+                                               url,
+                                               str(search_dir),
+                                               headers=settings.request_headers.get(cp, {}),
+                                               params=settings.request_params.get(cp, {}))
             if cp in settings.go_sum_uri:
-                update_go_ebuild(new_filename, top_hash, settings.go_sum_uri[cp])
+                await update_go_ebuild(new_filename, top_hash, settings.go_sum_uri[cp])
             if cp in settings.dotnet_projects:
-                update_dotnet_ebuild(new_filename, settings.dotnet_projects[cp])
+                await update_dotnet_ebuild(new_filename, settings.dotnet_projects[cp])
             if cp in settings.jetbrains_packages:
-                update_jetbrains_ebuild(new_filename)
+                await update_jetbrains_ebuild(new_filename)
             if cp in settings.maven_packages:
-                update_maven_ebuild(new_filename, settings.maven_path[cp], fetchlist)
+                await update_maven_ebuild(new_filename, settings.maven_path[cp], fetchlist)
             if cp in settings.nodejs_packages:
-                update_nodejs_ebuild(new_filename, settings.nodejs_path[cp], fetchlist,
-                                     settings.get_package_manager(cp))
+                await update_nodejs_ebuild(new_filename, settings.nodejs_path[cp], fetchlist,
+                                           settings.get_package_manager(cp))
             if cp in settings.gomodule_packages:
-                update_gomodule_ebuild(new_filename, settings.gomodule_path[cp], fetchlist)
+                await update_gomodule_ebuild(new_filename, settings.gomodule_path[cp], fetchlist)
             if cp in settings.composer_packages:
-                update_composer_ebuild(new_filename, settings.composer_path[cp], fetchlist)
-            # Restore original ebuild content
+                await update_composer_ebuild(new_filename, settings.composer_path[cp], fetchlist)
             if old_content != content:
-                Path(new_filename).write_text(old_content, encoding='utf-8')
+                await AnyioPath(new_filename).write_text(old_content, encoding='utf-8')
                 if not digest_ebuild(new_filename):
                     log.error('Error digesting %s.', new_filename)
-                    _recover_ebuild(new_filename, ebuild, cp, search_dir, settings)
+                    await _recover_ebuild(new_filename, ebuild, cp, search_dir, settings)
                     return
-            if settings.git_flag and sp.run(
-                (_resolved_executable('ebuild'), new_filename, 'digest'),
-                    check=False).returncode == 0:
-                sp.run((_resolved_executable('git'), 'add', new_filename,
-                        str(Path(search_dir) / cp / 'Manifest')),
-                       check=True)
-                try:
-                    sp.run((_resolved_executable('pkgdev'), 'commit'),
-                           cwd=Path(search_dir) / cp,
-                           check=True)
-                except sp.CalledProcessError:
-                    log.exception('Error committing %s.', new_filename)
-            execute_hooks(hook_dir, 'post', search_dir, cp, ebuild_version, last_version, old_sha,
-                          top_hash, hash_date)
+            if settings.git_flag:
+                proc = await asyncio.create_subprocess_exec(_resolved_executable('ebuild'),
+                                                            new_filename, 'digest')
+                returncode = await proc.wait()
+                if returncode == 0:
+                    proc = await asyncio.create_subprocess_exec(
+                        _resolved_executable('git'), 'add', new_filename,
+                        str(Path(search_dir) / cp / 'Manifest'))
+                    await proc.wait()
+                    try:
+                        proc = await asyncio.create_subprocess_exec(_resolved_executable('pkgdev'),
+                                                                    'commit',
+                                                                    cwd=str(Path(search_dir) / cp))
+                        await proc.wait()
+                    except OSError:
+                        log.exception('Error committing %s.', new_filename)
+            await execute_hooks(hook_dir, 'post', search_dir, cp, ebuild_version, last_version,
+                                old_sha, top_hash, hash_date)
+
+
+async def _async_main(*,
+                      search_dir: Path,
+                      repo_root: str,
+                      settings: LivecheckSettings,
+                      package_names: list[str],
+                      exclude: tuple[str, ...] | None,
+                      hook_dir: Path | None,
+                      max_concurrent_http: int = 3,
+                      parallel: int = 1) -> None:
+    init_sessions(asyncio.Semaphore(max_concurrent_http))
+    try:
+        props = await get_props(search_dir,
+                                Path(repo_root),
+                                settings,
+                                package_names,
+                                exclude,
+                                parallel=parallel)
+        sem = asyncio.Semaphore(parallel)
+
+        async def _bounded_do_main(cat: str, pkg: str, ebuild_version: str, last_version: str,
+                                   top_hash: str, hash_date: str, url: str) -> None:
+            async with sem:
+                await do_main(cat=cat,
+                              ebuild_version=ebuild_version,
+                              hash_date=hash_date,
+                              hook_dir=hook_dir,
+                              last_version=last_version,
+                              pkg=pkg,
+                              search_dir=Path(repo_root),
+                              settings=settings,
+                              top_hash=top_hash,
+                              url=url)
+
+        await asyncio.gather(*starmap(_bounded_do_main, props))
+    except Exception:
+        log.exception('Exception during processing.')
+        raise
+    finally:
+        await close_sessions()
 
 
 @click.command(context_settings={'help_option_names': ['-h', '--help']})
@@ -822,7 +894,19 @@ def do_main(  # noqa: C901, PLR0912, PLR0914, PLR0915
               help='Run a hook directory scripts with various parameters.',
               type=click.Path(file_okay=False, exists=True, resolve_path=True, path_type=Path))
 @click.option('-k', '--keep-old', is_flag=True, help='Keep old ebuild versions.')
-@click.option('-p', '--progress', is_flag=True, help='Enable progress logging.')
+@click.option('-M',
+              '--max-concurrent-http',
+              type=int,
+              default=3,
+              show_default=True,
+              help='Maximum concurrent HTTP requests.')
+@click.option('-p',
+              '--parallel',
+              type=int,
+              default=os.cpu_count() or 1,
+              show_default=True,
+              help='Maximum parallel ebuilds to process.')
+@click.option('-P', '--progress', is_flag=True, help='Enable progress logging.')
 @click.option('--package-manager',
               type=click.Choice(sorted(PACKAGE_MANAGERS)),
               default='npm',
@@ -841,7 +925,9 @@ def do_main(  # noqa: C901, PLR0912, PLR0914, PLR0915
 def main(working_dir: Path,
          exclude: tuple[str, ...] | None = None,
          hook_dir: Path | None = None,
+         max_concurrent_http: int = 3,
          package_names: tuple[str, ...] | list[str] | None = None,
+         parallel: int = 1,
          *,
          auto_update: bool = False,
          debug: bool = False,
@@ -870,22 +956,18 @@ def main(working_dir: Path,
         if not Path(repo_root, '.git').is_dir():
             log.error('Directory %s is not a git repository.', repo_root)
             raise click.Abort
-        # Check if .git is a writeable directory
         if not os.access(Path(repo_root, '.git'), os.W_OK):
             log.error('Directory %s/.git is not writable.', repo_root)
             raise click.Abort
-        # Check if git is installed
         if not check_program('git', ['--version']):
             log.error('Git is not installed.')
             raise click.Abort
-        # Check if pkgdev is installed
         if not check_program('pkgdev', ['--version']):
             log.error('pkgdev is not installed.')
             raise click.Abort
     log.debug('search_dir=%s repo_root=%s repo_name=%s', search_dir, repo_root, repo_name)
     settings = gather_settings(Path(repo_root))
 
-    # update flags in settings
     settings.auto_update_flag = auto_update
     settings.debug_flag = debug
     settings.development_flag = development
@@ -894,22 +976,13 @@ def main(working_dir: Path,
     settings.progress_flag = progress
     settings.default_package_manager = package_manager
 
-    package_names = sorted(package_names or [])
-    cat = pkg = None
-    try:
-        for cat, pkg, ebuild_version, last_version, top_hash, hash_date, url in get_props(
-                search_dir, Path(repo_root), settings, package_names, exclude):
-            do_main(cat=cat,
-                    pkg=pkg,
-                    last_version=last_version,
-                    top_hash=top_hash,
-                    hash_date=hash_date,
-                    url=url,
-                    search_dir=Path(repo_root),
-                    settings=settings,
-                    ebuild_version=ebuild_version,
-                    hook_dir=hook_dir)
-    except Exception:
-        if cat and pkg:
-            log.exception('Exception while checking %s/%s.', cat, pkg)
-        raise
+    package_names_list = sorted(package_names or [])
+    asyncio.run(
+        _async_main(exclude=exclude,
+                    hook_dir=hook_dir,
+                    max_concurrent_http=max_concurrent_http,
+                    package_names=package_names_list,
+                    parallel=parallel,
+                    repo_root=repo_root,
+                    search_dir=search_dir,
+                    settings=settings))

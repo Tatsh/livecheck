@@ -70,7 +70,8 @@ def make_mock_response(versions: Any) -> Any:
     return MockResponse()
 
 
-def test_get_latest_package_success(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_package_success(mocker: MockerFixture) -> None:
     src_uri = 'https://registry.npmjs.org/package-name'
     ebuild = 'package-name-1.0.0.ebuild'
     settings = mocker.Mock()
@@ -80,13 +81,14 @@ def test_get_latest_package_success(mocker: MockerFixture) -> None:
                                     return_value=make_mock_response(['1.0.0', '2.0.0']))
     mock_get_last_version = mocker.patch('livecheck.special.package.get_last_version',
                                          return_value={'version': '2.0.0'})
-    result = get_latest_package(src_uri, ebuild, settings)
+    result = await get_latest_package(src_uri, ebuild, settings)
     assert result == '2.0.0'
     mock_get_content.assert_called_once()
     mock_get_last_version.assert_called_once()
 
 
-def test_get_latest_package_no_versions(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_package_no_versions(mocker: MockerFixture) -> None:
     src_uri = 'https://registry.npmjs.org/package-name'
     ebuild = 'package-name-1.0.0.ebuild'
     settings = mocker.Mock()
@@ -94,25 +96,27 @@ def test_get_latest_package_no_versions(mocker: MockerFixture) -> None:
                  return_value=('registry.npmjs.org', 'package-name'))
     mocker.patch('livecheck.special.package.get_content', return_value=make_mock_response([]))
     mocker.patch('livecheck.special.package.get_last_version', return_value=None)
-    result = get_latest_package(src_uri, ebuild, settings)
+    result = await get_latest_package(src_uri, ebuild, settings)
     assert not result
 
 
-def test_get_latest_package_invalid_url(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_package_invalid_url(mocker: MockerFixture) -> None:
     src_uri = 'https://invalid.url'
     ebuild = 'package-name-1.0.0.ebuild'
     settings = mocker.Mock()
     mocker.patch('livecheck.special.package.extract_project', return_value=('', ''))
-    result = get_latest_package(src_uri, ebuild, settings)
+    result = await get_latest_package(src_uri, ebuild, settings)
     assert not result
 
 
-def test_get_latest_package_get_content_returns_none(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_package_get_content_returns_none(mocker: MockerFixture) -> None:
     src_uri = 'https://registry.npmjs.org/package-name'
     ebuild = 'package-name-1.0.0.ebuild'
     settings = mocker.Mock()
     mocker.patch('livecheck.special.package.extract_project',
                  return_value=('registry.npmjs.org', 'package-name'))
     mocker.patch('livecheck.special.package.get_content', return_value=None)
-    result = get_latest_package(src_uri, ebuild, settings)
+    result = await get_latest_package(src_uri, ebuild, settings)
     assert not result

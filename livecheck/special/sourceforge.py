@@ -37,7 +37,8 @@ def extract_repository(url: str) -> str:
     return ''
 
 
-def get_latest_sourceforge_package(src_uri: str, ebuild: str, settings: LivecheckSettings) -> str:
+async def get_latest_sourceforge_package(src_uri: str, ebuild: str,
+                                         settings: LivecheckSettings) -> str:
     """
     Get the latest version of a SourceForge package.
 
@@ -47,18 +48,18 @@ def get_latest_sourceforge_package(src_uri: str, ebuild: str, settings: Livechec
         Latest release filename version from the RSS feed, or an empty string if none.
     """
     repository = extract_repository(src_uri)
-    return get_latest_sourceforge_package2(repository, ebuild, settings)
+    return await get_latest_sourceforge_package2(repository, ebuild, settings)
 
 
-def get_latest_sourceforge_package2(repository: str, ebuild: str,
-                                    settings: LivecheckSettings) -> str:
+async def get_latest_sourceforge_package2(repository: str, ebuild: str,
+                                          settings: LivecheckSettings) -> str:
     url = SOURCEFORGE_DOWNLOAD_URL % (repository)
 
-    if not (r := get_content(url)):
+    if not (r := await get_content(url)):
         return ''
 
     results: list[dict[str, str]] = []
-    for item in ET.fromstring(r.text).findall('.//item'):
+    for item in ET.fromstring(r.text or '').findall('.//item'):
         title = item.find('title')
         version = Path(title.text).name if title is not None and title.text else ''
         if version and get_archive_extension(version):
@@ -87,7 +88,8 @@ def is_sourceforge(url: str) -> bool:
     return bool(extract_repository(url))
 
 
-def get_latest_sourceforge_metadata(remote: str, ebuild: str, settings: LivecheckSettings) -> str:
+async def get_latest_sourceforge_metadata(remote: str, ebuild: str,
+                                          settings: LivecheckSettings) -> str:
     """
     Get the latest version of a SourceForge package using metadata.
 
@@ -105,4 +107,4 @@ def get_latest_sourceforge_metadata(remote: str, ebuild: str, settings: Livechec
     str
         Latest release version from the RSS feed, or an empty string if none.
     """
-    return get_latest_sourceforge_package2(remote, ebuild, settings)
+    return await get_latest_sourceforge_package2(remote, ebuild, settings)

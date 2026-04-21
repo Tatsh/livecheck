@@ -60,7 +60,8 @@ def test_is_gist(test_case: dict[str, Any]) -> None:
     assert is_gist(test_case['url']) == test_case['gist']
 
 
-def test_get_latest_gist_package_valid(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_gist_package_valid(mocker: MockerFixture) -> None:
     url = 'https://gist.github.com/username/abcdef1234567890'
     mock_response = mocker.Mock()
     mock_response.json.return_value = {
@@ -73,41 +74,45 @@ def test_get_latest_gist_package_valid(mocker: MockerFixture) -> None:
         }]
     }
     mocker.patch('livecheck.special.gist.get_content', return_value=mock_response)
-    version, date = get_latest_gist_package(url)
+    version, date = await get_latest_gist_package(url)
     assert version == 'v2'
     assert date == '20240101'
 
 
-def test_get_latest_gist_package_no_gist_id(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_gist_package_no_gist_id(mocker: MockerFixture) -> None:
     url = 'https://example.com/not-a-gist'
-    version, date = get_latest_gist_package(url)
+    version, date = await get_latest_gist_package(url)
     assert not version
     assert not date
 
 
-def test_get_latest_gist_package_no_content(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_gist_package_no_content(mocker: MockerFixture) -> None:
     url = 'https://gist.github.com/username/abcdef1234567890'
     mocker.patch('livecheck.special.gist.get_content', return_value=None)
-    version, date = get_latest_gist_package(url)
+    version, date = await get_latest_gist_package(url)
     assert not version
     assert not date
 
 
-def test_get_latest_gist_package_no_history(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_gist_package_no_history(mocker: MockerFixture) -> None:
     url = 'https://gist.github.com/username/abcdef1234567890'
     mock_response = mocker.Mock()
     mock_response.json.return_value = {'history': []}
     mocker.patch('livecheck.special.gist.get_content', return_value=mock_response)
-    version, date = get_latest_gist_package(url)
+    version, date = await get_latest_gist_package(url)
     assert not version
     assert not date
 
 
-def test_get_latest_gist_package_invalid_date(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_gist_package_invalid_date(mocker: MockerFixture) -> None:
     url = 'https://gist.github.com/username/abcdef1234567890'
     mock_response = mocker.Mock()
     mock_response.json.return_value = {'history': [{'version': 'v1', 'committed_at': 'not-a-date'}]}
     mocker.patch('livecheck.special.gist.get_content', return_value=mock_response)
-    version, date = get_latest_gist_package(url)
+    version, date = await get_latest_gist_package(url)
     assert version == 'v1'
     assert date == 'not-a-date'

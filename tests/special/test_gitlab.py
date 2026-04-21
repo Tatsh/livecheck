@@ -129,7 +129,8 @@ def test_is_gitlab(test_case: dict[str, Any]) -> None:
                                   '',
                               ),
                           ])
-def test_get_latest_gitlab(
+@pytest.mark.asyncio
+async def test_get_latest_gitlab(
         mocker: MockerFixture,
         url: str,
         ebuild: str,
@@ -151,25 +152,27 @@ def test_get_latest_gitlab(
         mocker.patch('livecheck.special.gitlab.get_last_version', return_value=None)
     mocker.patch('livecheck.utils.is_sha', return_value=False)
     log_unhandled_commit = mocker.patch('livecheck.special.gitlab.log_unhandled_commit')
-    result = get_latest_gitlab(url, ebuild, mocker.Mock(), force_sha=force_sha)
+    result = await get_latest_gitlab(url, ebuild, mocker.Mock(), force_sha=force_sha)
     assert result == (expected_version, expected_hash, expected_date)
     assert not log_unhandled_commit.called
 
 
-def test_get_latest_gitlab_package_no_content(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_gitlab_package_no_content(mocker: MockerFixture) -> None:
     url = 'https://gitlab.com/group/project'
     ebuild = 'project-1.0.ebuild'
     mocker.patch('livecheck.special.gitlab.get_content', return_value=None)
-    result = get_latest_gitlab(url, ebuild, mocker.Mock(), force_sha=False)
+    result = await get_latest_gitlab(url, ebuild, mocker.Mock(), force_sha=False)
     assert result == ('', '', '')
 
 
-def test_get_latest_gitlab_with_sha(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_gitlab_with_sha(mocker: MockerFixture) -> None:
     url = 'https://gitlab.com/group/project/commit/abc123'
     ebuild = 'project-1.0.ebuild'
     mocker.patch('livecheck.special.gitlab.is_sha', return_value=True)
     log_unhandled_commit = mocker.patch('livecheck.special.gitlab.log_unhandled_commit')
-    result = get_latest_gitlab(url, ebuild, mocker.Mock(), force_sha=False)
+    result = await get_latest_gitlab(url, ebuild, mocker.Mock(), force_sha=False)
     assert result == ('', '', '')
     log_unhandled_commit.assert_called_once_with(ebuild, url)
 
@@ -200,12 +203,13 @@ def test_get_latest_gitlab_with_sha(mocker: MockerFixture) -> None:
         ),
     ],
 )
-def test_get_latest_gitlab_metadata(mocker: MockerFixture, remote: str, _type: str, ebuild: str,
-                                    package_return: tuple[str, str], expected: tuple[str,
-                                                                                     str]) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_gitlab_metadata(mocker: MockerFixture, remote: str, _type: str,
+                                          ebuild: str, package_return: tuple[str, str],
+                                          expected: tuple[str, str]) -> None:
     mocker.patch(
         'livecheck.special.gitlab.get_latest_gitlab_package',
         return_value=package_return,
     )
-    result = get_latest_gitlab_metadata(remote, _type, ebuild, mocker.Mock())
+    result = await get_latest_gitlab_metadata(remote, _type, ebuild, mocker.Mock())
     assert result == expected

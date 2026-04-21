@@ -35,8 +35,8 @@ def extract_workspace_and_repository(url: str) -> tuple[str, str]:
     return workspace, repository.replace('.git', '')
 
 
-def get_latest_bitbucket_package(url: str, cpv: str,
-                                 settings: LivecheckSettings) -> tuple[str, str]:
+async def get_latest_bitbucket_package(url: str, cpv: str,
+                                       settings: LivecheckSettings) -> tuple[str, str]:
     """
     Get the latest version of a Bitbucket package.
 
@@ -58,7 +58,7 @@ def get_latest_bitbucket_package(url: str, cpv: str,
 
     url = BITBUCKET_TAG_URL % (workspace, repository)
 
-    if not (tags_response := get_content(url)):
+    if not (tags_response := await get_content(url)):
         return '', ''
 
     results: list[dict[str, str]] = [{
@@ -72,7 +72,7 @@ def get_latest_bitbucket_package(url: str, cpv: str,
     iteration_count = 0
 
     while url and iteration_count < MAX_ITERATIONS:
-        if not (r := get_content(url)).ok:
+        if not (r := await get_content(url)).ok:
             break
         data = r.json()
 
@@ -90,8 +90,8 @@ def get_latest_bitbucket_package(url: str, cpv: str,
     return '', ''
 
 
-def get_latest_bitbucket(url: str, cpv: str, settings: LivecheckSettings, *,
-                         force_sha: bool) -> tuple[str, str, str]:
+async def get_latest_bitbucket(url: str, cpv: str, settings: LivecheckSettings, *,
+                               force_sha: bool) -> tuple[str, str, str]:
     """
     Get the latest version of a Bitbucket package.
 
@@ -116,7 +116,7 @@ def get_latest_bitbucket(url: str, cpv: str, settings: LivecheckSettings, *,
     if is_sha(urlparse(url).path):
         log_unhandled_commit(cpv, url)
     else:
-        last_version, top_hash = get_latest_bitbucket_package(url, cpv, settings)
+        last_version, top_hash = await get_latest_bitbucket_package(url, cpv, settings)
         if not force_sha:
             top_hash = ''
 
@@ -140,8 +140,8 @@ def is_bitbucket(url: str) -> bool:
     return bool(extract_workspace_and_repository(url)[0])
 
 
-def get_latest_bitbucket_metadata(remote: str, cpv: str,
-                                  settings: LivecheckSettings) -> tuple[str, str]:
+async def get_latest_bitbucket_metadata(remote: str, cpv: str,
+                                        settings: LivecheckSettings) -> tuple[str, str]:
     """
     Get the latest version of a Bitbucket package from metadata.
 
@@ -159,4 +159,4 @@ def get_latest_bitbucket_metadata(remote: str, cpv: str,
     tuple[str, str]
         Latest version string and commit hash.
     """
-    return get_latest_bitbucket_package(f'https://bitbucket.org/{remote}', cpv, settings)
+    return await get_latest_bitbucket_package(f'https://bitbucket.org/{remote}', cpv, settings)

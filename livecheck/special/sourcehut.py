@@ -28,7 +28,7 @@ def extract_owner_repo(url: str) -> tuple[str, str, str]:
     return '', '', ''
 
 
-def get_latest_sourcehut_package(url: str, ebuild: str, settings: LivecheckSettings) -> str:
+async def get_latest_sourcehut_package(url: str, ebuild: str, settings: LivecheckSettings) -> str:
     """
     Get the latest version of a SourceHut package.
 
@@ -52,11 +52,11 @@ def get_latest_sourcehut_package(url: str, ebuild: str, settings: LivecheckSetti
 
     url = SOURCEHUT_DOWNLOAD_URL % (domain, owner, repo)
 
-    if not (r := get_content(url)):
+    if not (r := await get_content(url)):
         return ''
 
     results: list[dict[str, str]] = []
-    for item in ET.fromstring(r.text).findall('channel/item'):
+    for item in ET.fromstring(r.text or '').findall('channel/item'):
         guid = item.find('guid')
         if version := guid.text.split('/')[-1] if guid is not None and guid.text else '':
             results.append({'tag': version})
@@ -66,7 +66,7 @@ def get_latest_sourcehut_package(url: str, ebuild: str, settings: LivecheckSetti
     return ''
 
 
-def get_latest_sourcehut_commit(url: str, branch: str = 'master') -> tuple[str, str]:
+async def get_latest_sourcehut_commit(url: str, branch: str = 'master') -> tuple[str, str]:
     """
     Get the latest commit hash and date from a SourceHut repository.
 
@@ -88,11 +88,12 @@ def get_latest_sourcehut_commit(url: str, branch: str = 'master') -> tuple[str, 
 
     url = SOURCEHUT_COMMIT_URL % (domain, owner, repo, branch)
 
-    if not (r := get_content(url)):
+    if not (r := await get_content(url)):
         return '', ''
 
-    guid = ET.fromstring(r.text).find('channel/item/guid')
-    pubdate = ET.fromstring(r.text).find('channel/item/pubDate')
+    text = r.text or ''
+    guid = ET.fromstring(text).find('channel/item/guid')
+    pubdate = ET.fromstring(text).find('channel/item/pubDate')
     commit = guid.text.split('/')[-1] if guid is not None and guid.text else ''
     date = pubdate.text if pubdate is not None and pubdate.text else ''
 
@@ -140,8 +141,8 @@ def get_branch(url: str, ebuild: str, settings: LivecheckSettings) -> str:
     return ''
 
 
-def get_latest_sourcehut(url: str, ebuild: str, settings: LivecheckSettings, *,
-                         force_sha: bool) -> tuple[str, str, str]:
+async def get_latest_sourcehut(url: str, ebuild: str, settings: LivecheckSettings, *,
+                               force_sha: bool) -> tuple[str, str, str]:
     """
     Get the latest version and commit hash from a SourceHut repository.
 
@@ -164,16 +165,17 @@ def get_latest_sourcehut(url: str, ebuild: str, settings: LivecheckSettings, *,
     last_version = top_hash = hash_date = ''
 
     if (branch := get_branch(url, ebuild, settings)):
-        top_hash, hash_date = get_latest_sourcehut_commit(url, branch)
+        top_hash, hash_date = await get_latest_sourcehut_commit(url, branch)
         if not force_sha:
             top_hash = ''
     else:
-        last_version = get_latest_sourcehut_package(url, ebuild, settings)
+        last_version = await get_latest_sourcehut_package(url, ebuild, settings)
 
     return last_version, top_hash, hash_date
 
 
-def get_latest_sourcehut_metadata(remote: str, ebuild: str, settings: LivecheckSettings) -> str:
+async def get_latest_sourcehut_metadata(remote: str, ebuild: str,
+                                        settings: LivecheckSettings) -> str:
     """
     Get the latest version of a SourceHut package from its metadata.
 
@@ -191,8 +193,9 @@ def get_latest_sourcehut_metadata(remote: str, ebuild: str, settings: LivecheckS
     str
         Latest version string, or an empty string if none.
     """
-    if not (last_version := get_latest_sourcehut_package(f'https://git.sr.ht/{remote}', ebuild,
-                                                         settings)):
-        last_version = get_latest_sourcehut_package(f'https://hg.sr.ht/{remote}', ebuild, settings)
+    if not (last_version := await get_latest_sourcehut_package(f'https://git.sr.ht/{remote}',
+                                                               ebuild, settings)):
+        last_version = await get_latest_sourcehut_package(f'https://hg.sr.ht/{remote}', ebuild,
+                                                          settings)
 
     return last_version

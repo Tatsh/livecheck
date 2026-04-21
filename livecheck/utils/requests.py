@@ -3,17 +3,50 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from email.utils import parsedate_to_datetime
-from functools import cache
 from http import HTTPStatus
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 import hashlib
 import logging
 
-import requests
+import niquests
 
 from .credentials import get_api_credentials
+from .session import build_github_session, build_session
+
+if TYPE_CHECKING:
+    import asyncio
+
+__all__ = ('TextDataResponse', 'close_sessions', 'get_content', 'get_last_modified', 'hash_url',
+           'init_sessions', 'session_init')
 
 log = logging.getLogger(__name__)
+
+_semaphore: asyncio.Semaphore | None = None
+_sessions: dict[str, niquests.AsyncSession] = {}
+
+
+def init_sessions(semaphore: asyncio.Semaphore) -> None:
+    """
+    Initialise the module-level HTTP semaphore and clear the session cache.
+
+    Must be called once at the start of the async entry point before any HTTP requests.
+
+    Parameters
+    ----------
+    semaphore : asyncio.Semaphore
+        Shared semaphore bounding concurrent in-flight HTTP requests.
+    """
+    global _semaphore  # noqa: PLW0603
+    _semaphore = semaphore
+    _sessions.clear()
+
+
+async def close_sessions() -> None:
+    """Close all cached HTTP sessions."""
+    for session in _sessions.values():
+        await session.close()
+    _sessions.clear()
 
 
 @dataclass
@@ -27,10 +60,9 @@ class TextDataResponse:
         """Do nothing."""
 
 
-@cache
-def session_init(module: str) -> requests.Session:
+def session_init(module: str) -> niquests.AsyncSession:
     """
-    Create a session.
+    Get or create a cached HTTP session for the given module.
 
     Parameters
     ----------
@@ -39,40 +71,53 @@ def session_init(module: str) -> requests.Session:
 
     Returns
     -------
-    requests.Session
-        Configured HTTP session.
+    niquests.AsyncSession
+        Configured HTTP session with caching and concurrency limiting.
+
+    Raises
+    ------
+    RuntimeError
+        If :py:func:`init_sessions` has not been called.
     """
-    session = requests.Session()
-    if module == 'github':
-        token = get_api_credentials('github.com')
-        if token:
-            session.headers['Authorization'] = f'Bearer {token}'
-        session.headers['Accept'] = 'application/vnd.github.v3+json'
-    elif module == 'xml':
-        session.headers['Accept'] = 'application/xml'
-    elif module == 'json':
-        session.headers['Accept'] = 'application/json'
-    elif module == 'gitlab':
-        token = get_api_credentials('gitlab.com')
-        if token:
-            session.headers['Authorization'] = f'Bearer {token}'
-        session.headers['Accept'] = 'application/json'
-    elif module == 'bitbucket':
-        token = get_api_credentials('bitbucket.org')
-        if token:
-            session.headers['Authorization'] = f'Bearer {token}'
-        session.headers['Accept'] = 'application/json'
+    if module in _sessions:
+        return _sessions[module]
+    if _semaphore is None:
+        msg = 'Call init_sessions() before making HTTP requests.'
+        raise RuntimeError(msg)
+    session: niquests.AsyncSession
+    session = build_github_session(_semaphore) if module == 'github' else build_session(_semaphore)
+    match module:
+        case 'github':
+            token = get_api_credentials('github.com')
+            if token:
+                session.headers['Authorization'] = f'Bearer {token}'
+            session.headers['Accept'] = 'application/vnd.github.v3+json'
+        case 'xml':
+            session.headers['Accept'] = 'application/xml'
+        case 'json':
+            session.headers['Accept'] = 'application/json'
+        case 'gitlab':
+            token = get_api_credentials('gitlab.com')
+            if token:
+                session.headers['Authorization'] = f'Bearer {token}'
+            session.headers['Accept'] = 'application/json'
+        case 'bitbucket':
+            token = get_api_credentials('bitbucket.org')
+            if token:
+                session.headers['Authorization'] = f'Bearer {token}'
+            session.headers['Accept'] = 'application/json'
     session.headers['timeout'] = '30'
+    _sessions[module] = session
     return session
 
 
-def get_content(url: str,
-                headers: dict[str, str] | None = None,
-                params: dict[str, str] | None = None,
-                method: str = 'GET',
-                data: dict[str, str] | None = None,
-                *,
-                allow_redirects: bool = True) -> requests.Response:
+async def get_content(url: str,
+                      headers: dict[str, str] | None = None,
+                      params: dict[str, str] | None = None,
+                      method: str = 'GET',
+                      data: dict[str, str] | None = None,
+                      *,
+                      allow_redirects: bool = True) -> niquests.Response:
     """
     Fetch content from a URL.
 
@@ -93,17 +138,15 @@ def get_content(url: str,
 
     Returns
     -------
-    requests.Response
+    niquests.Response
         Response object, or a synthetic response on failure or unimplemented schemes.
     """
     parsed_uri = urlparse(url)
     log.debug('Fetching %s', url)
 
     if parsed_uri.scheme == 'mirror':
-        # If the URL is a mirror, we need to handle it differently
-        # This is a placeholder for the actual implementation
         log.debug('Handling mirror:// protocol for `%s`.', url)
-        response = requests.Response()
+        response = niquests.Response()
         response.status_code = HTTPStatus.NOT_IMPLEMENTED
         return response
 
@@ -123,20 +166,18 @@ def get_content(url: str,
     else:
         session = session_init('')
 
-    # Add custom headers if provided
     if headers:
         for key, value in headers.items():
             session.headers[key] = value
 
-    r: TextDataResponse | requests.Response
+    r: TextDataResponse | niquests.Response
     try:
-        # Prepare request
-        req = requests.Request(method=method.upper(), url=url, data=data, params=params)
+        req = niquests.Request(method=method.upper(), url=url, data=data, params=params)
         prepared = session.prepare_request(req)
-        r = session.send(prepared, allow_redirects=allow_redirects)
-    except requests.RequestException:
+        r = await session.send(prepared, allow_redirects=allow_redirects)
+    except niquests.RequestException:
         log.exception('Caught error attempting to fetch `%s`.', url)
-        r = requests.Response()
+        r = niquests.Response()
         r.status_code = HTTPStatus.SERVICE_UNAVAILABLE
         return r
     if r.status_code not in {
@@ -151,9 +192,9 @@ def get_content(url: str,
     return r
 
 
-def hash_url(url: str,
-             headers: dict[str, str] | None = None,
-             params: dict[str, str] | None = None) -> tuple[str, str, int]:
+async def hash_url(url: str,
+                   headers: dict[str, str] | None = None,
+                   params: dict[str, str] | None = None) -> tuple[str, str, int]:
     """
     Hash the content of a URL using BLAKE2b and SHA-512.
 
@@ -176,23 +217,24 @@ def hash_url(url: str,
     h_sha512 = hashlib.sha512()
     size = 0
     try:
-        with requests.get(url, headers=headers, params=params, stream=True, timeout=30) as r:
-            r.raise_for_status()
-            for chunk in r.iter_content(chunk_size=8192):
-                if chunk:
-                    h_blake2b.update(chunk)
-                    h_sha512.update(chunk)
-                    size += len(chunk)
+        session = session_init('')
+        r = await session.get(url, headers=headers, params=params, stream=True, timeout=30)
+        r.raise_for_status()
+        async for chunk in await r.iter_content(chunk_size=8192):
+            if chunk:
+                h_blake2b.update(chunk)
+                h_sha512.update(chunk)
+                size += len(chunk)
         return h_blake2b.hexdigest(), h_sha512.hexdigest(), size
-    except requests.RequestException:
+    except niquests.RequestException:
         log.exception('Error hashing URL %s.', url)
 
     return '', '', 0
 
 
-def get_last_modified(url: str,
-                      headers: dict[str, str] | None = None,
-                      params: dict[str, str] | None = None) -> str:
+async def get_last_modified(url: str,
+                            headers: dict[str, str] | None = None,
+                            params: dict[str, str] | None = None) -> str:
     """
     Get the last modified date of a URL.
 
@@ -211,12 +253,13 @@ def get_last_modified(url: str,
         ``Last-Modified`` as ``YYYYMMDD``, or an empty string if unavailable or on error.
     """
     try:
-        with requests.head(url, headers=headers, params=params, timeout=30) as r:
-            r.raise_for_status()
-            if last_modified := r.headers.get('last-modified'):
-                return parsedate_to_datetime(last_modified).strftime('%Y%m%d')
+        session = session_init('')
+        r = await session.head(url, headers=headers, params=params, timeout=30)
+        r.raise_for_status()
+        if last_modified := str(r.headers.get('last-modified', '')):
+            return parsedate_to_datetime(last_modified).strftime('%Y%m%d')
 
-    except requests.RequestException:
+    except niquests.RequestException:
         log.exception('Error fetching last modified header for %s.', url)
 
     return ''

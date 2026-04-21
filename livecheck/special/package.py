@@ -26,7 +26,7 @@ def extract_project(url: str) -> tuple[str, str]:
     return '', ''
 
 
-def get_latest_package(src_uri: str, ebuild: str, settings: LivecheckSettings) -> str:
+async def get_latest_package(src_uri: str, ebuild: str, settings: LivecheckSettings) -> str:
     """
     Get the latest version of an NPM package.
 
@@ -40,7 +40,7 @@ def get_latest_package(src_uri: str, ebuild: str, settings: LivecheckSettings) -
     url = PACKAGE_DOWNLOAD_URL % (domain, project)
 
     results: list[dict[str, str]] = []
-    if r := get_content(url):
+    if r := await get_content(url):
         for release in r.json().get('versions', {}):
             results.extend([{'tag': release}])
 

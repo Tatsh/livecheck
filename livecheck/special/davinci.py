@@ -8,7 +8,7 @@ __all__ = ('get_latest_davinci_package',)
 DAVINCI_TAG_URL = 'https://www.blackmagicdesign.com/api/support/latest-stable-version/%s/linux'
 
 
-def get_latest_davinci_package(pkg: str) -> str:
+async def get_latest_davinci_package(pkg: str) -> str:
     """
     Get the latest version of a DaVinci package.
 
@@ -24,7 +24,7 @@ def get_latest_davinci_package(pkg: str) -> str:
     """
     url = DAVINCI_TAG_URL % (pkg)
 
-    if not (r := get_content(url)):
+    if not (r := await get_content(url)):
         return ''
 
     data = r.json()

@@ -76,7 +76,8 @@ def make_mock_response(json_data: Any, *, ok: bool = True) -> Any:
     return MockResponse(ok=ok)
 
 
-def test_get_latest_bitbucket_package_tags_only(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_bitbucket_package_tags_only(mocker: MockerFixture) -> None:
     # Simulate tags response with two tags
     tags_json = {
         'values': [
@@ -108,14 +109,15 @@ def test_get_latest_bitbucket_package_tags_only(mocker: MockerFixture) -> None:
                                          })
     url = 'https://bitbucket.org/atlassian/python-bitbucket'
     cpv = 'dev-python/bitbucket-2.0.0'
-    version, commit = get_latest_bitbucket_package(url, cpv, mocker.Mock())
+    version, commit = await get_latest_bitbucket_package(url, cpv, mocker.Mock())
     assert version == 'v2.0.0'
     assert commit == 'def456'
     assert mock_get_content.call_count == 2
     assert mock_get_last_version.called
 
 
-def test_get_latest_bitbucket_package_downloads(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_bitbucket_package_downloads(mocker: MockerFixture) -> None:
     tags_json: dict[str, Any] = {'values': []}
     downloads_json = {
         'values': [
@@ -141,14 +143,15 @@ def test_get_latest_bitbucket_package_downloads(mocker: MockerFixture) -> None:
                                          })
     url = 'https://bitbucket.org/atlassian/python-bitbucket'
     cpv = 'dev-python/bitbucket-3.0.0'
-    version, commit = get_latest_bitbucket_package(url, cpv, mocker.Mock())
+    version, commit = await get_latest_bitbucket_package(url, cpv, mocker.Mock())
     assert version == '3.0.0'
     assert not commit
     assert mock_get_content.call_count == 2
     assert mock_get_last_version.called
 
 
-def test_get_latest_bitbucket_package_response_not_ok(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_bitbucket_package_response_not_ok(mocker: MockerFixture) -> None:
     tags_json: dict[str, Any] = {'values': []}
     mock_get_content = mocker.patch(
         'livecheck.special.bitbucket.get_content',
@@ -163,14 +166,15 @@ def test_get_latest_bitbucket_package_response_not_ok(mocker: MockerFixture) -> 
                                          })
     url = 'https://bitbucket.org/atlassian/python-bitbucket'
     cpv = 'dev-python/bitbucket-3.0.0'
-    version, commit = get_latest_bitbucket_package(url, cpv, mocker.Mock())
+    version, commit = await get_latest_bitbucket_package(url, cpv, mocker.Mock())
     assert version == '3.0.0'
     assert not commit
     assert mock_get_content.call_count == 2
     assert mock_get_last_version.called
 
 
-def test_get_latest_bitbucket_package_no_tags_no_downloads(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_bitbucket_package_no_tags_no_downloads(mocker: MockerFixture) -> None:
     tags_json: dict[str, Any] = {'values': []}
     downloads_json: dict[str, Any] = {'values': [], 'next': None}
     mock_get_content = mocker.patch(
@@ -183,18 +187,19 @@ def test_get_latest_bitbucket_package_no_tags_no_downloads(mocker: MockerFixture
                                          return_value=None)
     url = 'https://bitbucket.org/atlassian/python-bitbucket'
     cpv = 'dev-python/bitbucket-0.0.1'
-    version, commit = get_latest_bitbucket_package(url, cpv, mocker.Mock())
+    version, commit = await get_latest_bitbucket_package(url, cpv, mocker.Mock())
     assert not version
     assert not commit
     assert mock_get_content.call_count == 2
     assert mock_get_last_version.called
 
 
-def test_get_latest_bitbucket_package_get_content_fails(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_bitbucket_package_get_content_fails(mocker: MockerFixture) -> None:
     mock_get_content = mocker.patch('livecheck.special.bitbucket.get_content', return_value=None)
     url = 'https://bitbucket.org/atlassian/python-bitbucket'
     cpv = 'dev-python/bitbucket-0.0.1'
-    version, commit = get_latest_bitbucket_package(url, cpv, mocker.Mock())
+    version, commit = await get_latest_bitbucket_package(url, cpv, mocker.Mock())
     assert not version
     assert not commit
     mock_get_content.assert_called_once()
@@ -233,9 +238,10 @@ def test_get_latest_bitbucket_package_get_content_fails(mocker: MockerFixture) -
         ),
     ],
 )
-def test_get_latest_bitbucket(mocker: MockerFixture, url: str, cpv: str, force_sha: bool,
-                              is_sha_return: bool, expected_version: str, expected_top_hash: str,
-                              expected_hash_date: str) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_bitbucket(mocker: MockerFixture, url: str, cpv: str, force_sha: bool,
+                                    is_sha_return: bool, expected_version: str,
+                                    expected_top_hash: str, expected_hash_date: str) -> None:
     # Patch is_sha to control commit detection
     mocker.patch('livecheck.special.bitbucket.is_sha', return_value=is_sha_return)
     mock_log_unhandled_commit = mocker.patch('livecheck.special.bitbucket.log_unhandled_commit')
@@ -244,10 +250,10 @@ def test_get_latest_bitbucket(mocker: MockerFixture, url: str, cpv: str, force_s
         return_value=('v2.0.0', 'def456'),
     )
 
-    version, top_hash, hash_date = get_latest_bitbucket(url,
-                                                        cpv,
-                                                        mocker.Mock(),
-                                                        force_sha=force_sha)
+    version, top_hash, hash_date = await get_latest_bitbucket(url,
+                                                              cpv,
+                                                              mocker.Mock(),
+                                                              force_sha=force_sha)
 
     if is_sha_return:
         mock_log_unhandled_commit.assert_called_once_with(cpv, url)
@@ -263,14 +269,15 @@ def test_get_latest_bitbucket(mocker: MockerFixture, url: str, cpv: str, force_s
         assert hash_date == expected_hash_date
 
 
-def test_get_latest_bitbucket_metadata(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_bitbucket_metadata(mocker: MockerFixture) -> None:
     mock_get_latest_bitbucket_package = mocker.patch(
         'livecheck.special.bitbucket.get_latest_bitbucket_package',
         return_value=('v2.0.0', 'def456'),
     )
     remote = 'atlassian/python-bitbucket'
     cpv = 'dev-python/bitbucket-2.0.0'
-    version, commit = get_latest_bitbucket_metadata(remote, cpv, mocker.Mock())
+    version, commit = await get_latest_bitbucket_metadata(remote, cpv, mocker.Mock())
     assert version == 'v2.0.0'
     assert commit == 'def456'
     mock_get_latest_bitbucket_package.assert_called_once_with(f'https://bitbucket.org/{remote}',

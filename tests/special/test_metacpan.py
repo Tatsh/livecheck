@@ -102,9 +102,11 @@ def test_is_metacpan(test_case: dict[str, Any]) -> None:
         ),
     ],
 )
-def test_get_latest_metacpan_package(mocker: MockerFixture, url: str, ebuild: str,
-                                     api_hits: Collection[Any], api_release: Mapping[str, Any],
-                                     expected_version: str) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_metacpan_package(mocker: MockerFixture, url: str, ebuild: str,
+                                           api_hits: Collection[Any], api_release: Mapping[str,
+                                                                                           Any],
+                                           expected_version: str) -> None:
     def fake_get_content(url_arg: str) -> Any:
         class FakeResponse:
             def json(self) -> Any:  # noqa: PLR6301
@@ -126,7 +128,7 @@ def test_get_latest_metacpan_package(mocker: MockerFixture, url: str, ebuild: st
     mocker.patch('livecheck.special.metacpan.get_content', side_effect=fake_get_content)
     mocker.patch('livecheck.special.metacpan.get_last_version', side_effect=fake_get_last_version)
     settings = mocker.Mock()
-    result = get_latest_metacpan_package(url, ebuild, settings)
+    result = await get_latest_metacpan_package(url, ebuild, settings)
     assert result == expected_version
 
 
@@ -168,9 +170,11 @@ def test_get_latest_metacpan_package(mocker: MockerFixture, url: str, ebuild: st
         ),
     ],
 )
-def test_get_latest_metacpan_metadata(mocker: MockerFixture, remote: str, ebuild: str,
-                                      api_hits: Collection[Any], api_release: Mapping[str, Any],
-                                      expected_version: str) -> None:
+@pytest.mark.asyncio
+async def test_get_latest_metacpan_metadata(mocker: MockerFixture, remote: str, ebuild: str,
+                                            api_hits: Collection[Any], api_release: Mapping[str,
+                                                                                            Any],
+                                            expected_version: str) -> None:
     def fake_get_content(url_arg: str) -> Any:
         class FakeResponse:
             def json(self) -> Any:  # noqa: PLR6301
@@ -192,5 +196,5 @@ def test_get_latest_metacpan_metadata(mocker: MockerFixture, remote: str, ebuild
     mocker.patch('livecheck.special.metacpan.get_content', side_effect=fake_get_content)
     mocker.patch('livecheck.special.metacpan.get_last_version', side_effect=fake_get_last_version)
     settings = mocker.Mock()
-    result = get_latest_metacpan_metadata(remote, ebuild, settings)
+    result = await get_latest_metacpan_metadata(remote, ebuild, settings)
     assert result == expected_version

@@ -46,8 +46,8 @@ def extract_domain_and_namespace(url: str) -> tuple[str, str, str]:
     return parsed.netloc, path, path.split('/')[-1]
 
 
-def get_latest_gitlab_package(url: str, ebuild: str,
-                              settings: LivecheckSettings) -> tuple[str, str]:
+async def get_latest_gitlab_package(url: str, ebuild: str,
+                                    settings: LivecheckSettings) -> tuple[str, str]:
     """
     Get the latest version of a GitLab package.
 
@@ -70,7 +70,7 @@ def get_latest_gitlab_package(url: str, ebuild: str,
 
     url = GITLAB_TAG_URL % (domain, encoded_path, VERSIONS)
 
-    if not (r := get_content(url)):
+    if not (r := await get_content(url)):
         return '', ''
 
     results: list[dict[str, str]] = [{
@@ -84,8 +84,8 @@ def get_latest_gitlab_package(url: str, ebuild: str,
     return '', ''
 
 
-def get_latest_gitlab(url: str, ebuild: str, settings: LivecheckSettings, *,
-                      force_sha: bool) -> tuple[str, str, str]:
+async def get_latest_gitlab(url: str, ebuild: str, settings: LivecheckSettings, *,
+                            force_sha: bool) -> tuple[str, str, str]:
     """
     Get the latest version of a GitLab package.
 
@@ -110,7 +110,7 @@ def get_latest_gitlab(url: str, ebuild: str, settings: LivecheckSettings, *,
     if is_sha(urlparse(url).path):
         log_unhandled_commit(ebuild, url)
     else:
-        last_version, top_hash = get_latest_gitlab_package(url, ebuild, settings)
+        last_version, top_hash = await get_latest_gitlab_package(url, ebuild, settings)
         if not force_sha:
             top_hash = ''
 
@@ -129,8 +129,8 @@ def is_gitlab(url: str) -> bool:
     return bool(extract_domain_and_namespace(url)[0])
 
 
-def get_latest_gitlab_metadata(remote: str, _type: str, ebuild: str,
-                               settings: LivecheckSettings) -> tuple[str, str]:
+async def get_latest_gitlab_metadata(remote: str, _type: str, ebuild: str,
+                                     settings: LivecheckSettings) -> tuple[str, str]:
     """
     Get the latest version of a GitLab package from metadata.
 
@@ -140,4 +140,4 @@ def get_latest_gitlab_metadata(remote: str, _type: str, ebuild: str,
         Latest version string and associated hash or tag information.
     """
     uri = GITLAB_HOSTNAMES[_type]
-    return get_latest_gitlab_package(f'https://{uri}/{remote}', ebuild, settings)
+    return await get_latest_gitlab_package(f'https://{uri}/{remote}', ebuild, settings)

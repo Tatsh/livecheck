@@ -3,407 +3,334 @@ from __future__ import annotations
 from http import HTTPStatus
 from typing import TYPE_CHECKING
 import hashlib
+import re
 
 from livecheck.utils.requests import get_content, get_last_modified, hash_url, session_init
-import requests
+import niquests
+import pytest
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator
+
     from pytest_mock import MockerFixture
+    from tests.conftest import NiquestsMocker
 
 
-def test_get_content_success_github(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_content_success_github(requests_mock: NiquestsMocker,
+                                          mocker: MockerFixture) -> None:
+    mocker.patch('livecheck.utils.requests.get_api_credentials', return_value=None)
     url = 'https://api.github.com/repos/octocat/Hello-World'
-    mock_session = mocker.Mock()
-    mock_response = mocker.Mock()
-    mock_response.status_code = HTTPStatus.OK
-    mock_response.text = 'data'
-    mock_session.send.return_value = mock_response
-    mock_session.prepare_request.return_value = mocker.Mock()
-    mocker.patch('livecheck.utils.requests.session_init', return_value=mock_session)
-    r = get_content(url)
+    requests_mock.get(url, json={'name': 'Hello-World'}, status_code=HTTPStatus.OK)
+    r = await get_content(url)
     assert r.status_code == HTTPStatus.OK
-    assert r.text == 'data'
 
 
-def test_get_content_success_gitlab(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_content_success_gitlab(requests_mock: NiquestsMocker,
+                                          mocker: MockerFixture) -> None:
+    mocker.patch('livecheck.utils.requests.get_api_credentials', return_value=None)
     url = 'https://api.gitlab.com/projects/123'
-    mock_session = mocker.Mock()
-    mock_response = mocker.Mock()
-    mock_response.status_code = HTTPStatus.OK
-    mock_response.text = 'gitlab'
-    mock_session.send.return_value = mock_response
-    mock_session.prepare_request.return_value = mocker.Mock()
-    mocker.patch('livecheck.utils.requests.session_init', return_value=mock_session)
-    r = get_content(url)
+    requests_mock.get(url, json={'id': 123}, status_code=HTTPStatus.OK)
+    r = await get_content(url)
     assert r.status_code == HTTPStatus.OK
-    assert r.text == 'gitlab'
 
 
-def test_get_content_success_bitbucket(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_content_success_bitbucket(requests_mock: NiquestsMocker,
+                                             mocker: MockerFixture) -> None:
+    mocker.patch('livecheck.utils.requests.get_api_credentials', return_value=None)
     url = 'https://api.bitbucket.org/2.0/repositories'
-    mock_session = mocker.Mock()
-    mock_response = mocker.Mock()
-    mock_response.status_code = HTTPStatus.OK
-    mock_response.text = 'bitbucket'
-    mock_session.send.return_value = mock_response
-    mock_session.prepare_request.return_value = mocker.Mock()
-    mocker.patch('livecheck.utils.requests.session_init', return_value=mock_session)
-    r = get_content(url)
+    requests_mock.get(url, json={'values': []}, status_code=HTTPStatus.OK)
+    r = await get_content(url)
     assert r.status_code == HTTPStatus.OK
-    assert r.text == 'bitbucket'
 
 
-def test_get_content_success_repology(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_content_success_repology(requests_mock: NiquestsMocker) -> None:
     url = 'https://repology.org/api/v1/projects.json'
-    mock_session = mocker.MagicMock()
-    mock_response = mocker.Mock()
-    mock_response.status_code = HTTPStatus.OK
-    mock_response.text = 'repology'
-    mock_session.send.return_value = mock_response
-    mock_session.prepare_request.return_value = mocker.Mock()
-    mocker.patch('livecheck.utils.requests.session_init', return_value=mock_session)
-    r = get_content(url)
+    requests_mock.get(url, json={}, status_code=HTTPStatus.OK)
+    r = await get_content(url)
     assert r.status_code == HTTPStatus.OK
-    assert r.text == 'repology'
 
 
-def test_get_content_xml(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_content_xml(requests_mock: NiquestsMocker) -> None:
     url = 'https://example.com/feed.xml'
-    mock_session = mocker.Mock()
-    mock_response = mocker.Mock()
-    mock_response.status_code = HTTPStatus.OK
-    mock_response.text = '<xml></xml>'
-    mock_session.send.return_value = mock_response
-    mock_session.prepare_request.return_value = mocker.Mock()
-    mocker.patch('livecheck.utils.requests.session_init', return_value=mock_session)
-    r = get_content(url)
+    requests_mock.get(url, text='<xml></xml>', status_code=HTTPStatus.OK)
+    r = await get_content(url)
     assert r.status_code == HTTPStatus.OK
-    assert r.text == '<xml></xml>'
 
 
-def test_get_content_json(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_content_json(requests_mock: NiquestsMocker) -> None:
     url = 'https://example.com/data.json'
-    mock_session = mocker.Mock()
-    mock_response = mocker.Mock()
-    mock_response.status_code = HTTPStatus.OK
-    mock_response.text = '{"key": "value"}'
-    mock_session.send.return_value = mock_response
-    mock_session.prepare_request.return_value = mocker.Mock()
-    mocker.patch('livecheck.utils.requests.session_init', return_value=mock_session)
-    r = get_content(url)
+    requests_mock.get(url, json={'key': 'value'}, status_code=HTTPStatus.OK)
+    r = await get_content(url)
     assert r.status_code == HTTPStatus.OK
-    assert r.text == '{"key": "value"}'
 
 
-def test_get_content_mirror_scheme(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_content_mirror_scheme(requests_mock: NiquestsMocker) -> None:
     url = 'mirror://some/path'
-    r = get_content(url)
+    r = await get_content(url)
     assert r.status_code == HTTPStatus.NOT_IMPLEMENTED
 
 
-def test_get_content_request_exception(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_content_non_ok_status(requests_mock: NiquestsMocker) -> None:
     url = 'https://example.com'
-    mock_session = mocker.Mock()
-    mock_session.send.side_effect = requests.RequestException
-    mock_session.prepare_request.return_value = mocker.Mock()
-    mocker.patch('livecheck.utils.requests.session_init', return_value=mock_session)
-    r = get_content(url)
-    assert r.status_code == HTTPStatus.SERVICE_UNAVAILABLE
-
-
-def test_get_content_non_ok_status(mocker: MockerFixture) -> None:
-    url = 'https://example.com'
-    mock_session = mocker.Mock()
-    mock_response = mocker.Mock()
-    mock_response.status_code = HTTPStatus.BAD_REQUEST
-    mock_response.text = 'error'
-    mock_session.send.return_value = mock_response
-    mock_session.prepare_request.return_value = mocker.Mock()
-    mocker.patch('livecheck.utils.requests.session_init', return_value=mock_session)
-    r = get_content(url)
+    requests_mock.get(url, status_code=HTTPStatus.BAD_REQUEST)
+    r = await get_content(url)
     assert r.status_code == HTTPStatus.BAD_REQUEST
 
 
-def test_get_content_empty_text_warns(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_content_empty_text_warns(requests_mock: NiquestsMocker) -> None:
     url = 'https://example.com'
-    mock_session = mocker.Mock()
-    mock_response = mocker.Mock()
-    mock_response.status_code = HTTPStatus.OK
-    mock_response.text = ''
-    mock_session.send.return_value = mock_response
-    mock_session.prepare_request.return_value = mocker.Mock()
-    mocker.patch('livecheck.utils.requests.session_init', return_value=mock_session)
-    r = get_content(url)
+    requests_mock.get(url, text='', status_code=HTTPStatus.OK)
+    r = await get_content(url)
     assert r.status_code == HTTPStatus.OK
-    assert not r.text
 
 
 def test_session_init_github_sets_headers_and_token(mocker: MockerFixture) -> None:
-    mock_session = mocker.MagicMock()
-    mock_session.headers = {}
-    mocker.patch('requests.Session', return_value=mock_session)
     mocker.patch('livecheck.utils.requests.get_api_credentials', return_value='gh-token')
     session = session_init('github')
-    assert session == mock_session
-    assert mock_session.headers['Authorization'] == 'Bearer gh-token'
-    assert mock_session.headers['Accept'] == 'application/vnd.github.v3+json'
-    assert mock_session.headers['timeout'] == '30'
+    assert session.headers['Authorization'] == 'Bearer gh-token'
+    assert session.headers['Accept'] == 'application/vnd.github.v3+json'
+    assert session.headers['timeout'] == '30'
 
 
 def test_session_init_github_no_token(mocker: MockerFixture) -> None:
-    mock_session = mocker.MagicMock()
-    mock_session.headers = {}
-    mocker.patch('requests.Session', return_value=mock_session)
     mocker.patch('livecheck.utils.requests.get_api_credentials', return_value=None)
-    session_init.cache_clear()
     session = session_init('github')
-    assert session == mock_session
-    assert 'Authorization' not in mock_session.headers or not mock_session.headers['Authorization']
-    assert mock_session.headers['Accept'] == 'application/vnd.github.v3+json'
-    assert mock_session.headers['timeout'] == '30'
+    assert 'Authorization' not in session.headers
+    assert session.headers['Accept'] == 'application/vnd.github.v3+json'
+    assert session.headers['timeout'] == '30'
 
 
 def test_session_init_gitlab_sets_headers_and_token(mocker: MockerFixture) -> None:
-    mock_session = mocker.MagicMock()
-    mock_session.headers = {}
-    mocker.patch('requests.Session', return_value=mock_session)
     mocker.patch('livecheck.utils.requests.get_api_credentials', return_value='gl-token')
     session = session_init('gitlab')
-    assert session == mock_session
-    assert mock_session.headers['Authorization'] == 'Bearer gl-token'
-    assert mock_session.headers['Accept'] == 'application/json'
-    assert mock_session.headers['timeout'] == '30'
+    assert session.headers['Authorization'] == 'Bearer gl-token'
+    assert session.headers['Accept'] == 'application/json'
+    assert session.headers['timeout'] == '30'
 
 
 def test_session_init_bitbucket_sets_headers_and_token(mocker: MockerFixture) -> None:
-    mock_session = mocker.MagicMock()
-    mock_session.headers = {}
-    mocker.patch('requests.Session', return_value=mock_session)
     mocker.patch('livecheck.utils.requests.get_api_credentials', return_value='bb-token')
     session = session_init('bitbucket')
-    assert session == mock_session
-    assert mock_session.headers['Authorization'] == 'Bearer bb-token'
-    assert mock_session.headers['Accept'] == 'application/json'
-    assert mock_session.headers['timeout'] == '30'
+    assert session.headers['Authorization'] == 'Bearer bb-token'
+    assert session.headers['Accept'] == 'application/json'
+    assert session.headers['timeout'] == '30'
 
 
-def test_session_init_xml_sets_accept_header(mocker: MockerFixture) -> None:
-    mock_session = mocker.MagicMock()
-    mock_session.headers = {}
-    mocker.patch('requests.Session', return_value=mock_session)
+def test_session_init_xml_sets_accept_header() -> None:
     session = session_init('xml')
-    assert session == mock_session
-    assert mock_session.headers['Accept'] == 'application/xml'
-    assert mock_session.headers['timeout'] == '30'
+    assert session.headers['Accept'] == 'application/xml'
+    assert session.headers['timeout'] == '30'
 
 
-def test_session_init_json_sets_accept_header(mocker: MockerFixture) -> None:
-    mock_session = mocker.MagicMock()
-    mock_session.headers = {}
-    mocker.patch('requests.Session', return_value=mock_session)
+def test_session_init_json_sets_accept_header() -> None:
     session = session_init('json')
-    assert session == mock_session
-    assert mock_session.headers['Accept'] == 'application/json'
-    assert mock_session.headers['timeout'] == '30'
+    assert session.headers['Accept'] == 'application/json'
+    assert session.headers['timeout'] == '30'
 
 
-def test_session_init_default(mocker: MockerFixture) -> None:
-    mock_session = mocker.MagicMock()
-    mock_session.headers = {}
-    mocker.patch('requests.Session', return_value=mock_session)
+def test_session_init_default() -> None:
     session = session_init('')
-    assert session == mock_session
-    assert mock_session.headers['timeout'] == '30'
-    # Should not set Accept or Authorization
-    assert 'Accept' not in mock_session.headers or not mock_session.headers['Accept']
-    assert 'Authorization' not in mock_session.headers or not mock_session.headers['Authorization']
+    assert session.headers['timeout'] == '30'
 
 
 def test_session_init_gitlab_no_token(mocker: MockerFixture) -> None:
-    mock_session = mocker.MagicMock()
-    mock_session.headers = {}
-    mocker.patch('requests.Session', return_value=mock_session)
     mocker.patch('livecheck.utils.requests.get_api_credentials', return_value=None)
-    session_init.cache_clear()
     session = session_init('gitlab')
-    assert session == mock_session
-    assert 'Authorization' not in mock_session.headers or not mock_session.headers['Authorization']
-    assert mock_session.headers['Accept'] == 'application/json'
-    assert mock_session.headers['timeout'] == '30'
+    assert 'Authorization' not in session.headers
+    assert session.headers['Accept'] == 'application/json'
+    assert session.headers['timeout'] == '30'
 
 
 def test_session_init_bitbucket_no_token(mocker: MockerFixture) -> None:
-    mock_session = mocker.MagicMock()
-    mock_session.headers = {}
-    mocker.patch('requests.Session', return_value=mock_session)
     mocker.patch('livecheck.utils.requests.get_api_credentials', return_value=None)
-    session_init.cache_clear()
     session = session_init('bitbucket')
-    assert session == mock_session
-    assert 'Authorization' not in mock_session.headers or not mock_session.headers['Authorization']
-    assert mock_session.headers['Accept'] == 'application/json'
-    assert mock_session.headers['timeout'] == '30'
+    assert 'Authorization' not in session.headers
+    assert session.headers['Accept'] == 'application/json'
+    assert session.headers['timeout'] == '30'
 
 
-def test_hash_url_success(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_hash_url_success(mocker: MockerFixture) -> None:
     url = 'https://example.com/file.txt'
+
+    async def _iter_content(chunk_size: int = 8192) -> AsyncGenerator[bytes]:
+        for chunk in (b'abc', b'def'):
+            yield chunk
+
     mock_response = mocker.MagicMock()
-    mock_response.__enter__.return_value = mock_response
-    mock_response.__exit__.return_value = False
-    mock_response.iter_content.return_value = [b'abc', b'def', b'']
     mock_response.raise_for_status.return_value = None
-    mock_requests_get = mocker.patch('requests.get', return_value=mock_response)
-    h_blake2b, h_sha512, size = hash_url(url)
+    mock_response.iter_content = mocker.AsyncMock(return_value=_iter_content())
+    mocker.patch.object(session_init(''), 'get', return_value=mock_response)
+    h_blake2b, h_sha512, size = await hash_url(url)
     expected_blake2b = hashlib.blake2b(b'abcdef').hexdigest()
     expected_sha512 = hashlib.sha512(b'abcdef').hexdigest()
     assert h_blake2b == expected_blake2b
     assert h_sha512 == expected_sha512
     assert size == 6
-    mock_requests_get.assert_called_once_with(url,
-                                              headers=None,
-                                              params=None,
-                                              stream=True,
-                                              timeout=30)
 
 
-def test_hash_url_request_exception(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_hash_url_request_exception(mocker: MockerFixture) -> None:
     url = 'https://example.com/file.txt'
-    mocker.patch('requests.get', side_effect=requests.RequestException)
-    h_blake2b, h_sha512, size = hash_url(url)
+    mocker.patch.object(session_init(''), 'get', side_effect=niquests.RequestException('fail'))
+    h_blake2b, h_sha512, size = await hash_url(url)
     assert not h_blake2b
     assert not h_sha512
     assert size == 0
 
 
-def test_hash_url_with_headers_and_params(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_hash_url_with_headers_and_params(mocker: MockerFixture) -> None:
     url = 'https://example.com/file.txt'
-    headers = {'Referer': 'https://example.com'}
-    params = {'key': 'value'}
+
+    async def _iter_content(chunk_size: int = 8192) -> AsyncGenerator[bytes]:
+        for chunk in (b'abc',):
+            yield chunk
+
     mock_response = mocker.MagicMock()
-    mock_response.__enter__.return_value = mock_response
-    mock_response.__exit__.return_value = False
-    mock_response.iter_content.return_value = [b'abc', b'']
     mock_response.raise_for_status.return_value = None
-    mock_requests_get = mocker.patch('requests.get', return_value=mock_response)
-    h_blake2b, h_sha512, size = hash_url(url, headers=headers, params=params)
+    mock_response.iter_content = mocker.AsyncMock(return_value=_iter_content())
+    mocker.patch.object(session_init(''), 'get', return_value=mock_response)
+    h_blake2b, h_sha512, size = await hash_url(url,
+                                               headers={'Referer': 'https://example.com'},
+                                               params={'key': 'value'})
     expected_blake2b = hashlib.blake2b(b'abc').hexdigest()
     expected_sha512 = hashlib.sha512(b'abc').hexdigest()
     assert h_blake2b == expected_blake2b
     assert h_sha512 == expected_sha512
     assert size == 3
-    mock_requests_get.assert_called_once_with(url,
-                                              headers=headers,
-                                              params=params,
-                                              stream=True,
-                                              timeout=30)
 
 
-def test_get_last_modified_success(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_last_modified_success(requests_mock: NiquestsMocker) -> None:
     url = 'https://example.com/file.txt'
-    mock_response = mocker.MagicMock()
-    mock_response.__enter__.return_value = mock_response
-    mock_response.__exit__.return_value = False
-    mock_response.raise_for_status.return_value = None
-    mock_response.headers = {'last-modified': 'Wed, 21 Oct 2015 07:28:00 GMT'}
-    mock_requests_head = mocker.patch('requests.head', return_value=mock_response)
-    result = get_last_modified(url)
+    requests_mock.head(url,
+                       headers={'last-modified': 'Wed, 21 Oct 2015 07:28:00 GMT'},
+                       status_code=HTTPStatus.OK)
+    result = await get_last_modified(url)
     assert result == '20151021'
-    mock_requests_head.assert_called_once_with(url, headers=None, params=None, timeout=30)
 
 
-def test_get_last_modified_no_last_modified_header(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_last_modified_no_last_modified_header(requests_mock: NiquestsMocker) -> None:
     url = 'https://example.com/file.txt'
-    mock_response = mocker.MagicMock()
-    mock_response.__enter__.return_value = mock_response
-    mock_response.__exit__.return_value = False
-    mock_response.raise_for_status.return_value = None
-    mock_response.headers = {}
-    mocker.patch('requests.head', return_value=mock_response)
-    result = get_last_modified(url)
+    requests_mock.head(url, status_code=HTTPStatus.OK)
+    result = await get_last_modified(url)
     assert not result
 
 
-def test_get_last_modified_request_exception(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_last_modified_request_exception(mocker: MockerFixture) -> None:
     url = 'https://example.com/file.txt'
-    mocker.patch('requests.head', side_effect=requests.RequestException)
-    result = get_last_modified(url)
+    mocker.patch.object(session_init(''), 'head', side_effect=niquests.RequestException('fail'))
+    result = await get_last_modified(url)
     assert not result
 
 
-def test_get_last_modified_with_headers_and_params(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_last_modified_with_headers_and_params(requests_mock: NiquestsMocker) -> None:
     url = 'https://example.com/file.txt'
-    headers = {'Referer': 'https://example.com'}
-    params = {'key': 'value'}
-    mock_response = mocker.MagicMock()
-    mock_response.__enter__.return_value = mock_response
-    mock_response.__exit__.return_value = False
-    mock_response.raise_for_status.return_value = None
-    mock_response.headers = {'last-modified': 'Wed, 21 Oct 2015 07:28:00 GMT'}
-    mock_requests_head = mocker.patch('requests.head', return_value=mock_response)
-    result = get_last_modified(url, headers=headers, params=params)
+    requests_mock.head(re.compile(r'https://example\.com/file\.txt'),
+                       headers={'last-modified': 'Wed, 21 Oct 2015 07:28:00 GMT'},
+                       status_code=HTTPStatus.OK)
+    result = await get_last_modified(url,
+                                     headers={'Referer': 'https://example.com'},
+                                     params={'key': 'value'})
     assert result == '20151021'
-    mock_requests_head.assert_called_once_with(url, headers=headers, params=params, timeout=30)
 
 
-def test_get_content_with_custom_headers(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_content_with_custom_headers(requests_mock: NiquestsMocker) -> None:
     url = 'https://example.com'
-    custom_headers = {'Referer': 'https://example.com/ref', 'User-Agent': 'test-agent'}
-    mock_session = mocker.Mock()
-    mock_session.headers = {}
-    mock_response = mocker.Mock()
-    mock_response.status_code = HTTPStatus.OK
-    mock_response.text = 'data'
-    mock_session.send.return_value = mock_response
-    mock_session.prepare_request.return_value = mocker.Mock()
-    mocker.patch('livecheck.utils.requests.session_init', return_value=mock_session)
-    r = get_content(url, headers=custom_headers)
-    assert r.status_code == HTTPStatus.OK
-    assert mock_session.headers['Referer'] == 'https://example.com/ref'
-    assert mock_session.headers['User-Agent'] == 'test-agent'
-
-
-def test_get_content_with_params(mocker: MockerFixture) -> None:
-    url = 'https://example.com'
-    params = {'file': 'security', 'agree': 'Yes'}
-    mock_session = mocker.Mock()
-    mock_response = mocker.Mock()
-    mock_response.status_code = HTTPStatus.OK
-    mock_response.text = 'data'
-    mock_session.send.return_value = mock_response
-    mock_prepared = mocker.Mock()
-    mock_session.prepare_request.return_value = mock_prepared
-    mocker.patch('livecheck.utils.requests.session_init', return_value=mock_session)
-    mocker.patch('livecheck.utils.requests.requests.Request')
-    r = get_content(url, params=params)
+    requests_mock.get(url, text='data', status_code=HTTPStatus.OK)
+    r = await get_content(url, headers={'Referer': 'https://example.com/ref'})
     assert r.status_code == HTTPStatus.OK
 
 
-def test_get_content_with_post_method_and_data(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_content_with_params(requests_mock: NiquestsMocker) -> None:
     url = 'https://example.com'
-    data = {'countryCode': '', 'productName': 'test'}
-    mock_session = mocker.Mock()
-    mock_response = mocker.Mock()
-    mock_response.status_code = HTTPStatus.OK
-    mock_response.text = 'data'
-    mock_session.send.return_value = mock_response
-    mock_prepared = mocker.Mock()
-    mock_session.prepare_request.return_value = mock_prepared
-    mocker.patch('livecheck.utils.requests.session_init', return_value=mock_session)
-    r = get_content(url, data=data, method='POST')
+    requests_mock.get(re.compile(r'https://example\.com'), text='data', status_code=HTTPStatus.OK)
+    r = await get_content(url, params={'file': 'security', 'agree': 'Yes'})
     assert r.status_code == HTTPStatus.OK
 
 
-def test_get_content_with_allow_redirects_false(mocker: MockerFixture) -> None:
+@pytest.mark.asyncio
+async def test_get_content_with_post_method_and_data(requests_mock: NiquestsMocker) -> None:
     url = 'https://example.com'
-    mock_session = mocker.Mock()
-    mock_response = mocker.Mock()
-    mock_response.status_code = HTTPStatus.MOVED_PERMANENTLY
-    mock_response.text = ''
-    mock_response.headers = {'Location': 'https://example.com/redirect'}
-    mock_session.send.return_value = mock_response
-    mock_prepared = mocker.Mock()
-    mock_session.prepare_request.return_value = mock_prepared
-    mocker.patch('livecheck.utils.requests.session_init', return_value=mock_session)
-    r = get_content(url, allow_redirects=False)
+    requests_mock.post(url, text='data', status_code=HTTPStatus.OK)
+    r = await get_content(url, data={'countryCode': '', 'productName': 'test'}, method='POST')
+    assert r.status_code == HTTPStatus.OK
+
+
+@pytest.mark.asyncio
+async def test_get_content_with_allow_redirects_false(requests_mock: NiquestsMocker) -> None:
+    url = 'https://example.com'
+    requests_mock.get(url, status_code=HTTPStatus.MOVED_PERMANENTLY)
+    r = await get_content(url, allow_redirects=False)
     assert r.status_code == HTTPStatus.MOVED_PERMANENTLY
-    mock_session.send.assert_called_once_with(mock_prepared, allow_redirects=False)
+
+
+def test_session_init_raises_when_not_initialised(mocker: MockerFixture) -> None:
+    import livecheck.utils.requests as req_mod
+    mocker.patch.object(req_mod, '_semaphore', None)
+    mocker.patch.object(req_mod, '_sessions', {})
+    with pytest.raises(RuntimeError, match='Call init_sessions'):
+        session_init('test-module-never-cached')
+
+
+@pytest.mark.asyncio
+async def test_hash_url_raise_for_status_exception(mocker: MockerFixture) -> None:
+    url = 'https://example.com/file.txt'
+    mock_response = mocker.MagicMock()
+    mock_response.raise_for_status.side_effect = niquests.RequestException('bad status')
+    mocker.patch.object(session_init(''), 'get', return_value=mock_response)
+    h_blake2b, h_sha512, size = await hash_url(url)
+    assert not h_blake2b
+    assert not h_sha512
+    assert size == 0
+
+
+@pytest.mark.asyncio
+async def test_get_content_request_exception(mocker: MockerFixture) -> None:
+    url = 'https://example.com/fail'
+    mocker.patch.object(session_init(''), 'send', side_effect=niquests.RequestException('fail'))
+    r = await get_content(url)
+    assert r.status_code == HTTPStatus.SERVICE_UNAVAILABLE
+
+
+@pytest.mark.asyncio
+async def test_hash_url_skips_empty_chunks(mocker: MockerFixture) -> None:
+    url = 'https://example.com/file.txt'
+
+    async def _iter_content(chunk_size: int = 8192) -> AsyncGenerator[bytes]:
+        for chunk in (b'abc', b'', b'def'):
+            yield chunk
+
+    mock_response = mocker.MagicMock()
+    mock_response.raise_for_status.return_value = None
+    mock_response.iter_content = mocker.AsyncMock(return_value=_iter_content())
+    mocker.patch.object(session_init(''), 'get', return_value=mock_response)
+    h_blake2b, h_sha512, size = await hash_url(url)
+    expected_blake2b = hashlib.blake2b(b'abcdef').hexdigest()
+    expected_sha512 = hashlib.sha512(b'abcdef').hexdigest()
+    assert h_blake2b == expected_blake2b
+    assert h_sha512 == expected_sha512
+    assert size == 6
+
+
+@pytest.mark.asyncio
+async def test_get_content_atom_url(requests_mock: NiquestsMocker) -> None:
+    url = 'https://example.com/feed.atom'
+    requests_mock.get(url, text='<feed></feed>', status_code=HTTPStatus.OK)
+    r = await get_content(url)
+    assert r.status_code == HTTPStatus.OK

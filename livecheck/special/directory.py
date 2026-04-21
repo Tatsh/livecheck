@@ -18,8 +18,8 @@ if TYPE_CHECKING:
 __all__ = ('get_latest_directory_package',)
 
 
-def get_latest_directory_package(url: str, ebuild: str,
-                                 settings: LivecheckSettings) -> tuple[str, str]:
+async def get_latest_directory_package(url: str, ebuild: str,
+                                       settings: LivecheckSettings) -> tuple[str, str]:
     """
     Get the latest version of a package from a directory listing.
 
@@ -39,13 +39,13 @@ def get_latest_directory_package(url: str, ebuild: str,
     """
     if m := re.search(r'^(.*?)(?=-\d)', Path(url).name):
         directory = re.sub(r'/[^/]+$', '', url) + '/'
-        if not (r := get_content(directory)):
+        if not (r := await get_content(directory)):
             return '', ''
 
         archive = m.group(1).strip()
 
         results: list[dict[str, str]] = []
-        for item in BeautifulSoup(r.text, 'html5lib').find_all('a', href=True):
+        for item in BeautifulSoup(r.text or '', 'html5lib').find_all('a', href=True):
             if (href := item['href']) and get_archive_extension(href):
                 file = urlparse(urljoin(directory, href)).path
                 name = Path(file).name
