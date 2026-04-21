@@ -9,7 +9,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-04-14T05:22:56.850641008Z"
+exclude-newer = "2026-04-14T06:55:55.673231365Z"
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
@@ -1698,14 +1698,14 @@ wheels = [
 
 [[package]]
 name = "portage-stubs"
-version = "0.0.8"
+version = "0.0.9"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/3f/01/7e13671757bc5368622171025cf0fc41a582e0760421de5ffdd5b5a5240f/portage_stubs-0.0.8.tar.gz", hash = "sha256:df8ecee1e3a27076604471f5fd189c3301e9a664f0ee5c4ba89886b25296f44e", size = 6133, upload-time = "2026-04-21T05:14:24.795Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/32/ad/d5ea4b0150d29c95c2579761c24ad5eb0ae3294985844f55a9414b052ff5/portage_stubs-0.0.9.tar.gz", hash = "sha256:3481eaf1c58b488d06fcb8893e020d2f4a2a521b67f4c4ea9c3121c2f147c287", size = 6179, upload-time = "2026-04-21T06:28:42.632Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/48/01/a25a4281b74a63283c234a11566c6e30c382935973a0a462be41b0aee438/portage_stubs-0.0.8-py3-none-any.whl", hash = "sha256:3492ec0af3ca92409ec68f8f6655ad3658656a234be442336e61cccbe327b060", size = 6521, upload-time = "2026-04-21T05:14:23.234Z" },
+    { url = "https://files.pythonhosted.org/packages/52/f9/e5deb7ca2de354290e09abb7397cac2ce0b998682aa7809950cb6e74b18a/portage_stubs-0.0.9-py3-none-any.whl", hash = "sha256:2e6f8b32a7b683d8073a5faced8b25d8307fd4106fa08d73b8b7ab83f7128d8c", size = 6556, upload-time = "2026-04-21T06:28:41.225Z" },
 ]
 
 [[package]]
