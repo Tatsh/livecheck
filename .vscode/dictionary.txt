@@ -1,5 +1,7 @@
 anchore
+anyio
 Ångström
+appauthor
 appdir
 appimage
 appinfo
@@ -8,6 +10,7 @@ asmjit
 asyncio
 atrac
 autodoc
+autouse
 automodule
 bascom
 beautifulsoup
@@ -66,6 +69,7 @@ fetchlist
 fhdk
 findname
 flathub
+forcelist
 foxundermoon
 functools
 genindex
@@ -122,6 +126,7 @@ notroj
 npmjs
 ntasos
 nuanceur
+niquests
 nugets
 numpy
 numpydoc
@@ -141,6 +146,7 @@ pkgs
 platformdirs
 plistlib
 portdir
+proc
 porttree
 psvpfsparser
 psvpfstools
@@ -154,6 +160,7 @@ pypa
 pypi
 pyproject
 pytest
+pytestmark
 pythonhosted
 pythonpath
 qpxtool
