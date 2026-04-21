@@ -6,8 +6,6 @@ import logging
 
 from defusedxml import ElementTree as ET  # noqa: N817
 from livecheck.main import (
-    _recover_ebuild,  # noqa: PLC2701
-    _resolved_executable,  # noqa: PLC2701
     do_main,
     execute_hooks,
     extract_restrict_version,
@@ -37,10 +35,7 @@ CP = 'sys-devel/gcc'
 
 def _patch_main_resolved_executables(mocker: MockerFixture) -> None:
     """Stub PATH resolution so git workflows in do_main need no portage tools."""
-    mocker.patch(
-        'livecheck.main._resolved_executable',
-        side_effect=lambda name: f'/fake/bin/{name}',
-    )
+    mocker.patch('livecheck.main.which', side_effect=lambda name: f'/fake/bin/{name}')
 
 
 def test_replace_date_in_ebuild_full_date() -> None:
@@ -180,7 +175,7 @@ async def test_do_main_update_with_sha(mocker: MockerFixture, tmp_path: Path,
     mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
     mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
     mocker.patch('livecheck.main.digest_ebuild', return_value=True)
-    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
     mocker.patch('livecheck.main.is_sha', return_value=True)
     mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
     mocker.patch('livecheck.main.execute_hooks')
@@ -189,7 +184,9 @@ async def test_do_main_update_with_sha(mocker: MockerFixture, tmp_path: Path,
     mock_anyio_path_instance.write_text = mocker.AsyncMock()
     mocker.patch('livecheck.main.AnyioPath', return_value=mock_anyio_path_instance)
     mock_write = mock_anyio_path_instance.write_text
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     mock_async_proc = mocker.AsyncMock()
     mock_async_proc.wait = mocker.AsyncMock(return_value=0)
     mocker.patch('livecheck.main.asyncio.create_subprocess_exec', return_value=mock_async_proc)
@@ -315,7 +312,7 @@ async def test_do_main_logs_update_not_possible_when_requirements_fail(
     mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
     mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
     mocker.patch('livecheck.main.digest_ebuild', return_value=True)
-    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
     mocker.patch('livecheck.main.is_sha', return_value=True)
     mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
     mocker.patch('livecheck.main.execute_hooks')
@@ -323,7 +320,9 @@ async def test_do_main_logs_update_not_possible_when_requirements_fail(
     mock_anyio_path_instance.read_text = mocker.AsyncMock(return_value='SHA="1234567"\n')
     mock_anyio_path_instance.write_text = mocker.AsyncMock()
     mocker.patch('livecheck.main.AnyioPath', return_value=mock_anyio_path_instance)
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     mock_async_proc = mocker.AsyncMock()
     mock_async_proc.wait = mocker.AsyncMock(return_value=0)
     mocker.patch('livecheck.main.asyncio.create_subprocess_exec', return_value=mock_async_proc)
@@ -374,7 +373,7 @@ async def test_do_main_keep_old_true_git_flag_true(mocker: MockerFixture, tmp_pa
     mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
     mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
     mocker.patch('livecheck.main.digest_ebuild', return_value=True)
-    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
     mocker.patch('livecheck.main.is_sha', return_value=True)
     mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
     mocker.patch('livecheck.main.execute_hooks')
@@ -383,7 +382,9 @@ async def test_do_main_keep_old_true_git_flag_true(mocker: MockerFixture, tmp_pa
     mock_anyio_path_instance.write_text = mocker.AsyncMock()
     mocker.patch('livecheck.main.AnyioPath', return_value=mock_anyio_path_instance)
     mock_write = mock_anyio_path_instance.write_text
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     _patch_main_resolved_executables(mocker)
     mock_async_proc = mocker.AsyncMock()
     mock_async_proc.wait = mocker.AsyncMock(return_value=0)
@@ -430,7 +431,7 @@ async def test_do_main_keep_old_true_git_flag_true_rename_failure(mocker: Mocker
     mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
     mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
     mocker.patch('livecheck.main.digest_ebuild', return_value=True)
-    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
     mocker.patch('livecheck.main.is_sha', return_value=True)
     mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
     mocker.patch('livecheck.main.execute_hooks')
@@ -439,7 +440,9 @@ async def test_do_main_keep_old_true_git_flag_true_rename_failure(mocker: Mocker
     mock_anyio_path_instance.write_text = mocker.AsyncMock()
     mocker.patch('livecheck.main.AnyioPath', return_value=mock_anyio_path_instance)
     mock_log = mocker.patch('livecheck.main.log')
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     _patch_main_resolved_executables(mocker)
     mocker.patch('livecheck.main.asyncio.create_subprocess_exec',
                  side_effect=OSError('Git command failed'))
@@ -485,7 +488,7 @@ async def test_do_main_keep_old_true_git_flag_true_write_text_failure(mocker: Mo
     mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
     mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
     mocker.patch('livecheck.main.digest_ebuild', return_value=True)
-    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
     mocker.patch('livecheck.main.is_sha', return_value=True)
     mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
     mocker.patch('livecheck.main.execute_hooks')
@@ -495,7 +498,9 @@ async def test_do_main_keep_old_true_git_flag_true_write_text_failure(mocker: Mo
     mocker.patch('livecheck.main.AnyioPath', return_value=mock_anyio_path_instance)
     mock_log = mocker.patch('livecheck.main.log')
     mock_anyio_path_instance.write_text = mocker.AsyncMock(side_effect=OSError)
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     _patch_main_resolved_executables(mocker)
     mock_async_proc = mocker.AsyncMock()
     mock_async_proc.wait = mocker.AsyncMock(return_value=0)
@@ -541,7 +546,7 @@ async def test_do_main_pkgdev_commit_raises_called_process_error(mocker: MockerF
     mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
     mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
     mocker.patch('livecheck.main.digest_ebuild', return_value=True)
-    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
     mocker.patch('livecheck.main.is_sha', return_value=True)
     mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
     mocker.patch('livecheck.main.execute_hooks')
@@ -549,10 +554,12 @@ async def test_do_main_pkgdev_commit_raises_called_process_error(mocker: MockerF
     mock_anyio_path_instance.read_text = mocker.AsyncMock(return_value='SHA="1234567"\n')
     mock_anyio_path_instance.write_text = mocker.AsyncMock()
     mocker.patch('livecheck.main.AnyioPath', return_value=mock_anyio_path_instance)
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     _patch_main_resolved_executables(mocker)
 
-    async def fake_create_subprocess(*args: Any, **kwargs: Any) -> Any:
+    def fake_create_subprocess(*args: Any, **kwargs: Any) -> Any:
         exe = str(args[0]).rsplit('/', maxsplit=1)[-1]
         if exe == 'pkgdev' and len(args) > 1 and args[1] == 'commit':
             msg = 'pkgdev commit failed'
@@ -604,7 +611,7 @@ async def test_do_main_digest_ebuild_returns_false(mocker: MockerFixture, tmp_pa
     mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
     # digest_ebuild returns False
     mock_digest = mocker.patch('livecheck.main.digest_ebuild', return_value=False)
-    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
     mocker.patch('livecheck.main.is_sha', return_value=True)
     mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
     mocker.patch('livecheck.main.execute_hooks')
@@ -613,7 +620,9 @@ async def test_do_main_digest_ebuild_returns_false(mocker: MockerFixture, tmp_pa
     mock_anyio_path_instance.write_text = mocker.AsyncMock()
     mocker.patch('livecheck.main.AnyioPath', return_value=mock_anyio_path_instance)
     mock_write = mock_anyio_path_instance.write_text
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     mock_async_proc = mocker.AsyncMock()
     mock_async_proc.wait = mocker.AsyncMock(return_value=0)
     mocker.patch('livecheck.main.asyncio.create_subprocess_exec', return_value=mock_async_proc)
@@ -629,6 +638,209 @@ async def test_do_main_digest_ebuild_returns_false(mocker: MockerFixture, tmp_pa
                   url=url)
     mock_digest.assert_called()
     mock_write.assert_called_once_with('abcdef1', encoding='utf-8')
+
+
+@pytest.mark.asyncio
+async def test_do_main_digest_failure_with_git_flag_runs_git_commands(mocker: MockerFixture,
+                                                                      tmp_path: Path,
+                                                                      mock_settings: Mock) -> None:
+    """Digest failure with keep_old+git_flag triggers git mv + git checkout Manifest."""
+    cat = 'cat'
+    pkg = 'pkg'
+    ebuild_version = '1.0.0'
+    last_version = '1.0.1'
+    cp = f'{cat}/{pkg}'
+    ebuild_path = tmp_path / f'{cat}/{pkg}/{pkg}-1.0.0.ebuild'
+    ebuild_path.parent.mkdir(parents=True)
+    ebuild_path.write_text('SHA="1234567"\n', encoding='utf-8')
+    mock_settings.auto_update_flag = True
+    mock_settings.git_flag = True
+    mock_settings.keep_old = {cp: True}
+    _patch_main_resolved_executables(mocker)
+    mocker.patch('livecheck.main.get_old_sha', return_value='1234567')
+    mocker.patch('livecheck.main.replace_date_in_ebuild', side_effect=lambda v, _, __: v)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.catpkg_catpkgsplit', return_value=(cp, cat, pkg, last_version))
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
+    mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
+    mocker.patch('livecheck.main.digest_ebuild', return_value=False)
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
+    mocker.patch('livecheck.main.is_sha', return_value=True)
+    mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
+    mocker.patch('livecheck.main.execute_hooks')
+    mock_anyio = mocker.AsyncMock()
+    mock_anyio.read_text = mocker.AsyncMock(return_value='SHA="1234567"\n')
+    mock_anyio.write_text = mocker.AsyncMock()
+    mocker.patch('livecheck.main.AnyioPath', return_value=mock_anyio)
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
+    mock_proc = mocker.AsyncMock()
+    mock_proc.wait = mocker.AsyncMock(return_value=0)
+    mock_exec = mocker.patch('livecheck.main.asyncio.create_subprocess_exec',
+                             return_value=mock_proc)
+    await do_main(cat=cat,
+                  ebuild_version=ebuild_version,
+                  hash_date='',
+                  hook_dir=None,
+                  last_version=last_version,
+                  pkg=pkg,
+                  search_dir=tmp_path,
+                  settings=mock_settings,
+                  top_hash='abcdef1',
+                  url='https://example.com')
+    exec_calls = [call.args for call in mock_exec.call_args_list]
+    new_filename = str(tmp_path / cp / f'{pkg}-{last_version}.ebuild')
+    manifest_path = str(tmp_path / cp / 'Manifest')
+    assert ('/fake/bin/git', 'mv', new_filename, str(ebuild_path)) in exec_calls
+    assert ('/fake/bin/git', 'checkout', manifest_path) in exec_calls
+
+
+@pytest.mark.asyncio
+async def test_do_main_digest_failure_without_keep_old_unlinks(mocker: MockerFixture,
+                                                               tmp_path: Path,
+                                                               mock_settings: Mock) -> None:
+    """Digest failure with keep_old_flag=True (so default is False) unlinks the new file."""
+    cat = 'cat'
+    pkg = 'pkg'
+    ebuild_version = '1.0.0'
+    last_version = '1.0.1'
+    cp = f'{cat}/{pkg}'
+    ebuild_path = tmp_path / f'{cat}/{pkg}/{pkg}-1.0.0.ebuild'
+    ebuild_path.parent.mkdir(parents=True)
+    ebuild_path.write_text('SHA="1234567"\n', encoding='utf-8')
+    mock_settings.auto_update_flag = True
+    mock_settings.keep_old_flag = True
+    mock_settings.keep_old = {}
+    mocker.patch('livecheck.main.get_old_sha', return_value='1234567')
+    mocker.patch('livecheck.main.replace_date_in_ebuild', side_effect=lambda v, _, __: v)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.catpkg_catpkgsplit', return_value=(cp, cat, pkg, last_version))
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
+    mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
+    mocker.patch('livecheck.main.digest_ebuild', return_value=False)
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
+    mocker.patch('livecheck.main.is_sha', return_value=True)
+    mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
+    mocker.patch('livecheck.main.execute_hooks')
+    mock_anyio = mocker.AsyncMock()
+    mock_anyio.read_text = mocker.AsyncMock(return_value='SHA="1234567"\n')
+    mock_anyio.write_text = mocker.AsyncMock()
+    mock_anyio.unlink = mocker.AsyncMock()
+    mocker.patch('livecheck.main.AnyioPath', return_value=mock_anyio)
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
+    await do_main(cat=cat,
+                  ebuild_version=ebuild_version,
+                  hash_date='',
+                  hook_dir=None,
+                  last_version=last_version,
+                  pkg=pkg,
+                  search_dir=tmp_path,
+                  settings=mock_settings,
+                  top_hash='abcdef1',
+                  url='https://example.com')
+    mock_anyio.unlink.assert_awaited_with(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_do_main_digest_failure_recovery_logs_oserror(mocker: MockerFixture, tmp_path: Path,
+                                                            mock_settings: Mock) -> None:
+    """If recovery itself raises OSError, log.exception is called."""
+    cat = 'cat'
+    pkg = 'pkg'
+    ebuild_version = '1.0.0'
+    last_version = '1.0.1'
+    cp = f'{cat}/{pkg}'
+    ebuild_path = tmp_path / f'{cat}/{pkg}/{pkg}-1.0.0.ebuild'
+    ebuild_path.parent.mkdir(parents=True)
+    ebuild_path.write_text('SHA="1234567"\n', encoding='utf-8')
+    mock_settings.auto_update_flag = True
+    mock_settings.keep_old = {cp: True}
+    mocker.patch('livecheck.main.get_old_sha', return_value='1234567')
+    mocker.patch('livecheck.main.replace_date_in_ebuild', side_effect=lambda v, _, __: v)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.catpkg_catpkgsplit', return_value=(cp, cat, pkg, last_version))
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
+    mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
+    mocker.patch('livecheck.main.digest_ebuild', return_value=False)
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
+    mocker.patch('livecheck.main.is_sha', return_value=True)
+    mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
+    mocker.patch('livecheck.main.execute_hooks')
+    mock_anyio = mocker.AsyncMock()
+    mock_anyio.read_text = mocker.AsyncMock(return_value='SHA="1234567"\n')
+    mock_anyio.write_text = mocker.AsyncMock()
+    mock_anyio.rename = mocker.AsyncMock(side_effect=OSError('disk full'))
+    mocker.patch('livecheck.main.AnyioPath', return_value=mock_anyio)
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
+    mock_log = mocker.patch('livecheck.main.log')
+    await do_main(cat=cat,
+                  ebuild_version=ebuild_version,
+                  hash_date='',
+                  hook_dir=None,
+                  last_version=last_version,
+                  pkg=pkg,
+                  search_dir=tmp_path,
+                  settings=mock_settings,
+                  top_hash='abcdef1',
+                  url='https://example.com')
+    assert any('Error recovering' in str(call) for call in mock_log.exception.call_args_list)
+
+
+@pytest.mark.asyncio
+async def test_resolved_executable_raises_when_missing(mocker: MockerFixture, mock_settings: Mock,
+                                                       tmp_path: Path) -> None:
+    """If `which()` returns None during recovery, the FileNotFoundError is caught and logged."""
+    cat = 'cat'
+    pkg = 'pkg'
+    ebuild_version = '1.0.0'
+    last_version = '1.0.1'
+    cp = f'{cat}/{pkg}'
+    ebuild_path = tmp_path / f'{cat}/{pkg}/{pkg}-1.0.0.ebuild'
+    ebuild_path.parent.mkdir(parents=True)
+    ebuild_path.write_text('SHA="1234567"\n', encoding='utf-8')
+    mock_settings.auto_update_flag = True
+    mock_settings.git_flag = True
+    mock_settings.keep_old = {cp: True}
+    mocker.patch('livecheck.main.which', return_value=None)
+    mocker.patch('livecheck.main.get_old_sha', return_value='1234567')
+    mocker.patch('livecheck.main.replace_date_in_ebuild', side_effect=lambda v, _, __: v)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.catpkg_catpkgsplit', return_value=(cp, cat, pkg, last_version))
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
+    mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
+    mocker.patch('livecheck.main.digest_ebuild', return_value=False)
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
+    mocker.patch('livecheck.main.is_sha', return_value=True)
+    mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
+    mocker.patch('livecheck.main.execute_hooks')
+    mock_anyio = mocker.AsyncMock()
+    mock_anyio.read_text = mocker.AsyncMock(return_value='SHA="1234567"\n')
+    mock_anyio.write_text = mocker.AsyncMock()
+    mocker.patch('livecheck.main.AnyioPath', return_value=mock_anyio)
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
+    mock_log = mocker.patch('livecheck.main.log')
+    await do_main(cat=cat,
+                  ebuild_version=ebuild_version,
+                  hash_date='',
+                  hook_dir=None,
+                  last_version=last_version,
+                  pkg=pkg,
+                  search_dir=tmp_path,
+                  settings=mock_settings,
+                  top_hash='abcdef1',
+                  url='https://example.com')
+    mock_log.exception.assert_called()
 
 
 @pytest.mark.asyncio
@@ -657,7 +869,7 @@ async def test_do_main_gomodule_packages(mocker: MockerFixture, tmp_path: Path,
     mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
     mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
     mocker.patch('livecheck.main.digest_ebuild', return_value=True)
-    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
     mocker.patch('livecheck.main.is_sha', return_value=True)
     mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
     mocker.patch('livecheck.main.execute_hooks')
@@ -666,7 +878,9 @@ async def test_do_main_gomodule_packages(mocker: MockerFixture, tmp_path: Path,
     mock_anyio_path_instance.write_text = mocker.AsyncMock()
     mocker.patch('livecheck.main.AnyioPath', return_value=mock_anyio_path_instance)
     mock_write = mock_anyio_path_instance.write_text
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     mock_async_proc = mocker.AsyncMock()
     mock_async_proc.wait = mocker.AsyncMock(return_value=0)
     mocker.patch('livecheck.main.asyncio.create_subprocess_exec', return_value=mock_async_proc)
@@ -713,7 +927,7 @@ async def test_do_main_nodejs_packages(mocker: MockerFixture, tmp_path: Path,
     mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
     mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
     mocker.patch('livecheck.main.digest_ebuild', return_value=True)
-    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
     mocker.patch('livecheck.main.is_sha', return_value=True)
     mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
     mocker.patch('livecheck.main.execute_hooks')
@@ -722,7 +936,9 @@ async def test_do_main_nodejs_packages(mocker: MockerFixture, tmp_path: Path,
     mock_anyio_path_instance.write_text = mocker.AsyncMock()
     mocker.patch('livecheck.main.AnyioPath', return_value=mock_anyio_path_instance)
     mock_write = mock_anyio_path_instance.write_text
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     mock_async_proc = mocker.AsyncMock()
     mock_async_proc.wait = mocker.AsyncMock(return_value=0)
     mocker.patch('livecheck.main.asyncio.create_subprocess_exec', return_value=mock_async_proc)
@@ -772,7 +988,7 @@ async def test_do_main_nodejs_packages_custom_manager(mocker: MockerFixture, tmp
     mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
     mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
     mocker.patch('livecheck.main.digest_ebuild', return_value=True)
-    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
     mocker.patch('livecheck.main.is_sha', return_value=True)
     mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
     mocker.patch('livecheck.main.execute_hooks')
@@ -781,7 +997,9 @@ async def test_do_main_nodejs_packages_custom_manager(mocker: MockerFixture, tmp
     mock_anyio_path_instance.write_text = mocker.AsyncMock()
     mocker.patch('livecheck.main.AnyioPath', return_value=mock_anyio_path_instance)
     mock_write = mock_anyio_path_instance.write_text
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     mock_async_proc = mocker.AsyncMock()
     mock_async_proc.wait = mocker.AsyncMock(return_value=0)
     mocker.patch('livecheck.main.asyncio.create_subprocess_exec', return_value=mock_async_proc)
@@ -830,7 +1048,7 @@ async def test_do_main_composer_packages(mocker: MockerFixture, tmp_path: Path,
     mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
     mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
     mocker.patch('livecheck.main.digest_ebuild', return_value=True)
-    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
     mocker.patch('livecheck.main.is_sha', return_value=True)
     mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
     mocker.patch('livecheck.main.execute_hooks')
@@ -839,7 +1057,9 @@ async def test_do_main_composer_packages(mocker: MockerFixture, tmp_path: Path,
     mock_anyio_path_instance.write_text = mocker.AsyncMock()
     mocker.patch('livecheck.main.AnyioPath', return_value=mock_anyio_path_instance)
     mock_write = mock_anyio_path_instance.write_text
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     mock_async_proc = mocker.AsyncMock()
     mock_async_proc.wait = mocker.AsyncMock(return_value=0)
     mocker.patch('livecheck.main.asyncio.create_subprocess_exec', return_value=mock_async_proc)
@@ -886,7 +1106,7 @@ async def test_do_main_maven_packages(mocker: MockerFixture, tmp_path: Path,
     mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
     mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
     mocker.patch('livecheck.main.digest_ebuild', return_value=True)
-    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
     mocker.patch('livecheck.main.is_sha', return_value=True)
     mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
     mocker.patch('livecheck.main.execute_hooks')
@@ -895,7 +1115,9 @@ async def test_do_main_maven_packages(mocker: MockerFixture, tmp_path: Path,
     mock_anyio_path_instance.write_text = mocker.AsyncMock()
     mocker.patch('livecheck.main.AnyioPath', return_value=mock_anyio_path_instance)
     mock_write = mock_anyio_path_instance.write_text
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     mock_async_proc = mocker.AsyncMock()
     mock_async_proc.wait = mocker.AsyncMock(return_value=0)
     mocker.patch('livecheck.main.asyncio.create_subprocess_exec', return_value=mock_async_proc)
@@ -942,7 +1164,7 @@ async def test_do_main_yarn_base_packages(mocker: MockerFixture, tmp_path: Path,
     mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
     mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
     mocker.patch('livecheck.main.digest_ebuild', return_value=True)
-    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
     mocker.patch('livecheck.main.is_sha', return_value=True)
     mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
     mocker.patch('livecheck.main.execute_hooks')
@@ -951,7 +1173,9 @@ async def test_do_main_yarn_base_packages(mocker: MockerFixture, tmp_path: Path,
     mock_anyio_path_instance.write_text = mocker.AsyncMock()
     mocker.patch('livecheck.main.AnyioPath', return_value=mock_anyio_path_instance)
     mock_write = mock_anyio_path_instance.write_text
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     mock_async_proc = mocker.AsyncMock()
     mock_async_proc.wait = mocker.AsyncMock(return_value=0)
     mocker.patch('livecheck.main.asyncio.create_subprocess_exec', return_value=mock_async_proc)
@@ -998,7 +1222,7 @@ async def test_do_main_go_sum_uri(mocker: MockerFixture, tmp_path: Path,
     mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
     mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
     mocker.patch('livecheck.main.digest_ebuild', return_value=True)
-    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
     mocker.patch('livecheck.main.is_sha', return_value=True)
     mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
     mocker.patch('livecheck.main.execute_hooks')
@@ -1007,7 +1231,9 @@ async def test_do_main_go_sum_uri(mocker: MockerFixture, tmp_path: Path,
     mock_anyio_path_instance.write_text = mocker.AsyncMock()
     mocker.patch('livecheck.main.AnyioPath', return_value=mock_anyio_path_instance)
     mock_write = mock_anyio_path_instance.write_text
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     mock_async_proc = mocker.AsyncMock()
     mock_async_proc.wait = mocker.AsyncMock(return_value=0)
     mocker.patch('livecheck.main.asyncio.create_subprocess_exec', return_value=mock_async_proc)
@@ -1054,7 +1280,7 @@ async def test_do_main_dotnet_projects(mocker: MockerFixture, tmp_path: Path,
     mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
     mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
     mocker.patch('livecheck.main.digest_ebuild', return_value=True)
-    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
     mocker.patch('livecheck.main.is_sha', return_value=True)
     mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
     mocker.patch('livecheck.main.execute_hooks')
@@ -1063,7 +1289,9 @@ async def test_do_main_dotnet_projects(mocker: MockerFixture, tmp_path: Path,
     mock_anyio_path_instance.write_text = mocker.AsyncMock()
     mocker.patch('livecheck.main.AnyioPath', return_value=mock_anyio_path_instance)
     mock_write = mock_anyio_path_instance.write_text
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     mock_async_proc = mocker.AsyncMock()
     mock_async_proc.wait = mocker.AsyncMock(return_value=0)
     mocker.patch('livecheck.main.asyncio.create_subprocess_exec', return_value=mock_async_proc)
@@ -1109,7 +1337,7 @@ async def test_do_main_jetbrains_packages(mocker: MockerFixture, tmp_path: Path,
     mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
     mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
     mocker.patch('livecheck.main.digest_ebuild', return_value=True)
-    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
     mocker.patch('livecheck.main.is_sha', return_value=True)
     mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
     mocker.patch('livecheck.main.execute_hooks')
@@ -1118,7 +1346,9 @@ async def test_do_main_jetbrains_packages(mocker: MockerFixture, tmp_path: Path,
     mock_anyio_path_instance.write_text = mocker.AsyncMock()
     mocker.patch('livecheck.main.AnyioPath', return_value=mock_anyio_path_instance)
     mock_write = mock_anyio_path_instance.write_text
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     mock_async_proc = mocker.AsyncMock()
     mock_async_proc.wait = mocker.AsyncMock(return_value=0)
     mocker.patch('livecheck.main.asyncio.create_subprocess_exec', return_value=mock_async_proc)
@@ -1167,7 +1397,7 @@ async def test_do_main_type_checksum_updates_checksum_metadata(mocker: MockerFix
     mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
     mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
     mocker.patch('livecheck.main.digest_ebuild', return_value=True)
-    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
     mocker.patch('livecheck.main.is_sha', return_value=True)
     mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
     mocker.patch('livecheck.main.execute_hooks')
@@ -1177,7 +1407,9 @@ async def test_do_main_type_checksum_updates_checksum_metadata(mocker: MockerFix
     mocker.patch('livecheck.main.AnyioPath', return_value=mock_anyio_path_instance)
     mocker.patch('livecheck.main.remove_gomodule_url', return_value='Not the same content')
     mock_write = mock_anyio_path_instance.write_text
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     mock_async_proc = mocker.AsyncMock()
     mock_async_proc.wait = mocker.AsyncMock(return_value=0)
     mocker.patch('livecheck.main.asyncio.create_subprocess_exec', return_value=mock_async_proc)
@@ -1232,9 +1464,11 @@ async def test_do_main_old_content_differs_with_gomodule_packages(mocker: Mocker
     mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
     mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
     mocker.patch('livecheck.main.digest_ebuild', return_value=True)
-    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
     mocker.patch('livecheck.main.is_sha', return_value=True)
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     mock_async_proc = mocker.AsyncMock()
     mock_async_proc.wait = mocker.AsyncMock(return_value=0)
     mocker.patch('livecheck.main.asyncio.create_subprocess_exec', return_value=mock_async_proc)
@@ -1296,9 +1530,11 @@ async def test_do_main_old_content_differs_with_gomodule_packages_digest_false(
     mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
     # digest_ebuild returns True for first call, False for second call
     mock_digest = mocker.patch('livecheck.main.digest_ebuild', side_effect=[True, True, False])
-    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
     mocker.patch('livecheck.main.is_sha', return_value=True)
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     mock_async_proc = mocker.AsyncMock()
     mock_async_proc.wait = mocker.AsyncMock(return_value=0)
     mocker.patch('livecheck.main.asyncio.create_subprocess_exec', return_value=mock_async_proc)
@@ -1362,8 +1598,10 @@ async def test_do_main_not_is_sha_and_cp_in_tag_name_functions(mocker: MockerFix
     mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
     mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
     mocker.patch('livecheck.main.digest_ebuild', return_value=True)
-    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
     mocker.patch('livecheck.main.execute_hooks')
     mock_anyio_path_instance = mocker.AsyncMock()
@@ -1418,7 +1656,7 @@ async def test_do_main_git_mv_nonzero_returncode(mocker: MockerFixture, tmp_path
     mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
     mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
     mocker.patch('livecheck.main.digest_ebuild', return_value=True)
-    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
     mocker.patch('livecheck.main.is_sha', return_value=True)
     mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
     mocker.patch('livecheck.main.execute_hooks')
@@ -1426,7 +1664,9 @@ async def test_do_main_git_mv_nonzero_returncode(mocker: MockerFixture, tmp_path
     mock_anyio_path_instance.read_text = mocker.AsyncMock(return_value='SHA="1234567"\n')
     mock_anyio_path_instance.write_text = mocker.AsyncMock()
     mocker.patch('livecheck.main.AnyioPath', return_value=mock_anyio_path_instance)
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     _patch_main_resolved_executables(mocker)
     mock_async_proc = mocker.AsyncMock()
     mock_async_proc.wait = mocker.AsyncMock(return_value=1)
@@ -1472,7 +1712,7 @@ async def test_do_main_ebuild_digest_nonzero_skips_git_add(mocker: MockerFixture
     mocker.patch('livecheck.main.catpkg_catpkgsplit', return_value=(cp, cat, pkg, last_version))
     mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
     mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
-    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
     mocker.patch('livecheck.main.is_sha', return_value=True)
     mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
     mock_execute_hooks = mocker.patch('livecheck.main.execute_hooks')
@@ -1480,11 +1720,13 @@ async def test_do_main_ebuild_digest_nonzero_skips_git_add(mocker: MockerFixture
     mock_anyio_path_instance.read_text = mocker.AsyncMock(return_value='SHA="1234567"\n')
     mock_anyio_path_instance.write_text = mocker.AsyncMock()
     mocker.patch('livecheck.main.AnyioPath', return_value=mock_anyio_path_instance)
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     _patch_main_resolved_executables(mocker)
     call_count = 0
 
-    async def fake_create_subprocess(*args: Any, **kwargs: Any) -> Any:
+    def fake_create_subprocess(*args: Any, **kwargs: Any) -> Any:
         nonlocal call_count
         exe = str(args[0]).rsplit('/', maxsplit=1)[-1]
         mock_proc = mocker.AsyncMock()
@@ -1906,7 +2148,9 @@ async def test_get_props_basic_yields(mocker: MockerFixture, fake_repo: Path,
     mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
     mocker.patch('livecheck.main.compare_versions', return_value=True)
     mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     mocker.patch('livecheck.main.log')
     mocker.patch('livecheck.main.parse_url',
                  side_effect=[('', '', '', ''),
@@ -2018,7 +2262,9 @@ async def test_get_props_no_names_argument_yields(mocker: MockerFixture, fake_re
     mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
     mocker.patch('livecheck.main.compare_versions', return_value=True)
     mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     mocker.patch('livecheck.main.log')
     mocker.patch('livecheck.main.parse_url',
                  side_effect=[
@@ -2083,7 +2329,9 @@ async def test_get_props_type_davinci_calls_get_latest_davinci_package(
     mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
     mocker.patch('livecheck.main.compare_versions', return_value=True)
     mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     mocker.patch('livecheck.main.log')
     mock_get_latest_davinci_package = mocker.patch('livecheck.main.get_latest_davinci_package',
                                                    return_value='davinci_ver')
@@ -2111,7 +2359,9 @@ async def test_get_props_type_directory_calls_get_latest_directory_package(
     mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
     mocker.patch('livecheck.main.compare_versions', return_value=True)
     mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     mocker.patch('livecheck.main.log')
     mock_get_latest_directory_package = mocker.patch('livecheck.main.get_latest_directory_package',
                                                      return_value=('dir_ver', 'dir_url'))
@@ -2141,7 +2391,9 @@ async def test_get_props_type_repology_calls_get_latest_repology(mocker: MockerF
     mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
     mocker.patch('livecheck.main.compare_versions', return_value=True)
     mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     mocker.patch('livecheck.main.log')
     mock_get_latest_repology = mocker.patch('livecheck.main.get_latest_repology',
                                             return_value='repo_ver')
@@ -2171,7 +2423,9 @@ async def test_get_props_type_regex_calls_get_latest_regex_package(mocker: Mocke
     mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
     mocker.patch('livecheck.main.compare_versions', return_value=True)
     mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     mocker.patch('livecheck.main.log')
     mock_get_latest_regex_package = mocker.patch(
         'livecheck.main.get_latest_regex_package',
@@ -2202,7 +2456,9 @@ async def test_get_props_type_checksum_calls_get_latest_checksum_package(
     mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
     mocker.patch('livecheck.main.compare_versions', return_value=True)
     mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     mocker.patch('livecheck.main.log')
     mock_get_latest_checksum_package = mocker.patch('livecheck.main.get_latest_checksum_package',
                                                     return_value=('cs_ver', 'cs_date', 'cs_url'))
@@ -2236,7 +2492,9 @@ async def test_get_props_type_checksum_uses_custom_url(mocker: MockerFixture, fa
     mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
     mocker.patch('livecheck.main.compare_versions', return_value=True)
     mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     mocker.patch('livecheck.main.log')
     mock_get_latest_checksum_package = mocker.patch('livecheck.main.get_latest_checksum_package',
                                                     return_value=('cs_ver', 'cs_date', 'cs_url'))
@@ -2268,7 +2526,9 @@ async def test_get_props_type_commit_calls_parse_url(mocker: MockerFixture, fake
     mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
     mocker.patch('livecheck.main.compare_versions', return_value=True)
     mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     mocker.patch('livecheck.main.log')
     mock_parse_url = mocker.patch(
         'livecheck.main.parse_url',
@@ -2304,7 +2564,9 @@ async def test_get_props_with_egit_repo_and_branch(mocker: MockerFixture, fake_r
     mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
     mocker.patch('livecheck.main.compare_versions', return_value=True)
     mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     mock_log = mocker.patch('livecheck.main.log')
     # parse_url returns a version, sha, date, url
     mock_parse_url = mocker.patch(
@@ -2349,7 +2611,9 @@ async def test_get_props_sync_version_yields(mocker: MockerFixture, fake_repo: P
     mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
     mocker.patch('livecheck.main.compare_versions', return_value=True)
     mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     mocker.patch('livecheck.main.log')
     mocker.patch('livecheck.main.parse_url', return_value=('', '', '', ''))
     results = await get_props(search_dir=fake_repo,
@@ -2380,7 +2644,9 @@ async def test_get_props_sync_version_no_matches(mocker: MockerFixture, fake_rep
     mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
     mocker.patch('livecheck.main.compare_versions', return_value=True)
     mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     mocker.patch('livecheck.main.log')
     mocker.patch('livecheck.main.parse_url', return_value=('', '', '', ''))
     results = await get_props(search_dir=fake_repo,
@@ -2405,7 +2671,8 @@ async def test_get_props_no_last_version_no_top_hash_uses_homepage(mocker: Mocke
     mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
     mocker.patch('livecheck.main.compare_versions', return_value=True)
     mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
-    mocker.patch('livecheck.main.P.aux_get',
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
                  return_value=['https://homepage1', 'https://homepage2'])
     mocker.patch('livecheck.main.log')
     parse_url_mock = mocker.patch(
@@ -2446,7 +2713,7 @@ async def test_get_props_no_last_version_no_top_hash_no_homepage(mocker: MockerF
     mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
     mocker.patch('livecheck.main.compare_versions', return_value=True)
     mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
-    mocker.patch('livecheck.main.P.aux_get', return_value=[])
+    mocker.patch('livecheck.main.get_aux', new_callable=mocker.AsyncMock, return_value=[])
     mocker.patch('livecheck.main.log')
     mock_get_content = mocker.patch('livecheck.special.directory.get_content')
     mock_get_content.return_value = mocker.MagicMock(text='')
@@ -2478,7 +2745,7 @@ async def test_get_props_no_last_version_no_top_hash_uses_directory(mocker: Mock
     mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
     mocker.patch('livecheck.main.compare_versions', return_value=True)
     mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
-    mocker.patch('livecheck.main.P.aux_get', return_value=[])
+    mocker.patch('livecheck.main.get_aux', new_callable=mocker.AsyncMock, return_value=[])
     mocker.patch('livecheck.main.log')
     mocker.patch('livecheck.main.parse_url', return_value=('', '', '', ''))
     get_latest_directory_package_mock = mocker.patch('livecheck.main.get_latest_directory_package',
@@ -2508,7 +2775,8 @@ async def test_get_props_no_last_version_no_top_hash_uses_directory_loop_homes(
     mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
     mocker.patch('livecheck.main.compare_versions', return_value=True)
     mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
-    mocker.patch('livecheck.main.P.aux_get',
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
                  return_value=['https://homepage1', 'https://homepage2'])
     mocker.patch('livecheck.main.log')
     mocker.patch('livecheck.main.parse_url', return_value=('', '', '', ''))
@@ -2750,7 +3018,6 @@ def test_main_various_paths(mocker: MockerFixture, runner: CliRunner, auto_updat
     mocker.patch('livecheck.main.gather_settings', return_value=mocker.Mock())
     mocker.patch('livecheck.main.get_props', return_value=[])
     mocker.patch('livecheck.main.log')
-    mocker.patch('livecheck.main.P')
     mocker.patch('livecheck.main.digest_ebuild')
     mocker.patch('livecheck.main.execute_hooks')
     mocker.patch('livecheck.main.compare_versions', return_value=False)
@@ -2763,8 +3030,10 @@ def test_main_various_paths(mocker: MockerFixture, runner: CliRunner, auto_updat
     mocker.patch('livecheck.main.replace_date_in_ebuild', side_effect=lambda v, _, __: v)
     mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
     mocker.patch('livecheck.main.is_sha', return_value=True)
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
-    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
     mock_async_proc = mocker.AsyncMock()
     mock_async_proc.wait = mocker.AsyncMock(return_value=0)
     mocker.patch('livecheck.main.asyncio.create_subprocess_exec', return_value=mock_async_proc)
@@ -3065,7 +3334,9 @@ async def test_get_props_type_location_checksum_calls_get_latest_location_checks
     mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
     mocker.patch('livecheck.main.compare_versions', return_value=True)
     mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     mocker.patch('livecheck.main.log')
     mock_get_latest_location_checksum_package = mocker.patch(
         'livecheck.main.get_latest_location_checksum_package',
@@ -3156,79 +3427,6 @@ async def test_process_submodules_3tuple_no_submodule_git_url(mocker: MockerFixt
 
 
 @pytest.mark.asyncio
-async def test_recover_ebuild_git_flag(mocker: MockerFixture, tmp_path: Path) -> None:
-    settings = mocker.MagicMock()
-    settings.keep_old = {'cat/pkg': True}
-    settings.keep_old_flag = False
-    settings.git_flag = True
-    mock_async_proc = mocker.AsyncMock()
-    mock_async_proc.wait = mocker.AsyncMock(return_value=0)
-    mock_run = mocker.patch('livecheck.main.asyncio.create_subprocess_exec',
-                            return_value=mock_async_proc)
-    mocker.patch('livecheck.main.log')
-    old_ebuild = tmp_path / 'old.ebuild'
-    await _recover_ebuild('new.ebuild', old_ebuild, 'cat/pkg', tmp_path, settings)
-    assert mock_run.call_count == 2
-    mock_run.assert_any_call(mocker.ANY, 'mv', 'new.ebuild', str(old_ebuild))
-    mock_run.assert_any_call(mocker.ANY, 'checkout', str(tmp_path / 'cat/pkg' / 'Manifest'))
-
-
-@pytest.mark.asyncio
-async def test_recover_ebuild_logs_when_git_not_on_path(mocker: MockerFixture,
-                                                        tmp_path: Path) -> None:
-    settings = mocker.MagicMock()
-    settings.keep_old = {'cat/pkg': True}
-    settings.keep_old_flag = False
-    settings.git_flag = True
-    _resolved_executable.cache_clear()
-    mocker.patch('livecheck.main.which', return_value=None)
-    mock_log = mocker.patch('livecheck.main.log')
-    await _recover_ebuild('new.ebuild', tmp_path / 'old.ebuild', 'cat/pkg', tmp_path, settings)
-    mock_log.exception.assert_called_once_with('Error recovering `%s`.', 'new.ebuild')
-
-
-@pytest.mark.asyncio
-async def test_recover_ebuild_no_git_flag(mocker: MockerFixture, tmp_path: Path) -> None:
-    settings = mocker.MagicMock()
-    settings.keep_old = {'cat/pkg': True}
-    settings.keep_old_flag = False
-    settings.git_flag = False
-    new_file = tmp_path / 'new.ebuild'
-    old_file = tmp_path / 'old.ebuild'
-    new_file.write_text('content', encoding='utf-8')
-    mock_rename = mocker.patch('livecheck.main.Path.rename')
-    mocker.patch('livecheck.main.log')
-    await _recover_ebuild(str(new_file), old_file, 'cat/pkg', tmp_path, settings)
-    mock_rename.assert_called_once_with(old_file)
-
-
-@pytest.mark.asyncio
-async def test_recover_ebuild_keep_old_false(mocker: MockerFixture, tmp_path: Path) -> None:
-    settings = mocker.MagicMock()
-    settings.keep_old = {}
-    settings.keep_old_flag = True
-    settings.git_flag = False
-    new_file = tmp_path / 'new.ebuild'
-    new_file.write_text('content', encoding='utf-8')
-    mock_unlink = mocker.patch('livecheck.main.Path.unlink')
-    mocker.patch('livecheck.main.log')
-    await _recover_ebuild(str(new_file), tmp_path / 'old.ebuild', 'cat/pkg', tmp_path, settings)
-    mock_unlink.assert_called_once_with(missing_ok=True)
-
-
-@pytest.mark.asyncio
-async def test_recover_ebuild_exception(mocker: MockerFixture, tmp_path: Path) -> None:
-    settings = mocker.MagicMock()
-    settings.keep_old = {'cat/pkg': True}
-    settings.keep_old_flag = False
-    settings.git_flag = True
-    mocker.patch('livecheck.main.asyncio.create_subprocess_exec', side_effect=OSError('git'))
-    mock_log = mocker.patch('livecheck.main.log')
-    await _recover_ebuild('new.ebuild', tmp_path / 'old.ebuild', 'cat/pkg', tmp_path, settings)
-    mock_log.exception.assert_called_once()
-
-
-@pytest.mark.asyncio
 async def test_do_main_sha_40_char_replacement(mocker: MockerFixture, tmp_path: Path,
                                                mock_settings: Mock) -> None:
     cat = 'cat'
@@ -3252,7 +3450,7 @@ async def test_do_main_sha_40_char_replacement(mocker: MockerFixture, tmp_path: 
     mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
     mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
     mocker.patch('livecheck.main.digest_ebuild', return_value=True)
-    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
     mocker.patch('livecheck.main.is_sha', return_value=True)
     mocker.patch('livecheck.main.process_submodules', side_effect=lambda _cp, _ref, c, _u: c)
     mocker.patch('livecheck.main.execute_hooks')
@@ -3262,7 +3460,9 @@ async def test_do_main_sha_40_char_replacement(mocker: MockerFixture, tmp_path: 
     mock_anyio_path_instance.write_text = mocker.AsyncMock()
     mocker.patch('livecheck.main.AnyioPath', return_value=mock_anyio_path_instance)
     mock_write = mock_anyio_path_instance.write_text
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     mock_async_proc = mocker.AsyncMock()
     mock_async_proc.wait = mocker.AsyncMock(return_value=0)
     mocker.patch('livecheck.main.asyncio.create_subprocess_exec', return_value=mock_async_proc)
@@ -3307,7 +3507,7 @@ async def test_do_main_pythonhosted_url_replacement(mocker: MockerFixture, tmp_p
     mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
     mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
     mocker.patch('livecheck.main.digest_ebuild', return_value=True)
-    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
     mocker.patch('livecheck.main.is_sha', return_value=False)
     mocker.patch('livecheck.main.process_submodules', side_effect=lambda _cp, _ref, c, _u: c)
     mocker.patch('livecheck.main.execute_hooks')
@@ -3317,7 +3517,9 @@ async def test_do_main_pythonhosted_url_replacement(mocker: MockerFixture, tmp_p
     mock_anyio_path_instance.write_text = mocker.AsyncMock()
     mocker.patch('livecheck.main.AnyioPath', return_value=mock_anyio_path_instance)
     mock_write = mock_anyio_path_instance.write_text
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     mock_async_proc = mocker.AsyncMock()
     mock_async_proc.wait = mocker.AsyncMock(return_value=0)
     mocker.patch('livecheck.main.asyncio.create_subprocess_exec', return_value=mock_async_proc)
@@ -3358,7 +3560,7 @@ async def test_do_main_pythonhosted_url_no_match_in_content(mocker: MockerFixtur
     mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
     mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
     mocker.patch('livecheck.main.digest_ebuild', return_value=True)
-    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
     mocker.patch('livecheck.main.is_sha', return_value=False)
     mocker.patch('livecheck.main.process_submodules', side_effect=lambda _cp, _ref, c, _u: c)
     mocker.patch('livecheck.main.execute_hooks')
@@ -3368,7 +3570,9 @@ async def test_do_main_pythonhosted_url_no_match_in_content(mocker: MockerFixtur
     mock_anyio_path_instance.write_text = mocker.AsyncMock()
     mocker.patch('livecheck.main.AnyioPath', return_value=mock_anyio_path_instance)
     mock_write = mock_anyio_path_instance.write_text
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
     mock_async_proc = mocker.AsyncMock()
     mock_async_proc.wait = mocker.AsyncMock(return_value=0)
     mocker.patch('livecheck.main.asyncio.create_subprocess_exec', return_value=mock_async_proc)
@@ -3383,52 +3587,6 @@ async def test_do_main_pythonhosted_url_no_match_in_content(mocker: MockerFixtur
                   top_hash='',
                   url=url)
     mock_write.assert_called_once_with(content, encoding='utf-8')
-
-
-@pytest.mark.asyncio
-async def test_do_main_digest_failure_calls_recover(mocker: MockerFixture, tmp_path: Path,
-                                                    mock_settings: Mock) -> None:
-    cat = 'cat'
-    pkg = 'pkg'
-    ebuild_version = '1.0.0'
-    last_version = '1.0.1'
-    search_dir = tmp_path
-    cp = f'{cat}/{pkg}'
-    ebuild_path = tmp_path / f'{cat}/{pkg}/{pkg}-1.0.0.ebuild'
-    ebuild_path.parent.mkdir(parents=True)
-    ebuild_path.write_text('EAPI=8\n', encoding='utf-8')
-    mock_settings.sha_sources = {}
-    mock_settings.auto_update_flag = True
-    mocker.patch('livecheck.main.get_old_sha', return_value='')
-    mocker.patch('livecheck.main.replace_date_in_ebuild', side_effect=lambda v, _, __: v)
-    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
-    mocker.patch('livecheck.main.compare_versions', return_value=True)
-    mocker.patch('livecheck.main.catpkg_catpkgsplit', return_value=(cp, cat, pkg, last_version))
-    mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
-    mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
-    mocker.patch('livecheck.main.digest_ebuild', side_effect=[None, False])
-    mocker.patch('livecheck.main.P.getFetchMap', return_value={})
-    mocker.patch('livecheck.main.is_sha', return_value=False)
-    mocker.patch('livecheck.main.process_submodules', side_effect=lambda _cp, _ref, c, _u: c)
-    mocker.patch('livecheck.main.execute_hooks')
-    mock_anyio_path_instance = mocker.AsyncMock()
-    mock_anyio_path_instance.read_text = mocker.AsyncMock(return_value='EAPI=8\n')
-    mock_anyio_path_instance.write_text = mocker.AsyncMock()
-    mocker.patch('livecheck.main.AnyioPath', return_value=mock_anyio_path_instance)
-    mocker.patch('livecheck.main.P.aux_get', return_value=['https://homepage'])
-    mock_recover = mocker.patch('livecheck.main._recover_ebuild')
-    mocker.patch('livecheck.main.log')
-    await do_main(cat=cat,
-                  ebuild_version=ebuild_version,
-                  hash_date='',
-                  hook_dir=None,
-                  last_version=last_version,
-                  pkg=pkg,
-                  search_dir=search_dir,
-                  settings=mock_settings,
-                  top_hash='',
-                  url='https://example.com')
-    mock_recover.assert_called_once()
 
 
 @pytest.mark.asyncio

@@ -182,7 +182,7 @@ async def test_search_ebuild(mocker: MockerFixture, ebuild: str, archive: str, p
             (temp_dir + '/another-path', [], []),
         ]
     mocker.patch('os.walk', return_value=walk_result)
-    mocker.patch('livecheck.special.utils.to_thread.run_sync', side_effect=lambda fn: fn())
+    mocker.patch('livecheck.special.utils.to_thread.run_sync', side_effect=lambda fn, **_: fn())
     root, returned_temp_dir = await search_ebuild(ebuild, archive, path)
     if expected_root:
         assert root == expected_root
@@ -199,7 +199,7 @@ async def test_search_ebuild(mocker: MockerFixture, ebuild: str, archive: str, p
 async def test_search_ebuild_unpack_error(mocker: MockerFixture) -> None:
     mocker.patch('livecheck.special.utils.unpack_ebuild', return_value=None)
     mock_logger = mocker.patch('livecheck.special.utils.logger')
-    mocker.patch('livecheck.special.utils.to_thread.run_sync', side_effect=lambda fn: fn())
+    mocker.patch('livecheck.special.utils.to_thread.run_sync', side_effect=lambda fn, **_: fn())
     root, temp_dir = await search_ebuild('foo.ebuild', 'archive.tar.gz')
     assert not root
     assert not temp_dir
@@ -240,8 +240,8 @@ async def test_build_compress(mocker: MockerFixture, temp_dir: str, base_dir: st
                  return_value=archive_ext if archive_ext is not None else '')
     mock_tarfile_open = mocker.patch('tarfile.open')
     mock_logger = mocker.patch('livecheck.special.utils.logger')
-    mocker.patch('pathlib.Path.resolve', side_effect=lambda: Path(base_dir))
-    mocker.patch('livecheck.special.utils.to_thread.run_sync', side_effect=lambda fn: fn())
+    mocker.patch('pathlib.Path.resolve', side_effect=lambda **_: Path(base_dir))
+    mocker.patch('livecheck.special.utils.to_thread.run_sync', side_effect=lambda fn, **_: fn())
     result = await build_compress(temp_dir, base_dir, directory, extension, fetchlist)
     assert result == expected_result
     if not exists:

@@ -46,7 +46,7 @@ async def test_dotnet_restore_yields_expected_packages(mocker: MockerFixture,
                    f'{tmp_path}/runtime.win@8.0.0\n'
                    f'{tmp_path}/NotAPackage\n')
 
-    async def create_subprocess_side_effect(*args: Any, **kwargs: Any) -> Any:
+    def create_subprocess_side_effect(*args: Any, **kwargs: Any) -> Any:
         mock_proc = mocker.MagicMock()
         if args[0] == '/bin/dotnet':
             mock_proc.wait = AsyncMock(return_value=0)
@@ -77,7 +77,7 @@ async def test_dotnet_restore_filters_correctly(mocker: MockerFixture, tmp_path:
                    f'{tmp_path}/runtime.win@8.0.0\n'
                    f'{tmp_path}/Valid.Package@1.2.3\n')
 
-    async def create_subprocess_side_effect(*args: Any, **kwargs: Any) -> Any:
+    def create_subprocess_side_effect(*args: Any, **kwargs: Any) -> Any:
         mock_proc = mocker.MagicMock()
         if args[0] == '/bin/dotnet':
             mock_proc.wait = AsyncMock(return_value=0)
@@ -104,7 +104,7 @@ async def test_dotnet_restore_handles_no_packages(mocker: MockerFixture, tmp_pat
                  _get_fake_temp_dir(str(tmp_path)))
     mocker.patch('livecheck.special.dotnet.which', side_effect=lambda n: f'/bin/{n}')
 
-    async def create_subprocess_side_effect(*args: Any, **kwargs: Any) -> Any:
+    def create_subprocess_side_effect(*args: Any, **kwargs: Any) -> Any:
         mock_proc = mocker.MagicMock()
         if args[0] == '/bin/dotnet':
             mock_proc.wait = AsyncMock(return_value=0)
@@ -132,7 +132,7 @@ async def test_dotnet_restore_returns_on_nonzero_returncode(mocker: MockerFixtur
                  _get_fake_temp_dir(str(tmp_path)))
     mocker.patch('livecheck.special.dotnet.which', side_effect=lambda n: f'/bin/{n}')
 
-    async def create_subprocess_side_effect(*args: Any, **kwargs: Any) -> Any:
+    def create_subprocess_side_effect(*args: Any, **kwargs: Any) -> Any:
         mock_proc = mocker.MagicMock()
         if args[0] == '/bin/dotnet':
             mock_proc.wait = AsyncMock(return_value=1)
@@ -155,7 +155,7 @@ async def test_dotnet_restore_raises_on_dotnet_failure(mocker: MockerFixture,
                  _get_fake_temp_dir(str(tmp_path)))
     mocker.patch('livecheck.special.dotnet.which', side_effect=lambda n: f'/bin/{n}')
 
-    async def create_subprocess_side_effect(*args: Any, **kwargs: Any) -> Any:
+    def create_subprocess_side_effect(*args: Any, **kwargs: Any) -> Any:
         if args[0] == '/bin/dotnet':
             msg = 'dotnet restore failed'
             raise RuntimeError(msg)
@@ -226,7 +226,7 @@ async def test_update_dotnet_ebuild_updates_nugets_correctly(mocker: MockerFixtu
                  new_callable=AsyncMock,
                  return_value=(str(tmp_path), None))
 
-    async def _mock_dotnet_restore(_: Any) -> Any:
+    async def _mock_dotnet_restore(_: Any) -> Any:  # noqa: RUF029
         for pkg in ('New.Package@2.0.0', 'Another.Package@3.1.4'):
             yield pkg
 
@@ -249,7 +249,7 @@ async def test_update_dotnet_ebuild_raises_no_nugets_found(mocker: MockerFixture
                  new_callable=AsyncMock,
                  return_value=(str(tmp_path), None))
 
-    async def _mock_dotnet_restore(_: Any) -> Any:
+    async def _mock_dotnet_restore(_: Any) -> Any:  # noqa: RUF029
         return
         yield
 
@@ -270,7 +270,7 @@ async def test_update_dotnet_ebuild_raises_runtime_error(mocker: MockerFixture,
                  new_callable=AsyncMock,
                  return_value=(str(tmp_path), None))
 
-    async def _mock_dotnet_restore(_: Any) -> Any:
+    async def _mock_dotnet_restore(_: Any) -> Any:  # noqa: RUF029
         return
         yield
 
@@ -291,7 +291,7 @@ async def test_update_dotnet_ebuild_raises_no_nugets_ending(mocker: MockerFixtur
                  new_callable=AsyncMock,
                  return_value=(str(tmp_path), None))
 
-    async def _mock_dotnet_restore(_: Any) -> Any:
+    async def _mock_dotnet_restore(_: Any) -> Any:  # noqa: RUF029
         return
         yield
 

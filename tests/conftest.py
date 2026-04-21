@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, NoReturn
 import asyncio
+import contextlib
 import os
 
 from click.testing import CliRunner
@@ -13,7 +14,7 @@ from niquests_mock.router import build_response
 import pytest
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator, Iterator
+    from collections.abc import Iterator
 
     from niquests import Response
     from niquests.models import PreparedRequest
@@ -99,11 +100,12 @@ def requests_mock(monkeypatch: pytest.MonkeyPatch) -> Iterator[NiquestsMocker]:
 
 
 @pytest.fixture(autouse=True)
-async def _init_test_sessions() -> AsyncGenerator[None]:
+def _init_test_sessions() -> Iterator[None]:
     """Bootstrap the session infrastructure for every test."""
     init_sessions(asyncio.Semaphore(1))
     yield
-    await close_sessions()
+    with contextlib.suppress(RuntimeError):
+        asyncio.run(close_sessions())
 
 
 @pytest.fixture

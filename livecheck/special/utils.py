@@ -153,8 +153,8 @@ async def build_compress(temp_dir: str, base_dir: str, directory: str, extension
         vendor_archive_name = f'{base_name}{extension}'
     vendor_archive_path = get_distdir() / vendor_archive_name
 
-    vendor_path = Path(base_dir).resolve()
-    base_path = Path(temp_dir).resolve()
+    vendor_path = Path(str(await AnyioPath(base_dir).resolve()))
+    base_path = Path(str(await AnyioPath(temp_dir).resolve()))
 
     relative_path = vendor_path.relative_to(base_path) / directory
 

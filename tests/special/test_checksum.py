@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from anyio import Path as AnyioPath
 from livecheck.special.checksum import (
     get_latest_checksum_package,
     get_latest_location_checksum_package,
@@ -10,6 +11,8 @@ from livecheck.special.checksum import (
 import pytest
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from pytest_mock import MockerFixture
 
 
@@ -123,77 +126,65 @@ async def test_get_latest_checksum_package_multiple_dist_lines_matching_hash(
     assert result == ('', '', '')
 
 
-@pytest.mark.asyncio
-async def test_update_checksum_metadata_updates_matching_line(mocker: MockerFixture) -> None:
+def _setup_update_checksum(mocker: MockerFixture, tmp_path: Path,
+                           manifest_content: str) -> tuple[Path, dict[str, str]]:
+    """Write a manifest under a tmp repo root and mock out EbuildTempFile/hash_url."""
+    manifest_file = tmp_path / 'cat/foo/Manifest'
+    manifest_file.parent.mkdir(parents=True)
+    manifest_file.write_text(manifest_content, encoding='utf-8')
+    written: dict[str, str] = {}
+
+    class _FakeTempFile:
+        def __init__(self, _ebuild: str) -> None:
+            self._path = manifest_file
+
+        async def __aenter__(self) -> Path:
+            return self._path
+
+        async def __aexit__(self, *_: object) -> None:
+            written['text'] = await AnyioPath(manifest_file).read_text(encoding='utf-8')
+
+    mocker.patch('livecheck.special.checksum.EbuildTempFile', _FakeTempFile)
+    mocker.patch('livecheck.special.checksum.catpkg_catpkgsplit',
+                 return_value=('cat/foo', 'foo', 'r0', '1.0'))
+    mocker.patch('livecheck.special.checksum.hash_url', return_value=('newbeef', 'newcafe', 4321))
+    return manifest_file, written
+
+
+async def test_update_checksum_metadata_updates_matching_line(mocker: MockerFixture,
+                                                              tmp_path: Path) -> None:
     ebuild = 'cat/foo/foo-1.0.ebuild'
     url = 'https://example.com/foo-1.0.tar.gz'
-    repo_root = '/repo'
     manifest_content = ('DIST foo-1.0.tar.gz 1234 BLAKE2B deadbeef SHA512 cafebabe\n'
                         'DIST bar-2.0.tar.gz 5678 BLAKE2B 123456 SHA512 789abc\n')
     expected_content = ('DIST foo-1.0.tar.gz 4321 BLAKE2B newbeef SHA512 newcafe\n'
                         'DIST bar-2.0.tar.gz 5678 BLAKE2B 123456 SHA512 789abc\n')
-    mocker.patch('livecheck.special.checksum.catpkg_catpkgsplit',
-                 return_value=('cat/foo', 'foo', 'r0', '1.0'))
-    mocker.patch('livecheck.special.checksum.hash_url', return_value=('newbeef', 'newcafe', 4321))
-    temp_file_mock = mocker.MagicMock()
-    tf_mock_context = mocker.mock_open()()
-    temp_file_mock.open = mocker.MagicMock(return_value=tf_mock_context)
-    mocker.patch('livecheck.special.checksum.EbuildTempFile', return_value=temp_file_mock)
-    temp_file_mock.__aenter__ = mocker.AsyncMock(return_value=temp_file_mock)
-    temp_file_mock.__aexit__ = mocker.AsyncMock(return_value=None)
-    manifest_open_mock = mocker.mock_open(read_data=manifest_content)
-    mocker.patch('pathlib.Path.open', manifest_open_mock)
-    await update_checksum_metadata(ebuild, url, repo_root)
-    written_lines = ''.join(call.args[0] for call in tf_mock_context.write.call_args_list)
-    assert written_lines == expected_content
+    _manifest_file, written = _setup_update_checksum(mocker, tmp_path, manifest_content)
+    await update_checksum_metadata(ebuild, url, str(tmp_path))
+    assert written['text'] == expected_content
 
 
-@pytest.mark.asyncio
-async def test_update_checksum_metadata_no_matching_line(mocker: MockerFixture) -> None:
+async def test_update_checksum_metadata_no_matching_line(mocker: MockerFixture,
+                                                         tmp_path: Path) -> None:
     ebuild = 'cat/foo/foo-1.0.ebuild'
     url = 'https://example.com/foo-1.0.tar.gz'
-    repo_root = '/repo'
-    manifest_content = ('DIST bar-2.0.tar.gz 5678 BLAKE2B 123456 SHA512 789abc\n')
-    expected_content = manifest_content
-    mocker.patch('livecheck.special.checksum.catpkg_catpkgsplit',
-                 return_value=('cat/foo', 'foo', 'r0', '1.0'))
-    mocker.patch('livecheck.special.checksum.hash_url', return_value=('newbeef', 'newcafe', 4321))
-    temp_file_mock = mocker.MagicMock()
-    tf_mock_context = mocker.mock_open()()
-    temp_file_mock.open = mocker.MagicMock(return_value=tf_mock_context)
-    mocker.patch('livecheck.special.checksum.EbuildTempFile', return_value=temp_file_mock)
-    temp_file_mock.__aenter__ = mocker.AsyncMock(return_value=temp_file_mock)
-    temp_file_mock.__aexit__ = mocker.AsyncMock(return_value=None)
-    manifest_open_mock = mocker.mock_open(read_data=manifest_content)
-    mocker.patch('pathlib.Path.open', manifest_open_mock)
-    await update_checksum_metadata(ebuild, url, repo_root)
-    written_lines = ''.join(call.args[0] for call in tf_mock_context.write.call_args_list)
-    assert written_lines == expected_content
+    manifest_content = 'DIST bar-2.0.tar.gz 5678 BLAKE2B 123456 SHA512 789abc\n'
+    _manifest_file, written = _setup_update_checksum(mocker, tmp_path, manifest_content)
+    await update_checksum_metadata(ebuild, url, str(tmp_path))
+    assert written['text'] == manifest_content
 
 
-@pytest.mark.asyncio
-async def test_update_checksum_metadata_multiple_matching_lines(mocker: MockerFixture) -> None:
+async def test_update_checksum_metadata_multiple_matching_lines(mocker: MockerFixture,
+                                                                tmp_path: Path) -> None:
     ebuild = 'cat/foo/foo-1.0.ebuild'
     url = 'https://example.com/foo-1.0.tar.gz'
-    repo_root = '/repo'
     manifest_content = ('DIST foo-1.0.tar.gz 1234 BLAKE2B deadbeef SHA512 cafebabe\n'
                         'DIST foo-1.0.tar.gz 1234 BLAKE2B deadbeef SHA512 cafebabe\n')
     expected_content = ('DIST foo-1.0.tar.gz 4321 BLAKE2B newbeef SHA512 newcafe\n'
                         'DIST foo-1.0.tar.gz 4321 BLAKE2B newbeef SHA512 newcafe\n')
-    mocker.patch('livecheck.special.checksum.catpkg_catpkgsplit',
-                 return_value=('cat/foo', 'foo', 'r0', '1.0'))
-    mocker.patch('livecheck.special.checksum.hash_url', return_value=('newbeef', 'newcafe', 4321))
-    temp_file_mock = mocker.MagicMock()
-    tf_mock_context = mocker.mock_open()()
-    temp_file_mock.open = mocker.MagicMock(return_value=tf_mock_context)
-    mocker.patch('livecheck.special.checksum.EbuildTempFile', return_value=temp_file_mock)
-    temp_file_mock.__aenter__ = mocker.AsyncMock(return_value=temp_file_mock)
-    temp_file_mock.__aexit__ = mocker.AsyncMock(return_value=None)
-    manifest_open_mock = mocker.mock_open(read_data=manifest_content)
-    mocker.patch('pathlib.Path.open', manifest_open_mock)
-    await update_checksum_metadata(ebuild, url, repo_root)
-    written_lines = ''.join(call.args[0] for call in tf_mock_context.write.call_args_list)
-    assert written_lines == expected_content
+    _manifest_file, written = _setup_update_checksum(mocker, tmp_path, manifest_content)
+    await update_checksum_metadata(ebuild, url, str(tmp_path))
+    assert written['text'] == expected_content
 
 
 @pytest.mark.asyncio

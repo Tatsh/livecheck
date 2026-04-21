@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock
 
+from anyio import Path as AnyioPath
 from livecheck.special.yarn import (
     Lockfile,
     check_yarn_requirements,
@@ -93,13 +94,30 @@ def test_yarn_pkgs_returns_expected_packages() -> None:
     assert len(pkgs) == 2
 
 
-@pytest.mark.asyncio
-async def test_update_yarn_ebuild_replaces_yarn_pkgs_section(mocker: MockerFixture) -> None:
-    ebuild_path = '/tmp/test.ebuild'
+def _patch_yarn_temp_file(mocker: MockerFixture, ebuild_path: Path, initial: str) -> dict[str, str]:
+    ebuild_path.write_text(initial, encoding='utf-8')
+    written: dict[str, str] = {}
+
+    class _FakeTempFile:
+        def __init__(self, _ebuild: str) -> None:
+            self._path = ebuild_path
+
+        async def __aenter__(self) -> Path:
+            return self._path
+
+        async def __aexit__(self, *_: object) -> None:
+            written['text'] = await AnyioPath(ebuild_path).read_text(encoding='utf-8')
+
+    mocker.patch('livecheck.special.yarn.EbuildTempFile', _FakeTempFile)
+    return written
+
+
+async def test_update_yarn_ebuild_replaces_yarn_pkgs_section(mocker: MockerFixture,
+                                                             tmp_path: Path) -> None:
+    ebuild_path = tmp_path / 'test.ebuild'
     yarn_base_package = 'foo'
     pkg = 'cat/foo'
     yarn_packages = {'bar', 'baz'}
-    mocker.patch('pathlib.Path.chmod')
     mock_create_project = mocker.patch('livecheck.special.yarn.create_project',
                                        new_callable=AsyncMock,
                                        return_value=Path('/tmp/project'))
@@ -118,36 +136,20 @@ async def test_update_yarn_ebuild_replaces_yarn_pkgs_section(mocker: MockerFixtu
                                            }
                                        })
     mock_copyfile = mocker.patch('livecheck.special.yarn.copyfile')
-    mock_ebuild_temp_file = mocker.patch('livecheck.special.yarn.EbuildTempFile')
-    mock_temp_file = mock_ebuild_temp_file.return_value
-    mock_temp_file.__aenter__ = AsyncMock(return_value=mock_temp_file)
-    mock_temp_file.__aexit__ = AsyncMock(return_value=False)
-    mock_tf_writer = mocker.MagicMock()
-    mock_open_cm = mocker.MagicMock()
-    mock_open_cm.__enter__ = mocker.MagicMock(return_value=mock_tf_writer)
-    mock_open_cm.__exit__ = mocker.MagicMock(return_value=False)
-    mock_temp_file.open = mocker.MagicMock(return_value=mock_open_cm)
-    mock_temp_file.exists.return_value = True
-    mock_temp_file.stat.return_value.st_size = 10
-    ebuild_content = ['EAPI=8\n', 'YARN_PKGS=(\n', '    old-pkg-0.1.0\n', ')\n', 'SRC_URI=...\n']
-    mocker.patch('pathlib.Path.open', mocker.mock_open(read_data=''.join(ebuild_content)))
-    await update_yarn_ebuild(ebuild_path, yarn_base_package, pkg, yarn_packages)
+    written = _patch_yarn_temp_file(mocker, ebuild_path,
+                                    'EAPI=8\nYARN_PKGS=(\n    old-pkg-0.1.0\n)\nSRC_URI=...\n')
+    mocker.patch('pathlib.Path.chmod')
+    await update_yarn_ebuild(str(ebuild_path), yarn_base_package, pkg, yarn_packages)
     mock_create_project.assert_called_once_with(yarn_base_package, yarn_packages)
     mock_parse_lockfile.assert_called_once()
-    mock_ebuild_temp_file.assert_called_once_with(ebuild_path)
-    mock_tf_writer.write.assert_any_call('YARN_PKGS=(\n')
-    mock_tf_writer.write.assert_any_call(')\n')
-    writelines_calls = list(mock_tf_writer.writelines.call_args_list)
-    assert len(writelines_calls) == 1
-    written_pkgs = list(writelines_calls[0][0][0])
-    assert '\tbar-2.3.4\n' in written_pkgs
-    assert '\tfoo-1.2.3\n' in written_pkgs
+    assert 'YARN_PKGS=(\n' in written['text']
+    assert '\tbar-2.3.4\n' in written['text']
+    assert '\tfoo-1.2.3\n' in written['text']
+    assert ')\n' in written['text']
     mock_copyfile.assert_any_call(
-        Path('/tmp/project') / 'package.json',
-        Path('/tmp/test.ebuild').parent / 'files' / 'foo-package.json')
+        Path('/tmp/project') / 'package.json', ebuild_path.parent / 'files' / 'foo-package.json')
     mock_copyfile.assert_any_call(
-        Path('/tmp/project') / 'yarn.lock',
-        Path('/tmp/test.ebuild').parent / 'files' / 'foo-yarn.lock')
+        Path('/tmp/project') / 'yarn.lock', ebuild_path.parent / 'files' / 'foo-yarn.lock')
 
 
 @pytest.mark.asyncio
@@ -213,10 +215,10 @@ def test_check_yarn_requirements_node_missing(mocker: MockerFixture) -> None:
     assert mock_check_program.call_count == 2
 
 
-@pytest.mark.asyncio
-async def test_update_yarn_ebuild_with_multiple_old_packages(mocker: MockerFixture) -> None:
+async def test_update_yarn_ebuild_with_multiple_old_packages(mocker: MockerFixture,
+                                                             tmp_path: Path) -> None:
     """Test that multiple old packages are replaced correctly without duplication."""
-    ebuild_path = '/tmp/test.ebuild'
+    ebuild_path = tmp_path / 'test.ebuild'
     yarn_base_package = 'foo'
     pkg = 'cat/foo'
     yarn_packages = None
@@ -239,49 +241,26 @@ async def test_update_yarn_ebuild_with_multiple_old_packages(mocker: MockerFixtu
                      }
                  })
     mocker.patch('livecheck.special.yarn.copyfile')
-    mock_ebuild_temp_file = mocker.patch('livecheck.special.yarn.EbuildTempFile')
-    mock_temp_file = mock_ebuild_temp_file.return_value
-    mock_temp_file.__aenter__ = AsyncMock(return_value=mock_temp_file)
-    mock_temp_file.__aexit__ = AsyncMock(return_value=False)
-    mock_tf_writer = mocker.MagicMock()
-    mock_open_cm = mocker.MagicMock()
-    mock_open_cm.__enter__ = mocker.MagicMock(return_value=mock_tf_writer)
-    mock_open_cm.__exit__ = mocker.MagicMock(return_value=False)
-    mock_temp_file.open = mocker.MagicMock(return_value=mock_open_cm)
-    mock_temp_file.exists.return_value = True
-    mock_temp_file.stat.return_value.st_size = 10
-
-    ebuild_content = [
-        'EAPI=8\n',
-        'YARN_PKGS=(\n',
-        '\told-pkg-1-0.1.0\n',
-        '\told-pkg-2-0.2.0\n',
-        '\told-pkg-3-0.3.0\n',
-        ')\n',
-        'SRC_URI=...\n',
-    ]
-    mocker.patch('pathlib.Path.open', mocker.mock_open(read_data=''.join(ebuild_content)))
-
-    await update_yarn_ebuild(ebuild_path, yarn_base_package, pkg, yarn_packages)
-
-    write_calls = [call[0][0] for call in mock_tf_writer.write.call_args_list]
-    writelines_calls = list(mock_tf_writer.writelines.call_args_list)
-
-    assert len(writelines_calls) == 1
-    written_pkgs = list(writelines_calls[0][0][0])
-
-    assert written_pkgs.count('\tbar-2.3.4\n') == 1
-    assert written_pkgs.count('\tfoo-1.2.3\n') == 1
-
-    assert '\told-pkg-1-0.1.0\n' not in write_calls
-    assert '\told-pkg-2-0.2.0\n' not in write_calls
-    assert '\told-pkg-3-0.3.0\n' not in write_calls
+    written = _patch_yarn_temp_file(mocker, ebuild_path, ('EAPI=8\n'
+                                                          'YARN_PKGS=(\n'
+                                                          '\told-pkg-1-0.1.0\n'
+                                                          '\told-pkg-2-0.2.0\n'
+                                                          '\told-pkg-3-0.3.0\n'
+                                                          ')\n'
+                                                          'SRC_URI=...\n'))
+    await update_yarn_ebuild(str(ebuild_path), yarn_base_package, pkg, yarn_packages)
+    text = written['text']
+    assert text.count('\tbar-2.3.4\n') == 1
+    assert text.count('\tfoo-1.2.3\n') == 1
+    assert '\told-pkg-1-0.1.0\n' not in text
+    assert '\told-pkg-2-0.2.0\n' not in text
+    assert '\told-pkg-3-0.3.0\n' not in text
 
 
-@pytest.mark.asyncio
-async def test_update_yarn_ebuild_with_empty_yarn_pkgs(mocker: MockerFixture) -> None:
+async def test_update_yarn_ebuild_with_empty_yarn_pkgs(mocker: MockerFixture,
+                                                       tmp_path: Path) -> None:
     """Test handling of empty YARN_PKGS section."""
-    ebuild_path = '/tmp/test.ebuild'
+    ebuild_path = tmp_path / 'test.ebuild'
     yarn_base_package = 'foo'
     pkg = 'cat/foo'
     yarn_packages = None
@@ -304,30 +283,7 @@ async def test_update_yarn_ebuild_with_empty_yarn_pkgs(mocker: MockerFixture) ->
                      }
                  })
     mocker.patch('livecheck.special.yarn.copyfile')
-    mock_ebuild_temp_file = mocker.patch('livecheck.special.yarn.EbuildTempFile')
-    mock_temp_file = mock_ebuild_temp_file.return_value
-    mock_temp_file.__aenter__ = AsyncMock(return_value=mock_temp_file)
-    mock_temp_file.__aexit__ = AsyncMock(return_value=False)
-    mock_tf_writer = mocker.MagicMock()
-    mock_open_cm = mocker.MagicMock()
-    mock_open_cm.__enter__ = mocker.MagicMock(return_value=mock_tf_writer)
-    mock_open_cm.__exit__ = mocker.MagicMock(return_value=False)
-    mock_temp_file.open = mocker.MagicMock(return_value=mock_open_cm)
-    mock_temp_file.exists.return_value = True
-    mock_temp_file.stat.return_value.st_size = 10
-
-    ebuild_content = [
-        'EAPI=8\n',
-        'YARN_PKGS=(\n',
-        ')\n',
-        'SRC_URI=...\n',
-    ]
-    mocker.patch('pathlib.Path.open', mocker.mock_open(read_data=''.join(ebuild_content)))
-
-    await update_yarn_ebuild(ebuild_path, yarn_base_package, pkg, yarn_packages)
-
-    writelines_calls = list(mock_tf_writer.writelines.call_args_list)
-    assert len(writelines_calls) == 1
-    written_pkgs = list(writelines_calls[0][0][0])
-    assert '\tbar-2.3.4\n' in written_pkgs
-    assert '\tfoo-1.2.3\n' in written_pkgs
+    written = _patch_yarn_temp_file(mocker, ebuild_path, 'EAPI=8\nYARN_PKGS=(\n)\nSRC_URI=...\n')
+    await update_yarn_ebuild(str(ebuild_path), yarn_base_package, pkg, yarn_packages)
+    assert '\tbar-2.3.4\n' in written['text']
+    assert '\tfoo-1.2.3\n' in written['text']

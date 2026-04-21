@@ -1,11 +1,11 @@
 """JetBrains functions."""
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 import logging
 
+from anyio import Path as AnyioPath
 from livecheck.utils import get_content
 from livecheck.utils.portage import catpkg_catpkgsplit, get_last_version
 
@@ -78,14 +78,15 @@ async def update_jetbrains_ebuild(ebuild: str) -> None:
     version = version.split('-', 1)[-1]
 
     async with EbuildTempFile(ebuild) as temp_file:
-        with temp_file.open('w', encoding='utf-8') as tf, Path(ebuild).open('r',
-                                                                            encoding='utf-8') as f:
-            for line in f:
-                if line.startswith('MY_PV='):
-                    logger.debug('Found MY_PV= line.')
-                    tf.write(f'MY_PV="{version}"\n')
-                else:
-                    tf.write(line)
+        ebuild_text = await AnyioPath(ebuild).read_text(encoding='utf-8')
+        out: list[str] = []
+        for line in ebuild_text.splitlines(keepends=True):
+            if line.startswith('MY_PV='):
+                logger.debug('Found MY_PV= line.')
+                out.append(f'MY_PV="{version}"\n')
+            else:
+                out.append(line)
+        await AnyioPath(temp_file).write_text(''.join(out), encoding='utf-8')
 
 
 def is_jetbrains(url: str) -> bool:

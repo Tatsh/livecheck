@@ -6,20 +6,22 @@ import operator
 import re as real_re
 
 from livecheck.utils.portage import (
-    _pad_version_components,  # noqa: PLC2701
     accept_version,
     catpkg_catpkgsplit,
     catpkgsplit2,
     compare_versions,
     digest_ebuild,
     fetch_ebuild,
+    get_aux,
     get_distdir,
+    get_fetch_map,
     get_first_src_uri,
     get_highest_matches,
     get_last_version,
     get_repository_root_if_inside,
     is_version_development,
     mask_version,
+    pad_version_components,
     remove_initial_match,
     remove_leading_zeros,
     sanitize_version,
@@ -131,7 +133,7 @@ def test_mask_version(cp: str, version: str, restrict_version: str | None, expec
     assert mask_version(cp, version, restrict_version) == expected
 
 
-def test_get_highest_matches_basic(mocker: MockerFixture) -> None:
+async def test_get_highest_matches_basic(mocker: MockerFixture) -> None:
     mock_p = mocker.patch('livecheck.utils.portage.P')
 
     def catpkg_side_effect(atom: str) -> tuple[str, str, str, str]:
@@ -140,30 +142,33 @@ def test_get_highest_matches_basic(mocker: MockerFixture) -> None:
         return ('cat/pkg', 'cat', 'pkg', '1.2.2')
 
     mocker.patch('livecheck.utils.portage.catpkg_catpkgsplit', side_effect=catpkg_side_effect)
-    mock_p.xmatch.return_value = ['cat/pkg-1.2.3', 'cat/pkg-1.2.2']
+    mock_p.async_xmatch = mocker.AsyncMock()
+    mock_p.async_xmatch.return_value = ['cat/pkg-1.2.3', 'cat/pkg-1.2.2']
     mock_p.findname2.return_value = ('cat/pkg-1.2.3', '/repo/root')
 
     names = ['cat/pkg']
     repo_root = Path('/repo/root')
     dummy_settings = mocker.Mock()
     dummy_settings.restrict_version = {}
-    result = get_highest_matches(names, repo_root, dummy_settings)
+    result = await get_highest_matches(names, repo_root, dummy_settings)
     assert result == ['cat/pkg-1.2.3']
 
 
-def test_get_highest_matches_no_matches(mocker: MockerFixture) -> None:
+async def test_get_highest_matches_no_matches(mocker: MockerFixture) -> None:
     mock_p = mocker.patch('livecheck.utils.portage.P')
-    mock_p.xmatch.return_value = []
+    mock_p.async_xmatch = mocker.AsyncMock()
+    mock_p.async_xmatch.return_value = []
     names = ['cat/pkg']
     repo_root = Path('/repo/root')
     dummy_settings = mocker.Mock()
-    result = get_highest_matches(names, repo_root, dummy_settings)
+    result = await get_highest_matches(names, repo_root, dummy_settings)
     assert result == []
 
 
-def test_get_highest_matches_invalid_package_structure(mocker: MockerFixture) -> None:
+async def test_get_highest_matches_invalid_package_structure(mocker: MockerFixture) -> None:
     mock_p = mocker.patch('livecheck.utils.portage.P')
-    mock_p.xmatch.return_value = ['invalid']
+    mock_p.async_xmatch = mocker.AsyncMock()
+    mock_p.async_xmatch.return_value = ['invalid']
 
     def raise_value_error(x: Any) -> NoReturn:
         msg = 'bad structure'
@@ -173,40 +178,43 @@ def test_get_highest_matches_invalid_package_structure(mocker: MockerFixture) ->
     names = ['cat/pkg']
     repo_root = Path('/repo/root')
     dummy_settings = mocker.Mock()
-    result = get_highest_matches(names, repo_root, dummy_settings)
+    result = await get_highest_matches(names, repo_root, dummy_settings)
     assert result == []
 
 
-def test_get_highest_matches_wrong_repo_root(mocker: MockerFixture) -> None:
+async def test_get_highest_matches_wrong_repo_root(mocker: MockerFixture) -> None:
     mock_p = mocker.patch('livecheck.utils.portage.P')
-    mock_p.xmatch.return_value = ['cat/pkg-1.2.3']
+    mock_p.async_xmatch = mocker.AsyncMock()
+    mock_p.async_xmatch.return_value = ['cat/pkg-1.2.3']
     mocker.patch('livecheck.utils.portage.catpkg_catpkgsplit',
                  return_value=('cat/pkg', 'cat', 'pkg', '1.2.3'))
     mock_p.findname2.return_value = ('cat/pkg-1.2.3', '/other/root')
     names = ['cat/pkg']
     repo_root = Path('/repo/root')
     dummy_settings = mocker.Mock()
-    result = get_highest_matches(names, repo_root, dummy_settings)
+    result = await get_highest_matches(names, repo_root, dummy_settings)
     assert result == []
 
 
-def test_get_highest_matches_ignores_9999(mocker: MockerFixture) -> None:
+async def test_get_highest_matches_ignores_9999(mocker: MockerFixture) -> None:
     mock_p = mocker.patch('livecheck.utils.portage.P')
-    mock_p.xmatch.return_value = ['cat/pkg-9999']
+    mock_p.async_xmatch = mocker.AsyncMock()
+    mock_p.async_xmatch.return_value = ['cat/pkg-9999']
     mocker.patch('livecheck.utils.portage.catpkg_catpkgsplit',
                  return_value=('cat/pkg', 'cat', 'pkg', '9999'))
     mock_p.findname2.return_value = ('cat/pkg-9999', '/repo/root')
     names = ['cat/pkg']
     repo_root = Path('/repo/root')
     dummy_settings = mocker.Mock()
-    result = get_highest_matches(names, repo_root, dummy_settings)
+    result = await get_highest_matches(names, repo_root, dummy_settings)
     assert result == []
 
 
-def test_get_highest_matches_single_version_excluded(mocker: MockerFixture) -> None:
+async def test_get_highest_matches_single_version_excluded(mocker: MockerFixture) -> None:
     """Test that packages with only one version are excluded."""
     mock_p = mocker.patch('livecheck.utils.portage.P')
-    mock_p.xmatch.return_value = ['cat/pkg-1.2.3']
+    mock_p.async_xmatch = mocker.AsyncMock()
+    mock_p.async_xmatch.return_value = ['cat/pkg-1.2.3']
     mocker.patch('livecheck.utils.portage.catpkg_catpkgsplit',
                  return_value=('cat/pkg', 'cat', 'pkg', '1.2.3'))
     mock_p.findname2.return_value = ('cat/pkg-1.2.3', '/repo/root')
@@ -214,14 +222,15 @@ def test_get_highest_matches_single_version_excluded(mocker: MockerFixture) -> N
     repo_root = Path('/repo/root')
     dummy_settings = mocker.Mock()
     dummy_settings.restrict_version = {}
-    result = get_highest_matches(names, repo_root, dummy_settings)
+    result = await get_highest_matches(names, repo_root, dummy_settings)
     assert result == []
 
 
-def test_get_highest_matches_9999_not_counted(mocker: MockerFixture) -> None:
+async def test_get_highest_matches_9999_not_counted(mocker: MockerFixture) -> None:
     """Test that 9999 versions don't count toward the version count."""
     mock_p = mocker.patch('livecheck.utils.portage.P')
-    mock_p.xmatch.return_value = ['cat/pkg-1.2.3', 'cat/pkg-9999']
+    mock_p.async_xmatch = mocker.AsyncMock()
+    mock_p.async_xmatch.return_value = ['cat/pkg-1.2.3', 'cat/pkg-9999']
 
     def catpkg_side_effect(atom: str) -> tuple[str, str, str, str]:
         if '9999' in atom:
@@ -234,15 +243,16 @@ def test_get_highest_matches_9999_not_counted(mocker: MockerFixture) -> None:
     repo_root = Path('/repo/root')
     dummy_settings = mocker.Mock()
     dummy_settings.restrict_version = {}
-    result = get_highest_matches(names, repo_root, dummy_settings)
+    result = await get_highest_matches(names, repo_root, dummy_settings)
     # Should be empty because only 1 non-9999 version exists
     assert result == []
 
 
-def test_get_highest_matches_multiple_versions_included(mocker: MockerFixture) -> None:
+async def test_get_highest_matches_multiple_versions_included(mocker: MockerFixture) -> None:
     """Test that packages with 2+ versions are included."""
     mock_p = mocker.patch('livecheck.utils.portage.P')
-    mock_p.xmatch.return_value = ['cat/pkg-1.2.3', 'cat/pkg-1.2.2', 'cat/pkg-1.2.1']
+    mock_p.async_xmatch = mocker.AsyncMock()
+    mock_p.async_xmatch.return_value = ['cat/pkg-1.2.3', 'cat/pkg-1.2.2', 'cat/pkg-1.2.1']
 
     def catpkg_side_effect(atom: str) -> tuple[str, str, str, str]:
         if '1.2.3' in atom:
@@ -257,14 +267,15 @@ def test_get_highest_matches_multiple_versions_included(mocker: MockerFixture) -
     repo_root = Path('/repo/root')
     dummy_settings = mocker.Mock()
     dummy_settings.restrict_version = {}
-    result = get_highest_matches(names, repo_root, dummy_settings)
+    result = await get_highest_matches(names, repo_root, dummy_settings)
     assert result == ['cat/pkg-1.2.3']
 
 
-def test_get_highest_matches_with_9999_and_multiple_versions(mocker: MockerFixture) -> None:
+async def test_get_highest_matches_with_9999_and_multiple_versions(mocker: MockerFixture) -> None:
     """Test package with multiple non-9999 versions and a 9999 version."""
     mock_p = mocker.patch('livecheck.utils.portage.P')
-    mock_p.xmatch.return_value = ['cat/pkg-1.2.3', 'cat/pkg-1.2.2', 'cat/pkg-9999']
+    mock_p.async_xmatch = mocker.AsyncMock()
+    mock_p.async_xmatch.return_value = ['cat/pkg-1.2.3', 'cat/pkg-1.2.2', 'cat/pkg-9999']
 
     def catpkg_side_effect(atom: str) -> tuple[str, str, str, str]:
         if '9999' in atom:
@@ -279,7 +290,7 @@ def test_get_highest_matches_with_9999_and_multiple_versions(mocker: MockerFixtu
     repo_root = Path('/repo/root')
     dummy_settings = mocker.Mock()
     dummy_settings.restrict_version = {}
-    result = get_highest_matches(names, repo_root, dummy_settings)
+    result = await get_highest_matches(names, repo_root, dummy_settings)
     # Should include the package because there are 2 non-9999 versions
     assert result == ['cat/pkg-1.2.3']
 
@@ -400,39 +411,43 @@ def test_catpkg_catpkgsplit_revision_non_r0(mocker: MockerFixture) -> None:
         ),
     ],
 )
-def test_get_first_src_uri_basic(mocker: MockerFixture, match: str, aux_get_return: str,
-                                 expected: str) -> None:
+async def test_get_first_src_uri_basic(mocker: MockerFixture, match: str, aux_get_return: str,
+                                       expected: str) -> None:
     mock_p = mocker.patch('livecheck.utils.portage.P')
-    mock_p.aux_get.return_value = aux_get_return
-    result = get_first_src_uri(match)
+    mock_p.async_aux_get = mocker.AsyncMock()
+    mock_p.async_aux_get.return_value = aux_get_return
+    result = await get_first_src_uri(match)
     assert result == expected
 
 
-def test_get_first_src_uri_with_search_dir(mocker: MockerFixture) -> None:
+async def test_get_first_src_uri_with_search_dir(mocker: MockerFixture) -> None:
     mock_p = mocker.patch('livecheck.utils.portage.P')
-    mock_p.aux_get.return_value = ['https://example.com/foo.tar.gz']
+    mock_p.async_aux_get = mocker.AsyncMock()
+    mock_p.async_aux_get.return_value = ['https://example.com/foo.tar.gz']
     search_dir = Path('/some/dir')
-    result = get_first_src_uri('cat/pkg-1.2.3', search_dir)
-    mock_p.aux_get.assert_called_with('cat/pkg-1.2.3', ['SRC_URI'], mytree=str(search_dir))
+    result = await get_first_src_uri('cat/pkg-1.2.3', search_dir)
+    mock_p.async_aux_get.assert_called_with('cat/pkg-1.2.3', ['SRC_URI'], mytree=str(search_dir))
     assert result == 'https://example.com/foo.tar.gz'
 
 
-def test_get_first_src_uri_keyerror(mocker: MockerFixture) -> None:
+async def test_get_first_src_uri_keyerror(mocker: MockerFixture) -> None:
     mock_p = mocker.patch('livecheck.utils.portage.P')
-    mock_p.aux_get.side_effect = KeyError('not found')
-    result = get_first_src_uri('cat/pkg-1.2.3')
+    mock_p.async_aux_get = mocker.AsyncMock()
+    mock_p.async_aux_get.side_effect = KeyError('not found')
+    result = await get_first_src_uri('cat/pkg-1.2.3')
     assert not result
 
 
-def test_get_first_src_uri_multiple_lines(mocker: MockerFixture) -> None:
+async def test_get_first_src_uri_multiple_lines(mocker: MockerFixture) -> None:
     mock_p = mocker.patch('livecheck.utils.portage.P')
     # Simulate multiple lines, each line is split
-    mock_p.aux_get.return_value = [
+    mock_p.async_aux_get = mocker.AsyncMock()
+    mock_p.async_aux_get.return_value = [
         'not_a_uri',
         'https://foo.com/bar.tar.gz',
         'mirror://gentoo/baz.tar.gz',
     ]
-    result = get_first_src_uri('cat/pkg-1.2.3')
+    result = await get_first_src_uri('cat/pkg-1.2.3')
     assert result == 'https://foo.com/bar.tar.gz'
 
 
@@ -549,7 +564,7 @@ def test_get_repository_root_if_inside_local_path_exclusion(mocker: MockerFixtur
     ('1.2.3-dev2', True),
     ('1.2.3-pre2', True),
 ])
-def test_is_version_development(version: str, expected: bool) -> None:  # noqa: FBT001
+async def test_is_version_development(version: str, expected: bool) -> None:  # noqa: FBT001, RUF029
     assert is_version_development(version) == expected
 
 
@@ -600,7 +615,7 @@ def test_compare_versions(mocker: MockerFixture, old: str, new: str, vercmp_resu
     ('1.2a', '1.20', ('1.2a', '1.20')),
 ])
 def test_pad_version_components(ver1: str, ver2: str, expected: tuple[str, str]) -> None:
-    assert _pad_version_components(ver1, ver2) == expected
+    assert pad_version_components(ver1, ver2) == expected
 
 
 def test_compare_versions_with_padding(mocker: MockerFixture) -> None:
@@ -1026,3 +1041,19 @@ def test_accept_version_cases(mocker: MockerFixture, ebuild_version: str, versio
         setattr(dummy_settings, k, v)
     result = accept_version(ebuild_version, version, catpkg, dummy_settings)
     assert result is expected
+
+
+async def test_get_aux_calls_async_aux_get(mocker: MockerFixture) -> None:
+    mock_p = mocker.patch('livecheck.utils.portage.P')
+    mock_p.async_aux_get = mocker.AsyncMock(return_value=['https://example.com/src.tar.gz'])
+    result = await get_aux('cat/pkg-1.2.3', ['SRC_URI'], mytree='/repo')
+    assert result == ['https://example.com/src.tar.gz']
+    mock_p.async_aux_get.assert_awaited_once_with('cat/pkg-1.2.3', ['SRC_URI'], mytree='/repo')
+
+
+async def test_get_fetch_map_calls_async_fetch_map(mocker: MockerFixture) -> None:
+    mock_p = mocker.patch('livecheck.utils.portage.P')
+    mock_p.async_fetch_map = mocker.AsyncMock(return_value={'src.tar.gz': ('uri',)})
+    result = await get_fetch_map('cat/pkg-1.2.3')
+    assert result == {'src.tar.gz': ('uri',)}
+    mock_p.async_fetch_map.assert_awaited_once_with('cat/pkg-1.2.3')

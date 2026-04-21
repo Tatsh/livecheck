@@ -1,4 +1,4 @@
-# ruff: noqa: EM101, PLC2701, RUF012, RUF069, SLF001
+# ruff: noqa: EM101, RUF012, RUF069, SLF001
 from __future__ import annotations
 
 from http import HTTPStatus
@@ -7,20 +7,12 @@ from typing import TYPE_CHECKING, Any, cast
 from unittest.mock import AsyncMock
 import asyncio
 
-from livecheck.utils.session import (
-    build_github_session,
-    build_retry,
-    build_session,
-)
+from livecheck.utils.session import build_github_session, build_retry, build_session
 import pytest
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
     import niquests
-
-
-def _fake_response(**attrs: Any) -> niquests.Response:
-    return cast('niquests.Response', type('R', (), attrs)())
 
 
 def test_build_retry_returns_retry_with_expected_status_codes() -> None:
@@ -130,224 +122,218 @@ async def test_github_session_retries_on_rate_limit_403(mocker: MockerFixture) -
     assert result.status_code == HTTPStatus.OK
 
 
-def test_rate_limit_sleep_returns_none_for_ok() -> None:
-    from livecheck.utils.session import _GitHubSession
-    response = _fake_response(status_code=HTTPStatus.OK, headers={}, text='')
-    assert _GitHubSession._rate_limit_sleep(response, 0) is None
-
-
-def test_rate_limit_sleep_returns_float_for_429_with_retry_after() -> None:
-    from livecheck.utils.session import _GitHubSession
-    response = _fake_response(status_code=HTTPStatus.TOO_MANY_REQUESTS,
-                              headers={'retry-after': '5'},
-                              text='')
-    result = _GitHubSession._rate_limit_sleep(response, 0)
-    assert result == 5.0
-
-
-def test_rate_limit_sleep_returns_backoff_for_429_no_retry_after() -> None:
-    from livecheck.utils.session import _GitHubSession
-    response = _fake_response(status_code=HTTPStatus.TOO_MANY_REQUESTS, headers={}, text='')
-    result = _GitHubSession._rate_limit_sleep(response, 0)
-    assert result == 60.0
-
-
-def test_rate_limit_sleep_returns_float_for_403_with_retry_after() -> None:
-    from livecheck.utils.session import _GitHubSession
-    response = _fake_response(status_code=HTTPStatus.FORBIDDEN,
-                              headers={'retry-after': '10'},
-                              text='')
-    result = _GitHubSession._rate_limit_sleep(response, 0)
-    assert result == 10.0
-
-
-def test_rate_limit_sleep_returns_none_for_non_rate_limit_403() -> None:
-    from livecheck.utils.session import _GitHubSession
-    response = _fake_response(status_code=HTTPStatus.FORBIDDEN, headers={}, text='not found')
-    assert _GitHubSession._rate_limit_sleep(response, 0) is None
-
-
-def test_explicit_wait_returns_retry_after() -> None:
-    from livecheck.utils.session import _GitHubSession
-    response = _fake_response(headers={'retry-after': '3'})
-    assert _GitHubSession._explicit_wait(response) == 3.0
-
-
-def test_explicit_wait_returns_zero_for_negative_retry_after() -> None:
-    from livecheck.utils.session import _GitHubSession
-    response = _fake_response(headers={'retry-after': '-5'})
-    assert _GitHubSession._explicit_wait(response) == 0.0
-
-
-def test_explicit_wait_uses_ratelimit_reset_when_remaining_zero() -> None:
-    from livecheck.utils.session import _GitHubSession
-    future_time = str(time() + 10)
-    response = _fake_response(headers={
-        'x-ratelimit-remaining': '0',
-        'x-ratelimit-reset': future_time
-    })
-    result = _GitHubSession._explicit_wait(response)
-    assert result is not None
-    assert result >= 0.0
-
-
-def test_explicit_wait_returns_none_for_invalid_reset() -> None:
-    from livecheck.utils.session import _GitHubSession
-    response = _fake_response(headers={
-        'x-ratelimit-remaining': '0',
-        'x-ratelimit-reset': 'not-a-number'
-    })
-    assert _GitHubSession._explicit_wait(response) is None
-
-
-def test_explicit_wait_returns_none_when_no_headers() -> None:
-    from livecheck.utils.session import _GitHubSession
-    response = _fake_response(headers={})
-    assert _GitHubSession._explicit_wait(response) is None
-
-
-def test_explicit_wait_returns_none_when_remaining_nonzero() -> None:
-    from livecheck.utils.session import _GitHubSession
-    response = _fake_response(headers={'x-ratelimit-remaining': '50'})
-    assert _GitHubSession._explicit_wait(response) is None
-
-
-def test_secondary_backoff_attempt_0() -> None:
-    from livecheck.utils.session import _GitHubSession
-    assert _GitHubSession._secondary_backoff(0) == 60.0
-
-
-def test_secondary_backoff_attempt_2() -> None:
-    from livecheck.utils.session import _GitHubSession
-    assert _GitHubSession._secondary_backoff(2) == 240.0
-
-
-def test_is_rate_limit_403_with_retry_after_header() -> None:
-    from livecheck.utils.session import _GitHubSession
-    response = _fake_response(status_code=HTTPStatus.FORBIDDEN,
-                              headers={'retry-after': '10'},
-                              text='')
-    assert _GitHubSession._is_rate_limit_403(response) is True
-
-
-def test_is_rate_limit_403_with_remaining_zero() -> None:
-    from livecheck.utils.session import _GitHubSession
-    response = _fake_response(status_code=HTTPStatus.FORBIDDEN,
-                              headers={'x-ratelimit-remaining': '0'},
-                              text='')
-    assert _GitHubSession._is_rate_limit_403(response) is True
-
-
-def test_is_rate_limit_403_with_body_hint() -> None:
-    from livecheck.utils.session import _GitHubSession
-    response = _fake_response(status_code=HTTPStatus.FORBIDDEN,
-                              headers={},
-                              text='API rate limit exceeded')
-    assert _GitHubSession._is_rate_limit_403(response) is True
-
-
-def test_is_rate_limit_403_with_secondary_rate_hint() -> None:
-    from livecheck.utils.session import _GitHubSession
-    response = _fake_response(status_code=HTTPStatus.FORBIDDEN,
-                              headers={},
-                              text='secondary rate limit triggered')
-    assert _GitHubSession._is_rate_limit_403(response) is True
-
-
-def test_is_rate_limit_403_with_abuse_detection_hint() -> None:
-    from livecheck.utils.session import _GitHubSession
-    response = _fake_response(status_code=HTTPStatus.FORBIDDEN,
-                              headers={},
-                              text='abuse detection mechanism')
-    assert _GitHubSession._is_rate_limit_403(response) is True
-
-
-def test_is_rate_limit_403_returns_false_for_regular_403() -> None:
-    from livecheck.utils.session import _GitHubSession
-    response = _fake_response(status_code=HTTPStatus.FORBIDDEN, headers={}, text='forbidden')
-    assert _GitHubSession._is_rate_limit_403(response) is False
-
-
-def test_is_rate_limit_403_handles_unicode_decode_error() -> None:
-    from livecheck.utils.session import _GitHubSession
-
-    class BadTextResponse:
-        status_code = HTTPStatus.FORBIDDEN
-        headers: dict[str, Any] = {}
-
-        @property
-        def text(self) -> str:
-            raise UnicodeDecodeError('utf-8', b'', 0, 1, 'bad')
-
-    assert _GitHubSession._is_rate_limit_403(cast('niquests.Response', BadTextResponse())) is False
-
-
 @pytest.mark.asyncio
-async def test_park_if_depleted_sleeps_when_exhausted(mocker: MockerFixture) -> None:
-    from livecheck.utils.session import _GitHubSession
+async def test_github_session_parks_when_rate_limit_exhausted(mocker: MockerFixture) -> None:
+    """A 200 with remaining=0 + a future reset should drive the park-sleep branch."""
+    sem = asyncio.Semaphore(1)
+    session = build_github_session(sem)
     future_reset = str(time() + 5)
-    response = mocker.MagicMock()
-    response.headers = {'x-ratelimit-remaining': '0', 'x-ratelimit-reset': future_reset}
+    ok_exhausted = mocker.MagicMock()
+    ok_exhausted.status_code = HTTPStatus.OK
+    ok_exhausted.headers = {'x-ratelimit-remaining': '0', 'x-ratelimit-reset': future_reset}
+    mocker.patch('niquests_cache.AsyncCachedSession.request',
+                 new_callable=AsyncMock,
+                 return_value=ok_exhausted)
     mock_sleep = mocker.patch('livecheck.utils.session.asyncio.sleep', new_callable=AsyncMock)
-    await _GitHubSession._park_if_depleted(response)
+    result = await session.request('GET', 'https://api.github.com/test')
+    assert result.status_code == HTTPStatus.OK
     mock_sleep.assert_called_once()
     assert mock_sleep.call_args[0][0] > 0
 
 
 @pytest.mark.asyncio
-async def test_park_if_depleted_returns_when_remaining_nonzero(mocker: MockerFixture) -> None:
-    from livecheck.utils.session import _GitHubSession
-    response = mocker.MagicMock()
-    response.headers = {'x-ratelimit-remaining': '50'}
-    mock_sleep = mocker.patch('livecheck.utils.session.asyncio.sleep', new_callable=AsyncMock)
-    await _GitHubSession._park_if_depleted(response)
-    mock_sleep.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_park_if_depleted_returns_when_no_reset_header(mocker: MockerFixture) -> None:
-    from livecheck.utils.session import _GitHubSession
-    response = mocker.MagicMock()
-    response.headers = {'x-ratelimit-remaining': '0'}
-    mock_sleep = mocker.patch('livecheck.utils.session.asyncio.sleep', new_callable=AsyncMock)
-    await _GitHubSession._park_if_depleted(response)
-    mock_sleep.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_park_if_depleted_returns_on_invalid_reset(mocker: MockerFixture) -> None:
-    from livecheck.utils.session import _GitHubSession
-    response = mocker.MagicMock()
-    response.headers = {'x-ratelimit-remaining': '0', 'x-ratelimit-reset': 'invalid'}
-    mock_sleep = mocker.patch('livecheck.utils.session.asyncio.sleep', new_callable=AsyncMock)
-    await _GitHubSession._park_if_depleted(response)
-    mock_sleep.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_park_if_depleted_skips_sleep_when_delay_zero(mocker: MockerFixture) -> None:
-    from livecheck.utils.session import _GitHubSession
+async def test_github_session_does_not_park_when_reset_in_past(mocker: MockerFixture) -> None:
+    """Past reset means delay <= 0, so no sleep happens."""
+    sem = asyncio.Semaphore(1)
+    session = build_github_session(sem)
     past_reset = str(time() - 100)
-    response = mocker.MagicMock()
-    response.headers = {'x-ratelimit-remaining': '0', 'x-ratelimit-reset': past_reset}
+    ok_exhausted = mocker.MagicMock()
+    ok_exhausted.status_code = HTTPStatus.OK
+    ok_exhausted.headers = {'x-ratelimit-remaining': '0', 'x-ratelimit-reset': past_reset}
+    mocker.patch('niquests_cache.AsyncCachedSession.request',
+                 new_callable=AsyncMock,
+                 return_value=ok_exhausted)
     mock_sleep = mocker.patch('livecheck.utils.session.asyncio.sleep', new_callable=AsyncMock)
-    await _GitHubSession._park_if_depleted(response)
+    await session.request('GET', 'https://api.github.com/test')
     mock_sleep.assert_not_called()
 
 
-def test_retry_after_seconds_returns_float() -> None:
-    from livecheck.utils.session import _GitHubSession
-    response = _fake_response(headers={'retry-after': '42'})
-    assert _GitHubSession._retry_after_seconds(response) == 42.0
+@pytest.mark.asyncio
+async def test_github_session_does_not_park_on_invalid_reset(mocker: MockerFixture) -> None:
+    sem = asyncio.Semaphore(1)
+    session = build_github_session(sem)
+    ok_exhausted = mocker.MagicMock()
+    ok_exhausted.status_code = HTTPStatus.OK
+    ok_exhausted.headers = {'x-ratelimit-remaining': '0', 'x-ratelimit-reset': 'invalid'}
+    mocker.patch('niquests_cache.AsyncCachedSession.request',
+                 new_callable=AsyncMock,
+                 return_value=ok_exhausted)
+    mock_sleep = mocker.patch('livecheck.utils.session.asyncio.sleep', new_callable=AsyncMock)
+    await session.request('GET', 'https://api.github.com/test')
+    mock_sleep.assert_not_called()
 
 
-def test_retry_after_seconds_returns_none_when_missing() -> None:
-    from livecheck.utils.session import _GitHubSession
-    response = _fake_response(headers={})
-    assert _GitHubSession._retry_after_seconds(response) is None
+@pytest.mark.asyncio
+async def test_github_session_does_not_park_when_no_reset_header(mocker: MockerFixture) -> None:
+    sem = asyncio.Semaphore(1)
+    session = build_github_session(sem)
+    ok_exhausted = mocker.MagicMock()
+    ok_exhausted.status_code = HTTPStatus.OK
+    ok_exhausted.headers = {'x-ratelimit-remaining': '0'}
+    mocker.patch('niquests_cache.AsyncCachedSession.request',
+                 new_callable=AsyncMock,
+                 return_value=ok_exhausted)
+    mock_sleep = mocker.patch('livecheck.utils.session.asyncio.sleep', new_callable=AsyncMock)
+    await session.request('GET', 'https://api.github.com/test')
+    mock_sleep.assert_not_called()
 
 
-def test_retry_after_seconds_returns_none_for_invalid_value() -> None:
-    from livecheck.utils.session import _GitHubSession
-    response = _fake_response(headers={'retry-after': 'not-a-number'})
-    assert _GitHubSession._retry_after_seconds(response) is None
+@pytest.mark.asyncio
+async def test_github_session_uses_reset_window_when_retry_after_absent(
+        mocker: MockerFixture) -> None:
+    """429 with no retry-after but remaining=0 + reset → sleep for the reset window."""
+    sem = asyncio.Semaphore(1)
+    session = build_github_session(sem)
+    future_reset = str(time() + 7)
+    rate_limited = mocker.MagicMock()
+    rate_limited.status_code = HTTPStatus.TOO_MANY_REQUESTS
+    rate_limited.headers = {'x-ratelimit-remaining': '0', 'x-ratelimit-reset': future_reset}
+    rate_limited.text = ''
+    ok_response = mocker.MagicMock()
+    ok_response.status_code = HTTPStatus.OK
+    ok_response.headers = {}
+    mocker.patch('niquests_cache.AsyncCachedSession.request',
+                 new_callable=AsyncMock,
+                 side_effect=[rate_limited, ok_response])
+    mock_sleep = mocker.patch('livecheck.utils.session.asyncio.sleep', new_callable=AsyncMock)
+    result = await session.request('GET', 'https://api.github.com/test')
+    assert result.status_code == HTTPStatus.OK
+    assert mock_sleep.call_args_list[0][0][0] > 0
+
+
+@pytest.mark.asyncio
+async def test_github_session_falls_back_to_backoff_on_invalid_reset(mocker: MockerFixture) -> None:
+    """429 with non-numeric reset → explicit_wait returns None, backoff path used."""
+    sem = asyncio.Semaphore(1)
+    session = build_github_session(sem)
+    rate_limited = mocker.MagicMock()
+    rate_limited.status_code = HTTPStatus.TOO_MANY_REQUESTS
+    rate_limited.headers = {'x-ratelimit-remaining': '0', 'x-ratelimit-reset': 'not-a-number'}
+    rate_limited.text = ''
+    ok_response = mocker.MagicMock()
+    ok_response.status_code = HTTPStatus.OK
+    ok_response.headers = {}
+    mocker.patch('niquests_cache.AsyncCachedSession.request',
+                 new_callable=AsyncMock,
+                 side_effect=[rate_limited, ok_response])
+    mock_sleep = mocker.patch('livecheck.utils.session.asyncio.sleep', new_callable=AsyncMock)
+    result = await session.request('GET', 'https://api.github.com/test')
+    assert result.status_code == HTTPStatus.OK
+    assert mock_sleep.call_args_list[0][0][0] == 60.0
+
+
+@pytest.mark.asyncio
+async def test_github_session_falls_back_to_backoff_on_invalid_retry_after(
+        mocker: MockerFixture) -> None:
+    """429 with non-numeric retry-after → backoff (retry_after_seconds returns None)."""
+    sem = asyncio.Semaphore(1)
+    session = build_github_session(sem)
+    rate_limited = mocker.MagicMock()
+    rate_limited.status_code = HTTPStatus.TOO_MANY_REQUESTS
+    rate_limited.headers = {'retry-after': 'not-a-number'}
+    rate_limited.text = ''
+    ok_response = mocker.MagicMock()
+    ok_response.status_code = HTTPStatus.OK
+    ok_response.headers = {}
+    mocker.patch('niquests_cache.AsyncCachedSession.request',
+                 new_callable=AsyncMock,
+                 side_effect=[rate_limited, ok_response])
+    mock_sleep = mocker.patch('livecheck.utils.session.asyncio.sleep', new_callable=AsyncMock)
+    result = await session.request('GET', 'https://api.github.com/test')
+    assert result.status_code == HTTPStatus.OK
+    assert mock_sleep.call_args_list[0][0][0] == 60.0
+
+
+@pytest.mark.asyncio
+async def test_github_session_backoff_when_no_rate_limit_headers(mocker: MockerFixture) -> None:
+    """429 with no rate-limit headers at all → secondary backoff."""
+    sem = asyncio.Semaphore(1)
+    session = build_github_session(sem)
+    rate_limited = mocker.MagicMock()
+    rate_limited.status_code = HTTPStatus.TOO_MANY_REQUESTS
+    rate_limited.headers = {}
+    rate_limited.text = ''
+    ok_response = mocker.MagicMock()
+    ok_response.status_code = HTTPStatus.OK
+    ok_response.headers = {}
+    mocker.patch('niquests_cache.AsyncCachedSession.request',
+                 new_callable=AsyncMock,
+                 side_effect=[rate_limited, ok_response])
+    mock_sleep = mocker.patch('livecheck.utils.session.asyncio.sleep', new_callable=AsyncMock)
+    result = await session.request('GET', 'https://api.github.com/test')
+    assert result.status_code == HTTPStatus.OK
+    assert mock_sleep.call_args_list[0][0][0] == 60.0
+
+
+@pytest.mark.asyncio
+async def test_github_session_does_not_retry_plain_403(mocker: MockerFixture) -> None:
+    """403 with no rate-limit signals should not trigger a retry."""
+    sem = asyncio.Semaphore(1)
+    session = build_github_session(sem)
+    forbidden = mocker.MagicMock()
+    forbidden.status_code = HTTPStatus.FORBIDDEN
+    forbidden.headers = {}
+    forbidden.text = 'forbidden'
+    mock_request = mocker.patch('niquests_cache.AsyncCachedSession.request',
+                                new_callable=AsyncMock,
+                                return_value=forbidden)
+    mocker.patch('livecheck.utils.session.asyncio.sleep', new_callable=AsyncMock)
+    result = await session.request('GET', 'https://api.github.com/test')
+    assert result.status_code == HTTPStatus.FORBIDDEN
+    assert mock_request.call_count == 1
+
+
+@pytest.mark.parametrize(
+    'body',
+    ['API rate limit exceeded', 'secondary rate limit triggered', 'abuse detection mechanism'])
+@pytest.mark.asyncio
+async def test_github_session_retries_on_403_body_hints(mocker: MockerFixture, body: str) -> None:
+    """403 whose body contains a rate-limit hint should retry."""
+    sem = asyncio.Semaphore(1)
+    session = build_github_session(sem)
+    forbidden = mocker.MagicMock()
+    forbidden.status_code = HTTPStatus.FORBIDDEN
+    forbidden.headers = {'retry-after': '0'}
+    forbidden.text = body
+    ok_response = mocker.MagicMock()
+    ok_response.status_code = HTTPStatus.OK
+    ok_response.headers = {}
+    mocker.patch('niquests_cache.AsyncCachedSession.request',
+                 new_callable=AsyncMock,
+                 side_effect=[forbidden, ok_response])
+    mocker.patch('livecheck.utils.session.asyncio.sleep', new_callable=AsyncMock)
+    result = await session.request('GET', 'https://api.github.com/test')
+    assert result.status_code == HTTPStatus.OK
+
+
+@pytest.mark.asyncio
+async def test_github_session_handles_response_with_unreadable_body(mocker: MockerFixture) -> None:
+    """A 403 whose .text raises UnicodeDecodeError must be treated as not-rate-limited."""
+    class _BadTextResponse:
+        status_code = HTTPStatus.FORBIDDEN
+        headers: dict[str, Any] = {}
+
+        @property
+        def text(self) -> str:
+            msg = 'bad'
+            raise UnicodeDecodeError('utf-8', b'', 0, 1, msg)
+
+    sem = asyncio.Semaphore(1)
+    session = build_github_session(sem)
+    mock_request = mocker.patch('niquests_cache.AsyncCachedSession.request',
+                                new_callable=AsyncMock,
+                                return_value=cast('niquests.Response', _BadTextResponse()))
+    mocker.patch('livecheck.utils.session.asyncio.sleep', new_callable=AsyncMock)
+    result = await session.request('GET', 'https://api.github.com/test')
+    assert result.status_code == HTTPStatus.FORBIDDEN
+    assert mock_request.call_count == 1

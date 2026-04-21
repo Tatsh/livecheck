@@ -15,11 +15,12 @@ if TYPE_CHECKING:
     from collections.abc import Collection, Iterable, Mapping
 
     from livecheck.settings_model import LivecheckSettings
+    from portage.dbapi import _AuxKey
 
-__all__ = ('P', 'catpkg_catpkgsplit', 'catpkgsplit2', 'compare_versions', 'fetch_ebuild',
-           'get_distdir', 'get_first_src_uri', 'get_highest_matches', 'get_last_version',
-           'get_repository_root_if_inside', 'remove_leading_zeros', 'sanitize_version',
-           'unpack_ebuild')
+__all__ = ('P', 'catpkg_catpkgsplit', 'catpkgsplit2', 'compare_versions', 'fetch_ebuild', 'get_aux',
+           'get_distdir', 'get_fetch_map', 'get_first_src_uri', 'get_highest_matches',
+           'get_last_version', 'get_repository_root_if_inside', 'remove_leading_zeros',
+           'sanitize_version', 'unpack_ebuild')
 
 P = portage.db[portage.root]['porttree'].dbapi
 """Portage tree database API instance.
@@ -40,8 +41,8 @@ def mask_version(cp: str, version: str, restrict_version: str | None = 'full') -
     return cp
 
 
-def get_highest_matches(names: Iterable[str], repo_root: Path | None,
-                        settings: LivecheckSettings) -> list[str]:
+async def get_highest_matches(names: Iterable[str], repo_root: Path | None,
+                              settings: LivecheckSettings) -> list[str]:
     """
     Get the highest matching versions for an iterable of package names.
 
@@ -63,7 +64,7 @@ def get_highest_matches(names: Iterable[str], repo_root: Path | None,
     result: dict[str, str] = {}
     version_counts: dict[str, int] = {}
     for name in names:
-        if not (matches := P.xmatch('match-all', name)):
+        if not (matches := await P.async_xmatch('match-all', name)):
             log.debug('Found no matches with xmatch("match-all").')
             continue
         for m in matches:
@@ -161,14 +162,53 @@ def catpkg_catpkgsplit(atom: str) -> tuple[str, str, str, str]:
     return f'{cat}/{pkg}', cat, pkg, ebuild_version
 
 
-def get_first_src_uri(match: str, search_dir: Path | None = None) -> str:
+async def get_aux(match: str, keys: Iterable[_AuxKey], mytree: str | None = None) -> list[str]:
+    """
+    Get ebuild metadata values via :py:func:`P.async_aux_get`.
+
+    Parameters
+    ----------
+    match : str
+        CPV string to look up.
+    keys : Iterable[str]
+        Ebuild metadata keys to fetch (e.g. ``SRC_URI``, ``HOMEPAGE``).
+    mytree : str | None
+        Canonical path of the tree in which the ebuild is located, or ``None`` for automatic
+        lookup.
+
+    Returns
+    -------
+    list[str]
+        Values for the requested keys, in order.
+    """
+    return await P.async_aux_get(match, list(keys), mytree=mytree)
+
+
+async def get_fetch_map(cpv: str) -> dict[str, tuple[str, ...]]:
+    """
+    Get the ``SRC_URI`` fetch map via :py:func:`P.async_fetch_map`.
+
+    Parameters
+    ----------
+    cpv : str
+        CPV string for an ebuild.
+
+    Returns
+    -------
+    dict[str, tuple[str, ...]]
+        Mapping of each file name to a tuple of alternative URIs.
+    """
+    return await P.async_fetch_map(cpv)
+
+
+async def get_first_src_uri(match: str, search_dir: Path | None = None) -> str:
     """
     Get the first source URI for a match string.
 
     Parameters
     ----------
     match : str
-        Match string passed to :py:func:`P.aux_get`.
+        Match string passed to :py:func:`P.async_aux_get`.
     search_dir : Path | None
         Directory to search in, or ``None`` to use the default.
 
@@ -178,9 +218,8 @@ def get_first_src_uri(match: str, search_dir: Path | None = None) -> str:
         The first source URI, or an empty string if none is found.
     """
     try:
-        if (found_uri := next((uri for uri in chain(
-                *(x.split()
-                  for x in map(str, P.aux_get(match, ['SRC_URI'], mytree=str(search_dir)))))
+        values = await P.async_aux_get(match, ['SRC_URI'], mytree=str(search_dir))
+        if (found_uri := next((uri for uri in chain(*(x.split() for x in map(str, values)))
                                if uri.startswith(('http://', 'https://', 'mirror://', 'ftp://'))),
                               None)):
             return found_uri
@@ -386,7 +425,7 @@ def normalize_version(ver: str) -> str:
     return main
 
 
-def _pad_version_components(ver1: str, ver2: str) -> tuple[str, str]:
+def pad_version_components(ver1: str, ver2: str) -> tuple[str, str]:
     parts1 = ver1.split('.')
     parts2 = ver2.split('.')
     new_parts1 = list(parts1)
@@ -419,7 +458,7 @@ def compare_versions(old: str, new: str) -> bool:
     bool
         ``True`` if the old version is less than the new version, ``False`` otherwise.
     """
-    old_padded, new_padded = _pad_version_components(old, new)
+    old_padded, new_padded = pad_version_components(old, new)
     return bool(vercmp(old_padded, new_padded) == -1)
 
 

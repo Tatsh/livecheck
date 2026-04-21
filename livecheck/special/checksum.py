@@ -4,6 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 import re
 
+from anyio import Path as AnyioPath
 from livecheck.utils import get_content, get_last_modified, hash_url
 from livecheck.utils.portage import catpkg_catpkgsplit
 
@@ -50,9 +51,10 @@ async def get_latest_checksum_package(
     bn = Path(url).name
 
     # Gather all DIST line matches first
-    dist_lines: list[re.Match[str]] = []
-    with Path(manifest_file).open(encoding='utf-8') as f:
-        dist_lines.extend(m for line in f if (m := PATTERN.match(line)))
+    manifest_text = await AnyioPath(manifest_file).read_text(encoding='utf-8')
+    dist_lines: list[re.Match[str]] = [
+        m for line in manifest_text.splitlines() if (m := PATTERN.match(line))
+    ]
 
     # If only one DIST entry, check it regardless of filename
     if len(dist_lines) == 1:
@@ -130,13 +132,12 @@ async def update_checksum_metadata(ebuild: str,
     bn = Path(url).name
 
     async with EbuildTempFile(str(manifest_file)) as temp_file:
-        with (
-                temp_file.open('w', encoding='utf-8') as tf,
-                Path(manifest_file).open('r', encoding='utf-8') as f,
-        ):
-            for line in f:
-                m = PATTERN.match(line)
-                if m and m.group('file') == bn:
-                    tf.write(f'DIST {bn} {size} BLAKE2B {blake2} SHA512 {sha512}\n')
-                else:
-                    tf.write(line)
+        manifest_text = await AnyioPath(manifest_file).read_text(encoding='utf-8')
+        out_lines: list[str] = []
+        for line in manifest_text.splitlines(keepends=True):
+            m = PATTERN.match(line)
+            if m and m.group('file') == bn:
+                out_lines.append(f'DIST {bn} {size} BLAKE2B {blake2} SHA512 {sha512}\n')
+            else:
+                out_lines.append(line)
+        await AnyioPath(temp_file).write_text(''.join(out_lines), encoding='utf-8')

@@ -1,7 +1,6 @@
 """Main command."""
 from __future__ import annotations
 
-from functools import cache
 from itertools import starmap
 from os import chdir
 from pathlib import Path
@@ -116,11 +115,12 @@ from .special.sourcehut import (
 from .special.yarn import check_yarn_requirements, update_yarn_ebuild
 from .utils import check_program, close_sessions, extract_sha, get_content, init_sessions, is_sha
 from .utils.portage import (
-    P,
     catpkg_catpkgsplit,
     catpkgsplit2,
     compare_versions,
     digest_ebuild,
+    get_aux,
+    get_fetch_map,
     get_first_src_uri,
     get_highest_matches,
     get_repository_root_if_inside,
@@ -137,7 +137,6 @@ log = logging.getLogger(__name__)
 __all__ = ('main',)
 
 
-@cache
 def _resolved_executable(name: str) -> str:
     """
     Resolve an executable name to an absolute path from ``PATH``.
@@ -403,7 +402,7 @@ async def _check_one_package(  # noqa: C901, PLR0912, PLR0914
     if catpkg in exclude or pkg in exclude:
         log.debug('Ignoring %s.', catpkg)
         return None
-    src_uri = get_first_src_uri(match, repo_root)
+    src_uri = await get_first_src_uri(match, repo_root)
     if cat.startswith(('acct-', 'virtual')) or settings.type_packages.get(catpkg) == TYPE_NONE:
         log.debug('Ignoring %s.', catpkg)
         return None
@@ -417,7 +416,7 @@ async def _check_one_package(  # noqa: C901, PLR0912, PLR0914
     if branch:
         settings.branches[catpkg] = branch
     if catpkg in settings.sync_version:
-        matches_sync = get_highest_matches([settings.sync_version[catpkg]], None, settings)
+        matches_sync = await get_highest_matches([settings.sync_version[catpkg]], None, settings)
         if not matches_sync:
             log.error('No matches for %s.', catpkg)
             return None
@@ -476,10 +475,8 @@ async def _check_one_package(  # noqa: C901, PLR0912, PLR0914
         if not last_version and not top_hash:
             last_version, top_hash, hash_date, url = await parse_metadata(
                 str(repo_root), match, settings)
-        homes = [
-            x for x in ' '.join(P.aux_get(match, ['HOMEPAGE'], mytree=str(repo_root))).split(' ')
-            if x
-        ]
+        homepage = ' '.join(await get_aux(match, ['HOMEPAGE'], mytree=str(repo_root)))
+        homes = [x for x in homepage.split(' ') if x]
         for home in homes:
             if not last_version and not top_hash:
                 last_version, top_hash, hash_date, url = await parse_url(home,
@@ -538,9 +535,9 @@ async def get_props(search_dir: Path,
     if not names:
         names = [
             f'{path.parent.parent.name}/{path.parent.name}'
-            for path in search_dir.glob('**/*.ebuild')
+            async for path in AnyioPath(search_dir).glob('**/*.ebuild')
         ]
-    matches_list = sorted(get_highest_matches(names, repo_root, settings))
+    matches_list = sorted(await get_highest_matches(names, repo_root, settings))
     log.info('Found %d ebuild%s.', len(matches_list), 's' if len(matches_list) != 1 else '')
     if not matches_list:
         log.error('No matches!')
@@ -661,9 +658,9 @@ async def _recover_ebuild(new_filename: str, ebuild: Path, cp: str, search_dir: 
                                                             new_filename, str(ebuild))
                 await proc.wait()
             else:
-                Path(new_filename).rename(ebuild)
+                await AnyioPath(new_filename).rename(ebuild)
         else:
-            Path(new_filename).unlink(missing_ok=True)
+            await AnyioPath(new_filename).unlink(missing_ok=True)
         if settings.git_flag:
             manifest_path = str(Path(search_dir) / cp / 'Manifest')
             proc = await asyncio.create_subprocess_exec(_resolved_executable('git'), 'checkout',
@@ -775,7 +772,7 @@ async def do_main(  # noqa: C901, PLR0912, PLR0914, PLR0915
             await execute_hooks(hook_dir, 'pre', search_dir, cp, ebuild_version, last_version,
                                 old_sha, top_hash, hash_date)
             digest_ebuild(new_filename)
-            fetchlist = P.getFetchMap(f'{cp}-{last_version}')
+            fetchlist = await get_fetch_map(f'{cp}-{last_version}')
             old_content = content
             if cp in settings.gomodule_packages:
                 content = remove_gomodule_url(content)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from anyio import Path as AnyioPath
 from livecheck.special.jetbrains import (
     get_latest_jetbrains_package,
     is_jetbrains,
@@ -168,35 +169,38 @@ async def test_get_latest_jetbrains_package_includes_eap_and_rc_if_devel(
     assert result == '2023.3'
 
 
-@pytest.mark.asyncio
+def _patch_jetbrains_temp_file(mocker: MockerFixture, ebuild_path: Path,
+                               initial: str) -> dict[str, str]:
+    ebuild_path.write_text(initial, encoding='utf-8')
+    written: dict[str, str] = {}
+
+    class _FakeTempFile:
+        def __init__(self, _ebuild: str) -> None:
+            self._path = ebuild_path
+
+        async def __aenter__(self) -> Path:
+            return self._path
+
+        async def __aexit__(self, *_: object) -> None:
+            written['text'] = await AnyioPath(ebuild_path).read_text(encoding='utf-8')
+
+    mocker.patch('livecheck.special.jetbrains.EbuildTempFile', _FakeTempFile)
+    return written
+
+
 async def test_update_jetbrains_ebuild_updates_my_pv_line(mocker: MockerFixture,
                                                           tmp_path: Path) -> None:
-    # Setup
     ebuild_path = tmp_path / 'fake-ebuild.ebuild'
     fake_version = '2024.1'
     fake_package_path = f'/some/path/product-{fake_version}'
-    # Patch search_ebuild to return a path containing the version
     mocker.patch('livecheck.special.jetbrains.search_ebuild',
                  return_value=(fake_package_path, None))
-    # Patch EbuildTempFile context manager
-    mock_temp_file = mocker.MagicMock()
-    mock_temp_file.__aenter__ = mocker.AsyncMock(return_value=mock_temp_file)
-    mock_temp_file.__aexit__ = mocker.AsyncMock(return_value=None)
-    mocker.patch('livecheck.special.jetbrains.EbuildTempFile', return_value=mock_temp_file)
-    # Patch open for both temp_file and Path(ebuild)
-    mock_write = mocker.mock_open()
-    mock_read = mocker.mock_open(read_data='MY_PV="old"\nSOME=other\n')
-    mocker.patch('pathlib.Path.open', mock_read)
-    mock_temp_file.open = mocker.MagicMock(return_value=mock_write())
-    # Run
+    written = _patch_jetbrains_temp_file(mocker, ebuild_path, 'MY_PV="old"\nSOME=other\n')
     await update_jetbrains_ebuild(str(ebuild_path))
-    # Assert
-    handle = mock_temp_file.open.return_value
-    handle.write.assert_any_call(f'MY_PV="{fake_version}"\n')
-    handle.write.assert_any_call('SOME=other\n')
+    assert f'MY_PV="{fake_version}"\n' in written['text']
+    assert 'SOME=other\n' in written['text']
 
 
-@pytest.mark.asyncio
 async def test_update_jetbrains_ebuild_no_version_found(mocker: MockerFixture,
                                                         tmp_path: Path) -> None:
     ebuild_path = tmp_path / 'fake-ebuild.ebuild'
@@ -207,7 +211,6 @@ async def test_update_jetbrains_ebuild_no_version_found(mocker: MockerFixture,
     mock_logger.warning.assert_called_once_with('No version found in the tar.gz file.')
 
 
-@pytest.mark.asyncio
 async def test_update_jetbrains_ebuild_handles_no_my_pv_line(mocker: MockerFixture,
                                                              tmp_path: Path) -> None:
     ebuild_path = tmp_path / 'fake-ebuild.ebuild'
@@ -215,17 +218,9 @@ async def test_update_jetbrains_ebuild_handles_no_my_pv_line(mocker: MockerFixtu
     fake_package_path = f'/some/path/product-{fake_version}'
     mocker.patch('livecheck.special.jetbrains.search_ebuild',
                  return_value=(fake_package_path, None))
-    mock_temp_file = mocker.MagicMock()
-    mock_temp_file.__aenter__ = mocker.AsyncMock(return_value=mock_temp_file)
-    mock_temp_file.__aexit__ = mocker.AsyncMock(return_value=None)
-    mocker.patch('livecheck.special.jetbrains.EbuildTempFile', return_value=mock_temp_file)
-    mock_write = mocker.mock_open()
-    mock_read = mocker.mock_open(read_data='SOME=other\n')
-    mocker.patch('pathlib.Path.open', mock_read)
-    mock_temp_file.open = mocker.MagicMock(return_value=mock_write())
+    written = _patch_jetbrains_temp_file(mocker, ebuild_path, 'SOME=other\n')
     await update_jetbrains_ebuild(str(ebuild_path))
-    handle = mock_temp_file.open.return_value
-    handle.write.assert_any_call('SOME=other\n')
+    assert 'SOME=other\n' in written['text']
 
 
 def test_is_jetbrains_true_for_download_url(mocker: MockerFixture) -> None:

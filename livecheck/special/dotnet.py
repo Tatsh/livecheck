@@ -9,6 +9,7 @@ import logging
 import re
 import tempfile
 
+from anyio import Path as AnyioPath
 from livecheck.utils import check_program
 
 from .utils import EbuildTempFile, search_ebuild
@@ -113,42 +114,43 @@ async def update_dotnet_ebuild(ebuild: str, project_or_solution: str | Path) -> 
     nugets_starting_line = None
 
     async with EbuildTempFile(ebuild) as temp_file:
-        with temp_file.open('w', encoding='utf-8') as tf:
-            with Path(ebuild).open('r', encoding='utf-8') as f:
-                lines = f.readlines()
+        ebuild_text = await AnyioPath(ebuild).read_text(encoding='utf-8')
+        lines = ebuild_text.splitlines(keepends=True)
 
-            for line_no, line in enumerate(lines, start=1):
-                if line.startswith('NUGETS="'):
-                    nugets_starting_line = line_no
-                    if in_nugets:
-                        raise RuntimeError
-                    in_nugets = True
-                elif in_nugets:
-                    if line.endswith('"\n'):
-                        in_nugets = False
-                        skip_lines = line_no
-                        break
-            if not nugets_starting_line:
-                raise NoNugetsFound
-            if not skip_lines:
-                raise NoNugetsEnding
-
-            in_nugets = False
-            for line in lines:
-                if line.startswith('NUGETS="'):
-                    tf.write('NUGETS="')
-                    in_nugets = True
-                elif in_nugets:
-                    for new_line_no, pkg in enumerate(new_nugets_lines, start=1):
-                        match new_line_no:
-                            case 1:
-                                tf.write(f'{pkg}\n')
-                            case _:
-                                tf.write(f'\t{pkg}"\n' if last_line_no ==
-                                         new_line_no else f'\t{pkg}\n')
+        for line_no, line in enumerate(lines, start=1):
+            if line.startswith('NUGETS="'):
+                nugets_starting_line = line_no
+                if in_nugets:
+                    raise RuntimeError
+                in_nugets = True
+            elif in_nugets:
+                if line.endswith('"\n'):
                     in_nugets = False
-                else:
-                    tf.write(line)
+                    skip_lines = line_no
+                    break
+        if not nugets_starting_line:
+            raise NoNugetsFound
+        if not skip_lines:
+            raise NoNugetsEnding
+
+        in_nugets = False
+        out: list[str] = []
+        for line in lines:
+            if line.startswith('NUGETS="'):
+                out.append('NUGETS="')
+                in_nugets = True
+            elif in_nugets:
+                for new_line_no, pkg in enumerate(new_nugets_lines, start=1):
+                    match new_line_no:
+                        case 1:
+                            out.append(f'{pkg}\n')
+                        case _:
+                            out.append(f'\t{pkg}"\n' if last_line_no ==
+                                       new_line_no else f'\t{pkg}\n')
+                in_nugets = False
+            else:
+                out.append(line)
+        await AnyioPath(temp_file).write_text(''.join(out), encoding='utf-8')
 
 
 def check_dotnet_requirements() -> bool:

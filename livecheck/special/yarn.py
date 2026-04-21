@@ -3,12 +3,13 @@ from __future__ import annotations
 
 from pathlib import Path
 from shutil import copyfile, which
-from typing import TYPE_CHECKING, TextIO, TypedDict, cast
+from typing import TYPE_CHECKING, TypedDict, cast
 import asyncio
 import json
 import logging
 import re
 
+from anyio import Path as AnyioPath
 from livecheck.utils import check_program
 from typing_extensions import NotRequired
 
@@ -97,11 +98,19 @@ def yarn_pkgs(lockfile: Lockfile) -> Iterator[str]:
         yield f'{dep_name}-{val["version"]}'
 
 
-def _write_yarn_packages(tf: TextIO, lockfile: Lockfile, package_re: re.Pattern[str]) -> None:
-    """Write sorted yarn packages to the temp file."""
-    tf.writelines(f'\t{new_pkg}\n'
-                  for new_pkg in sorted(set(yarn_pkgs(lockfile)),
-                                        key=lambda x: -1 if re.match(package_re, x) else 0))
+def _yarn_package_lines(lockfile: Lockfile, package_re: re.Pattern[str]) -> list[str]:
+    """
+    Return sorted yarn package lines.
+
+    Returns
+    -------
+    list[str]
+        Tab-indented, newline-terminated package lines sorted with the base package first.
+    """
+    return [
+        f'\t{new_pkg}\n' for new_pkg in sorted(set(yarn_pkgs(lockfile)),
+                                               key=lambda x: -1 if re.match(package_re, x) else 0)
+    ]
 
 
 async def update_yarn_ebuild(ebuild: str,
@@ -121,28 +130,27 @@ async def update_yarn_ebuild(ebuild: str,
     package_re = re.compile(r'^' + re.escape(yarn_base_package) + r'-[0-9]+')
     in_yarn_pkgs = False
     written_new_pkgs = False
-    async with EbuildTempFile(ebuild) as temp_file:  # noqa: PLR1702
-        with (
-                temp_file.open('w', encoding='utf-8') as tf,
-                Path(ebuild).open('r', encoding='utf-8') as f,
-        ):
-            for line in f:
-                if line.startswith('YARN_PKGS=('):
-                    tf.write(line)
-                    if in_yarn_pkgs:
-                        raise RuntimeError
-                    in_yarn_pkgs = True
-                elif in_yarn_pkgs:
-                    if line.strip() == ')':
-                        if not written_new_pkgs:
-                            _write_yarn_packages(tf, lockfile, package_re)
-                        in_yarn_pkgs = False
-                        tf.write(line)
-                    elif not written_new_pkgs:
-                        _write_yarn_packages(tf, lockfile, package_re)
-                        written_new_pkgs = True
-                else:
-                    tf.write(line)
+    async with EbuildTempFile(ebuild) as temp_file:
+        ebuild_text = await AnyioPath(ebuild).read_text(encoding='utf-8')
+        out: list[str] = []
+        for line in ebuild_text.splitlines(keepends=True):
+            if line.startswith('YARN_PKGS=('):
+                out.append(line)
+                if in_yarn_pkgs:
+                    raise RuntimeError
+                in_yarn_pkgs = True
+            elif in_yarn_pkgs:
+                if line.strip() == ')':
+                    if not written_new_pkgs:
+                        out.extend(_yarn_package_lines(lockfile, package_re))
+                    in_yarn_pkgs = False
+                    out.append(line)
+                elif not written_new_pkgs:
+                    out.extend(_yarn_package_lines(lockfile, package_re))
+                    written_new_pkgs = True
+            else:
+                out.append(line)
+        await AnyioPath(temp_file).write_text(''.join(out), encoding='utf-8')
     for item in ('package.json', 'yarn.lock'):
         target = Path(ebuild).parent / 'files' / f'{Path(pkg).name}-{item}'
         copyfile(project_path / item, target)

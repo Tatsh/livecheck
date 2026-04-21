@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 
+from anyio import Path as AnyioPath
 from livecheck.special.golang import InvalidGoSumURITemplate, update_go_ebuild
 import pytest
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from pytest_mock import MockerFixture
 
 
@@ -36,7 +38,7 @@ async def test_update_go_ebuild_success(mocker: MockerFixture, ebuild_file: str)
         'pkg2 v2.3.4/go.mod h256:uvw')
     mocker.patch('livecheck.special.golang.get_content', return_value=mock_response)
     await update_go_ebuild(ebuild_file, '1.2.3', 'https://example/@PV@/@SHA@/gosum')
-    content = Path(ebuild_file).read_text(encoding='utf-8')
+    content = await AnyioPath(ebuild_file).read_text(encoding='utf-8')
     assert 'EGO_SUM=(' in content
     assert '"pkg1 v1.2.3"' in content
     assert '"pkg2 v2.3.4"' in content
@@ -70,7 +72,7 @@ async def test_update_go_ebuild_no_content(mocker: MockerFixture, ebuild_file: s
     mocker.patch('livecheck.special.golang.get_content', return_value=None)
     await update_go_ebuild(ebuild_file, '1.2.3', 'https://example/@PV@/@SHA@/gosum')
     # Should not change the file
-    content = Path(ebuild_file).read_text(encoding='utf-8')
+    content = await AnyioPath(ebuild_file).read_text(encoding='utf-8')
     assert '"old-pkg v1.0.0"' in content
 
 
