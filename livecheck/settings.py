@@ -283,28 +283,28 @@ def check_instance(
         path: str | object,
         specific_value: bool | int | str | None = None) -> None:  # noqa: FBT001
     is_type = False
-    if dtype == 'bool':
-        is_type = isinstance(value, bool)
-    elif dtype == 'int':
-        is_type = isinstance(value, int)
-    elif dtype == 'string':
-        is_type = isinstance(value, str)
-    elif dtype == 'none':
-        is_type = value is None
-    elif dtype == 'list':
-        is_type = isinstance(value, list)
-    elif dtype == 'dict':
-        is_type = isinstance(value, dict)
-    elif dtype == 'url':
-        if isinstance(value, str):
+    match dtype:
+        case 'bool':
+            is_type = isinstance(value, bool)
+        case 'int':
+            is_type = isinstance(value, int)
+        case 'string':
+            is_type = isinstance(value, str)
+        case 'none':
+            is_type = value is None
+        case 'list':
+            is_type = isinstance(value, list)
+        case 'dict':
+            is_type = isinstance(value, dict)
+        case 'url' if isinstance(value, str):
             parsed_url = urlparse(value)
             is_type = all([parsed_url.scheme, parsed_url.netloc])
-    elif dtype == 'regex' and isinstance(value, str):
-        try:
-            re.compile(value)
-            is_type = True
-        except re.error:
-            is_type = False
+        case 'regex' if isinstance(value, str):
+            try:
+                re.compile(value)
+                is_type = True
+            except re.error:
+                is_type = False
 
     if not is_type:
         log.error('value "%s" in key "%s" is not of type "%s" in file "%s.', value, key, dtype,
