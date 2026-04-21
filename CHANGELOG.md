@@ -18,7 +18,6 @@ and this project adheres to
 
 ### Changed
 
-- Only update ebuilds when a package has 2 or more non-9999 versions. #423
 - Filter tags with long unrecognized suffixes (>10 characters) when they have trailing digits. #423
 - Filter `^vcpkg-.*` tags to prevent incorrect version detection for rpcs3. #423
 - Improved version padding to handle shorter versions correctly. #427

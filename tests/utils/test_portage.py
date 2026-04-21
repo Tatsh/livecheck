@@ -210,8 +210,7 @@ async def test_get_highest_matches_ignores_9999(mocker: MockerFixture) -> None:
     assert result == []
 
 
-async def test_get_highest_matches_single_version_excluded(mocker: MockerFixture) -> None:
-    """Test that packages with only one version are excluded."""
+async def test_get_highest_matches_single_version_included(mocker: MockerFixture) -> None:
     mock_p = mocker.patch('livecheck.utils.portage.P')
     mock_p.async_xmatch = mocker.AsyncMock()
     mock_p.async_xmatch.return_value = ['cat/pkg-1.2.3']
@@ -223,11 +222,10 @@ async def test_get_highest_matches_single_version_excluded(mocker: MockerFixture
     dummy_settings = mocker.Mock()
     dummy_settings.restrict_version = {}
     result = await get_highest_matches(names, repo_root, dummy_settings)
-    assert result == []
+    assert result == ['cat/pkg-1.2.3']
 
 
-async def test_get_highest_matches_9999_not_counted(mocker: MockerFixture) -> None:
-    """Test that 9999 versions don't count toward the version count."""
+async def test_get_highest_matches_9999_ignored(mocker: MockerFixture) -> None:
     mock_p = mocker.patch('livecheck.utils.portage.P')
     mock_p.async_xmatch = mocker.AsyncMock()
     mock_p.async_xmatch.return_value = ['cat/pkg-1.2.3', 'cat/pkg-9999']
@@ -244,12 +242,10 @@ async def test_get_highest_matches_9999_not_counted(mocker: MockerFixture) -> No
     dummy_settings = mocker.Mock()
     dummy_settings.restrict_version = {}
     result = await get_highest_matches(names, repo_root, dummy_settings)
-    # Should be empty because only 1 non-9999 version exists
-    assert result == []
+    assert result == ['cat/pkg-1.2.3']
 
 
 async def test_get_highest_matches_multiple_versions_included(mocker: MockerFixture) -> None:
-    """Test that packages with 2+ versions are included."""
     mock_p = mocker.patch('livecheck.utils.portage.P')
     mock_p.async_xmatch = mocker.AsyncMock()
     mock_p.async_xmatch.return_value = ['cat/pkg-1.2.3', 'cat/pkg-1.2.2', 'cat/pkg-1.2.1']
@@ -272,7 +268,6 @@ async def test_get_highest_matches_multiple_versions_included(mocker: MockerFixt
 
 
 async def test_get_highest_matches_with_9999_and_multiple_versions(mocker: MockerFixture) -> None:
-    """Test package with multiple non-9999 versions and a 9999 version."""
     mock_p = mocker.patch('livecheck.utils.portage.P')
     mock_p.async_xmatch = mocker.AsyncMock()
     mock_p.async_xmatch.return_value = ['cat/pkg-1.2.3', 'cat/pkg-1.2.2', 'cat/pkg-9999']
@@ -291,7 +286,6 @@ async def test_get_highest_matches_with_9999_and_multiple_versions(mocker: Mocke
     dummy_settings = mocker.Mock()
     dummy_settings.restrict_version = {}
     result = await get_highest_matches(names, repo_root, dummy_settings)
-    # Should include the package because there are 2 non-9999 versions
     assert result == ['cat/pkg-1.2.3']
 
 

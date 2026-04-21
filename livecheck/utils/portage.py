@@ -29,9 +29,6 @@ P = portage.db[portage.root]['porttree'].dbapi
 """
 log = logging.getLogger(__name__)
 
-# Minimum number of ebuild versions required to process a package for updates.
-MIN_EBUILD_COUNT = 2
-
 
 def mask_version(cp: str, version: str, restrict_version: str | None = 'full') -> str:
     if restrict_version == 'major':
@@ -62,7 +59,6 @@ async def get_highest_matches(names: Iterable[str], repo_root: Path | None,
     """
     log.debug('Searching for %s.', ', '.join(names))
     result: dict[str, str] = {}
-    version_counts: dict[str, int] = {}
     for name in names:
         if not (matches := await P.async_xmatch('match-all', name)):
             log.debug('Found no matches with xmatch("match-all").')
@@ -87,17 +83,10 @@ async def get_highest_matches(names: Iterable[str], repo_root: Path | None,
             restrict_version = settings.restrict_version.get(name, 'full')
             cp_mask = mask_version(cp_a, version, restrict_version)
 
-            # Count non-9999 versions for each package.
-            version_counts[cp_mask] = version_counts.get(cp_mask, 0) + 1
-
             if cp_mask not in result or (vercmp(version, result[cp_mask]) or 0) > 0:
                 result[cp_mask] = version
 
-    # Only include packages with 2 or more non-9999 versions.
-    return [
-        f'{cp}-{version}' for cp, version in result.items()
-        if version_counts.get(cp, 0) >= MIN_EBUILD_COUNT
-    ]
+    return [f'{cp}-{version}' for cp, version in result.items()]
 
 
 CATPKGSPLIT_SIZE = 4
