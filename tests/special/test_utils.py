@@ -262,8 +262,8 @@ async def test_build_compress(mocker: MockerFixture, temp_dir: str, base_dir: st
 async def test_ebuild_tempfile_context_manager_success(mocker: MockerFixture) -> None:
     ebuild_path = '/tmp/test.ebuild'
     temp_file_path = '/tmp/test-abcdef.ebuild'
-    mock_tempfile = mocker.patch('tempfile.NamedTemporaryFile')
-    mock_tempfile.return_value.name = temp_file_path
+    mocker.patch('tempfile.mkstemp', return_value=(0, temp_file_path))
+    mocker.patch('os.close')
     mock_ebuild = AsyncMock()
     mock_ebuild.unlink = AsyncMock()
     mock_temp = AsyncMock()
@@ -286,8 +286,8 @@ async def test_ebuild_tempfile_context_manager_success(mocker: MockerFixture) ->
 async def test_ebuild_tempfile_tempfile_empty(mocker: MockerFixture) -> None:
     ebuild_path = '/tmp/test.ebuild'
     temp_file_path = '/tmp/test-abcdef.ebuild'
-    mock_tempfile = mocker.patch('tempfile.NamedTemporaryFile')
-    mock_tempfile.return_value.name = temp_file_path
+    mocker.patch('tempfile.mkstemp', return_value=(0, temp_file_path))
+    mocker.patch('os.close')
     mock_ebuild = AsyncMock()
     mock_ebuild.unlink = AsyncMock()
     mock_temp = AsyncMock()

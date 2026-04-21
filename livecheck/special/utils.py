@@ -205,13 +205,10 @@ class EbuildTempFile:
         pathlib.Path
             Path to the writable temporary file.
         """
-        name = tempfile.NamedTemporaryFile(  # noqa: SIM115
-            mode='w',
-            prefix=self._std_ebuild.stem,
-            suffix=self._std_ebuild.suffix,
-            delete=False,
-            dir=str(self._std_ebuild.parent),
-            encoding='utf-8').name
+        fd, name = tempfile.mkstemp(prefix=self._std_ebuild.stem,
+                                    suffix=self._std_ebuild.suffix,
+                                    dir=str(self._std_ebuild.parent))
+        os.close(fd)
         self.temp_file = AnyioPath(name)
         return Path(name)
 
