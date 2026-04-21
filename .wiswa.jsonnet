@@ -8,8 +8,8 @@ local utils = import 'utils.libjsonnet';
   project_name: 'livecheck',
   version: '0.1.4',
   want_main: true,
-  want_flatpak: true,
-  publishing+: { flathub: 'sh.tat.livecheck' },
+  want_flatpak: false,
+  want_snap: false,
   gitignore+: [
     '.history',
     '.idea',
@@ -17,6 +17,11 @@ local utils = import 'utils.libjsonnet';
   supported_platforms: 'linux',
   pyproject+: {
     tool+: {
+      pytest+: {
+        ini_options+: {
+          asyncio_mode: 'auto',
+        },
+      },
       coverage+: {
         report+: {
           omit+: [
@@ -44,7 +49,7 @@ local utils = import 'utils.libjsonnet';
         group+: {
           dev+: {
             dependencies+: {
-              'portage-stubs': '^0',
+              'portage-stubs': utils.latestPypiPackageVersionCaret('portage-stubs'),
               'types-beautifulsoup4': utils.latestPypiPackageVersionCaret('types-beautifulsoup4'),
               'types-defusedxml': utils.latestPypiPackageVersionCaret('types-defusedxml'),
             },
@@ -52,8 +57,16 @@ local utils = import 'utils.libjsonnet';
           tests+: {
             dependencies+: {
               'niquests-mock': utils.latestPypiPackageVersionCaret('niquests-mock'),
+              'pytest-asyncio': utils.latestPypiPackageVersionCaret('pytest-asyncio'),
             },
           },
+        },
+      },
+      uv+: {
+        'exclude-newer-package': {
+          'niquests-cache': false,
+          'niquests-mock': false,
+          'portage-stubs': false,
         },
       },
     },

@@ -31,7 +31,7 @@ jobs:
           tag="$HEAD_BRANCH"
           sha="$HEAD_SHA"
           all_success=true
-          for workflow in AppImage Flatpak Prettier Publish QA Snap Spelling Tests markdownlint; do
+          for workflow in AppImage Prettier Publish QA Spelling Tests markdownlint; do
             run=$(gh run list --workflow "$workflow" --commit "$sha" --json status,conclusion --jq '.[0]')
             if [[ -z "$run" || "$run" == 'null' ]]; then
               echo "Workflow '$workflow' did not run for this commit; treating as optional."
@@ -121,11 +121,9 @@ name: 'Release'
       - 'completed'
     workflows:
       - 'AppImage'
-      - 'Flatpak'
       - 'Prettier'
       - 'Publish'
       - 'QA'
-      - 'Snap'
       - 'Spelling'
       - 'Tests'
       - 'markdownlint'

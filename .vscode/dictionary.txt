@@ -1,6 +1,6 @@
 anchore
-anyio
 Ångström
+anyio
 appauthor
 appdir
 appimage
@@ -10,8 +10,8 @@ asmjit
 asyncio
 atrac
 autodoc
-autouse
 automodule
+autouse
 bascom
 beautifulsoup
 beefcafe
@@ -121,12 +121,12 @@ nestedsha
 netcore
 newbeef
 newcafe
+niquests
 norecursedirs
 notroj
 npmjs
 ntasos
 nuanceur
-niquests
 nugets
 numpy
 numpydoc
@@ -146,8 +146,8 @@ pkgs
 platformdirs
 plistlib
 portdir
-proc
 porttree
+proc
 psvpfsparser
 psvpfstools
 pycache
