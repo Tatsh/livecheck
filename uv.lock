@@ -9,7 +9,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-04-14T06:55:55.673231365Z"
+exclude-newer = "2026-04-14T08:00:41.595179226Z"
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
@@ -1196,7 +1196,7 @@ requires-dist = [
     { name = "html5lib", specifier = ">=1.1" },
     { name = "keyring", specifier = ">=25.7.0" },
     { name = "niquests", specifier = ">=3.18.6" },
-    { name = "niquests-cache", specifier = ">=0.0.3" },
+    { name = "niquests-cache", specifier = ">=0.2.2" },
     { name = "platformdirs", specifier = ">=4.9.6" },
     { name = "portage", specifier = ">=3.0.77" },
     { name = "typing-extensions", specifier = ">=4.15.0" },
@@ -1528,7 +1528,7 @@ wheels = [
 
 [[package]]
 name = "niquests-cache"
-version = "0.2.1"
+version = "0.2.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiosqlite" },
@@ -1537,9 +1537,9 @@ dependencies = [
     { name = "platformdirs" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0c/1b/420574085f726e310de07eaf4693921498e4ce1faaeddcdae97ccefae65a/niquests_cache-0.2.1.tar.gz", hash = "sha256:2e201ab7e8c3ba1cb7f79f48ed99083fa7725305536c1d1a58ad6388db419ca6", size = 22870, upload-time = "2026-04-20T07:01:21.689Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/72/92/9932df20668a075b56c173e26a5877ffd6fb72edee08ac28967246b039b3/niquests_cache-0.2.2.tar.gz", hash = "sha256:919332a63e763335e45e56defbeed93f1f208ea85d5b14ce93c747f8b3ac3ea6", size = 23132, upload-time = "2026-04-21T07:50:24.071Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d6/05/e2584e492b9b44f932d155a504035d5751e352c683a94f7a85bf9f496008/niquests_cache-0.2.1-py3-none-any.whl", hash = "sha256:e1226b89c413291cdd5586e4b44600906126f7820fa7b444d0cd1c46523b40ea", size = 19031, upload-time = "2026-04-20T07:01:20.111Z" },
+    { url = "https://files.pythonhosted.org/packages/ab/ae/ba19d171d8ae7e31f16c94b86e156c873f07fd6a182d7d4ab01632cd81cf/niquests_cache-0.2.2-py3-none-any.whl", hash = "sha256:4092f9d03f3763c54dab2dbdda5778b1a48c9b118c05d2074b67fa5da226b76c", size = 19171, upload-time = "2026-04-21T07:50:22.628Z" },
 ]
 
 [[package]]
