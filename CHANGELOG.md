@@ -10,6 +10,8 @@ and this project adheres to
 
 ## [unreleased]
 
+## [0.2.0] - 2026-04-22
+
 ### Added
 
 - Custom handler for `dev-util/ida-free` to check IDA release notes. #423
@@ -18,7 +20,7 @@ and this project adheres to
 
 ### Changed
 
-- Filter tags with long unrecognized suffixes (>10 characters) when they have trailing digits. #423
+- Filter tags with long unrecognised suffixes (>10 characters) when they have trailing digits. #423
 - Filter `^vcpkg-.*` tags to prevent incorrect version detection for rpcs3. #423
 - Improved version padding to handle shorter versions correctly. #427
 - Enhanced submodule processing to support nested submodules (3-tuple format). #427
@@ -28,6 +30,11 @@ and this project adheres to
   `x-ratelimit-remaining`/`x-ratelimit-reset`, and 403 rate-limit bodies.
 - Ebuild file I/O and portage metadata calls (`aux_get`, `xmatch`, `getFetchMap`) now run through
   async helpers so heuristic checks no longer block the event loop.
+- Dropped 403 from the retry status list and capped retries at 3.
+- Added debug logging for handler dispatch and progress.
+- Added niquests and urllib3_future loggers to `setup_logging`.
+- Converted `check_instance` dispatch to a `match` statement.
+- Removed the 2+ ebuild filter from `get_highest_matches`.
 
 ### Fixed
 
@@ -38,12 +45,16 @@ and this project adheres to
 - Fixed vapoursynth version parsing to ignore test tags like `R71-limited-api-test1`. #423
 - Fixed rpcs3 version parsing to ignore vcpkg dependency tags like `vcpkg-v1.0`. #423
 - Fixed docstring section ordering in `livecheck/utils/portage.py` to resolve pydocstyle D420
-  errors where "See Also" appeared before "Parameters" and "Returns" sections.
+  errors where 'See Also' appeared before 'Parameters' and 'Returns' sections.
 - Closed the temporary file descriptor in `EbuildTempFile` explicitly rather than relying on
   garbage collection to release it.
 - Fixed a crash when using `-a` (auto-update) caused by `portage.doebuild` calling
   `run_until_complete()` inside an already-running async event loop. Synchronous `digest_ebuild()`
   calls are now wrapped with `asyncio.to_thread()`.
+
+### Removed
+
+- Dropped Flatpak and Snap build pipelines.
 
 ## [0.1.4]
 
@@ -158,7 +169,8 @@ and this project adheres to
 
 - When multiple ebuilds are in the same directory, only the latest one will be considered for updating.
 
-[unreleased]: https://github.com/Tatsh/livecheck/compare/v0.1.4...HEAD
+[unreleased]: https://github.com/Tatsh/livecheck/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/Tatsh/livecheck/compare/v0.1.4...v0.2.0
 [0.1.4]: https://github.com/Tatsh/livecheck/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/Tatsh/livecheck/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/Tatsh/livecheck/compare/v0.1.1...v0.1.2
