@@ -17,17 +17,22 @@ if TYPE_CHECKING:
 
 def test_build_retry_returns_retry_with_expected_status_codes() -> None:
     retry = build_retry()
-    assert HTTPStatus.FORBIDDEN in retry.status_forcelist
     assert HTTPStatus.TOO_MANY_REQUESTS in retry.status_forcelist
     assert HTTPStatus.INTERNAL_SERVER_ERROR in retry.status_forcelist
     assert HTTPStatus.BAD_GATEWAY in retry.status_forcelist
     assert HTTPStatus.SERVICE_UNAVAILABLE in retry.status_forcelist
     assert HTTPStatus.GATEWAY_TIMEOUT in retry.status_forcelist
+    assert HTTPStatus.FORBIDDEN not in retry.status_forcelist
 
 
 def test_build_retry_backoff_factor() -> None:
     retry = build_retry()
     assert retry.backoff_factor == 2.5
+
+
+def test_build_retry_total() -> None:
+    retry = build_retry()
+    assert retry.total == 3
 
 
 def test_build_session_returns_concurrency_limited_session() -> None:
