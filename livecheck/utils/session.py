@@ -37,15 +37,17 @@ def build_retry() -> Retry:
         Retry policy for transient HTTP failures.
     """
     return Retry(backoff_factor=2.5,
-                 status_forcelist=(HTTPStatus.FORBIDDEN, HTTPStatus.TOO_MANY_REQUESTS,
-                                   HTTPStatus.INTERNAL_SERVER_ERROR, HTTPStatus.BAD_GATEWAY,
-                                   HTTPStatus.SERVICE_UNAVAILABLE, HTTPStatus.GATEWAY_TIMEOUT))
+                 status_forcelist=(HTTPStatus.TOO_MANY_REQUESTS, HTTPStatus.INTERNAL_SERVER_ERROR,
+                                   HTTPStatus.BAD_GATEWAY, HTTPStatus.SERVICE_UNAVAILABLE,
+                                   HTTPStatus.GATEWAY_TIMEOUT),
+                 total=3)
 
 
 def _build_github_retry() -> Retry:
     return Retry(backoff_factor=2.5,
                  status_forcelist=(HTTPStatus.INTERNAL_SERVER_ERROR, HTTPStatus.BAD_GATEWAY,
-                                   HTTPStatus.SERVICE_UNAVAILABLE, HTTPStatus.GATEWAY_TIMEOUT))
+                                   HTTPStatus.SERVICE_UNAVAILABLE, HTTPStatus.GATEWAY_TIMEOUT),
+                 total=3)
 
 
 class _ConcurrencyLimitedSession(AsyncCachedSession):
