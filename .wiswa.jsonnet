@@ -6,7 +6,7 @@ local utils = import 'utils.libjsonnet';
   description: 'Tool to update ebuilds.',
   keywords: ['command line', 'ebuild', 'gentoo', 'portage'],
   project_name: 'livecheck',
-  version: '0.1.4',
+  version: '0.2.0',
   want_main: true,
   want_flatpak: false,
   want_snap: false,
