@@ -41,6 +41,9 @@ and this project adheres to
   errors where "See Also" appeared before "Parameters" and "Returns" sections.
 - Closed the temporary file descriptor in `EbuildTempFile` explicitly rather than relying on
   garbage collection to release it.
+- Fixed a crash when using `-a` (auto-update) caused by `portage.doebuild` calling
+  `run_until_complete()` inside an already-running async event loop. Synchronous `digest_ebuild()`
+  calls are now wrapped with `asyncio.to_thread()`.
 
 ## [0.1.4]
 

@@ -771,7 +771,7 @@ async def do_main(  # noqa: C901, PLR0912, PLR0914, PLR0915
                 return
             await execute_hooks(hook_dir, 'pre', search_dir, cp, ebuild_version, last_version,
                                 old_sha, top_hash, hash_date)
-            digest_ebuild(new_filename)
+            await asyncio.to_thread(digest_ebuild, new_filename)
             fetchlist = await get_fetch_map(f'{cp}-{last_version}')
             old_content = content
             if cp in settings.gomodule_packages:
@@ -784,8 +784,8 @@ async def do_main(  # noqa: C901, PLR0912, PLR0914, PLR0915
                 content = remove_maven_url(content)
             if old_content != content:
                 await AnyioPath(new_filename).write_text(content, encoding='utf-8')
-            if not digest_ebuild(new_filename):
-                log.error('Error digesting %s.', new_filename)
+            if not await asyncio.to_thread(digest_ebuild, new_filename):
+                log.error('Error digesting `%s`.', new_filename)
                 await _recover_ebuild(new_filename, ebuild, cp, search_dir, settings)
                 return
             if cp in settings.yarn_base_packages:
@@ -814,8 +814,8 @@ async def do_main(  # noqa: C901, PLR0912, PLR0914, PLR0915
                 await update_composer_ebuild(new_filename, settings.composer_path[cp], fetchlist)
             if old_content != content:
                 await AnyioPath(new_filename).write_text(old_content, encoding='utf-8')
-                if not digest_ebuild(new_filename):
-                    log.error('Error digesting %s.', new_filename)
+                if not await asyncio.to_thread(digest_ebuild, new_filename):
+                    log.error('Error digesting `%s`.', new_filename)
                     await _recover_ebuild(new_filename, ebuild, cp, search_dir, settings)
                     return
             if settings.git_flag:
