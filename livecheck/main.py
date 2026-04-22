@@ -269,37 +269,49 @@ async def parse_url(src_uri: str, ebuild: str, settings: LivecheckSettings, *,
 
     log.debug('Parsed URI: %s', parsed_uri)
     if is_gist(src_uri):
+        log.debug('Matched handler: gist for %s.', ebuild)
         top_hash, hash_date = await get_latest_gist_package(src_uri)
     elif is_github(src_uri):
+        log.debug('Matched handler: github for %s.', ebuild)
         last_version, top_hash, hash_date = await get_latest_github(src_uri,
                                                                     ebuild,
                                                                     settings,
                                                                     force_sha=force_sha)
     elif is_sourcehut(src_uri):
+        log.debug('Matched handler: sourcehut for %s.', ebuild)
         last_version, top_hash, hash_date = await get_latest_sourcehut(src_uri,
                                                                        ebuild,
                                                                        settings,
                                                                        force_sha=force_sha)
     elif is_pypi(src_uri):
+        log.debug('Matched handler: pypi for %s.', ebuild)
         last_version, url = await get_latest_pypi_package(src_uri, ebuild, settings)
     elif is_jetbrains(src_uri):
+        log.debug('Matched handler: jetbrains for %s.', ebuild)
         last_version = await get_latest_jetbrains_package(ebuild, settings)
     elif is_gitlab(src_uri):
+        log.debug('Matched handler: gitlab for %s.', ebuild)
         last_version, top_hash, hash_date = await get_latest_gitlab(src_uri,
                                                                     ebuild,
                                                                     settings,
                                                                     force_sha=force_sha)
     elif is_package(src_uri):
+        log.debug('Matched handler: package for %s.', ebuild)
         last_version = await get_latest_package(src_uri, ebuild, settings)
     elif is_pecl(src_uri):
+        log.debug('Matched handler: pecl for %s.', ebuild)
         last_version = await get_latest_pecl_package(ebuild, settings)
     elif is_metacpan(src_uri):
+        log.debug('Matched handler: metacpan for %s.', ebuild)
         last_version = await get_latest_metacpan_package(src_uri, ebuild, settings)
     elif is_rubygems(src_uri):
+        log.debug('Matched handler: rubygems for %s.', ebuild)
         last_version = await get_latest_rubygems_package(ebuild, settings)
     elif is_sourceforge(src_uri):
+        log.debug('Matched handler: sourceforge for %s.', ebuild)
         last_version = await get_latest_sourceforge_package(src_uri, ebuild, settings)
     elif is_bitbucket(src_uri):
+        log.debug('Matched handler: bitbucket for %s.', ebuild)
         last_version, top_hash, hash_date = await get_latest_bitbucket(src_uri,
                                                                        ebuild,
                                                                        settings,
@@ -463,29 +475,35 @@ async def _check_one_package(  # noqa: C901, PLR0912, PLR0914
                                                                  force_sha=True)
     else:
         if egit:
+            log.debug('Trying EGIT_REPO_URI for %s: %s', catpkg, egit)
             last_version, top_hash, hash_date, url = await parse_url(egit,
                                                                      match,
                                                                      settings,
                                                                      force_sha=True)
         if not last_version and not top_hash:
+            log.debug('Trying SRC_URI for %s: %s', catpkg, src_uri)
             last_version, top_hash, hash_date, url = await parse_url(src_uri,
                                                                      match,
                                                                      settings,
                                                                      force_sha=False)
         if not last_version and not top_hash:
+            log.debug('Trying metadata.xml for %s.', catpkg)
             last_version, top_hash, hash_date, url = await parse_metadata(
                 str(repo_root), match, settings)
         homepage = ' '.join(await get_aux(match, ['HOMEPAGE'], mytree=str(repo_root)))
         homes = [x for x in homepage.split(' ') if x]
         for home in homes:
             if not last_version and not top_hash:
+                log.debug('Trying HOMEPAGE for %s: %s', catpkg, home)
                 last_version, top_hash, hash_date, url = await parse_url(home,
                                                                          match,
                                                                          settings,
                                                                          force_sha=False)
         if not last_version and not top_hash:
+            log.debug('Trying repology for %s.', catpkg)
             last_version = await get_latest_repology(match, settings)
         if not last_version and not top_hash:
+            log.debug('Trying directory listing for %s.', catpkg)
             last_version, url = await get_latest_directory_package(src_uri, match, settings)
             for home in homes:
                 last_version, url = await get_latest_directory_package(home, match, settings)
@@ -543,10 +561,16 @@ async def get_props(search_dir: Path,
         log.error('No matches!')
         raise click.Abort
     sem = asyncio.Semaphore(parallel)
+    total = len(matches_list)
+    completed = 0
 
     async def _bounded(match_: str) -> PropTuple | None:
+        nonlocal completed
         async with sem:
-            return await _check_one_package(match_, settings, repo_root, exclude)
+            result = await _check_one_package(match_, settings, repo_root, exclude)
+            completed += 1
+            log.info('Progress: %d/%d packages checked.', completed, total)
+            return result
 
     results = await asyncio.gather(*(_bounded(m) for m in matches_list))
     return [r for r in results if r is not None]
