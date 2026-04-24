@@ -10,6 +10,12 @@ and this project adheres to
 
 ## [unreleased]
 
+### Fixed
+
+- Removed `pad_version_components` which was corrupting version comparisons by padding single-digit
+  components with trailing zeros (e.g. `0.9.1` became `0.90.1`), causing downgrades to be reported
+  as upgrades.
+
 ## [0.2.0] - 2026-04-22
 
 ### Added

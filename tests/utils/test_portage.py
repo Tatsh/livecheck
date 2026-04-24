@@ -21,7 +21,6 @@ from livecheck.utils.portage import (
     get_repository_root_if_inside,
     is_version_development,
     mask_version,
-    pad_version_components,
     remove_initial_match,
     remove_leading_zeros,
     sanitize_version,
@@ -597,26 +596,6 @@ def test_compare_versions(mocker: MockerFixture, old: str, new: str, vercmp_resu
     result = compare_versions(old, new)
     mock_vercmp.assert_called_once_with(old, new)
     assert result is expected
-
-
-@pytest.mark.parametrize(('ver1', 'ver2', 'expected'), [
-    ('1.2.3', '1.2.4', ('1.2.3', '1.2.4')),
-    ('0.7', '0.69', ('0.70', '0.69')),
-    ('0.69', '0.7', ('0.69', '0.70')),
-    ('1.0', '1.0', ('1.0', '1.0')),
-    ('1.2', '1.2.3', ('1.2', '1.2.3')),
-    ('10.1', '2.3', ('10.1', '20.3')),
-    ('1.2a', '1.20', ('1.2a', '1.20')),
-])
-def test_pad_version_components(ver1: str, ver2: str, expected: tuple[str, str]) -> None:
-    assert pad_version_components(ver1, ver2) == expected
-
-
-def test_compare_versions_with_padding(mocker: MockerFixture) -> None:
-    mock_vercmp = mocker.patch('livecheck.utils.portage.vercmp', return_value=-1)
-    result = compare_versions('0.7', '0.69')
-    mock_vercmp.assert_called_once_with('0.70', '0.69')
-    assert result is True
 
 
 @pytest.mark.parametrize(
