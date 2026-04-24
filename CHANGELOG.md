@@ -10,6 +10,8 @@ and this project adheres to
 
 ## [unreleased]
 
+## [0.2.1] - 2026-04-23
+
 ### Fixed
 
 - Removed `pad_version_components` which was corrupting version comparisons by padding single-digit
@@ -175,7 +177,8 @@ and this project adheres to
 
 - When multiple ebuilds are in the same directory, only the latest one will be considered for updating.
 
-[unreleased]: https://github.com/Tatsh/livecheck/compare/v0.2.0...HEAD
+[unreleased]: https://github.com/Tatsh/livecheck/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/Tatsh/livecheck/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/Tatsh/livecheck/compare/v0.1.4...v0.2.0
 [0.1.4]: https://github.com/Tatsh/livecheck/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/Tatsh/livecheck/compare/v0.1.2...v0.1.3

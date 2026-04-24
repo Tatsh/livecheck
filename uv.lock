@@ -9,7 +9,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-04-15T07:43:41.863051436Z"
+exclude-newer = "2026-04-17T00:31:34.632674758Z"
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
@@ -1133,7 +1133,7 @@ wheels = [
 
 [[package]]
 name = "livecheck"
-version = "0.2.0"
+version = "0.2.1"
 source = { editable = "." }
 dependencies = [
     { name = "anyio" },
