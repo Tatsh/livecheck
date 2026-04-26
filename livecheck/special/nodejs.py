@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 PACKAGE_MANAGER_COMMANDS: dict[str, tuple[str, ...]] = {
     'npm': ('npm', 'install', '--ignore-scripts', '--no-audit', '--no-color', '--no-progress'),
     'yarn': ('yarn', 'install', '--silent'),
-    'pnpm': ('pnpm', 'install', '--ignore-scripts', '--silent'),
+    'pnpm': ('pnpm', 'install', '--ignore-scripts', '--silent')
 }
 
 

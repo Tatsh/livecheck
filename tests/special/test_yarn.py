@@ -79,12 +79,12 @@ def test_yarn_pkgs_returns_expected_packages() -> None:
         '@scope/bar@^2.0.0': {
             'version': '2.3.4',
             'resolved': 'https://example.com/bar-2.3.4.tgz',
-            'integrity': 'sha512-...',
+            'integrity': 'sha512-...'
         },
         'baz-cjs@^3.0.0': {
             'version': '3.4.5',
             'resolved': 'https://example.com/baz-3.4.5.tgz',
-            'integrity': 'sha512-...',
+            'integrity': 'sha512-...'
         }
     }
     pkgs = list(yarn_pkgs(lockfile))

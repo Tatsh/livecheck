@@ -75,7 +75,7 @@ test_cases = {
         'expected': ('gitlab.freedesktop.org', 'xdg/xdg-utils', 'xdg-utils'),
         'is_gitlab':
             True
-    },
+    }
 }
 
 
@@ -89,46 +89,22 @@ def test_is_gitlab(test_case: dict[str, Any]) -> None:
     assert is_gitlab(test_case['url']) == test_case['is_gitlab']
 
 
-@pytest.mark.parametrize(('url', 'ebuild', 'force_sha', 'content_return', 'expected_version',
-                          'expected_hash', 'expected_date'), [
-                              (
-                                  'https://gitlab.com/group/project',
-                                  'project-1.0.ebuild',
-                                  False,
-                                  [{
-                                      'name': 'v2.0',
-                                      'commit': {
-                                          'id': 'abc123'
-                                      }
-                                  }],
-                                  '2.0',
-                                  '',
-                                  '',
-                              ),
-                              (
-                                  'https://gitlab.com/group/project',
-                                  'project-1.0.ebuild',
-                                  True,
-                                  [{
-                                      'name': 'v2.0',
-                                      'commit': {
-                                          'id': 'abc123'
-                                      }
-                                  }],
-                                  '2.0',
-                                  'abc123',
-                                  '',
-                              ),
-                              (
-                                  'https://gitlab.com/group/project',
-                                  'project-1.0.ebuild',
-                                  False,
-                                  [],
-                                  '',
-                                  '',
-                                  '',
-                              ),
-                          ])
+@pytest.mark.parametrize(
+    ('url', 'ebuild', 'force_sha', 'content_return', 'expected_version', 'expected_hash',
+     'expected_date'),
+    [('https://gitlab.com/group/project', 'project-1.0.ebuild', False, [{
+        'name': 'v2.0',
+        'commit': {
+            'id': 'abc123'
+        }
+    }], '2.0', '', ''),
+     ('https://gitlab.com/group/project', 'project-1.0.ebuild', True, [{
+         'name': 'v2.0',
+         'commit': {
+             'id': 'abc123'
+         }
+     }], '2.0', 'abc123', ''),
+     ('https://gitlab.com/group/project', 'project-1.0.ebuild', False, [], '', '', '')])
 @pytest.mark.asyncio
 async def test_get_latest_gitlab(
         mocker: MockerFixture,
@@ -179,37 +155,14 @@ async def test_get_latest_gitlab_with_sha(mocker: MockerFixture) -> None:
 
 @pytest.mark.parametrize(
     ('remote', '_type', 'ebuild', 'package_return', 'expected'),
-    [
-        (
-            'group/project',
-            'gitlab',
-            'project-1.0.ebuild',
-            ('2.0', 'abc123'),
-            ('2.0', 'abc123'),
-        ),
-        (
-            'fhdk/udev-usb-sync',
-            'manjaro-gitlab',
-            'udev-usb-sync-1.0.ebuild',
-            ('1.5', 'def456'),
-            ('1.5', 'def456'),
-        ),
-        (
-            'xdg/xdg-utils',
-            'freedesktop-gitlab',
-            'xdg-utils-1.2.1.ebuild',
-            ('', ''),
-            ('', ''),
-        ),
-    ],
-)
+    [('group/project', 'gitlab', 'project-1.0.ebuild', ('2.0', 'abc123'), ('2.0', 'abc123')),
+     ('fhdk/udev-usb-sync', 'manjaro-gitlab', 'udev-usb-sync-1.0.ebuild', ('1.5', 'def456'),
+      ('1.5', 'def456')),
+     ('xdg/xdg-utils', 'freedesktop-gitlab', 'xdg-utils-1.2.1.ebuild', ('', ''), ('', ''))])
 @pytest.mark.asyncio
 async def test_get_latest_gitlab_metadata(mocker: MockerFixture, remote: str, _type: str,
                                           ebuild: str, package_return: tuple[str, str],
                                           expected: tuple[str, str]) -> None:
-    mocker.patch(
-        'livecheck.special.gitlab.get_latest_gitlab_package',
-        return_value=package_return,
-    )
+    mocker.patch('livecheck.special.gitlab.get_latest_gitlab_package', return_value=package_return)
     result = await get_latest_gitlab_metadata(remote, _type, ebuild, mocker.Mock())
     assert result == expected

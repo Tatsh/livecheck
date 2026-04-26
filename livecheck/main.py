@@ -18,11 +18,7 @@ from bascom import setup_logging
 from defusedxml import ElementTree as ET  # noqa: N817
 import click
 
-from .constants import (
-    PACKAGE_MANAGERS,
-    SUBMODULES,
-    TAG_NAME_FUNCTIONS,
-)
+from .constants import PACKAGE_MANAGERS, SUBMODULES, TAG_NAME_FUNCTIONS
 from .settings import (
     TYPE_CHECKSUM,
     TYPE_COMMIT,
@@ -77,11 +73,7 @@ from .special.gomodule import (
 )
 from .special.ida_free import get_latest_ida_free_package
 from .special.jetbrains import get_latest_jetbrains_package, is_jetbrains, update_jetbrains_ebuild
-from .special.maven import (
-    check_maven_requirements,
-    remove_maven_url,
-    update_maven_ebuild,
-)
+from .special.maven import check_maven_requirements, remove_maven_url, update_maven_ebuild
 from .special.metacpan import (
     METACPAN_METADATA,
     get_latest_metacpan_metadata,

@@ -90,7 +90,7 @@ test_cases = {
         'url': 'https://notroj.github.io/neon/neon-0.33.0.tar.gz',
         'expected': ('https://notroj.github.io/neon', 'notroj', 'neon'),
         'is_github': True
-    },
+    }
 }
 
 
@@ -119,7 +119,7 @@ def test_is_github(test_case: dict[str, Any]) -> None:
             '',
             '',
             '',
-            ''),
+            '')
     ])
 @pytest.mark.asyncio
 async def test_get_latest_github_package(mocker: MockerFixture, url: str, ebuild: str, owner: str,
@@ -213,24 +213,10 @@ async def test_get_latest_github_package_no_response_2(mocker: MockerFixture) ->
 @pytest.mark.parametrize(
     ('url', 'branch', 'owner', 'repo', 'commit_sha', 'commit_date', 'expected'),
     [
-        (
-            'https://github.com/username/repo',
-            'main',
-            'username',
-            'repo',
-            'abc123def456',
-            '2024-06-01T12:34:56Z',
-            ('abc123def456', '20240601'),
-        ),
-        (
-            'https://github.com/username/repo',
-            'develop',
-            'username',
-            'repo',
-            'cafebabe',
-            '2023-12-31T23:59:59Z',
-            ('cafebabe', '20231231'),
-        ),
+        ('https://github.com/username/repo', 'main', 'username', 'repo', 'abc123def456',
+         '2024-06-01T12:34:56Z', ('abc123def456', '20240601')),
+        ('https://github.com/username/repo', 'develop', 'username', 'repo', 'cafebabe',
+         '2023-12-31T23:59:59Z', ('cafebabe', '20231231')),
         (
             'https://github.com/username/repo',
             'main',
@@ -238,8 +224,7 @@ async def test_get_latest_github_package_no_response_2(mocker: MockerFixture) ->
             '',  # repo
             '',  # commit_sha
             '',  # commit_date
-            ('', ''),
-        ),
+            ('', ''))
     ])
 @pytest.mark.asyncio
 async def test_get_latest_github_commit(mocker: MockerFixture, url: str, branch: str, owner: str,
@@ -262,45 +247,14 @@ async def test_get_latest_github_commit(mocker: MockerFixture, url: str, branch:
 @pytest.mark.parametrize(
     ('owner', 'repo', 'branch', 'commit_sha', 'commit_date', 'expected_sha', 'expected_date'),
     [
-        (
-            'username',
-            'repo',
-            'main',
-            'abc123def456',
-            '2024-06-01T12:34:56Z',
-            'abc123def456',
-            '20240601',
-        ),
-        (
-            'username',
-            'repo',
-            'main',
-            'cafebabe',
-            '2023-12-31T23:59:59Z',
-            'cafebabe',
-            '20231231',
-        ),
-        (
-            'username',
-            'repo',
-            'main',
-            'cafebabe123456',
-            '2022-01-15T00:00:00Z',
-            'cafebabe123456',
-            '20220115',
-        ),
+        ('username', 'repo', 'main', 'abc123def456', '2024-06-01T12:34:56Z', 'abc123def456',
+         '20240601'),
+        ('username', 'repo', 'main', 'cafebabe', '2023-12-31T23:59:59Z', 'cafebabe', '20231231'),
+        ('username', 'repo', 'main', 'cafebabe123456', '2022-01-15T00:00:00Z', 'cafebabe123456',
+         '20220115'),
         # Test with invalid date format (should fallback to first 10 chars)
-        (
-            'username',
-            'repo',
-            'main',
-            'bad',
-            'not-a-date',
-            'bad',
-            'not-a-date',
-        ),
-    ],
-)
+        ('username', 'repo', 'main', 'bad', 'not-a-date', 'bad', 'not-a-date')
+    ])
 @pytest.mark.asyncio
 async def test_get_latest_github_commit2_success(mocker: MockerFixture, owner: str, repo: str,
                                                  branch: str, commit_sha: str, commit_date: str,
@@ -350,7 +304,7 @@ async def test_get_latest_github_commit2_missing_commit_key(mocker: MockerFixtur
         # Default to master if is_sha returns True
         ('https://github.com/user/repo/abcdef', 'cat/pkg-1.0.0.ebuild', {}, 'master'),
         # No branch found
-        ('https://github.com/user/repo', 'cat/pkg-1.0.0.ebuild', {}, ''),
+        ('https://github.com/user/repo', 'cat/pkg-1.0.0.ebuild', {}, '')
     ])
 def test_get_branch(mocker: MockerFixture, url: str, ebuild: str, branches_dict: Mapping[str, str],
                     expected_branch: str) -> None:
@@ -377,8 +331,7 @@ def test_get_branch(mocker: MockerFixture, url: str, ebuild: str, branches_dict:
             '',  # last_version
             'abc123',
             '20240601',
-            ('', 'abc123', '20240601'),
-        ),
+            ('', 'abc123', '20240601')),
         # Case: branch found, get_latest_github_commit returns values, force_sha False
         (
             'https://github.com/user/repo',
@@ -388,52 +341,19 @@ def test_get_branch(mocker: MockerFixture, url: str, ebuild: str, branches_dict:
             '',  # last_version
             'abc123',
             '20240601',
-            ('', '', '20240601'),
-        ),
+            ('', '', '20240601')),
         # Case: no branch, get_latest_github_package returns values, force_sha True
-        (
-            'https://github.com/user/repo',
-            'cat/repo-2.0.0.ebuild',
-            '',
-            True,
-            '2.0.0',
-            'deadbeef',
-            '',
-            ('2.0.0', 'deadbeef', ''),
-        ),
+        ('https://github.com/user/repo', 'cat/repo-2.0.0.ebuild', '', True, '2.0.0', 'deadbeef', '',
+         ('2.0.0', 'deadbeef', '')),
         # Case: no branch, get_latest_github_package returns values, force_sha False
-        (
-            'https://github.com/user/repo',
-            'cat/repo-2.0.0.ebuild',
-            '',
-            False,
-            '2.0.0',
-            'deadbeef',
-            '',
-            ('2.0.0', '', ''),
-        ),
+        ('https://github.com/user/repo', 'cat/repo-2.0.0.ebuild', '', False, '2.0.0', 'deadbeef',
+         '', ('2.0.0', '', '')),
         # Case: branch found, get_latest_github_commit returns empty, force_sha True
-        (
-            'https://github.com/user/repo',
-            'cat/repo-3.0.0.ebuild',
-            'dev',
-            True,
-            '',
-            '',
-            '',
-            ('', '', ''),
-        ),
+        ('https://github.com/user/repo', 'cat/repo-3.0.0.ebuild', 'dev', True, '', '', '',
+         ('', '', '')),
         # Case: no branch, get_latest_github_package returns empty, force_sha True
-        (
-            'https://github.com/user/repo',
-            'cat/repo-4.0.0.ebuild',
-            '',
-            True,
-            '',
-            '',
-            '',
-            ('', '', ''),
-        ),
+        ('https://github.com/user/repo', 'cat/repo-4.0.0.ebuild', '', True, '', '', '',
+         ('', '', ''))
     ])
 @pytest.mark.asyncio
 async def test_get_latest_github(
@@ -461,22 +381,16 @@ async def test_get_latest_github(
 @pytest.mark.parametrize(
     ('remote', 'ebuild', 'owner', 'repo', 'expected_version', 'expected_sha'),
     [
-        (
-            'username/repo',
-            'cat/repo-1.0.0.ebuild',
-            'username',
-            'repo',
-            '1.0.0',
-            'deadbeef1234567890',
-        ),
+        ('username/repo', 'cat/repo-1.0.0.ebuild', 'username', 'repo', '1.0.0',
+         'deadbeef1234567890'),
         (
             'username/repo',
             'cat/repo-2.0.0.ebuild',
             '',  # owner
             '',  # repo
             '',  # expected_version
-            '',  # expected_sha
-        ),
+            ''  # expected_sha
+        )
     ])
 @pytest.mark.asyncio
 async def test_get_latest_github_metadata(mocker: MockerFixture, remote: str, ebuild: str,

@@ -42,7 +42,7 @@ async def get_latest_jetbrains_package(ebuild: str, settings: LivecheckSettings)
         'pycharm-professional': 'PyCharm Professional Edition',
         'idea-community': 'IntelliJ IDEA Community Edition',
         'clion': 'CLion',
-        'goland': 'GoLand',
+        'goland': 'GoLand'
     }
 
     catpkg, _, product_code, _ = catpkg_catpkgsplit(ebuild)

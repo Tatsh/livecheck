@@ -197,10 +197,8 @@ async def test_get_latest_location_checksum_package_with_location_header(
     mock_response = mocker.Mock()
     mock_response.headers = {'Location': redirect_url}
     mocker.patch('livecheck.special.checksum.get_content', return_value=mock_response)
-    mocker.patch(
-        'livecheck.special.checksum.get_latest_checksum_package',
-        return_value=('1.0', '20240601', redirect_url),
-    )
+    mocker.patch('livecheck.special.checksum.get_latest_checksum_package',
+                 return_value=('1.0', '20240601', redirect_url))
     version, last_modified, returned_url = await get_latest_location_checksum_package(
         url, ebuild, repo_root)
     assert version == '1.0'
@@ -237,10 +235,8 @@ async def test_get_latest_location_checksum_package_with_headers_and_params(
     mock_response.headers = {'Location': redirect_url}
     mock_get_content = mocker.patch('livecheck.special.checksum.get_content',
                                     return_value=mock_response)
-    mocker.patch(
-        'livecheck.special.checksum.get_latest_checksum_package',
-        return_value=('1.0', '20240601', redirect_url),
-    )
+    mocker.patch('livecheck.special.checksum.get_latest_checksum_package',
+                 return_value=('1.0', '20240601', redirect_url))
     version, last_modified, returned_url = await get_latest_location_checksum_package(
         url, ebuild, repo_root, headers=headers, params=params)
     assert version == '1.0'

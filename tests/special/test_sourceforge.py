@@ -15,19 +15,18 @@ if TYPE_CHECKING:
 import pytest
 
 
-@pytest.mark.parametrize(('url', 'expected'), [
-    ('https://downloads.sourceforge.net/project/sample_project', 'sample_project'),
-    ('https://download.sourceforge.net/project/sample_project', 'sample_project'),
-    ('https://download.sourceforge.net/proj/sample_project', 'proj'),
-    ('https://sf.net/projects/sample_project', 'sample_project'),
-    ('https://sample_project.sourceforge.net', 'sample_project'),
-    ('https://sample_project.sourceforge.io', 'sample_project'),
-    ('https://sample_project.sourceforge.jp', 'sample_project'),
-    ('https://example.com/sample_project', ''),
-    ('', ''),
-    ('https://sf.net/projectss/sample_project', 'sample_project'),
-    ('https://ssourceforge.net/project/sample_project', ''),
-])
+@pytest.mark.parametrize(
+    ('url', 'expected'),
+    [('https://downloads.sourceforge.net/project/sample_project', 'sample_project'),
+     ('https://download.sourceforge.net/project/sample_project', 'sample_project'),
+     ('https://download.sourceforge.net/proj/sample_project', 'proj'),
+     ('https://sf.net/projects/sample_project', 'sample_project'),
+     ('https://sample_project.sourceforge.net', 'sample_project'),
+     ('https://sample_project.sourceforge.io', 'sample_project'),
+     ('https://sample_project.sourceforge.jp', 'sample_project'),
+     ('https://example.com/sample_project', ''), ('', ''),
+     ('https://sf.net/projectss/sample_project', 'sample_project'),
+     ('https://ssourceforge.net/project/sample_project', '')])
 def test_extract_repository(url: str, expected: str) -> None:
     result = extract_repository(url)
     if expected:

@@ -95,39 +95,32 @@ if TYPE_CHECKING:
         # rpcs3: filter vcpkg dependency tags
         ('vcpkg-v1.0', ''),
         ('vcpkg-prebuilt-v1.0', ''),
-        ('v0.0.39', '0.0.39'),
+        ('v0.0.39', '0.0.39')
     ])
 def test_sanitize_version(version: str, expected: str) -> None:
     assert sanitize_version(version) == expected
 
 
-@pytest.mark.parametrize(('version', 'expected'), [
-    ('2022.01.06', '2022.1.6'),
-    ('24.01.12', '24.1.12'),
-    ('0.0.3', '0.0.3'),
-    ('1.0.3-r1', '1.0.3-r1'),
-    ('2022-12-26', '2022-12-26'),
-    ('1.0.3', '1.0.3'),
-    ('1.2', '1.2'),
-    ('1.222222222', '1.222222222'),
-    ('1', '1'),
-    ('0.1.2', '0.1.2'),
-    ('24.01.02', '24.1.2'),
-])
+@pytest.mark.parametrize(('version', 'expected'), [('2022.01.06', '2022.1.6'),
+                                                   ('24.01.12', '24.1.12'), ('0.0.3', '0.0.3'),
+                                                   ('1.0.3-r1', '1.0.3-r1'),
+                                                   ('2022-12-26', '2022-12-26'), ('1.0.3', '1.0.3'),
+                                                   ('1.2', '1.2'), ('1.222222222', '1.222222222'),
+                                                   ('1', '1'), ('0.1.2', '0.1.2'),
+                                                   ('24.01.02', '24.1.2')])
 def test_remove_leading_zeros(version: str, expected: str) -> None:
     assert remove_leading_zeros(version) == expected
 
 
-@pytest.mark.parametrize(('cp', 'version', 'restrict_version', 'expected'), [
-    ('dev-util/foo', '1.2.3', 'major', 'dev-util/foo:1:'),
-    ('dev-util/foo', '1.2.3', 'minor', 'dev-util/foo:1.2:'),
-    ('dev-util/foo', '1.2.3', 'full', 'dev-util/foo'),
-    ('dev-util/foo', '1.2.3', None, 'dev-util/foo'),
-    ('dev-util/foo', '2.0', 'major', 'dev-util/foo:2:'),
-    ('dev-util/foo', '2.0', 'minor', 'dev-util/foo:2.0:'),
-    ('dev-util/foo', '2.0', 'full', 'dev-util/foo'),
-    ('dev-util/foo', '2.0', '', 'dev-util/foo'),
-])
+@pytest.mark.parametrize(('cp', 'version', 'restrict_version', 'expected'),
+                         [('dev-util/foo', '1.2.3', 'major', 'dev-util/foo:1:'),
+                          ('dev-util/foo', '1.2.3', 'minor', 'dev-util/foo:1.2:'),
+                          ('dev-util/foo', '1.2.3', 'full', 'dev-util/foo'),
+                          ('dev-util/foo', '1.2.3', None, 'dev-util/foo'),
+                          ('dev-util/foo', '2.0', 'major', 'dev-util/foo:2:'),
+                          ('dev-util/foo', '2.0', 'minor', 'dev-util/foo:2.0:'),
+                          ('dev-util/foo', '2.0', 'full', 'dev-util/foo'),
+                          ('dev-util/foo', '2.0', '', 'dev-util/foo')])
 def test_mask_version(cp: str, version: str, restrict_version: str | None, expected: str) -> None:
     assert mask_version(cp, version, restrict_version) == expected
 
@@ -338,7 +331,7 @@ def test_catpkgsplit2_category_none(mocker: MockerFixture) -> None:
         # With revision r2
         ('cat/pkg-2.0.0-r2', 'cat', 'pkg', '2.0.0', 'r2', ('cat/pkg', 'cat', 'pkg', '2.0.0-r2')),
         # No revision, just version
-        ('cat/pkg-0.1', 'cat', 'pkg', '0.1', '', ('cat/pkg', 'cat', 'pkg', '0.1')),
+        ('cat/pkg-0.1', 'cat', 'pkg', '0.1', '', ('cat/pkg', 'cat', 'pkg', '0.1'))
     ])
 def test_catpkg_catpkgsplit_variants(mocker: MockerFixture, atom: str, cat: str, pkg: str,
                                      ebuild_version: str, revision: str,
@@ -376,34 +369,12 @@ def test_catpkg_catpkgsplit_revision_non_r0(mocker: MockerFixture) -> None:
 
 @pytest.mark.parametrize(
     ('match', 'aux_get_return', 'expected'),
-    [
-        (
-            'cat/pkg-1.2.3',
-            ['http://example.com/src.tar.gz mirror://gentoo/src.tar.gz'],
-            'http://example.com/src.tar.gz',
-        ),
-        (
-            'cat/pkg-1.2.3',
-            ['mirror://gentoo/src.tar.gz ftp://example.com/src.tar.gz'],
-            'mirror://gentoo/src.tar.gz',
-        ),
-        (
-            'cat/pkg-1.2.3',
-            ['ftp://example.com/src.tar.gz'],
-            'ftp://example.com/src.tar.gz',
-        ),
-        (
-            'cat/pkg-1.2.3',
-            ['not_a_uri something_else'],
-            '',
-        ),
-        (
-            'cat/pkg-1.2.3',
-            [''],
-            '',
-        ),
-    ],
-)
+    [('cat/pkg-1.2.3', ['http://example.com/src.tar.gz mirror://gentoo/src.tar.gz'
+                        ], 'http://example.com/src.tar.gz'),
+     ('cat/pkg-1.2.3', ['mirror://gentoo/src.tar.gz ftp://example.com/src.tar.gz'
+                        ], 'mirror://gentoo/src.tar.gz'),
+     ('cat/pkg-1.2.3', ['ftp://example.com/src.tar.gz'], 'ftp://example.com/src.tar.gz'),
+     ('cat/pkg-1.2.3', ['not_a_uri something_else'], ''), ('cat/pkg-1.2.3', [''], '')])
 async def test_get_first_src_uri_basic(mocker: MockerFixture, match: str, aux_get_return: str,
                                        expected: str) -> None:
     mock_p = mocker.patch('livecheck.utils.portage.P')
@@ -436,9 +407,7 @@ async def test_get_first_src_uri_multiple_lines(mocker: MockerFixture) -> None:
     # Simulate multiple lines, each line is split
     mock_p.async_aux_get = mocker.AsyncMock()
     mock_p.async_aux_get.return_value = [
-        'not_a_uri',
-        'https://foo.com/bar.tar.gz',
-        'mirror://gentoo/baz.tar.gz',
+        'not_a_uri', 'https://foo.com/bar.tar.gz', 'mirror://gentoo/baz.tar.gz'
     ]
     result = await get_first_src_uri('cat/pkg-1.2.3')
     assert result == 'https://foo.com/bar.tar.gz'
@@ -452,10 +421,7 @@ def test_get_repository_root_if_inside_inside_overlay(mocker: MockerFixture,
     subdir = repo_root / 'cat' / 'pkg'
     subdir.mkdir(parents=True)
     # Patch portage.config and settings
-    mock_settings = {
-        'PORTDIR_OVERLAY': str(repo_root),
-        'PORTDIR': str(tmp_path / 'main-repo'),
-    }
+    mock_settings = {'PORTDIR_OVERLAY': str(repo_root), 'PORTDIR': str(tmp_path / 'main-repo')}
     mock_config = mocker.MagicMock()
     mock_config.__getitem__.side_effect = mock_settings.__getitem__
     mock_config.get.side_effect = mock_settings.get
@@ -471,10 +437,7 @@ def test_get_repository_root_if_inside_inside_portdir(mocker: MockerFixture,
     portdir.mkdir()
     subdir = portdir / 'foo'
     subdir.mkdir()
-    mock_settings = {
-        'PORTDIR_OVERLAY': str(tmp_path / 'overlay'),
-        'PORTDIR': str(portdir),
-    }
+    mock_settings = {'PORTDIR_OVERLAY': str(tmp_path / 'overlay'), 'PORTDIR': str(portdir)}
     mock_config = mocker.MagicMock()
     mock_config.__getitem__.side_effect = mock_settings.__getitem__
     mock_config.get.side_effect = mock_settings.get
@@ -491,10 +454,7 @@ def test_get_repository_root_if_inside_not_in_any_repo(mocker: MockerFixture,
     portdir.mkdir()
     outside = tmp_path / 'outside'
     outside.mkdir()
-    mock_settings = {
-        'PORTDIR_OVERLAY': str(overlay),
-        'PORTDIR': str(portdir),
-    }
+    mock_settings = {'PORTDIR_OVERLAY': str(overlay), 'PORTDIR': str(portdir)}
     mock_config = mocker.MagicMock()
     mock_config.__getitem__.side_effect = mock_settings.__getitem__
     mock_config.get.side_effect = mock_settings.get
@@ -512,10 +472,7 @@ def test_get_repository_root_if_inside_local_path_exclusion(mocker: MockerFixtur
     # Simulate a /local/ path
     local_dir = tmp_path / 'local' / 'repo'
     local_dir.mkdir(parents=True)
-    mock_settings = {
-        'PORTDIR_OVERLAY': str(overlay),
-        'PORTDIR': str(portdir),
-    }
+    mock_settings = {'PORTDIR_OVERLAY': str(overlay), 'PORTDIR': str(portdir)}
     mock_config = mocker.MagicMock()
     mock_config.__getitem__.side_effect = mock_settings.__getitem__
     mock_config.get.side_effect = mock_settings.get
@@ -524,72 +481,42 @@ def test_get_repository_root_if_inside_local_path_exclusion(mocker: MockerFixtur
     assert result == ('', '')
 
 
-@pytest.mark.parametrize(('version', 'expected'), [
-    ('1.2.3', False),
-    ('1.2.3-alpha', True),
-    ('1.2.3-beta', True),
-    ('1.2.3-pre', True),
-    ('1.2.3-dev', True),
-    ('1.2.3-rc', True),
-    ('1.2.3-ALPHA', True),
-    ('1.2.3-BETA', True),
-    ('1.2.3-PRE', True),
-    ('1.2.3-DEV', True),
-    ('1.2.3-RC', True),
-    ('1.2.3-final', False),
-    ('1.2.3-release', False),
-    ('alpha', True),
-    ('beta', True),
-    ('pre', True),
-    ('dev', True),
-    ('rc', True),
-    ('', False),
-    ('1.2.3a', False),
-    ('1.2.3b', False),
-    ('1.2.3rc1', True),
-    ('1.2.3dev1', True),
-    ('1.2.3-pre1', True),
-    ('1.2.3alpha', True),
-    ('1.2.3beta', True),
-    ('1.2.3rc', True),
-    ('1.2.3dev', True),
-    ('1.2.3-rc2', True),
-    ('1.2.3-dev2', True),
-    ('1.2.3-pre2', True),
-])
+@pytest.mark.parametrize(('version', 'expected'), [('1.2.3', False), ('1.2.3-alpha', True),
+                                                   ('1.2.3-beta', True), ('1.2.3-pre', True),
+                                                   ('1.2.3-dev', True), ('1.2.3-rc', True),
+                                                   ('1.2.3-ALPHA', True), ('1.2.3-BETA', True),
+                                                   ('1.2.3-PRE', True), ('1.2.3-DEV', True),
+                                                   ('1.2.3-RC', True), ('1.2.3-final', False),
+                                                   ('1.2.3-release', False), ('alpha', True),
+                                                   ('beta', True), ('pre', True), ('dev', True),
+                                                   ('rc', True), ('', False), ('1.2.3a', False),
+                                                   ('1.2.3b', False), ('1.2.3rc1', True),
+                                                   ('1.2.3dev1', True), ('1.2.3-pre1', True),
+                                                   ('1.2.3alpha', True), ('1.2.3beta', True),
+                                                   ('1.2.3rc', True), ('1.2.3dev', True),
+                                                   ('1.2.3-rc2', True), ('1.2.3-dev2', True),
+                                                   ('1.2.3-pre2', True)])
 async def test_is_version_development(version: str, expected: bool) -> None:  # noqa: FBT001, RUF029
     assert is_version_development(version) == expected
 
 
-@pytest.mark.parametrize(('a', 'b', 'expected'), [
-    ('foobar', 'foo', 'bar'),
-    ('foo', 'foobar', ''),
-    ('foobar', 'foobar', ''),
-    ('foobar', '', 'foobar'),
-    ('', 'foobar', ''),
-    ('abcde', 'abc', 'de'),
-    ('abc', 'abcde', ''),
-    ('abc', 'abc', ''),
-    ('abc', 'def', 'abc'),
-    ('prefix_rest', 'prefix_', 'rest'),
-    ('prefix_rest', 'prefix', '_rest'),
-    ('prefix', 'prefix', ''),
-    ('prefix', 'pre', 'fix'),
-    ('', '', ''),
-])
+@pytest.mark.parametrize(('a', 'b', 'expected'),
+                         [('foobar', 'foo', 'bar'), ('foo', 'foobar', ''), ('foobar', 'foobar', ''),
+                          ('foobar', '', 'foobar'), ('', 'foobar', ''), ('abcde', 'abc', 'de'),
+                          ('abc', 'abcde', ''), ('abc', 'abc', ''), ('abc', 'def', 'abc'),
+                          ('prefix_rest', 'prefix_', 'rest'), ('prefix_rest', 'prefix', '_rest'),
+                          ('prefix', 'prefix', ''), ('prefix', 'pre', 'fix'), ('', '', '')])
 def test_remove_initial_match_various_cases(a: str, b: str, expected: str) -> None:
     assert remove_initial_match(a, b) == expected
 
 
-@pytest.mark.parametrize(('old', 'new', 'vercmp_result', 'expected'), [
-    ('1.2.3', '1.2.4', -1, True),
-    ('1.2.3', '1.2.3', 0, False),
-    ('1.2.4', '1.2.3', 1, False),
-    ('2.0', '2.1', -1, True),
-    ('2.1', '2.0', 1, False),
-    ('1.0', '1.0.0', -1, True),
-    ('1.0.0', '1.0', 1, False),
-])
+@pytest.mark.parametrize(('old', 'new', 'vercmp_result', 'expected'), [('1.2.3', '1.2.4', -1, True),
+                                                                       ('1.2.3', '1.2.3', 0, False),
+                                                                       ('1.2.4', '1.2.3', 1, False),
+                                                                       ('2.0', '2.1', -1, True),
+                                                                       ('2.1', '2.0', 1, False),
+                                                                       ('1.0', '1.0.0', -1, True),
+                                                                       ('1.0.0', '1.0', 1, False)])
 def test_compare_versions(mocker: MockerFixture, old: str, new: str, vercmp_result: int,
                           expected: bool) -> None:  # noqa: FBT001
     mock_vercmp = mocker.patch('livecheck.utils.portage.vercmp', return_value=vercmp_result)
@@ -598,14 +525,9 @@ def test_compare_versions(mocker: MockerFixture, old: str, new: str, vercmp_resu
     assert result is expected
 
 
-@pytest.mark.parametrize(
-    ('distdir_value', 'expected'),
-    [
-        ('/custom/distdir', Path('/custom/distdir')),
-        ('', Path('/var/cache/distfiles')),
-        (None, Path('/var/cache/distfiles')),
-    ],
-)
+@pytest.mark.parametrize(('distdir_value', 'expected'),
+                         [('/custom/distdir', Path('/custom/distdir')),
+                          ('', Path('/var/cache/distfiles')), (None, Path('/var/cache/distfiles'))])
 def test_get_distdir(mocker: MockerFixture, distdir_value: str | None, expected: Path) -> None:
     mock_settings = {'DISTDIR': distdir_value} if distdir_value is not None else {}
     mock_config = mocker.MagicMock()
@@ -615,14 +537,9 @@ def test_get_distdir(mocker: MockerFixture, distdir_value: str | None, expected:
     assert result == expected
 
 
-@pytest.mark.parametrize(
-    ('ebuild_path', 'doebuild_return', 'expected'),
-    [
-        ('/path/to/foo.ebuild', 0, True),
-        ('/path/to/bar.ebuild', 1, False),
-        ('/path/to/baz.ebuild', -1, False),
-    ],
-)
+@pytest.mark.parametrize(('ebuild_path', 'doebuild_return', 'expected'),
+                         [('/path/to/foo.ebuild', 0, True), ('/path/to/bar.ebuild', 1, False),
+                          ('/path/to/baz.ebuild', -1, False)])
 def test_fetch_ebuild_basic(mocker: MockerFixture, ebuild_path: str, doebuild_return: int,
                             expected: bool) -> None:  # noqa: FBT001
     mock_config = mocker.MagicMock()
@@ -639,14 +556,9 @@ def test_fetch_ebuild_basic(mocker: MockerFixture, ebuild_path: str, doebuild_re
     assert result is expected
 
 
-@pytest.mark.parametrize(
-    ('ebuild_path', 'doebuild_return', 'expected'),
-    [
-        ('/path/to/foo.ebuild', 0, True),
-        ('/path/to/bar.ebuild', 1, False),
-        ('/path/to/baz.ebuild', -1, False),
-    ],
-)
+@pytest.mark.parametrize(('ebuild_path', 'doebuild_return', 'expected'),
+                         [('/path/to/foo.ebuild', 0, True), ('/path/to/bar.ebuild', 1, False),
+                          ('/path/to/baz.ebuild', -1, False)])
 def test_digest_ebuild_basic(mocker: MockerFixture, ebuild_path: str, doebuild_return: int,
                              expected: bool) -> None:  # noqa: FBT001
     mock_config = mocker.MagicMock()
@@ -675,9 +587,8 @@ def test_digest_ebuild_basic(mocker: MockerFixture, ebuild_path: str, doebuild_r
         # workdir exists but is not a dir
         (0, 0, True, False, ''),
         # workdir exists and is a dir
-        (0, 0, True, True, '/some/workdir'),
-    ],
-)
+        (0, 0, True, True, '/some/workdir')
+    ])
 def test_unpack_ebuild(
         mocker: MockerFixture,
         clean_return: int,
@@ -729,66 +640,48 @@ def test_unpack_ebuild(
     ('results', 'repo', 'ebuild', 'settings_attrs', 'expected_version'),
     [
         # Basic: transformation and regex not set, sanitize_version used, valid version
-        (
-            [{
-                'tag': '1.2.4'
-            }, {
-                'tag': '1.2.3'
-            }],
-            'repo',
-            'cat/pkg-1.2.3',
-            {
-                'transformations': {},
-                'regex_version': {},
-                'restrict_version_process': '',
-                'restrict_version': {},
-                'stable_version': {},
-                'is_devel': lambda _: False,
-            },
-            '1.2.4',
-        ),
+        ([{
+            'tag': '1.2.4'
+        }, {
+            'tag': '1.2.3'
+        }], 'repo', 'cat/pkg-1.2.3', {
+            'transformations': {},
+            'regex_version': {},
+            'restrict_version_process': '',
+            'restrict_version': {},
+            'stable_version': {},
+            'is_devel': lambda _: False
+        }, '1.2.4'),
         # Transformation function present
-        (
-            [{
-                'tag': 'v1.2.5'
-            }, {
-                'tag': 'v1.2.4'
-            }],
-            'repo',
-            'cat/pkg-1.2.3',
-            {
-                'transformations': {
-                    'cat/pkg': lambda tag: tag.lstrip('v')
-                },
-                'regex_version': {},
-                'restrict_version_process': '',
-                'restrict_version': {},
-                'stable_version': {},
-                'is_devel': lambda _: False,
+        ([{
+            'tag': 'v1.2.5'
+        }, {
+            'tag': 'v1.2.4'
+        }], 'repo', 'cat/pkg-1.2.3', {
+            'transformations': {
+                'cat/pkg': lambda tag: tag.lstrip('v')
             },
-            '1.2.5',
-        ),
+            'regex_version': {},
+            'restrict_version_process': '',
+            'restrict_version': {},
+            'stable_version': {},
+            'is_devel': lambda _: False
+        }, '1.2.5'),
         # Regex version present
-        (
-            [{
-                'tag': 'foo-1.2.6'
-            }, {
-                'tag': 'foo-1.2.5'
-            }],
-            'repo',
-            'cat/pkg-1.2.3',
-            {
-                'transformations': {},
-                'regex_version': {
-                    'cat/pkg': (r'foo-', '')
-                },
-                'restrict_version_process': '',
-                'restrict_version': {},
-                'stable_version': {},
-                'is_devel': lambda _: False,
+        ([{
+            'tag': 'foo-1.2.6'
+        }, {
+            'tag': 'foo-1.2.5'
+        }], 'repo', 'cat/pkg-1.2.3', {
+            'transformations': {},
+            'regex_version': {
+                'cat/pkg': (r'foo-', '')
             },
-            '1.2.6',
-        ),
+            'restrict_version_process': '',
+            'restrict_version': {},
+            'stable_version': {},
+            'is_devel': lambda _: False
+        }, '1.2.6'),
         # Version filtered out by restrict_version_process
         (
             [{
@@ -804,62 +697,43 @@ def test_unpack_ebuild(
                 'restrict_version_process': '2.8',  # No version startswith 2.8
                 'restrict_version': {},
                 'stable_version': {},
-                'is_devel': lambda _: False,
+                'is_devel': lambda _: False
             },
-            None,
-        ),
+            None),
         # Version filtered out by catpkg_catpkgsplit ValueError
-        (
-            [{
-                'tag': 'bad_ver'
-            }],
-            'repo',
-            'cat/pkg-1.2.3',
-            {
-                'transformations': {},
-                'regex_version': {},
-                'restrict_version_process': '',
-                'restrict_version': {},
-                'stable_version': {},
-                'is_devel': lambda _: False,
-            },
-            None,
-        ),
+        ([{
+            'tag': 'bad_ver'
+        }], 'repo', 'cat/pkg-1.2.3', {
+            'transformations': {},
+            'regex_version': {},
+            'restrict_version_process': '',
+            'restrict_version': {},
+            'stable_version': {},
+            'is_devel': lambda _: False
+        }, None),
         # Accept version returns False
-        (
-            [{
-                'tag': '1.2.9'
-            }],
-            'repo',
-            'cat/pkg-1.2.3',
-            {
-                'transformations': {},
-                'regex_version': {},
-                'restrict_version_process': '',
-                'restrict_version': {},
-                'stable_version': {},
-                'is_devel': lambda _: False,
-                'accept_version': False,
-            },
-            None,
-        ),
+        ([{
+            'tag': '1.2.9'
+        }], 'repo', 'cat/pkg-1.2.3', {
+            'transformations': {},
+            'regex_version': {},
+            'restrict_version_process': '',
+            'restrict_version': {},
+            'stable_version': {},
+            'is_devel': lambda _: False,
+            'accept_version': False
+        }, None),
         # Ebuild version has more than one dot, but tag version has none (should skip)
-        (
-            [{
-                'tag': 'foo'
-            }],
-            'repo',
-            'cat/pkg-1.2.3.4',
-            {
-                'transformations': {},
-                'regex_version': {},
-                'restrict_version_process': '',
-                'restrict_version': {},
-                'stable_version': {},
-                'is_devel': lambda _: False,
-            },
-            None,
-        ),
+        ([{
+            'tag': 'foo'
+        }], 'repo', 'cat/pkg-1.2.3.4', {
+            'transformations': {},
+            'regex_version': {},
+            'restrict_version_process': '',
+            'restrict_version': {},
+            'stable_version': {},
+            'is_devel': lambda _: False
+        }, None)
     ])
 def test_get_last_version_cases(mocker: MockerFixture, results: Collection[Mapping[str, str]],
                                 repo: str, ebuild: str, settings_attrs: Mapping[str, Any],
@@ -952,43 +826,43 @@ def test_get_last_version_catpkg_catpkgsplit_raises_value_error(mocker: MockerFi
         # ebuild_version is development, should return True
         ('1.2.3-alpha', '1.2.4', 'cat/pkg', {
             'stable_version': {},
-            'is_devel': lambda _: False,
+            'is_devel': lambda _: False
         }, True),
         # settings.is_devel returns True, should return True
         ('1.2.3', '1.2.4', 'cat/pkg', {
             'stable_version': {},
-            'is_devel': lambda _: True,
+            'is_devel': lambda _: True
         }, True),
         # stable_version regex matches version, should return True
         ('1.2.3', '2.0.0', 'cat/pkg', {
             'stable_version': {
                 'cat/pkg': r'^2\..*'
             },
-            'is_devel': lambda _: False,
+            'is_devel': lambda _: False
         }, True),
         # version is development, should return False
         ('1.2.3', '1.2.4-beta', 'cat/pkg', {
             'stable_version': {},
-            'is_devel': lambda _: False,
+            'is_devel': lambda _: False
         }, False),
         # stable_version regex does not match version, should return False
         ('1.2.3', '3.0.0', 'cat/pkg', {
             'stable_version': {
                 'cat/pkg': r'^2\..*'
             },
-            'is_devel': lambda _: False,
+            'is_devel': lambda _: False
         }, False),
         # Neither development nor stable, should return True
         ('1.2.3', '1.2.4', 'cat/pkg', {
             'stable_version': {},
-            'is_devel': lambda _: False,
+            'is_devel': lambda _: False
         }, True),
         # Both ebuild_version and version are not development, but stable_version is set and matches
         ('1.2.3', '2.1.0', 'cat/pkg', {
             'stable_version': {
                 'cat/pkg': r'^2\..*'
             },
-            'is_devel': lambda _: False,
+            'is_devel': lambda _: False
         }, True),
         # Both ebuild_version and version are not development, but stable_version is set and does
         # not match.
@@ -996,8 +870,8 @@ def test_get_last_version_catpkg_catpkgsplit_raises_value_error(mocker: MockerFi
             'stable_version': {
                 'cat/pkg': r'^2\..*'
             },
-            'is_devel': lambda _: False,
-        }, False),
+            'is_devel': lambda _: False
+        }, False)
     ])
 def test_accept_version_cases(mocker: MockerFixture, ebuild_version: str, version: str, catpkg: str,
                               settings_attrs: Mapping[str,

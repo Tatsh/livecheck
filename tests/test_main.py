@@ -1841,36 +1841,34 @@ async def test_process_submodules_sha_matches_no_replacement(mocker: MockerFixtu
     ('src_uri', 'is_gist_ret', 'is_github_ret', 'is_sourcehut_ret', 'is_pypi_ret',
      'is_jetbrains_ret', 'is_gitlab_ret', 'is_package_ret', 'is_pecl_ret', 'is_metacpan_ret',
      'is_rubygems_ret', 'is_sourceforge_ret', 'is_bitbucket_ret', 'expected'),
-    [
-        ('https://gist.github.com/foo/bar', True, False, False, False, False, False, False, False,
-         False, False, False, False, ('', 'sha', 'date', 'https://gist.github.com/foo/bar')),
-        ('https://github.com/foo/bar', False, True, False, False, False, False, False, False, False,
-         False, False, False, ('ver', 'sha', 'date', 'https://github.com/foo/bar')),
-        ('https://git.sr.ht/~foo/bar', False, False, True, False, False, False, False, False, False,
-         False, False, False, ('ver', 'sha', 'date', 'https://git.sr.ht/~foo/bar')),
-        ('https://pypi.org/project/foo', False, False, False, True, False, False, False, False,
-         False, False, False, False, ('ver', '', '', 'url')),
-        ('https://jetbrains.com/foo', False, False, False, False, True, False, False, False, False,
-         False, False, False, ('ver', '', '', 'https://jetbrains.com/foo')),
-        ('https://gitlab.com/foo/bar', False, False, False, False, False, True, False, False, False,
-         False, False, False, ('ver', 'sha', 'date', 'https://gitlab.com/foo/bar')),
-        ('https://example.com/package', False, False, False, False, False, False, True, False,
-         False, False, False, False, ('ver', '', '', 'https://example.com/package')),
-        ('https://pecl.php.net/package/foo', False, False, False, False, False, False, False, True,
-         False, False, False, False, ('ver', '', '', 'https://pecl.php.net/package/foo')),
-        ('https://metacpan.org/release/foo', False, False, False, False, False, False, False, False,
-         True, False, False, False, ('ver', '', '', 'https://metacpan.org/release/foo')),
-        ('https://rubygems.org/gems/foo', False, False, False, False, False, False, False, False,
-         False, True, False, False, ('ver', '', '', 'https://rubygems.org/gems/foo')),
-        ('https://sourceforge.net/projects/foo', False, False, False, False, False, False, False,
-         False, False, False, True, False, ('ver', '', '', 'https://sourceforge.net/projects/foo')),
-        ('https://bitbucket.org/foo/bar', False, False, False, False, False, False, False, False,
-         False, False, False, True, ('ver', 'sha', 'date', 'https://bitbucket.org/foo/bar')),
-        ('https://unknown.org/foo/bar', False, False, False, False, False, False, False, False,
-         False, False, False, False, ('', '', '', 'https://unknown.org/foo/bar')),
-        ('not_a_url', False, False, False, False, False, False, False, False, False, False, False,
-         False, ('', '', '', 'not_a_url')),
-    ])
+    [('https://gist.github.com/foo/bar', True, False, False, False, False, False, False, False,
+      False, False, False, False, ('', 'sha', 'date', 'https://gist.github.com/foo/bar')),
+     ('https://github.com/foo/bar', False, True, False, False, False, False, False, False, False,
+      False, False, False, ('ver', 'sha', 'date', 'https://github.com/foo/bar')),
+     ('https://git.sr.ht/~foo/bar', False, False, True, False, False, False, False, False, False,
+      False, False, False, ('ver', 'sha', 'date', 'https://git.sr.ht/~foo/bar')),
+     ('https://pypi.org/project/foo', False, False, False, True, False, False, False, False, False,
+      False, False, False, ('ver', '', '', 'url')),
+     ('https://jetbrains.com/foo', False, False, False, False, True, False, False, False, False,
+      False, False, False, ('ver', '', '', 'https://jetbrains.com/foo')),
+     ('https://gitlab.com/foo/bar', False, False, False, False, False, True, False, False, False,
+      False, False, False, ('ver', 'sha', 'date', 'https://gitlab.com/foo/bar')),
+     ('https://example.com/package', False, False, False, False, False, False, True, False, False,
+      False, False, False, ('ver', '', '', 'https://example.com/package')),
+     ('https://pecl.php.net/package/foo', False, False, False, False, False, False, False, True,
+      False, False, False, False, ('ver', '', '', 'https://pecl.php.net/package/foo')),
+     ('https://metacpan.org/release/foo', False, False, False, False, False, False, False, False,
+      True, False, False, False, ('ver', '', '', 'https://metacpan.org/release/foo')),
+     ('https://rubygems.org/gems/foo', False, False, False, False, False, False, False, False,
+      False, True, False, False, ('ver', '', '', 'https://rubygems.org/gems/foo')),
+     ('https://sourceforge.net/projects/foo', False, False, False, False, False, False, False,
+      False, False, False, True, False, ('ver', '', '', 'https://sourceforge.net/projects/foo')),
+     ('https://bitbucket.org/foo/bar', False, False, False, False, False, False, False, False,
+      False, False, False, True, ('ver', 'sha', 'date', 'https://bitbucket.org/foo/bar')),
+     ('https://unknown.org/foo/bar', False, False, False, False, False, False, False, False, False,
+      False, False, False, ('', '', '', 'https://unknown.org/foo/bar')),
+     ('not_a_url', False, False, False, False, False, False, False, False, False, False, False,
+      False, ('', '', '', 'not_a_url'))])
 async def test_parse_url_variants(mocker: MockerFixture, src_uri: str, is_gist_ret: bool,
                                   is_github_ret: bool, is_sourcehut_ret: bool, is_pypi_ret: bool,
                                   is_jetbrains_ret: bool, is_gitlab_ret: bool, is_package_ret: bool,
@@ -1928,73 +1926,24 @@ async def test_parse_metadata_no_metadata_file(tmp_path: Path, mocker: MockerFix
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize((
-    'attrib_type',
-    'get_latest_meta_func',
-    'get_latest_meta_return',
-    'expected',
-), [
-    (
-        'github',
-        'get_latest_github_metadata',
-        ('latest_version', 'top_hash'),
-        ('latest_version', 'top_hash', '', ''),
-    ),
-    (
-        'sourcehut',
-        'get_latest_sourcehut_metadata',
-        'latest_version',
-        ('latest_version', '', '', ''),
-    ),
-    (
-        'bitbucket',
-        'get_latest_bitbucket_metadata',
-        ('latest_version', 'top_hash'),
-        ('latest_version', 'top_hash', '', ''),
-    ),
-    (
-        'gitlab',
-        'get_latest_gitlab_metadata',
-        ('latest_version', 'top_hash'),
-        ('latest_version', 'top_hash', '', ''),
-    ),
-    (
-        'metacpan',
-        'get_latest_metacpan_metadata',
-        'latest_version',
-        ('latest_version', '', '', ''),
-    ),
-    (
-        'pecl',
-        'get_latest_pecl_metadata',
-        'latest_version',
-        ('latest_version', '', '', ''),
-    ),
-    (
-        'rubygems',
-        'get_latest_rubygems_metadata',
-        'latest_version',
-        ('latest_version', '', '', ''),
-    ),
-    (
-        'sourceforge',
-        'get_latest_sourceforge_metadata',
-        'latest_version',
-        ('latest_version', '', '', ''),
-    ),
-    (
-        'pypi',
-        'get_latest_pypi_metadata',
-        ('latest_version', 'url'),
-        ('latest_version', '', '', 'url'),
-    ),
-    (
-        'pypi',
-        'get_latest_pypi_metadata',
-        ('', 'url'),
-        ('', '', '', ''),
-    ),
-])
+@pytest.mark.parametrize(
+    ('attrib_type', 'get_latest_meta_func', 'get_latest_meta_return', 'expected'),
+    [('github', 'get_latest_github_metadata', ('latest_version', 'top_hash'),
+      ('latest_version', 'top_hash', '', '')),
+     ('sourcehut', 'get_latest_sourcehut_metadata', 'latest_version',
+      ('latest_version', '', '', '')),
+     ('bitbucket', 'get_latest_bitbucket_metadata', ('latest_version', 'top_hash'),
+      ('latest_version', 'top_hash', '', '')),
+     ('gitlab', 'get_latest_gitlab_metadata', ('latest_version', 'top_hash'),
+      ('latest_version', 'top_hash', '', '')),
+     ('metacpan', 'get_latest_metacpan_metadata', 'latest_version', ('latest_version', '', '', '')),
+     ('pecl', 'get_latest_pecl_metadata', 'latest_version', ('latest_version', '', '', '')),
+     ('rubygems', 'get_latest_rubygems_metadata', 'latest_version', ('latest_version', '', '', '')),
+     ('sourceforge', 'get_latest_sourceforge_metadata', 'latest_version',
+      ('latest_version', '', '', '')),
+     ('pypi', 'get_latest_pypi_metadata', ('latest_version', 'url'),
+      ('latest_version', '', '', 'url')),
+     ('pypi', 'get_latest_pypi_metadata', ('', 'url'), ('', '', '', ''))])
 async def test_parse_metadata_cases(attrib_type: str, get_latest_meta_func: str,
                                     get_latest_meta_return: str, expected: tuple[str, ...],
                                     tmp_path: Path, mocker: MockerFixture) -> None:
@@ -2107,7 +2056,7 @@ async def test_parse_metadata_no_remote_id2(mocker: MockerFixture, tmp_path: Pat
         ('cat/pkg-1.2.3', ('cat/pkg-1.2.3', '')),  # no match, returns as is
         ('cat/pkg:slot:1.2.3', ('cat/pkg:slot:1.2.3', '')),  # wrong format, returns as is
         ('cat/pkg:-1.2.3', ('cat/pkg:-1.2.3', '')),  # wrong format, returns as is
-        ('cat/pkg:slot:-', ('cat/pkg-', 'slot')),  # version is empty
+        ('cat/pkg:slot:-', ('cat/pkg-', 'slot'))  # version is empty
     ])
 def test_extract_restrict_version(cp: str, expected: tuple[str, str]) -> None:
     assert extract_restrict_version(cp) == expected
@@ -2267,19 +2216,14 @@ async def test_get_props_no_names_argument_yields(mocker: MockerFixture, fake_re
                  return_value=['https://homepage'])
     mocker.patch('livecheck.main.log')
     mocker.patch('livecheck.main.parse_url',
-                 side_effect=[
-                     ('ver1', 'sha1', 'date1', 'url1'),
-                     ('ver2', 'sha2', 'date2', 'url2'),
-                 ])
+                 side_effect=[('ver1', 'sha1', 'date1', 'url1'), ('ver2', 'sha2', 'date2', 'url2')])
     results = await get_props(search_dir=fake_repo,
                               repo_root=fake_repo,
                               settings=mock_settings2,
                               names=None,
                               exclude=[])
-    assert results == [
-        ('cat1', 'pkg1', '1.0.0', 'ver1', 'sha1', 'date1', 'url1'),
-        ('cat2', 'pkg2', '2.0.0', 'ver2', 'sha2', 'date2', 'url2'),
-    ]
+    assert results == [('cat1', 'pkg1', '1.0.0', 'ver1', 'sha1', 'date1', 'url1'),
+                       ('cat2', 'pkg2', '2.0.0', 'ver2', 'sha2', 'date2', 'url2')]
 
 
 @pytest.mark.asyncio
@@ -2599,7 +2543,7 @@ async def test_get_props_sync_version_yields(mocker: MockerFixture, fake_repo: P
         'livecheck.main.get_highest_matches',
         side_effect=[
             ['cat/pkg-1.0.0'],  # for main get_highest_matches
-            ['cat/pkg-2.0.0'],  # for sync_version get_highest_matches
+            ['cat/pkg-2.0.0']  # for sync_version get_highest_matches
         ])
     mocker.patch('livecheck.main.catpkg_catpkgsplit',
                  side_effect=[('cat/pkg', 'cat', 'pkg', '1.0.0'),
@@ -2633,7 +2577,7 @@ async def test_get_props_sync_version_no_matches(mocker: MockerFixture, fake_rep
         'livecheck.main.get_highest_matches',
         side_effect=[
             ['cat/pkg-1.0.0'],  # for main get_highest_matches
-            [],  # for sync_version get_highest_matches
+            []  # for sync_version get_highest_matches
         ])
     mocker.patch('livecheck.main.catpkg_catpkgsplit',
                  return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
@@ -2679,7 +2623,7 @@ async def test_get_props_no_last_version_no_top_hash_uses_homepage(mocker: Mocke
         'livecheck.main.parse_url',
         side_effect=[
             ('', '', '', ''),  # for src_uri
-            ('ver', 'sha', 'date', 'url'),  # for homepage1
+            ('ver', 'sha', 'date', 'url')  # for homepage1
         ])
     results = await get_props(search_dir=fake_repo,
                               repo_root=fake_repo,
@@ -2814,7 +2758,7 @@ async def test_get_props_no_last_version_no_top_hash_uses_directory_loop_homes(
         # No SHA/COMMIT in ebuild, url with no slash
         ('EAPI=8\n', 'abcdef1', 'abcdef1'),
         # No SHA/COMMIT in ebuild, url empty
-        ('EAPI=8\n', '', ''),
+        ('EAPI=8\n', '', '')
     ])
 def test_get_old_sha(tmp_path: Path, ebuild_content: str, url: str, expected: str) -> None:
     ebuild_path = tmp_path / 'test.ebuild'
@@ -2859,7 +2803,7 @@ def test_get_old_sha_multiple_lines(tmp_path: Path) -> None:
         ('EAPI=8\n', '', ''),
         # Both present, but with extra spaces
         ('   EGIT_REPO_URI="https://github.com/org/repo.git"   \n   EGIT_BRANCH="main"   \n', '', ''
-         ),
+         )
     ])
 def test_get_egit_repo(tmp_path: Path, ebuild_content: str, expected_egit: str,
                        expected_branch: str) -> None:
@@ -2889,15 +2833,12 @@ def test_get_egit_repo_ignores_unrelated_lines(tmp_path: Path) -> None:
     assert not branch
 
 
-@pytest.mark.parametrize(('version', 'sha', 'expected'), [
-    ('1.2.3', '', '1.2.3'),
-    ('1.2.3', None, '1.2.3'),
-    ('1.2.3', 'abcdef1', '1.2.3 (abcdef1)'),
-    ('20240101', 'deadbeef', '20240101 (deadbeef)'),
-    ('', 'cafebabe', ' (cafebabe)'),
-    ('', '', ''),
-    ('v2.0.0', '1234567', 'v2.0.0 (1234567)'),
-])
+@pytest.mark.parametrize(('version', 'sha', 'expected'),
+                         [('1.2.3', '', '1.2.3'), ('1.2.3', None, '1.2.3'),
+                          ('1.2.3', 'abcdef1', '1.2.3 (abcdef1)'),
+                          ('20240101', 'deadbeef', '20240101 (deadbeef)'),
+                          ('', 'cafebabe', ' (cafebabe)'), ('', '', ''),
+                          ('v2.0.0', '1234567', 'v2.0.0 (1234567)')])
 def test_str_version(version: str, sha: str, expected: str) -> None:
     assert str_version(version, sha) == expected
 
@@ -3006,7 +2947,7 @@ async def test_execute_hooks_handles_nonzero_returncode(mocker: MockerFixture,
         # Git enabled, but not auto_update
         (False, False, False, True, False, False, (), (), None, '/repo', 'repo', True, None),
         # Git enabled, auto_update, but .git missing
-        (True, False, False, True, False, False, (), (), None, '/repo', 'repo', True, None),
+        (True, False, False, True, False, False, (), (), None, '/repo', 'repo', True, None)
     ])
 def test_main_various_paths(mocker: MockerFixture, runner: CliRunner, auto_update: bool,
                             debug: bool, development: bool, git: bool, keep_old: bool,
@@ -3109,39 +3050,33 @@ def test_main_calls_get_props_and_do_main(mocker: MockerFixture, runner: CliRunn
     mocker.patch('livecheck.main.check_program', return_value=True)
     mock_do_main = mocker.patch('livecheck.main.do_main')
     mocker.patch('livecheck.main.get_props',
-                 return_value=[
-                     ('cat', 'pkg', '1.0.0', '1.0.1', 'sha', 'date', 'url'),
-                     ('cat2', 'pkg2', '2.0.0', '2.0.1', 'sha2', 'date2', 'url2'),
-                 ])
+                 return_value=[('cat', 'pkg', '1.0.0', '1.0.1', 'sha', 'date', 'url'),
+                               ('cat2', 'pkg2', '2.0.0', '2.0.1', 'sha2', 'date2', 'url2')])
     result = runner.invoke(
         main, ['--auto-update', '--working-dir',
                str(tmp_path), 'cat/pkg', 'cat2/pkg2'])
     assert result.exit_code == 0
     assert mock_do_main.call_count == 2
-    mock_do_main.assert_any_call(
-        cat='cat',
-        pkg='pkg',
-        ebuild_version='1.0.0',
-        last_version='1.0.1',
-        top_hash='sha',
-        hash_date='date',
-        url='url',
-        search_dir=tmp_path,
-        settings=mock_settings,
-        hook_dir=None,
-    )
-    mock_do_main.assert_any_call(
-        cat='cat2',
-        pkg='pkg2',
-        ebuild_version='2.0.0',
-        last_version='2.0.1',
-        top_hash='sha2',
-        hash_date='date2',
-        url='url2',
-        search_dir=tmp_path,
-        settings=mock_settings,
-        hook_dir=None,
-    )
+    mock_do_main.assert_any_call(cat='cat',
+                                 pkg='pkg',
+                                 ebuild_version='1.0.0',
+                                 last_version='1.0.1',
+                                 top_hash='sha',
+                                 hash_date='date',
+                                 url='url',
+                                 search_dir=tmp_path,
+                                 settings=mock_settings,
+                                 hook_dir=None)
+    mock_do_main.assert_any_call(cat='cat2',
+                                 pkg='pkg2',
+                                 ebuild_version='2.0.0',
+                                 last_version='2.0.1',
+                                 top_hash='sha2',
+                                 hash_date='date2',
+                                 url='url2',
+                                 search_dir=tmp_path,
+                                 settings=mock_settings,
+                                 hook_dir=None)
 
 
 def test_main_exclude_logs_message(mocker: MockerFixture, runner: CliRunner, tmp_path: Path,
@@ -3205,24 +3140,20 @@ def test_main_auto_update_git_happy_path(mocker: MockerFixture, runner: CliRunne
     mocker.patch('livecheck.main.check_program', return_value=True)
     mock_do_main = mocker.patch('livecheck.main.do_main')
     mocker.patch('livecheck.main.get_props',
-                 return_value=[
-                     ('cat', 'pkg', '1.0.0', '1.0.1', 'sha', 'date', 'url'),
-                 ])
+                 return_value=[('cat', 'pkg', '1.0.0', '1.0.1', 'sha', 'date', 'url')])
     args = ['--auto-update', '--git', '--working-dir', str(tmp_path), 'cat/pkg']
     result = runner.invoke(main, args)
     assert result.exit_code == 0
-    mock_do_main.assert_called_once_with(
-        cat='cat',
-        pkg='pkg',
-        ebuild_version='1.0.0',
-        last_version='1.0.1',
-        top_hash='sha',
-        hash_date='date',
-        url='url',
-        search_dir=tmp_path,
-        settings=mock_settings,
-        hook_dir=None,
-    )
+    mock_do_main.assert_called_once_with(cat='cat',
+                                         pkg='pkg',
+                                         ebuild_version='1.0.0',
+                                         last_version='1.0.1',
+                                         top_hash='sha',
+                                         hash_date='date',
+                                         url='url',
+                                         search_dir=tmp_path,
+                                         settings=mock_settings,
+                                         hook_dir=None)
 
 
 def test_main_auto_update_git_missing_git_dir(mocker: MockerFixture, runner: CliRunner,
@@ -3307,9 +3238,7 @@ def test_main_handles_exception_in_do_main(mocker: MockerFixture, runner: CliRun
     mocker.patch('pathlib.Path.is_dir', return_value=True)
     mocker.patch('livecheck.main.check_program', return_value=True)
     mocker.patch('livecheck.main.get_props',
-                 return_value=[
-                     ('cat', 'pkg', '1.0.0', '1.0.1', 'sha', 'date', 'url'),
-                 ])
+                 return_value=[('cat', 'pkg', '1.0.0', '1.0.1', 'sha', 'date', 'url')])
     mock_do_main = mocker.patch('livecheck.main.do_main', side_effect=Exception('fail in do_main'))
     args = ['--auto-update', '--working-dir', str(tmp_path), 'cat/pkg']
     result = runner.invoke(main, args)
@@ -3340,23 +3269,19 @@ async def test_get_props_type_location_checksum_calls_get_latest_location_checks
     mocker.patch('livecheck.main.log')
     mock_get_latest_location_checksum_package = mocker.patch(
         'livecheck.main.get_latest_location_checksum_package',
-        return_value=('loc_ver', 'loc_date', 'loc_url'),
-    )
-    results = await get_props(
-        exclude=[],
-        names=['cat/pkg'],
-        repo_root=fake_repo,
-        search_dir=fake_repo,
-        settings=mock_settings2,
-    )
+        return_value=('loc_ver', 'loc_date', 'loc_url'))
+    results = await get_props(exclude=[],
+                              names=['cat/pkg'],
+                              repo_root=fake_repo,
+                              search_dir=fake_repo,
+                              settings=mock_settings2)
     assert results == [('cat', 'pkg', '1.0.0', 'loc_ver', '', 'loc_date', 'loc_url')]
     mock_get_latest_location_checksum_package.assert_called_once_with(
         'https://redirect.example.com',
         'cat/pkg-1.0.0',
         str(fake_repo),
         headers={'Referer': 'https://example.com'},
-        params={'agree': 'Yes'},
-    )
+        params={'agree': 'Yes'})
 
 
 def test_get_old_sha_bare_hex_string(tmp_path: Path) -> None:
@@ -3386,7 +3311,7 @@ async def test_process_submodules_3tuple_success(mocker: MockerFixture) -> None:
     parent_response = mocker.Mock(ok=True,
                                   json=lambda: {
                                       'sha': 'parentsha123',
-                                      'submodule_git_url': 'https://github.com/other/repo.git',
+                                      'submodule_git_url': 'https://github.com/other/repo.git'
                                   })
     nested_response = mocker.Mock(ok=True, json=lambda: {'sha': 'nestedsha456'})
     mock_get_content.side_effect = [parent_response, nested_response]

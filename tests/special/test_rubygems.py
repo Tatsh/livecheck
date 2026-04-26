@@ -16,16 +16,13 @@ async def test_get_latest_rubygems_package_returns_latest_version(mocker: Mocker
     mock_get_last_version = mocker.patch('livecheck.special.rubygems.get_last_version')
     mock_catpkgsplit.return_value = ('dev-ruby', None, 'rails', None)
     mock_response = mocker.Mock()
-    mock_response.json.return_value = [
-        {
-            'number': '7.0.0',
-            'prerelease': False
-        },
-        {
-            'number': '7.1.0.beta',
-            'prerelease': True
-        },
-    ]
+    mock_response.json.return_value = [{
+        'number': '7.0.0',
+        'prerelease': False
+    }, {
+        'number': '7.1.0.beta',
+        'prerelease': True
+    }]
     mock_get_content.return_value = mock_response
     mock_get_last_version.return_value = {'version': '7.0.0'}
     result = await rubygems.get_latest_rubygems_package(

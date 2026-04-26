@@ -17,13 +17,11 @@ PATTERN = re.compile(r'^DIST\s+(?P<file>\S+)\s+(?P<size>\d+)\s+BLAKE2B\s+'
                      r'(?P<blake2b>[a-fA-F0-9]+)\s+SHA512\s+(?P<sha512>[a-fA-F0-9]+)$')
 
 
-async def get_latest_checksum_package(
-    url: str,
-    ebuild: str,
-    repo_root: str,
-    headers: dict[str, str] | None = None,
-    params: dict[str, str] | None = None,
-) -> tuple[str, str, str]:
+async def get_latest_checksum_package(url: str,
+                                      ebuild: str,
+                                      repo_root: str,
+                                      headers: dict[str, str] | None = None,
+                                      params: dict[str, str] | None = None) -> tuple[str, str, str]:
     """
     Get the latest version of a package based on its checksum.
 
@@ -76,12 +74,11 @@ async def get_latest_checksum_package(
 
 
 async def get_latest_location_checksum_package(
-    url: str,
-    ebuild: str,
-    repo_root: str,
-    headers: dict[str, str] | None = None,
-    params: dict[str, str] | None = None,
-) -> tuple[str, str, str]:
+        url: str,
+        ebuild: str,
+        repo_root: str,
+        headers: dict[str, str] | None = None,
+        params: dict[str, str] | None = None) -> tuple[str, str, str]:
     """
     Get the latest version of a package based on Location header and checksum.
 

@@ -48,7 +48,7 @@ test_cases = {
         'url': 'https://registry.npmjs.org/@devcontainers/cli/-/cli-devcontainer-0.72.0.tgz',
         'expected': ('registry.npmjs.org', '@devcontainers/cli'),
         'is_package': True
-    },
+    }
 }
 
 

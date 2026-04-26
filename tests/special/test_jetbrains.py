@@ -30,22 +30,19 @@ async def test_get_latest_jetbrains_package_returns_latest(mocker: MockerFixture
     mock_response.json.return_value = [{
         'name':
             'PyCharm Community Edition',
-        'releases': [
-            {
-                'type': 'release',
-                'version': '2023.1',
-                'downloads': {
-                    'linux': {}
-                }
-            },
-            {
-                'type': 'eap',
-                'version': '2023.2',
-                'downloads': {
-                    'linux': {}
-                }
-            },
-        ]
+        'releases': [{
+            'type': 'release',
+            'version': '2023.1',
+            'downloads': {
+                'linux': {}
+            }
+        }, {
+            'type': 'eap',
+            'version': '2023.2',
+            'downloads': {
+                'linux': {}
+            }
+        }]
     }]
     mocker.patch('livecheck.special.jetbrains.get_content', return_value=mock_response)
 
@@ -91,29 +88,25 @@ async def test_get_latest_jetbrains_package_skips_eap_and_rc_if_not_devel(
     mock_response.json.return_value = [{
         'name':
             'CLion',
-        'releases': [
-            {
-                'type': 'eap',
-                'version': '2023.2',
-                'downloads': {
-                    'linux': {}
-                }
-            },
-            {
-                'type': 'rc',
-                'version': '2023.3',
-                'downloads': {
-                    'linux': {}
-                }
-            },
-            {
-                'type': 'release',
-                'version': '2023.1',
-                'downloads': {
-                    'linux': {}
-                }
-            },
-        ]
+        'releases': [{
+            'type': 'eap',
+            'version': '2023.2',
+            'downloads': {
+                'linux': {}
+            }
+        }, {
+            'type': 'rc',
+            'version': '2023.3',
+            'downloads': {
+                'linux': {}
+            }
+        }, {
+            'type': 'release',
+            'version': '2023.1',
+            'downloads': {
+                'linux': {}
+            }
+        }]
     }]
     mocker.patch('livecheck.special.jetbrains.get_content', return_value=mock_response)
     mocker.patch('livecheck.special.jetbrains.get_last_version', return_value={'tag': '2023.1'})
@@ -132,36 +125,31 @@ async def test_get_latest_jetbrains_package_includes_eap_and_rc_if_devel(
     mock_response.json.return_value = [{
         'name':
             'CLion',
-        'releases': [
-            {
-                'type': 'eap',
-                'version': '2023.2',
-                'downloads': {
-                    'linux': {}
-                }
-            },
-            {
-                'type': 'rc',
-                'version': '2023.3',
-                'downloads': {
-                    'linux': {}
-                }
-            },
-            {
-                'type': 'release',
-                'version': '2023.1',
-                'downloads': {
-                    'linux': {}
-                }
-            },
-            {
-                'type': 'release',
-                'version': '2023.1',
-                'downloads': {
-                    'mac': {}
-                }
-            },
-        ]
+        'releases': [{
+            'type': 'eap',
+            'version': '2023.2',
+            'downloads': {
+                'linux': {}
+            }
+        }, {
+            'type': 'rc',
+            'version': '2023.3',
+            'downloads': {
+                'linux': {}
+            }
+        }, {
+            'type': 'release',
+            'version': '2023.1',
+            'downloads': {
+                'linux': {}
+            }
+        }, {
+            'type': 'release',
+            'version': '2023.1',
+            'downloads': {
+                'mac': {}
+            }
+        }]
     }]
     mocker.patch('livecheck.special.jetbrains.get_content', return_value=mock_response)
     mocker.patch('livecheck.special.jetbrains.get_last_version', return_value={'tag': '2023.3'})

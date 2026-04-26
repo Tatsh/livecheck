@@ -36,23 +36,19 @@ async def test_get_latest_repology_success(mock_catpkg_catpkgsplit: Mock, mocker
                                            mock_settings: Mock) -> None:
     # Mock the response from get_content
     mock_response = mocker.Mock()
-    mock_response.json.return_value = [
-        {
-            'srcname': 'pkg',
-            'status': 'stable',
-            'version': '1.2.3'
-        },
-        {
-            'srcname': 'pkg',
-            'status': 'devel',
-            'version': '2.0.0'
-        },
-        {
-            'srcname': 'other',
-            'status': 'stable',
-            'version': '9.9.9'
-        },
-    ]
+    mock_response.json.return_value = [{
+        'srcname': 'pkg',
+        'status': 'stable',
+        'version': '1.2.3'
+    }, {
+        'srcname': 'pkg',
+        'status': 'devel',
+        'version': '2.0.0'
+    }, {
+        'srcname': 'other',
+        'status': 'stable',
+        'version': '9.9.9'
+    }]
     mock_get_content = mocker.patch('livecheck.special.repology.get_content')
     mock_get_content.return_value = mock_response
     mock_get_last_version.return_value = {'version': '1.2.3'}
@@ -68,13 +64,11 @@ async def test_get_latest_repology_with_package_param(mock_catpkg_catpkgsplit: M
                                                       mock_get_last_version: Mock,
                                                       mock_settings: Mock) -> None:
     mock_response = mocker.Mock()
-    mock_response.json.return_value = [
-        {
-            'srcname': 'custom-pkg',
-            'status': 'stable',
-            'version': '4.5.6'
-        },
-    ]
+    mock_response.json.return_value = [{
+        'srcname': 'custom-pkg',
+        'status': 'stable',
+        'version': '4.5.6'
+    }]
     mock_get_content = mocker.patch('livecheck.special.repology.get_content')
     mock_get_content.return_value = mock_response
     mock_get_last_version.return_value = {'version': '4.5.6'}
@@ -90,13 +84,7 @@ async def test_get_latest_repology_fallback_url(mock_catpkg_catpkgsplit: Mock,
                                                 mock_settings: Mock) -> None:
     # First call returns None, second call returns a valid response
     mock_response = mocker.Mock()
-    mock_response.json.return_value = [
-        {
-            'srcname': 'pkg',
-            'status': 'stable',
-            'version': '7.8.9'
-        },
-    ]
+    mock_response.json.return_value = [{'srcname': 'pkg', 'status': 'stable', 'version': '7.8.9'}]
     mock_get_content = mocker.patch('livecheck.special.repology.get_content')
     mock_get_content.side_effect = [None, mock_response]
     mock_get_last_version.return_value = {'version': '7.8.9'}
@@ -120,13 +108,7 @@ async def test_get_latest_repology_no_matching_release(mock_catpkg_catpkgsplit: 
                                                        mock_get_last_version: Mock,
                                                        mock_settings: Mock) -> None:
     mock_response = mocker.Mock()
-    mock_response.json.return_value = [
-        {
-            'srcname': 'other',
-            'status': 'stable',
-            'version': '0.0.1'
-        },
-    ]
+    mock_response.json.return_value = [{'srcname': 'other', 'status': 'stable', 'version': '0.0.1'}]
     mock_get_content = mocker.patch('livecheck.special.repology.get_content')
     mock_get_content.return_value = mock_response
     mock_get_last_version.return_value = None
@@ -141,13 +123,7 @@ async def test_get_latest_repology_devel_status_allowed(mock_catpkg_catpkgsplit:
                                                         mock_settings: Mock) -> None:
     mock_settings.is_devel.return_value = True
     mock_response = mocker.Mock()
-    mock_response.json.return_value = [
-        {
-            'srcname': 'pkg',
-            'status': 'devel',
-            'version': '3.3.3'
-        },
-    ]
+    mock_response.json.return_value = [{'srcname': 'pkg', 'status': 'devel', 'version': '3.3.3'}]
     mock_get_content = mocker.patch('livecheck.special.repology.get_content')
     mock_get_content.return_value = mock_response
     mock_get_last_version.return_value = {'version': '3.3.3'}

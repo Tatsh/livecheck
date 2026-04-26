@@ -75,7 +75,7 @@ async def get_latest_gitlab_package(url: str, ebuild: str,
 
     results: list[dict[str, str]] = [{
         'tag': tag.get('name', ''),
-        'id': tag.get('commit', {}).get('id', ''),
+        'id': tag.get('commit', {}).get('id', '')
     } for tag in r.json()]
 
     if last_version := get_last_version(results, repo, ebuild, settings):

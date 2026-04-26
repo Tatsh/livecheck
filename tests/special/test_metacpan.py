@@ -50,7 +50,7 @@ test_cases = {
         'url': 'mirror://cpan/authors/id/D/DC/DCOPPIT/grepmail-5.3111.tar.gz',
         'expected': 'grepmail',
         'is_metacpan': True
-    },
+    }
 }
 
 
@@ -64,44 +64,22 @@ def test_is_metacpan(test_case: dict[str, Any]) -> None:
     assert is_metacpan(test_case['url']) == test_case['is_metacpan']
 
 
-@pytest.mark.parametrize(
-    ('url', 'ebuild', 'api_hits', 'api_release', 'expected_version'),
-    [
-        (
-            'https://metacpan.org/release/Foo-Bar-1.23',
-            'foo-bar.ebuild',
-            [{
-                '_source': {
-                    'version': '1.23'
-                }
-            }, {
-                '_source': {
-                    'version': '1.22'
-                }
-            }],
-            {
-                'version': '1.23'
-            },
-            '1.23',
-        ),
-        (
-            'https://metacpan.org/release/Foo-Bar-2.00',
-            'foo-bar.ebuild',
-            [],
-            {
-                'version': '2.00'
-            },
-            '2.00',
-        ),
-        (
-            'https://metacpan.org/release/Foo-Bar-3.00',
-            'foo-bar.ebuild',
-            [],
-            {},
-            '',
-        ),
-    ],
-)
+@pytest.mark.parametrize(('url', 'ebuild', 'api_hits', 'api_release', 'expected_version'), [
+    ('https://metacpan.org/release/Foo-Bar-1.23', 'foo-bar.ebuild', [{
+        '_source': {
+            'version': '1.23'
+        }
+    }, {
+        '_source': {
+            'version': '1.22'
+        }
+    }], {
+        'version': '1.23'
+    }, '1.23'),
+    ('https://metacpan.org/release/Foo-Bar-2.00', 'foo-bar.ebuild', [], {
+        'version': '2.00'
+    }, '2.00'), ('https://metacpan.org/release/Foo-Bar-3.00', 'foo-bar.ebuild', [], {}, '')
+])
 @pytest.mark.asyncio
 async def test_get_latest_metacpan_package(mocker: MockerFixture, url: str, ebuild: str,
                                            api_hits: Collection[Any], api_release: Mapping[str,
@@ -132,44 +110,20 @@ async def test_get_latest_metacpan_package(mocker: MockerFixture, url: str, ebui
     assert result == expected_version
 
 
-@pytest.mark.parametrize(
-    ('remote', 'ebuild', 'api_hits', 'api_release', 'expected_version'),
-    [
-        (
-            'Foo-Bar',
-            'foo-bar.ebuild',
-            [{
-                '_source': {
-                    'version': '1.50'
-                }
-            }, {
-                '_source': {
-                    'version': '1.40'
-                }
-            }],
-            {
-                'version': '1.50'
-            },
-            '1.50',
-        ),
-        (
-            'Baz-Quux',
-            'baz-quux.ebuild',
-            [],
-            {
-                'version': '2.10'
-            },
-            '2.10',
-        ),
-        (
-            'NoVersion',
-            'no-version.ebuild',
-            [],
-            {},
-            '',
-        ),
-    ],
-)
+@pytest.mark.parametrize(('remote', 'ebuild', 'api_hits', 'api_release', 'expected_version'),
+                         [('Foo-Bar', 'foo-bar.ebuild', [{
+                             '_source': {
+                                 'version': '1.50'
+                             }
+                         }, {
+                             '_source': {
+                                 'version': '1.40'
+                             }
+                         }], {
+                             'version': '1.50'
+                         }, '1.50'), ('Baz-Quux', 'baz-quux.ebuild', [], {
+                             'version': '2.10'
+                         }, '2.10'), ('NoVersion', 'no-version.ebuild', [], {}, '')])
 @pytest.mark.asyncio
 async def test_get_latest_metacpan_metadata(mocker: MockerFixture, remote: str, ebuild: str,
                                             api_hits: Collection[Any], api_release: Mapping[str,

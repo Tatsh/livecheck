@@ -46,7 +46,7 @@ test_cases = {
             '0b902da7c13207d1b86e',
         'gist':
             True
-    },
+    }
 }
 
 

@@ -22,34 +22,28 @@ if TYPE_CHECKING:
     from pytest_mock import MockerFixture
 
 
-@pytest.mark.parametrize(('filename', 'expected'), [
-    ('archive', ''),
-    ('archive.7z', '.7z'),
-    ('archive.TAR.BZ2', '.tar.bz2'),
-    ('archive.TAR.GZ', '.tar.gz'),
-    ('archive.bz2', '.bz2'),
-    ('archive.gh.tar.gz', '.gh.tar.gz'),
-    ('archive.gz', '.gz'),
-    ('archive.rar', '.rar'),
-    ('archive.tar', '.tar'),
-    ('archive.tar.Gz', '.tar.gz'),
-    ('archive.tar.bz2', '.tar.bz2'),
-    ('archive.tar.gz', '.tar.gz'),
-    ('archive.tar.gz.backup', ''),
-    ('archive.tar.lz', '.tar.lz'),
-    ('archive.tar.xz', '.tar.xz'),
-    ('archive.tar.xz2', ''),
-    ('archive.tar.z', '.tar.z'),
-    ('archive.tar.zst', '.tar.zst'),
-    ('archive.tbz', '.tbz'),
-    ('archive.tbz2', '.tbz2'),
-    ('archive.tc.gz', '.tc.gz'),
-    ('archive.tgz', '.tgz'),
-    ('archive.txt', ''),
-    ('archive.txz', '.txz'),
-    ('archive.xz', '.xz'),
-    ('archive.zip', '.zip'),
-])
+@pytest.mark.parametrize(('filename', 'expected'), [('archive', ''), ('archive.7z', '.7z'),
+                                                    ('archive.TAR.BZ2', '.tar.bz2'),
+                                                    ('archive.TAR.GZ', '.tar.gz'),
+                                                    ('archive.bz2', '.bz2'),
+                                                    ('archive.gh.tar.gz', '.gh.tar.gz'),
+                                                    ('archive.gz', '.gz'), ('archive.rar', '.rar'),
+                                                    ('archive.tar', '.tar'),
+                                                    ('archive.tar.Gz', '.tar.gz'),
+                                                    ('archive.tar.bz2', '.tar.bz2'),
+                                                    ('archive.tar.gz', '.tar.gz'),
+                                                    ('archive.tar.gz.backup', ''),
+                                                    ('archive.tar.lz', '.tar.lz'),
+                                                    ('archive.tar.xz', '.tar.xz'),
+                                                    ('archive.tar.xz2', ''),
+                                                    ('archive.tar.z', '.tar.z'),
+                                                    ('archive.tar.zst', '.tar.zst'),
+                                                    ('archive.tbz', '.tbz'),
+                                                    ('archive.tbz2', '.tbz2'),
+                                                    ('archive.tc.gz', '.tc.gz'),
+                                                    ('archive.tgz', '.tgz'), ('archive.txt', ''),
+                                                    ('archive.txz', '.txz'), ('archive.xz', '.xz'),
+                                                    ('archive.zip', '.zip')])
 def test_get_archive_extension(filename: str, expected: str, mocker: MockerFixture) -> None:
     # No need to mock anything for this pure function, but mocker is available
     assert get_archive_extension(filename) == expected
@@ -59,83 +53,35 @@ def test_get_archive_extension(filename: str, expected: str, mocker: MockerFixtu
     ('ebuild', 'remove', 'expected'),
     [
         # Remove a URL line ending with the remove string
-        (
-            'SRC_URI="https://example.com/foo.tar.gz"\n',
-            '.tar.gz',
-            '',
-        ),
+        ('SRC_URI="https://example.com/foo.tar.gz"\n', '.tar.gz', ''),
         # Do not remove if not ending with remove string
-        (
-            'SRC_URI="https://example.com/foo.zip"\n',
-            '.tar.gz',
-            'SRC_URI="https://example.com/foo.zip"\n',
-        ),
+        ('SRC_URI="https://example.com/foo.zip"\n', '.tar.gz',
+         'SRC_URI="https://example.com/foo.zip"\n'),
         # Remove only the matching line, keep others
-        (
-            '# comment\nSRC_URI="https://example.com/foo.tar.gz"\nSRC_URI="https://example.com/bar.zip"\n',
-            '.tar.gz',
-            '# comment\nSRC_URI="https://example.com/bar.zip"\n',
-        ),
+        ('# comment\nSRC_URI="https://example.com/foo.tar.gz"\nSRC_URI="https://example.com/bar.zip"\n',
+         '.tar.gz', '# comment\nSRC_URI="https://example.com/bar.zip"\n'),
         # Keep comments and blank lines
-        (
-            '\n# comment\nSRC_URI="https://example.com/foo.tar.gz"\n\n',
-            '.tar.gz',
-            '\n# comment\n\n',
-        ),
+        ('\n# comment\nSRC_URI="https://example.com/foo.tar.gz"\n\n', '.tar.gz', '\n# comment\n\n'),
         # Remove line with single quotes
-        (
-            "SRC_URI='https://example.com/foo.tar.gz'\n",
-            '.tar.gz',
-            '',
-        ),
+        ("SRC_URI='https://example.com/foo.tar.gz'\n", '.tar.gz', ''),
         # Remove line with no quotes
-        (
-            'SRC_URI=https://example.com/foo.tar.gz\n',
-            '.tar.gz',
-            '',
-        ),
+        ('SRC_URI=https://example.com/foo.tar.gz\n', '.tar.gz', ''),
         # Remove only if remove string is at the end
-        (
-            'SRC_URI="https://example.com/foo.tar.gz.backup"\n',
-            '.tar.gz',
-            'SRC_URI="https://example.com/foo.tar.gz.backup"\n',
-        ),
+        ('SRC_URI="https://example.com/foo.tar.gz.backup"\n', '.tar.gz',
+         'SRC_URI="https://example.com/foo.tar.gz.backup"\n'),
         # Remove line with extra whitespace
-        (
-            '   SRC_URI="https://example.com/foo.tar.gz"   \n',
-            '.tar.gz',
-            '',
-        ),
+        ('   SRC_URI="https://example.com/foo.tar.gz"   \n', '.tar.gz', ''),
         # Remove line with only the remove string
-        (
-            '.tar.gz\n',
-            '.tar.gz',
-            '',
-        ),
+        ('.tar.gz\n', '.tar.gz', ''),
         # Remove line with remove string and trailing quote
-        (
-            '"https://example.com/foo.tar.gz"\n',
-            '.tar.gz',
-            '',
-        ),
+        ('"https://example.com/foo.tar.gz"\n', '.tar.gz', ''),
         # Remove line with remove string and trailing single quote
-        (
-            "'https://example.com/foo.tar.gz'\n",
-            '.tar.gz',
-            '',
-        ),
+        ("'https://example.com/foo.tar.gz'\n", '.tar.gz', ''),
         # Remove line with remove string and no quotes
-        (
-            'https://example.com/foo.tar.gz\n',
-            '.tar.gz',
-            '',
-        ),
+        ('https://example.com/foo.tar.gz\n', '.tar.gz', ''),
         # Keep line if remove string is in the middle
-        (
-            'SRC_URI="https://example.com/foo.tar.gz.zip"\n',
-            '.tar.gz',
-            'SRC_URI="https://example.com/foo.tar.gz.zip"\n',
-        ),
+        ('SRC_URI="https://example.com/foo.tar.gz.zip"\n', '.tar.gz',
+         'SRC_URI="https://example.com/foo.tar.gz.zip"\n')
     ])
 def test_remove_url_ebuild(ebuild: str, remove: str, expected: str) -> None:
     result = remove_url_ebuild(ebuild, remove)
@@ -162,25 +108,14 @@ async def test_search_ebuild(mocker: MockerFixture, ebuild: str, archive: str, p
     mock_logger = mocker.patch('livecheck.special.utils.logger')
     if path is None:
         if found:
-            walk_result: list[tuple[Any, ...]] = [
-                (temp_dir, [], [archive]),
-                (temp_dir + '/subdir', [], []),
-            ]
+            walk_result: list[tuple[Any, ...]] = [(temp_dir, [], [archive]),
+                                                  (temp_dir + '/subdir', [], [])]
         else:
-            walk_result = [
-                (temp_dir, [], ['other-file.txt']),
-                (temp_dir + '/subdir', [], []),
-            ]
+            walk_result = [(temp_dir, [], ['other-file.txt']), (temp_dir + '/subdir', [], [])]
     elif found:
-        walk_result = [
-            (temp_dir, [], []),
-            (temp_dir + '/' + path, [], []),
-        ]
+        walk_result = [(temp_dir, [], []), (temp_dir + '/' + path, [], [])]
     else:
-        walk_result = [
-            (temp_dir, [], []),
-            (temp_dir + '/another-path', [], []),
-        ]
+        walk_result = [(temp_dir, [], []), (temp_dir + '/another-path', [], [])]
     mocker.patch('os.walk', return_value=walk_result)
     mocker.patch('livecheck.special.utils.to_thread.run_sync', side_effect=lambda fn, **_: fn())
     root, returned_temp_dir = await search_ebuild(ebuild, archive, path)
