@@ -68,7 +68,6 @@ excinfo
 fetchlist
 fhdk
 findname
-flathub
 forcelist
 foxundermoon
 functools
@@ -129,7 +128,6 @@ ntasos
 nuanceur
 nugets
 numpy
-numpydoc
 nvchecker
 oneline
 onlyhash
@@ -180,7 +178,6 @@ shellcheck
 shellformat
 simpleini
 sirit
-snapcore
 snapcraft
 softprops
 someproject
