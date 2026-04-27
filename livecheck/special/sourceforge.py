@@ -55,14 +55,12 @@ async def get_latest_sourceforge_package(src_uri: str, ebuild: str,
         Latest release filename version from the RSS feed, or an empty string if none.
     """
     repository = extract_repository(src_uri)
-    return await get_latest_sourceforge_package2(repository,
-                                                ebuild,
-                                                settings,
-                                                version_reference=_sourceforge_version_reference(
-                                                    src_uri))
+    return await get_latest_sourceforge_package2(
+        repository, ebuild, settings, version_reference=_sourceforge_version_reference(src_uri))
 
 
-async def get_latest_sourceforge_package2(repository: str, ebuild: str,
+async def get_latest_sourceforge_package2(repository: str,
+                                          ebuild: str,
                                           settings: LivecheckSettings,
                                           version_reference: str = '') -> str:
     url = SOURCEFORGE_DOWNLOAD_URL % (repository)

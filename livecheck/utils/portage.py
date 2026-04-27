@@ -572,10 +572,8 @@ def get_last_version(results: Collection[Mapping[str, str]],
             log.debug('Convert Tag: %s -> %s', tag, version)
         if not version:
             continue
-        reference_version = _candidate_version_from_reference(_candidate_version_reference(result,
-                                                                                           tag),
-                                                              version_reference,
-                                                              ebuild_version)
+        reference_version = _candidate_version_from_reference(
+            _candidate_version_reference(result, tag), version_reference, ebuild_version)
         if reference_version is None:
             log.debug('Skip tag with mismatched version pattern: %s', tag)
             continue

@@ -100,11 +100,8 @@ async def get_latest_github_package(url: str, ebuild: str,
         if tag := (tag_id.split('/')[-1] if tag_id and '/' in tag_id else ''):
             results.append({'tag': tag, 'id': tag})
 
-    if not (last_version := get_last_version(results,
-                                             repo,
-                                             ebuild,
-                                             settings,
-                                             version_reference=version_reference)):
+    if not (last_version := get_last_version(
+            results, repo, ebuild, settings, version_reference=version_reference)):
         return '', ''
 
     url = GITHUB_DATE_URL % (owner, repo, last_version['id'])

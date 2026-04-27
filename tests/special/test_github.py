@@ -224,8 +224,7 @@ async def test_get_latest_github_package_uses_release_download_tag(mocker: Mocke
     """
     mocker.patch('livecheck.special.github.extract_owner_repo',
                  return_value=('https://github.com/grafana/loki', 'grafana', 'loki'))
-    mocker.patch('livecheck.special.github.get_content',
-                 side_effect=[mocker.Mock(text=xml), None])
+    mocker.patch('livecheck.special.github.get_content', side_effect=[mocker.Mock(text=xml), None])
     settings = mocker.Mock()
     settings.regex_version = {}
     settings.restrict_version = {}
@@ -236,8 +235,7 @@ async def test_get_latest_github_package_uses_release_download_tag(mocker: Mocke
 
     result = await get_latest_github_package(
         'https://github.com/grafana/loki/releases/download/v3.7.1/loki-3.7.1.x86_64.rpm',
-        'app-metrics/loki-3.7.1',
-        settings)
+        'app-metrics/loki-3.7.1', settings)
 
     assert result == ('3.7.2', '')
 
@@ -256,8 +254,7 @@ async def test_get_latest_github_package_uses_archive_tag(mocker: MockerFixture)
     """
     mocker.patch('livecheck.special.github.extract_owner_repo',
                  return_value=('https://github.com/grafana/loki', 'grafana', 'loki'))
-    mocker.patch('livecheck.special.github.get_content',
-                 side_effect=[mocker.Mock(text=xml), None])
+    mocker.patch('livecheck.special.github.get_content', side_effect=[mocker.Mock(text=xml), None])
     settings = mocker.Mock()
     settings.regex_version = {}
     settings.restrict_version = {}
@@ -267,9 +264,7 @@ async def test_get_latest_github_package_uses_archive_tag(mocker: MockerFixture)
     settings.is_devel = lambda _: False
 
     result = await get_latest_github_package(
-        'https://github.com/grafana/loki/archive/v3.7.1.tar.gz',
-        'app-admin/loki-3.7.1',
-        settings)
+        'https://github.com/grafana/loki/archive/v3.7.1.tar.gz', 'app-admin/loki-3.7.1', settings)
 
     assert result == ('3.7.2', '')
 
