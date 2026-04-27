@@ -1,6 +1,7 @@
 """PyPI functions."""
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 import re
@@ -69,7 +70,11 @@ async def get_latest_pypi_package2(project_name: str, src_uri: str, ebuild: str,
         for release, item in r.json().get('releases', {}).items():
             results.extend([{'tag': release, 'url': get_url(ext, item)}])
 
-        if last_version := get_last_version(results, '', ebuild, settings):
+        if last_version := get_last_version(results,
+                                            '',
+                                            ebuild,
+                                            settings,
+                                            version_reference=Path(urlparse(src_uri).path).name):
             return last_version['version'], last_version['url']
 
     return '', ''
