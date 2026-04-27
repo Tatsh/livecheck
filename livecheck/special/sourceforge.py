@@ -22,6 +22,13 @@ SOURCEFORGE_DOWNLOAD_URL = 'https://sourceforge.net/projects/%s/rss'
 SOURCEFORGE_METADATA = 'sourceforge'
 
 
+def _sourceforge_version_reference(url: str) -> str:
+    parts = [part for part in urlparse(url).path.split('/') if part]
+    if parts and parts[-1] == 'download':
+        return parts[-2] if len(parts) > 1 else ''
+    return Path(urlparse(url).path).name
+
+
 def extract_repository(url: str) -> str:
     parsed = urlparse(url)
     n = parsed.netloc
@@ -48,11 +55,16 @@ async def get_latest_sourceforge_package(src_uri: str, ebuild: str,
         Latest release filename version from the RSS feed, or an empty string if none.
     """
     repository = extract_repository(src_uri)
-    return await get_latest_sourceforge_package2(repository, ebuild, settings)
+    return await get_latest_sourceforge_package2(repository,
+                                                ebuild,
+                                                settings,
+                                                version_reference=_sourceforge_version_reference(
+                                                    src_uri))
 
 
 async def get_latest_sourceforge_package2(repository: str, ebuild: str,
-                                          settings: LivecheckSettings) -> str:
+                                          settings: LivecheckSettings,
+                                          version_reference: str = '') -> str:
     url = SOURCEFORGE_DOWNLOAD_URL % (repository)
 
     if not (r := await get_content(url)):
@@ -65,7 +77,11 @@ async def get_latest_sourceforge_package2(repository: str, ebuild: str,
         if version and get_archive_extension(version):
             results.append({'tag': version})
 
-    if last_version := get_last_version(results, repository, ebuild, settings):
+    if last_version := get_last_version(results,
+                                        repository,
+                                        ebuild,
+                                        settings,
+                                        version_reference=version_reference):
         return last_version['version']
 
     return ''

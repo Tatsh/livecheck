@@ -10,6 +10,8 @@ from defusedxml import ElementTree as ET  # noqa: N817
 from livecheck.utils import get_content, is_sha
 from livecheck.utils.portage import catpkg_catpkgsplit, get_last_version
 
+from .utils import get_archive_extension
+
 if TYPE_CHECKING:
     from livecheck.settings_model import LivecheckSettings
 
@@ -19,6 +21,17 @@ __all__ = ('SOURCEHUT_METADATA', 'get_latest_sourcehut', 'get_latest_sourcehut_c
 SOURCEHUT_DOWNLOAD_URL = 'https://%s/%s/%s/refs/rss.xml'
 SOURCEHUT_COMMIT_URL = 'https://%s/%s/%s/log/%s/rss.xml'
 SOURCEHUT_METADATA = 'sourcehut'
+
+
+def _sourcehut_version_reference(url: str) -> str:
+    parts = [part for part in urlparse(url).path.split('/') if part]
+    for i, part in enumerate(parts):
+        if part == 'archive' and i + 1 < len(parts):
+            reference = parts[i + 1]
+            if ext := get_archive_extension(reference):
+                return reference[:-len(ext)]
+            return reference
+    return ''
 
 
 def extract_owner_repo(url: str) -> tuple[str, str, str]:
@@ -50,6 +63,7 @@ async def get_latest_sourcehut_package(url: str, ebuild: str, settings: Livechec
     if not owner or not repo:
         return ''
 
+    version_reference = _sourcehut_version_reference(url)
     url = SOURCEHUT_DOWNLOAD_URL % (domain, owner, repo)
 
     if not (r := await get_content(url)):
@@ -61,7 +75,11 @@ async def get_latest_sourcehut_package(url: str, ebuild: str, settings: Livechec
         if version := guid.text.split('/')[-1] if guid is not None and guid.text else '':
             results.append({'tag': version})
 
-    if last_version := get_last_version(results, repo, ebuild, settings):
+    if last_version := get_last_version(results,
+                                        repo,
+                                        ebuild,
+                                        settings,
+                                        version_reference=version_reference):
         return last_version['version']
     return ''
 

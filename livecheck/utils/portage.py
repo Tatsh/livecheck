@@ -5,6 +5,7 @@ from functools import cache
 from itertools import chain
 from pathlib import Path
 from typing import TYPE_CHECKING
+from urllib.parse import urlparse
 import logging
 import re
 
@@ -503,8 +504,34 @@ def unpack_ebuild(ebuild_path: str) -> str:
     return ''
 
 
-def get_last_version(results: Collection[Mapping[str, str]], repo: str, ebuild: str,
-                     settings: LivecheckSettings) -> dict[str, str]:
+def _candidate_version_reference(result: Mapping[str, str], tag: str) -> str:
+    if url := result.get('url', ''):
+        return Path(urlparse(url).path).name or tag
+    return tag
+
+
+def _candidate_version_from_reference(candidate: str, reference: str,
+                                      ebuild_version: str) -> str | None:
+    if not reference:
+        return ''
+
+    reference_version = re.sub(r'-r\d+$', '', ebuild_version)
+    if not (match := re.search(re.escape(reference_version), reference)):
+        return ''
+
+    prefix = reference[:match.start()]
+    suffix = reference[match.end():]
+    if not candidate.startswith(prefix) or not candidate.endswith(suffix):
+        return None
+    end = -len(suffix) if suffix else None
+    return sanitize_version(candidate[len(prefix):end])
+
+
+def get_last_version(results: Collection[Mapping[str, str]],
+                     repo: str,
+                     ebuild: str,
+                     settings: LivecheckSettings,
+                     version_reference: str = '') -> dict[str, str]:
     """
     Get the latest version from the results.
 
@@ -518,6 +545,8 @@ def get_last_version(results: Collection[Mapping[str, str]], repo: str, ebuild: 
         Ebuild atom string.
     settings : LivecheckSettings
         Livecheck settings instance.
+    version_reference : str
+        Current upstream tag or filename whose versioned pattern candidates must match.
 
     Returns
     -------
@@ -543,6 +572,15 @@ def get_last_version(results: Collection[Mapping[str, str]], repo: str, ebuild: 
             log.debug('Convert Tag: %s -> %s', tag, version)
         if not version:
             continue
+        reference_version = _candidate_version_from_reference(_candidate_version_reference(result,
+                                                                                           tag),
+                                                              version_reference,
+                                                              ebuild_version)
+        if reference_version is None:
+            log.debug('Skip tag with mismatched version pattern: %s', tag)
+            continue
+        if reference_version:
+            version = reference_version
         # Skip extraneous version without dots, e.g. Post120ToMaster.
         if ebuild_version.count('.') > 1 and version.count('.') == 0:
             log.debug('Skip version without dots: %s', version)

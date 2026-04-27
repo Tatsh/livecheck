@@ -52,7 +52,11 @@ async def get_latest_directory_package(url: str, ebuild: str,
                 if name.startswith(archive):
                     results.append({'tag': name, 'url': file})
 
-        if last_version := get_last_version(results, archive, ebuild, settings):
+        if last_version := get_last_version(results,
+                                            archive,
+                                            ebuild,
+                                            settings,
+                                            version_reference=Path(urlparse(url).path).name):
             return last_version['version'], last_version['url']
 
     return '', ''

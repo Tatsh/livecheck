@@ -1,6 +1,7 @@
 """Bitbucket functions."""
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
@@ -21,6 +22,17 @@ BITBUCKET_TAG_URL = 'https://api.bitbucket.org/2.0/repositories/%s/%s/refs/tags'
 BITBUCKET_DOWNLOAD_URL = 'https://api.bitbucket.org/2.0/repositories/%s/%s/downloads'
 BITBUCKET_METADATA = 'bitbucket'
 MAX_ITERATIONS = 4
+
+
+def _bitbucket_version_reference(url: str) -> str:
+    parts = [part for part in urlparse(url).path.split('/') if part]
+    for i, part in enumerate(parts):
+        if part == 'get' and i + 1 < len(parts):
+            reference = parts[i + 1]
+            if ext := get_archive_extension(reference):
+                return reference[:-len(ext)]
+            return reference
+    return Path(urlparse(url).path).name
 
 
 def extract_workspace_and_repository(url: str) -> tuple[str, str]:
@@ -54,6 +66,7 @@ async def get_latest_bitbucket_package(url: str, cpv: str,
     tuple[str, str]
         Latest version string and commit hash, or empty strings if unavailable.
     """
+    version_reference = _bitbucket_version_reference(url)
     workspace, repository = extract_workspace_and_repository(url)
 
     url = BITBUCKET_TAG_URL % (workspace, repository)
@@ -84,7 +97,11 @@ async def get_latest_bitbucket_package(url: str, cpv: str,
         url = data.get('next')
         iteration_count += 1
 
-    if last_version := get_last_version(results, repository, cpv, settings):
+    if last_version := get_last_version(results,
+                                        repository,
+                                        cpv,
+                                        settings,
+                                        version_reference=version_reference):
         return last_version['version'], last_version['id']
 
     return '', ''

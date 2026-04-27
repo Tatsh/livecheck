@@ -210,6 +210,70 @@ async def test_get_latest_github_package_no_response_2(mocker: MockerFixture) ->
     assert result == ('version', '')
 
 
+@pytest.mark.asyncio
+async def test_get_latest_github_package_uses_release_download_tag(mocker: MockerFixture) -> None:
+    xml = """<?xml version="1.0" encoding="UTF-8"?>
+    <feed xmlns="http://www.w3.org/2005/Atom">
+        <entry>
+            <id>https://github.com/grafana/loki/releases/tag/helm-loki-7.0.0</id>
+        </entry>
+        <entry>
+            <id>https://github.com/grafana/loki/releases/tag/v3.7.2</id>
+        </entry>
+    </feed>
+    """
+    mocker.patch('livecheck.special.github.extract_owner_repo',
+                 return_value=('https://github.com/grafana/loki', 'grafana', 'loki'))
+    mocker.patch('livecheck.special.github.get_content',
+                 side_effect=[mocker.Mock(text=xml), None])
+    settings = mocker.Mock()
+    settings.regex_version = {}
+    settings.restrict_version = {}
+    settings.restrict_version_process = ''
+    settings.stable_version = {}
+    settings.transformations = {}
+    settings.is_devel = lambda _: False
+
+    result = await get_latest_github_package(
+        'https://github.com/grafana/loki/releases/download/v3.7.1/loki-3.7.1.x86_64.rpm',
+        'app-metrics/loki-3.7.1',
+        settings)
+
+    assert result == ('3.7.2', '')
+
+
+@pytest.mark.asyncio
+async def test_get_latest_github_package_uses_archive_tag(mocker: MockerFixture) -> None:
+    xml = """<?xml version="1.0" encoding="UTF-8"?>
+    <feed xmlns="http://www.w3.org/2005/Atom">
+        <entry>
+            <id>https://github.com/grafana/loki/releases/tag/helm-loki-7.0.0</id>
+        </entry>
+        <entry>
+            <id>https://github.com/grafana/loki/releases/tag/v3.7.2</id>
+        </entry>
+    </feed>
+    """
+    mocker.patch('livecheck.special.github.extract_owner_repo',
+                 return_value=('https://github.com/grafana/loki', 'grafana', 'loki'))
+    mocker.patch('livecheck.special.github.get_content',
+                 side_effect=[mocker.Mock(text=xml), None])
+    settings = mocker.Mock()
+    settings.regex_version = {}
+    settings.restrict_version = {}
+    settings.restrict_version_process = ''
+    settings.stable_version = {}
+    settings.transformations = {}
+    settings.is_devel = lambda _: False
+
+    result = await get_latest_github_package(
+        'https://github.com/grafana/loki/archive/v3.7.1.tar.gz',
+        'app-admin/loki-3.7.1',
+        settings)
+
+    assert result == ('3.7.2', '')
+
+
 @pytest.mark.parametrize(
     ('url', 'branch', 'owner', 'repo', 'commit_sha', 'commit_date', 'expected'),
     [
