@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 import re
 
 from anyio import Path as AnyioPath
@@ -10,6 +11,9 @@ from livecheck.utils.portage import catpkg_catpkgsplit
 
 from .utils import EbuildTempFile
 
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
 __all__ = ('get_latest_checksum_package', 'get_latest_location_checksum_package',
            'update_checksum_metadata')
 
@@ -17,11 +21,12 @@ PATTERN = re.compile(r'^DIST\s+(?P<file>\S+)\s+(?P<size>\d+)\s+BLAKE2B\s+'
                      r'(?P<blake2b>[a-fA-F0-9]+)\s+SHA512\s+(?P<sha512>[a-fA-F0-9]+)$')
 
 
-async def get_latest_checksum_package(url: str,
-                                      ebuild: str,
-                                      repo_root: str,
-                                      headers: dict[str, str] | None = None,
-                                      params: dict[str, str] | None = None) -> tuple[str, str, str]:
+async def get_latest_checksum_package(
+        url: str,
+        ebuild: str,
+        repo_root: str,
+        headers: Mapping[str, str] | None = None,
+        params: Mapping[str, str] | None = None) -> tuple[str, str, str]:
     """
     Get the latest version of a package based on its checksum.
 
@@ -33,9 +38,9 @@ async def get_latest_checksum_package(url: str,
         Ebuild atom string.
     repo_root : str
         Repository root containing the package ``Manifest``.
-    headers : dict[str, str] | None
+    headers : Mapping[str, str] | None
         Optional HTTP headers for fetches.
-    params : dict[str, str] | None
+    params : Mapping[str, str] | None
         Optional query parameters for fetches.
 
     Returns
@@ -77,8 +82,8 @@ async def get_latest_location_checksum_package(
         url: str,
         ebuild: str,
         repo_root: str,
-        headers: dict[str, str] | None = None,
-        params: dict[str, str] | None = None) -> tuple[str, str, str]:
+        headers: Mapping[str, str] | None = None,
+        params: Mapping[str, str] | None = None) -> tuple[str, str, str]:
     """
     Get the latest version of a package based on Location header and checksum.
 
@@ -90,9 +95,9 @@ async def get_latest_location_checksum_package(
         Ebuild atom string.
     repo_root : str
         Repository root containing the package ``Manifest``.
-    headers : dict[str, str] | None
+    headers : Mapping[str, str] | None
         Optional HTTP headers for fetches.
-    params : dict[str, str] | None
+    params : Mapping[str, str] | None
         Optional query parameters for fetches.
 
     Returns
@@ -120,8 +125,8 @@ async def get_latest_location_checksum_package(
 async def update_checksum_metadata(ebuild: str,
                                    url: str,
                                    repo_root: str,
-                                   headers: dict[str, str] | None = None,
-                                   params: dict[str, str] | None = None) -> None:
+                                   headers: Mapping[str, str] | None = None,
+                                   params: Mapping[str, str] | None = None) -> None:
     """Update the checksum metadata in the Manifest file."""
     catpkg, _, _, _ = catpkg_catpkgsplit(ebuild)
     manifest_file = Path(repo_root) / catpkg / 'Manifest'

@@ -15,6 +15,7 @@ from .credentials import get_api_credentials
 from .session import build_github_session, build_session
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     import asyncio
 
 __all__ = ('TextDataResponse', 'close_sessions', 'get_content', 'get_last_modified', 'hash_url',
@@ -112,10 +113,10 @@ def session_init(module: str) -> niquests.AsyncSession:
 
 
 async def get_content(url: str,
-                      headers: dict[str, str] | None = None,
-                      params: dict[str, str] | None = None,
+                      headers: Mapping[str, str] | None = None,
+                      params: Mapping[str, str] | None = None,
                       method: str = 'GET',
-                      data: dict[str, str] | None = None,
+                      data: Mapping[str, str] | None = None,
                       *,
                       allow_redirects: bool = True) -> niquests.Response:
     """
@@ -125,13 +126,13 @@ async def get_content(url: str,
     ----------
     url : str
         URL to request.
-    headers : dict[str, str] | None
+    headers : Mapping[str, str] | None
         Optional extra HTTP headers.
-    params : dict[str, str] | None
+    params : Mapping[str, str] | None
         Optional query string parameters.
     method : str
         HTTP method name (for example ``GET``).
-    data : dict[str, str] | None
+    data : Mapping[str, str] | None
         Optional form body for the request.
     allow_redirects : bool
         Whether to follow redirects.
@@ -193,8 +194,8 @@ async def get_content(url: str,
 
 
 async def hash_url(url: str,
-                   headers: dict[str, str] | None = None,
-                   params: dict[str, str] | None = None) -> tuple[str, str, int]:
+                   headers: Mapping[str, str] | None = None,
+                   params: Mapping[str, str] | None = None) -> tuple[str, str, int]:
     """
     Hash the content of a URL using BLAKE2b and SHA-512.
 
@@ -202,9 +203,9 @@ async def hash_url(url: str,
     ----------
     url : str
         URL whose body will be hashed.
-    headers : dict[str, str] | None
+    headers : Mapping[str, str] | None
         Optional HTTP headers for the GET request.
-    params : dict[str, str] | None
+    params : Mapping[str, str] | None
         Optional query string parameters.
 
     Returns
@@ -218,7 +219,11 @@ async def hash_url(url: str,
     size = 0
     try:
         session = session_init('')
-        r = await session.get(url, headers=headers, params=params, stream=True, timeout=30)
+        r = await session.get(url,
+                              headers=dict(headers) if headers else None,
+                              params=params,
+                              stream=True,
+                              timeout=30)
         r.raise_for_status()
         async for chunk in await r.iter_content(chunk_size=8192):
             if chunk:
@@ -233,8 +238,8 @@ async def hash_url(url: str,
 
 
 async def get_last_modified(url: str,
-                            headers: dict[str, str] | None = None,
-                            params: dict[str, str] | None = None) -> str:
+                            headers: Mapping[str, str] | None = None,
+                            params: Mapping[str, str] | None = None) -> str:
     """
     Get the last modified date of a URL.
 
@@ -242,9 +247,9 @@ async def get_last_modified(url: str,
     ----------
     url : str
         URL to request with ``HEAD``.
-    headers : dict[str, str] | None
+    headers : Mapping[str, str] | None
         Optional HTTP headers.
-    params : dict[str, str] | None
+    params : Mapping[str, str] | None
         Optional query string parameters.
 
     Returns
@@ -254,7 +259,10 @@ async def get_last_modified(url: str,
     """
     try:
         session = session_init('')
-        r = await session.head(url, headers=headers, params=params, timeout=30)
+        r = await session.head(url,
+                               headers=dict(headers) if headers else None,
+                               params=params,
+                               timeout=30)
         r.raise_for_status()
         if last_modified := str(r.headers.get('last-modified', '')):
             return parsedate_to_datetime(last_modified).strftime('%Y%m%d')

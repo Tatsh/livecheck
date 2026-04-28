@@ -16,7 +16,7 @@ from typing_extensions import NotRequired
 from .utils import EbuildTempFile, get_project_path
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Iterator, Set as AbstractSet
 
 CONVERSION_CODE = """const fs = require('fs');
 const lockfile = require('@yarnpkg/lockfile');
@@ -46,7 +46,8 @@ class LockfilePackage(TypedDict):
 Lockfile = dict[str, LockfilePackage]
 
 
-async def create_project(base_package_name: str, yarn_packages: set[str] | None = None) -> Path:
+async def create_project(base_package_name: str,
+                         yarn_packages: AbstractSet[str] | None = None) -> Path:
     yarn_exe = _resolved_executable('yarn')
     path = get_project_path(base_package_name)
     proc = await asyncio.create_subprocess_exec(yarn_exe,
@@ -116,7 +117,7 @@ def _yarn_package_lines(lockfile: Lockfile, package_re: re.Pattern[str]) -> list
 async def update_yarn_ebuild(ebuild: str,
                              yarn_base_package: str,
                              pkg: str,
-                             yarn_packages: set[str] | None = None) -> None:
+                             yarn_packages: AbstractSet[str] | None = None) -> None:
     """
     Update a Yarn-based ebuild.
 

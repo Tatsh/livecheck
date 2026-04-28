@@ -401,6 +401,30 @@ def extract_restrict_version(cp: str) -> tuple[str, str]:
 async def _check_one_package(  # noqa: C901, PLR0912, PLR0914
         match_: str, settings: LivecheckSettings, repo_root: Path,
         exclude: Sequence[str]) -> PropTuple | None:
+    """
+    Check a single package for an upstream update.
+
+    Parameters
+    ----------
+    match_ : str
+        Package atom in ``cat/pkg-version`` form, optionally suffixed with a
+        ``:slot:`` restriction.
+    settings : LivecheckSettings
+        Shared livecheck configuration. **Mutated**: when the ebuild defines
+        ``EGIT_REPO_URI`` with a branch, ``settings.branches[catpkg]`` is set
+        to that branch so downstream lookups (for example commit/tag fetches)
+        target the same ref. The mutation persists across packages.
+    repo_root : :py:class:`~pathlib.Path`
+        Repository root containing the package.
+    exclude : Sequence[str]
+        ``catpkg`` names or bare package names to skip.
+
+    Returns
+    -------
+    PropTuple | None
+        Tuple describing the discovered update, or ``None`` if the package
+        should be ignored or no update is available.
+    """
     match, _settings_copy_restrict = extract_restrict_version(match_)
     catpkg, cat, pkg, ebuild_version = catpkg_catpkgsplit(match)
     if catpkg in exclude or pkg in exclude:
@@ -858,7 +882,7 @@ async def _async_main(*,
                       search_dir: Path,
                       repo_root: str,
                       settings: LivecheckSettings,
-                      package_names: list[str],
+                      package_names: Sequence[str],
                       exclude: tuple[str, ...] | None,
                       hook_dir: Path | None,
                       max_concurrent_http: int = 3,
