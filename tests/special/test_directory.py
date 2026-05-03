@@ -29,7 +29,7 @@ async def test_get_latest_directory_package_returns_latest(mocker: MockerFixture
     mock_response.text = html
     mocker.patch('livecheck.special.directory.get_content', return_value=mock_response)
     mocker.patch('livecheck.special.directory.get_archive_extension',
-                 side_effect=lambda x: x.endswith('.tar.gz'))
+                 side_effect=lambda x: '.tar.gz' if x.endswith('.tar.gz') else '')
     last_version = {'version': '2.0', 'url': '/packages/foo-2.0.tar.gz'}
     mocker.patch('livecheck.special.directory.get_last_version', return_value=last_version)
     version, file_url = await get_latest_directory_package(url, ebuild, settings)
@@ -45,7 +45,7 @@ async def test_get_latest_directory_get_last_version_falsy(mocker: MockerFixture
     mock_response = mocker.Mock()
     mock_response.text = html
     mocker.patch('livecheck.special.directory.get_content', return_value=mock_response)
-    mocker.patch('livecheck.special.directory.get_archive_extension', return_value=True)
+    mocker.patch('livecheck.special.directory.get_archive_extension', return_value='.tar.gz')
     mocker.patch('livecheck.special.directory.get_last_version', return_value=None)
     version, file_url = await get_latest_directory_package(url, ebuild, settings)
     assert not version
@@ -60,7 +60,7 @@ async def test_get_latest_directory_package_no_results(mocker: MockerFixture) ->
     mock_response = mocker.Mock()
     mock_response.text = html
     mocker.patch('livecheck.special.directory.get_content', return_value=mock_response)
-    mocker.patch('livecheck.special.directory.get_archive_extension', return_value=False)
+    mocker.patch('livecheck.special.directory.get_archive_extension', return_value='')
     mocker.patch('livecheck.special.directory.get_last_version', return_value=None)
     version, file_url = await get_latest_directory_package(url, ebuild, settings)
     assert not version
@@ -75,6 +75,48 @@ async def test_get_latest_directory_package_no_content(mocker: MockerFixture) ->
     version, file_url = await get_latest_directory_package(url, ebuild, settings)
     assert not version
     assert not file_url
+
+
+async def test_get_latest_directory_package_strips_archive_extension_from_reference(
+        mocker: MockerFixture) -> None:
+    url = 'https://example.com/packages/foo-1.0.tar.gz'
+    ebuild = 'foo-1.0.ebuild'
+    settings = mocker.Mock()
+    html = '<html><body></body></html>'
+    mock_response = mocker.Mock()
+    mock_response.text = html
+    mocker.patch('livecheck.special.directory.get_content', return_value=mock_response)
+    mocker.patch('livecheck.special.directory.get_archive_extension',
+                 side_effect=lambda x: '.tar.gz' if x.endswith('.tar.gz') else '')
+    mock_get_last_version = mocker.patch('livecheck.special.directory.get_last_version',
+                                         return_value=None)
+    await get_latest_directory_package(url, ebuild, settings)
+    assert mock_get_last_version.call_args.kwargs.get('version_reference') == 'foo-1.0'
+
+
+async def test_get_latest_directory_package_accepts_release_with_different_archive_extension(
+        mocker: MockerFixture) -> None:
+    url = 'https://example.com/packages/foo-1.0.tar.gz'
+    ebuild = 'cat/foo-1.0'
+    html = """<html>
+      <body>
+        <a href="foo-1.0.tar.gz">foo-1.0.tar.gz</a>
+        <a href="foo-1.1.zip">foo-1.1.zip</a>
+      </body>
+    </html>"""
+    mock_response = mocker.Mock()
+    mock_response.text = html
+    mocker.patch('livecheck.special.directory.get_content', return_value=mock_response)
+    settings = mocker.Mock()
+    settings.regex_version = {}
+    settings.restrict_version = {}
+    settings.restrict_version_process = ''
+    settings.stable_version = {}
+    settings.transformations = {}
+    settings.is_devel = lambda _: False
+    version, file_url = await get_latest_directory_package(url, ebuild, settings)
+    assert version == '1.1'
+    assert file_url == '/packages/foo-1.1.zip'
 
 
 async def test_get_latest_directory_package_no_match_in_url(mocker: MockerFixture) -> None:

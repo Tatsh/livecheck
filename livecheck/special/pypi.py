@@ -70,11 +70,14 @@ async def get_latest_pypi_package2(project_name: str, src_uri: str, ebuild: str,
         for release, item in r.json().get('releases', {}).items():
             results.extend([{'tag': release, 'url': get_url(ext, item)}])
 
+        version_reference = Path(urlparse(src_uri).path).name
+        if archive_extension := get_archive_extension(version_reference):
+            version_reference = version_reference.removesuffix(archive_extension)
         if last_version := get_last_version(results,
                                             '',
                                             ebuild,
                                             settings,
-                                            version_reference=Path(urlparse(src_uri).path).name):
+                                            version_reference=version_reference):
             return last_version['version'], last_version['url']
 
     return '', ''

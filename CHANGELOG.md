@@ -10,6 +10,13 @@ and this project adheres to
 
 ## [unreleased]
 
+### Fixed
+
+- PyPI and directory-listing handlers now strip the archive extension from the version reference
+  before comparing against candidate filenames, so a release that ships only under a different
+  archive format (e.g. switching from `.tar.gz` to `.zip`) is no longer silently skipped. The
+  prefix check that filters unrelated upstream packages still applies.
+
 ## [0.2.1] - 2026-04-23
 
 ### Fixed

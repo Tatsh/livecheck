@@ -159,6 +159,68 @@ async def test_get_latest_pypi_package_no_last_version(mocker: MockerFixture) ->
     assert not url
 
 
+@pytest.mark.asyncio
+async def test_get_latest_pypi_package_reference_without_archive_extension(
+        mocker: MockerFixture) -> None:
+    mocker.patch('livecheck.special.pypi.extract_project', return_value='myapp')
+    mocker.patch('livecheck.special.pypi.get_archive_extension', return_value='')
+    mock_response = mocker.Mock()
+    mock_response.json.return_value = {'releases': {'1.0.0': [{'url': 'irrelevant'}]}}
+    mocker.patch('livecheck.special.pypi.get_content', return_value=mock_response)
+    mock_get_last_version = mocker.patch('livecheck.special.pypi.get_last_version',
+                                         return_value=None)
+    await get_latest_pypi_package('https://pypi.org/project/myapp/', 'cat/myapp-1.0.0',
+                                  mocker.Mock())
+    assert mock_get_last_version.call_args.kwargs.get('version_reference') == 'myapp'
+
+
+@pytest.mark.asyncio
+async def test_get_latest_pypi_package_strips_archive_extension_from_reference(
+        mocker: MockerFixture) -> None:
+    mocker.patch('livecheck.special.pypi.extract_project', return_value='myapp')
+    mocker.patch('livecheck.special.pypi.get_archive_extension',
+                 side_effect=lambda u: ('.tar.gz' if u.endswith('.tar.gz') else
+                                        ('.zip' if u.endswith('.zip') else '')))
+    mock_response = mocker.Mock()
+    mock_response.json.return_value = {'releases': {'1.0.0': [{'url': 'irrelevant'}]}}
+    mocker.patch('livecheck.special.pypi.get_content', return_value=mock_response)
+    mock_get_last_version = mocker.patch('livecheck.special.pypi.get_last_version',
+                                         return_value=None)
+    src_uri = 'https://files.pythonhosted.org/packages/source/m/myapp/myapp-1.0.0.tar.gz'
+    await get_latest_pypi_package(src_uri, 'cat/myapp-1.0.0', mocker.Mock())
+    assert mock_get_last_version.call_args.kwargs.get('version_reference') == 'myapp-1.0.0'
+
+
+@pytest.mark.asyncio
+async def test_get_latest_pypi_package_accepts_release_with_different_archive_extension(
+        mocker: MockerFixture) -> None:
+    mocker.patch('livecheck.special.pypi.extract_project', return_value='myapp')
+    src_uri = 'https://files.pythonhosted.org/packages/source/m/myapp/myapp-1.0.0.tar.gz'
+    new_url = 'https://files.pythonhosted.org/packages/source/m/myapp/myapp-1.1.0.zip'
+    mock_response = mocker.Mock()
+    mock_response.json.return_value = {
+        'releases': {
+            '1.0.0': [{
+                'url': src_uri
+            }],
+            '1.1.0': [{
+                'url': new_url
+            }]
+        }
+    }
+    mocker.patch('livecheck.special.pypi.get_content', return_value=mock_response)
+    settings = mocker.Mock()
+    settings.regex_version = {}
+    settings.restrict_version = {}
+    settings.restrict_version_process = ''
+    settings.stable_version = {}
+    settings.transformations = {}
+    settings.is_devel = lambda _: False
+    version, url = await get_latest_pypi_package(src_uri, 'cat/myapp-1.0.0', settings)
+    assert version == '1.1.0'
+    assert url == new_url
+
+
 @pytest.mark.parametrize(
     ('url', 'extract_project_return', 'expected'),
     [('https://pypi.org/project/source/s/someproject/1.0.0/', 'someproject', True),
