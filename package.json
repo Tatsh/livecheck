@@ -107,8 +107,8 @@
     "check-spelling": "cspell --no-progress",
     "dict:update": "rm -f .vscode/dictionary.txt && cspell lint --no-progress --no-summary --unique --words-only | tr '[:upper:]' '[:lower:]' | sort -u > .vscode/dictionary.txt",
     "format": "prettier --write . && uv run yapf --in-place --parallel --recursive . && markdownlint-cli2 --config package.json --configPointer /markdownlint-cli2 --fix",
-    "gen-docs": "uv run sphinx-build --fresh-env --fail-on-warning --builder html --doctree-dir docs/_build/doctrees --define language=en docs docs/_build/html",
-    "gen-manpage": "uv run sphinx-build --fresh-env --fail-on-warning --builder man --doctree-dir docs/_build/doctrees --define language=en docs man",
+    "gen-docs": "uv run sphinx-build --fresh-env --builder html --doctree-dir docs/_build/doctrees --define language=en docs docs/_build/html",
+    "gen-manpage": "uv run sphinx-build --fresh-env --builder man --doctree-dir docs/_build/doctrees --define language=en docs man",
     "mypy": "uv run mypy",
     "qa": "yarn mypy . && yarn pyright && uv run ty check && yarn ruff . && yarn check-spelling && yarn check-formatting",
     "regen": "uv run wiswa",
@@ -118,5 +118,5 @@
     "test:cov": "yarn test --cov . --cov-branch --cov-report html --cov-report term-missing:skip-covered",
     "ty": "uv run ty check"
   },
-  "version": "0.2.1"
+  "version": "0.2.2"
 }

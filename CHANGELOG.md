@@ -10,9 +10,14 @@ and this project adheres to
 
 ## [unreleased]
 
+## [0.2.2] - 2026-05-02
+
 ### Fixed
 
-- PyPI and directory-listing handlers now strip the archive extension from the version reference
+- Reject candidate tags whose surrounding filename pattern does not match the current ebuild's
+  reference, preventing false version updates when an upstream publishes an unrelated package
+  (such as `helm-loki-7.0.0` being picked up for `loki-3.7.1`) under the same release feed. #461
+- PyPI and directory-listing handlers strip the archive extension from the version reference
   before comparing against candidate filenames, so a release that ships only under a different
   archive format (e.g. switching from `.tar.gz` to `.zip`) is no longer silently skipped. The
   prefix check that filters unrelated upstream packages still applies.
