@@ -2114,6 +2114,40 @@ async def test_get_props_basic_yields(mocker: MockerFixture, fake_repo: Path,
 
 
 @pytest.mark.asyncio
+async def test_get_props_restrict_version_sets_process_prefix(mocker: MockerFixture,
+                                                              fake_repo: Path,
+                                                              mock_settings2: Mock) -> None:
+    prefix = '1'
+    seen_prefixes: list[str | None] = []
+
+    def fake_parse_url(_: str, __: str, settings: Mock,
+                       force_sha: bool) -> tuple[str, str, str, str]:
+        assert force_sha is False
+        seen_prefixes.append(settings.restrict_version_process)
+        return '1.1.0', '', '', ''
+
+    mocker.patch('livecheck.main.get_highest_matches', return_value=[f'cat/pkg:{prefix}:-1.0.0'])
+    mocker.patch('livecheck.main.catpkg_catpkgsplit',
+                 return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
+    mocker.patch('livecheck.main.get_first_src_uri',
+                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
+    mocker.patch('livecheck.main.get_aux', new_callable=mocker.AsyncMock, return_value=[])
+    mocker.patch('livecheck.main.parse_url', side_effect=fake_parse_url)
+    mocker.patch('livecheck.main.log')
+
+    results = await get_props(search_dir=fake_repo,
+                              repo_root=fake_repo,
+                              settings=mock_settings2,
+                              names=['cat/pkg'],
+                              exclude=[])
+
+    assert seen_prefixes == [prefix]
+    assert mock_settings2.restrict_version_process is None
+    assert results == [('cat', 'pkg', '1.0.0', '1.1.0', '', '', '')]
+
+
+@pytest.mark.asyncio
 async def test_get_props_exclude_package(mocker: MockerFixture, fake_repo: Path,
                                          mock_settings2: Mock) -> None:
     mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
