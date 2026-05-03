@@ -65,6 +65,33 @@ async def test_get_latest_sourceforge_package_returns_latest_version(mocker: Moc
 
 
 @pytest.mark.asyncio
+async def test_get_latest_sourceforge_package_download_url(mocker: MockerFixture) -> None:
+    mocker.patch('livecheck.special.sourceforge.extract_repository', return_value='sample_project')
+    dummy_rss = """
+    <rss>
+        <channel>
+        <item>
+            <title>sample_project-1.2.3.tar.gz</title>
+        </item>
+        </channel>
+    </rss>
+    """
+    mock_response = mocker.Mock()
+    mock_response.text = dummy_rss
+    mocker.patch('livecheck.special.sourceforge.get_content', return_value=mock_response)
+    mocker.patch('livecheck.special.sourceforge.get_archive_extension', return_value=True)
+    mock_get_last_version = mocker.patch('livecheck.special.sourceforge.get_last_version',
+                                         return_value={'version': '1.2.3'})
+    url = (
+        'https://downloads.sourceforge.net/project/sample_project/sample_project-1.2.3.tar.gz/download'
+    )
+    result = await get_latest_sourceforge_package(url, 'cat/sample_project-1.2.3', mocker.Mock())
+    assert result == '1.2.3'
+    assert mock_get_last_version.call_args.kwargs.get(
+        'version_reference') == 'sample_project-1.2.3.tar.gz'
+
+
+@pytest.mark.asyncio
 async def test_get_latest_sourceforge_package_no_content(mocker: MockerFixture) -> None:
     mocker.patch('livecheck.special.sourceforge.extract_repository', return_value='sample_project')
     mocker.patch('livecheck.special.sourceforge.get_content', return_value=None)

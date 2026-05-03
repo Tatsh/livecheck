@@ -189,6 +189,42 @@ async def test_get_latest_bitbucket_package_no_tags_no_downloads(mocker: MockerF
 
 
 @pytest.mark.asyncio
+async def test_get_latest_bitbucket_package_get_path_with_extension(mocker: MockerFixture) -> None:
+    tags_json: dict[str, Any] = {'values': []}
+    downloads_json: dict[str, Any] = {'values': [], 'next': None}
+    mocker.patch('livecheck.special.bitbucket.get_content',
+                 side_effect=[make_mock_response(tags_json),
+                              make_mock_response(downloads_json)])
+    mock_get_last_version = mocker.patch('livecheck.special.bitbucket.get_last_version',
+                                         return_value={
+                                             'version': '20170225',
+                                             'id': ''
+                                         })
+    url = 'https://bitbucket.org/powARman/dvbhddevice/get/20170225.tar.bz2'
+    cpv = 'media-plugins/vdr-dvbhddevice-20170225'
+    version, _ = await get_latest_bitbucket_package(url, cpv, mocker.Mock())
+    assert version == '20170225'
+    mock_get_last_version.assert_called_once()
+    assert mock_get_last_version.call_args.kwargs.get('version_reference') == '20170225'
+
+
+@pytest.mark.asyncio
+async def test_get_latest_bitbucket_package_get_path_without_extension(
+        mocker: MockerFixture) -> None:
+    tags_json: dict[str, Any] = {'values': []}
+    downloads_json: dict[str, Any] = {'values': [], 'next': None}
+    mocker.patch('livecheck.special.bitbucket.get_content',
+                 side_effect=[make_mock_response(tags_json),
+                              make_mock_response(downloads_json)])
+    mock_get_last_version = mocker.patch('livecheck.special.bitbucket.get_last_version',
+                                         return_value=None)
+    url = 'https://bitbucket.org/owner/repo/get/v1.2.3'
+    cpv = 'cat/repo-1.2.3'
+    await get_latest_bitbucket_package(url, cpv, mocker.Mock())
+    assert mock_get_last_version.call_args.kwargs.get('version_reference') == 'v1.2.3'
+
+
+@pytest.mark.asyncio
 async def test_get_latest_bitbucket_package_get_content_fails(mocker: MockerFixture) -> None:
     mock_get_content = mocker.patch('livecheck.special.bitbucket.get_content', return_value=None)
     url = 'https://bitbucket.org/atlassian/python-bitbucket'

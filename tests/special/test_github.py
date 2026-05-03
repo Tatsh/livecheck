@@ -469,6 +469,36 @@ async def test_get_latest_github_metadata(mocker: MockerFixture, remote: str, eb
 
 
 @pytest.mark.asyncio
+async def test_get_latest_github_package_uses_archive_tag_no_extension(
+        mocker: MockerFixture) -> None:
+    xml = '<?xml version="1.0" encoding="UTF-8"?><feed xmlns="http://www.w3.org/2005/Atom"></feed>'
+    mocker.patch('livecheck.special.github.extract_owner_repo',
+                 return_value=('https://github.com/owner/repo', 'owner', 'repo'))
+    mocker.patch('livecheck.special.github.get_content', side_effect=[mocker.Mock(text=xml), None])
+    mock_get_last_version = mocker.patch('livecheck.special.github.get_last_version',
+                                         return_value=None)
+    result = await get_latest_github_package('https://github.com/owner/repo/archive/v1.0.0',
+                                             'cat/repo-1.0.0.ebuild', mocker.Mock(branches={}))
+    assert result == ('', '')
+    assert mock_get_last_version.call_args.kwargs.get('version_reference') == 'v1.0.0'
+
+
+@pytest.mark.asyncio
+async def test_get_latest_github_package_uses_codeload_tag(mocker: MockerFixture) -> None:
+    xml = '<?xml version="1.0" encoding="UTF-8"?><feed xmlns="http://www.w3.org/2005/Atom"></feed>'
+    mocker.patch('livecheck.special.github.extract_owner_repo',
+                 return_value=('https://codeload.github.com/owner', 'codeload', 'owner'))
+    mocker.patch('livecheck.special.github.get_content', side_effect=[mocker.Mock(text=xml), None])
+    mock_get_last_version = mocker.patch('livecheck.special.github.get_last_version',
+                                         return_value=None)
+    result = await get_latest_github_package(
+        'https://codeload.github.com/owner/repo/tar.gz/refs/tags/v2.3.4', 'cat/repo-2.3.4.ebuild',
+        mocker.Mock(branches={}))
+    assert result == ('', '')
+    assert mock_get_last_version.call_args.kwargs.get('version_reference') == 'v2.3.4'
+
+
+@pytest.mark.asyncio
 async def test_get_latest_github_package_annotated_tag_no_response(mocker: MockerFixture) -> None:
     xml = '<?xml version="1.0" encoding="UTF-8"?><feed xmlns="http://www.w3.org/2005/Atom"></feed>'
     ref_response = mocker.Mock()

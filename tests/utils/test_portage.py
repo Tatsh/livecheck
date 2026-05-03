@@ -843,6 +843,27 @@ def test_get_last_version_rejects_mismatched_version_reference(mocker: MockerFix
     assert result['tag'] == 'v3.7.2'
 
 
+def test_get_last_version_version_reference_without_ebuild_version(mocker: MockerFixture) -> None:
+    dummy_settings = mocker.Mock()
+    dummy_settings.regex_version = {}
+    dummy_settings.restrict_version = {}
+    dummy_settings.restrict_version_process = ''
+    dummy_settings.stable_version = {}
+    dummy_settings.transformations = {}
+    dummy_settings.is_devel = lambda _: False
+
+    result = get_last_version([{
+        'tag': 'v3.7.2'
+    }],
+                              'loki',
+                              'app-metrics/loki-3.7.1',
+                              dummy_settings,
+                              version_reference='unrelated-reference')
+
+    assert result['version'] == '3.7.2'
+    assert result['tag'] == 'v3.7.2'
+
+
 def test_get_last_version_rejects_mismatched_file_reference(mocker: MockerFixture) -> None:
     dummy_settings = mocker.Mock()
     dummy_settings.regex_version = {}

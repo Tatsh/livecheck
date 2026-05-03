@@ -114,6 +114,36 @@ async def test_get_latest_sourcehut_package_returns_latest(mocker: MockerFixture
 
 
 @pytest.mark.asyncio
+async def test_get_latest_sourcehut_package_archive_url_with_extension(
+        mocker: MockerFixture) -> None:
+    xml = make_rss_xml([])
+    mocker.patch('livecheck.special.sourcehut.get_content', return_value=mocker.MagicMock(text=xml))
+    mock_get_last_version = mocker.patch('livecheck.special.sourcehut.get_last_version',
+                                         return_value=None)
+    url = 'https://git.sr.ht/~owner/repo/archive/v1.0.0.tar.gz'
+    ebuild = 'app-portage/livecheck-1.0'
+    settings = mocker.Mock()
+    result = await sourcehut.get_latest_sourcehut_package(url, ebuild, settings)
+    assert not result
+    assert mock_get_last_version.call_args.kwargs.get('version_reference') == 'v1.0.0'
+
+
+@pytest.mark.asyncio
+async def test_get_latest_sourcehut_package_archive_url_without_extension(
+        mocker: MockerFixture) -> None:
+    xml = make_rss_xml([])
+    mocker.patch('livecheck.special.sourcehut.get_content', return_value=mocker.MagicMock(text=xml))
+    mock_get_last_version = mocker.patch('livecheck.special.sourcehut.get_last_version',
+                                         return_value=None)
+    url = 'https://git.sr.ht/~owner/repo/archive/v1.2.3'
+    ebuild = 'app-portage/livecheck-1.0'
+    settings = mocker.Mock()
+    result = await sourcehut.get_latest_sourcehut_package(url, ebuild, settings)
+    assert not result
+    assert mock_get_last_version.call_args.kwargs.get('version_reference') == 'v1.2.3'
+
+
+@pytest.mark.asyncio
 async def test_get_latest_sourcehut_package_no_owner_repo(mocker: MockerFixture) -> None:
     url = 'https://example.com/~owner/repo'
     ebuild = 'app-portage/livecheck-1.0'

@@ -134,6 +134,20 @@ async def test_get_latest_gitlab(
 
 
 @pytest.mark.asyncio
+async def test_get_latest_gitlab_package_archive_url(mocker: MockerFixture) -> None:
+    mock_content = mocker.Mock()
+    mock_content.json.return_value = []
+    mocker.patch('livecheck.special.gitlab.get_content', return_value=mock_content)
+    mock_get_last_version = mocker.patch('livecheck.special.gitlab.get_last_version',
+                                         return_value=None)
+    mocker.patch('livecheck.special.gitlab.is_sha', return_value=False)
+    url = 'https://gitlab.freedesktop.org/xdg/xdg-utils/-/archive/v1.2.1/xdg-utils-1.2.1.tar.bz2'
+    result = await get_latest_gitlab(url, 'xdg-utils-1.2.1.ebuild', mocker.Mock(), force_sha=False)
+    assert result == ('', '', '')
+    assert mock_get_last_version.call_args.kwargs.get('version_reference') == 'v1.2.1'
+
+
+@pytest.mark.asyncio
 async def test_get_latest_gitlab_package_no_content(mocker: MockerFixture) -> None:
     url = 'https://gitlab.com/group/project'
     ebuild = 'project-1.0.ebuild'
