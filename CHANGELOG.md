@@ -10,6 +10,11 @@ and this project adheres to
 
 ## [unreleased]
 
+### Fixed
+
+- Honour `restrict_version` while checking a fixed major or minor version, so candidates outside
+  that restricted prefix are filtered during package processing.
+
 ## [0.2.2] - 2026-05-02
 
 ### Fixed

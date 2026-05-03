@@ -1,6 +1,7 @@
 """Main command."""
 from __future__ import annotations
 
+from copy import copy
 from itertools import starmap
 from os import chdir
 from pathlib import Path
@@ -425,7 +426,10 @@ async def _check_one_package(  # noqa: C901, PLR0912, PLR0914
         Tuple describing the discovered update, or ``None`` if the package
         should be ignored or no update is available.
     """
-    match, _settings_copy_restrict = extract_restrict_version(match_)
+    match, restrict_version_process = extract_restrict_version(match_)
+    if restrict_version_process:
+        settings = copy(settings)
+        settings.restrict_version_process = restrict_version_process
     catpkg, cat, pkg, ebuild_version = catpkg_catpkgsplit(match)
     if catpkg in exclude or pkg in exclude:
         log.debug('Ignoring %s.', catpkg)
