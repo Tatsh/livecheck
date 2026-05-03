@@ -31,6 +31,14 @@ GITLAB_HOSTNAMES: Mapping[str, str] = {
 VERSIONS = 40
 
 
+def _gitlab_version_reference(url: str) -> str:
+    parts = [part for part in urlparse(url).path.split('/') if part]
+    for i, part in enumerate(parts):
+        if part == 'archive' and i + 1 < len(parts) and i > 0 and parts[i - 1] == '-':
+            return parts[i + 1]
+    return ''
+
+
 def extract_domain_and_namespace(url: str) -> tuple[str, str, str]:
     parsed = urlparse(url)
     if not re.search(r'^gitlab\.(com$|.*\.)', parsed.netloc):
@@ -65,6 +73,7 @@ async def get_latest_gitlab_package(url: str, ebuild: str,
     tuple[str, str]
         Latest tag version and commit id, or empty strings if unavailable.
     """
+    version_reference = _gitlab_version_reference(url)
     domain, path_with_namespace, repo = extract_domain_and_namespace(url)
     encoded_path = quote(path_with_namespace, safe='')
 
@@ -78,7 +87,11 @@ async def get_latest_gitlab_package(url: str, ebuild: str,
         'id': tag.get('commit', {}).get('id', '')
     } for tag in r.json()]
 
-    if last_version := get_last_version(results, repo, ebuild, settings):
+    if last_version := get_last_version(results,
+                                        repo,
+                                        ebuild,
+                                        settings,
+                                        version_reference=version_reference):
         return last_version['version'], last_version['id']
 
     return '', ''

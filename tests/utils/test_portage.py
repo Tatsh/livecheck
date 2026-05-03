@@ -820,6 +820,54 @@ def test_get_last_version_catpkg_catpkgsplit_raises_value_error(mocker: MockerFi
     assert result == {}
 
 
+def test_get_last_version_rejects_mismatched_version_reference(mocker: MockerFixture) -> None:
+    dummy_settings = mocker.Mock()
+    dummy_settings.regex_version = {}
+    dummy_settings.restrict_version = {}
+    dummy_settings.restrict_version_process = ''
+    dummy_settings.stable_version = {}
+    dummy_settings.transformations = {}
+    dummy_settings.is_devel = lambda _: False
+
+    result = get_last_version([{
+        'tag': 'helm-loki-7.0.0'
+    }, {
+        'tag': 'v3.7.2'
+    }],
+                              'loki',
+                              'app-metrics/loki-3.7.1',
+                              dummy_settings,
+                              version_reference='v3.7.1')
+
+    assert result['version'] == '3.7.2'
+    assert result['tag'] == 'v3.7.2'
+
+
+def test_get_last_version_rejects_mismatched_file_reference(mocker: MockerFixture) -> None:
+    dummy_settings = mocker.Mock()
+    dummy_settings.regex_version = {}
+    dummy_settings.restrict_version = {}
+    dummy_settings.restrict_version_process = ''
+    dummy_settings.stable_version = {}
+    dummy_settings.transformations = {}
+    dummy_settings.is_devel = lambda _: False
+
+    result = get_last_version([{
+        'tag': 'helm-loki-7.0.0.x86_64.rpm',
+        'url': 'https://example.com/helm-loki-7.0.0.x86_64.rpm'
+    }, {
+        'tag': 'loki-3.7.2.x86_64.rpm',
+        'url': 'https://example.com/loki-3.7.2.x86_64.rpm'
+    }],
+                              'loki',
+                              'app-admin/loki-3.7.1',
+                              dummy_settings,
+                              version_reference='loki-3.7.1.x86_64.rpm')
+
+    assert result['version'] == '3.7.2'
+    assert result['tag'] == 'loki-3.7.2.x86_64.rpm'
+
+
 @pytest.mark.parametrize(
     ('ebuild_version', 'version', 'catpkg', 'settings_attrs', 'expected'),
     [

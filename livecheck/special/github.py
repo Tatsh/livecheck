@@ -11,6 +11,8 @@ from livecheck.constants import RSS_NS
 from livecheck.utils import get_content, is_sha
 from livecheck.utils.portage import catpkg_catpkgsplit, get_last_version
 
+from .utils import get_archive_extension
+
 if TYPE_CHECKING:
     from livecheck.settings_model import LivecheckSettings
 
@@ -22,6 +24,23 @@ GITHUB_DOWNLOAD_URL = '%s/tags.atom'
 GITHUB_COMMIT_URL = 'https://api.github.com/repos/%s/%s/branches/%s'
 GITHUB_DATE_URL = 'https://api.github.com/repos/%s/%s/git/refs/tags/%s'
 GITHUB_METADATA = 'github'
+
+
+def _github_tag_reference(url: str) -> str:
+    parsed = urlparse(url)
+    parts = [part for part in parsed.path.split('/') if part]
+    for i, part in enumerate(parts):
+        if part == 'releases' and parts[i:i + 2] == ['releases', 'download']:
+            return parts[i + 2] if i + 2 < len(parts) else ''
+        if part == 'archive' and i + 1 < len(parts):
+            archive_ref = '/'.join(parts[i + 1:])
+            archive_ref = re.sub(r'^(?:refs/)?tags/', '', archive_ref)
+            if ext := get_archive_extension(archive_ref):
+                return archive_ref[:-len(ext)]
+            return archive_ref
+    if parsed.netloc == 'codeload.github.com' and len(parts) >= 4:  # noqa: PLR2004
+        return re.sub(r'^(?:refs/)?tags/', '', '/'.join(parts[3:]))
+    return ''
 
 
 def extract_owner_repo(url: str) -> tuple[str, str, str]:
@@ -62,6 +81,7 @@ async def get_latest_github_package(url: str, ebuild: str,
     tuple[str, str]
         Latest tag version and resolved commit SHA, or empty strings if unavailable.
     """
+    version_reference = _github_tag_reference(url)
     domain, owner, repo = extract_owner_repo(url)
     url = GITHUB_DOWNLOAD_URL % (domain)
     if not owner or not repo or not (r := await get_content(url)):
@@ -80,7 +100,8 @@ async def get_latest_github_package(url: str, ebuild: str,
         if tag := (tag_id.split('/')[-1] if tag_id and '/' in tag_id else ''):
             results.append({'tag': tag, 'id': tag})
 
-    if not (last_version := get_last_version(results, repo, ebuild, settings)):
+    if not (last_version := get_last_version(
+            results, repo, ebuild, settings, version_reference=version_reference)):
         return '', ''
 
     url = GITHUB_DATE_URL % (owner, repo, last_version['id'])
