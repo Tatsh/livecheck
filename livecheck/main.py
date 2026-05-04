@@ -589,7 +589,8 @@ async def get_props(search_dir: Path,
         async with sem:
             result = await _check_one_package(match_, settings, repo_root, exclude)
             completed += 1
-            log.info('Progress: %d/%d packages checked.', completed, total)
+            if settings.progress_flag:
+                log.info('Progress: %d/%d packages checked.', completed, total)
             return result
 
     results = await asyncio.gather(*(_bounded(m) for m in matches_list))
@@ -979,6 +980,7 @@ def main(working_dir: Path,
          package_manager: str = 'npm') -> None:
     """Update ebuilds to their latest versions."""  # noqa: DOC501
     setup_logging(debug=debug,
+                  log_colors={'INFO': 'green'},
                   loggers={
                       'livecheck': {},
                       'niquests': {},

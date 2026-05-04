@@ -2069,6 +2069,7 @@ def mock_settings2(mocker: MockerFixture) -> Any:
     settings.sync_version = {}
     settings.custom_livechecks = {}
     settings.branches = {}
+    settings.progress_flag = False
     settings.restrict_version_process = None
     return settings
 
@@ -2100,7 +2101,7 @@ async def test_get_props_basic_yields(mocker: MockerFixture, fake_repo: Path,
     mocker.patch('livecheck.main.get_aux',
                  new_callable=mocker.AsyncMock,
                  return_value=['https://homepage'])
-    mocker.patch('livecheck.main.log')
+    mock_log = mocker.patch('livecheck.main.log')
     mocker.patch('livecheck.main.parse_url',
                  side_effect=[('', '', '', ''),
                               ('ver', 'sha', 'date', 'https://example.com/pkg-1.0.0.tar.gz')])
@@ -2111,6 +2112,38 @@ async def test_get_props_basic_yields(mocker: MockerFixture, fake_repo: Path,
                               exclude=[])
     assert results == [('cat', 'pkg', '1.0.0', 'ver', 'sha', 'date',
                         'https://example.com/pkg-1.0.0.tar.gz')]
+    assert not any(call.args[0].startswith('Progress:') for call in mock_log.info.call_args_list)
+
+
+@pytest.mark.asyncio
+async def test_get_props_logs_progress_when_enabled(mocker: MockerFixture, fake_repo: Path,
+                                                    mock_settings2: Mock) -> None:
+    mock_settings2.progress_flag = True
+    mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
+    mocker.patch('livecheck.main.catpkg_catpkgsplit',
+                 return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
+    mocker.patch('livecheck.main.get_first_src_uri',
+                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
+    mocker.patch('livecheck.main.get_old_sha', return_value='')
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
+    mock_log = mocker.patch('livecheck.main.log')
+    mocker.patch('livecheck.main.parse_url',
+                 side_effect=[('', '', '', ''),
+                              ('ver', 'sha', 'date', 'https://example.com/pkg-1.0.0.tar.gz')])
+    results = await get_props(search_dir=fake_repo,
+                              repo_root=fake_repo,
+                              settings=mock_settings2,
+                              names=['cat/pkg'],
+                              exclude=[])
+    assert results == [('cat', 'pkg', '1.0.0', 'ver', 'sha', 'date',
+                        'https://example.com/pkg-1.0.0.tar.gz')]
+    mock_log.info.assert_any_call('Progress: %d/%d packages checked.', 1, 1)
 
 
 @pytest.mark.asyncio
@@ -3075,7 +3108,7 @@ def test_main_calls_get_props_and_do_main(mocker: MockerFixture, runner: CliRunn
                                           tmp_path: Path) -> None:
     mock_settings = mocker.Mock()
     mocker.patch('livecheck.main.chdir')
-    mocker.patch('livecheck.main.setup_logging')
+    mock_setup_logging = mocker.patch('livecheck.main.setup_logging')
     mocker.patch('livecheck.main.gather_settings', return_value=mock_settings)
     mocker.patch('livecheck.main.get_repository_root_if_inside',
                  return_value=(str(tmp_path), 'repo'))
@@ -3090,6 +3123,15 @@ def test_main_calls_get_props_and_do_main(mocker: MockerFixture, runner: CliRunn
         main, ['--auto-update', '--working-dir',
                str(tmp_path), 'cat/pkg', 'cat2/pkg2'])
     assert result.exit_code == 0
+    mock_setup_logging.assert_called_once_with(debug=False,
+                                               log_colors={'INFO': 'green'},
+                                               loggers={
+                                                   'livecheck': {},
+                                                   'niquests': {},
+                                                   'niquests_cache': {},
+                                                   'urllib3': {},
+                                                   'urllib3_future': {}
+                                               })
     assert mock_do_main.call_count == 2
     mock_do_main.assert_any_call(cat='cat',
                                  pkg='pkg',
