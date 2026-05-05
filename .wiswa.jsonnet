@@ -71,7 +71,7 @@ local utils = import 'utils.libjsonnet';
       },
     },
   },
-  security_policy_supported_versions: { '0.1.x': ':white_check_mark:' },
+  security_policy_supported_versions: { '0.2.x': ':white_check_mark:' },
   sphinx_fail_on_warning: false,
   // Common
   authors+: [
