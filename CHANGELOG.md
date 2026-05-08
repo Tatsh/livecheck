@@ -10,10 +10,14 @@ and this project adheres to
 
 ## [unreleased]
 
+## [0.2.3] - 2026-05-08
+
 ### Fixed
 
 - Honour `restrict_version` while checking a fixed major or minor version, so candidates outside
-  that restricted prefix are filtered during package processing.
+  that restricted prefix are filtered during package processing. #464
+- Restored green `INFO` output and corrected progress logging flag behaviour after the upgrade to
+  the latest `bascom` logging stack. #465
 
 ## [0.2.2] - 2026-05-02
 
@@ -194,7 +198,9 @@ and this project adheres to
 
 - When multiple ebuilds are in the same directory, only the latest one will be considered for updating.
 
-[unreleased]: https://github.com/Tatsh/livecheck/compare/v0.2.1...HEAD
+[unreleased]: https://github.com/Tatsh/livecheck/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/Tatsh/livecheck/compare/v0.2.2...v0.2.3
+[0.2.2]: https://github.com/Tatsh/livecheck/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/Tatsh/livecheck/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/Tatsh/livecheck/compare/v0.1.4...v0.2.0
 [0.1.4]: https://github.com/Tatsh/livecheck/compare/v0.1.3...v0.1.4
