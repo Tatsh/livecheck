@@ -10,6 +10,14 @@ and this project adheres to
 
 ## [unreleased]
 
+### Changed
+
+- Expanded `games-emulation/vita3k` submodule tracking to cover its full set of vendored
+  dependencies (including `concurrentqueue`, `dirent`, `glslang`, `googletest`, `libadrenotools`,
+  `psvpfstools`, and `substitute`) and namespaced the related SHA variable names by parent
+  submodule (for example `LIBB64_SHA` → `PSVPFSTOOLS_LIBB64_SHA`) so nested submodules can be
+  distinguished.
+
 ## [0.2.3] - 2026-05-08
 
 ### Fixed

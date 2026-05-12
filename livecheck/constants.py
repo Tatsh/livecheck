@@ -39,13 +39,20 @@ SUBMODULES: Mapping[str, set[str | tuple[str, str] | tuple[str, str, str]]] = {
     },
     'games-emulation/vita3k': {
         'external/LibAtrac9', 'external/SPIRV-Cross', 'external/VulkanMemoryAllocator-Hpp',
-        'external/better-enums', 'external/crypto-algorithms', 'external/dlmalloc',
-        'external/dynarmic', 'external/fmt', 'external/imgui', 'external/imgui_club',
-        'external/libfat16', 'external/printf', 'external/spdlog', 'external/stb',
-        'external/unicorn', 'external/vita-toolchain',
-        ('libb64', 'LIBB64_SHA', 'external/psvpfstools'),
-        ('libzrif', 'LIBZRIF_SHA', 'external/psvpfstools'),
-        ('psvpfsparser', 'PSVPFSPARSER_SHA', 'external/psvpfstools')
+        'external/better-enums', 'external/concurrentqueue', 'external/dirent', 'external/dlmalloc',
+        'external/glslang', 'external/googletest', 'external/imgui', 'external/imgui_club',
+        'external/libadrenotools', 'external/libfat16', 'external/printf', 'external/psvpfstools',
+        'external/substitute', 'external/vita-toolchain', ('external/dynarmic', '_DYNARMIC_SHA'),
+        ('Vulkan-Headers', 'VULKANMEMORYALLOCATOR_HPP_VULKAN_HEADERS_SHA',
+         'external/VulkanMemoryAllocator-Hpp'),
+        ('VulkanMemoryAllocator', 'VULKANMEMORYALLOCATOR_HPP_VULKANMEMORYALLOCATOR_SHA',
+         'external/VulkanMemoryAllocator-Hpp'),
+        ('lib/linkernsbypass', 'LIBADRENOTOOLS_LIB_LINKERNSBYPASS_SHA', 'external/libadrenotools'),
+        ('libb64', 'PSVPFSTOOLS_LIBB64_SHA', 'external/psvpfstools'),
+        ('libzrif', 'PSVPFSTOOLS_LIBZRIF_SHA', 'external/psvpfstools'),
+        ('psvpfsparser', 'PSVPFSTOOLS_PSVPFSPARSER_SHA', 'external/psvpfstools'),
+        ('zlib', 'PSVPFSTOOLS_ZLIB_SHA', 'external/psvpfstools'),
+        ('psp2rela', 'VITA_TOOLCHAIN_PSP2RELA_SHA', 'external/vita-toolchain')
     },
     'games-emulation/yuzu': {
         'externals/SDL', 'externals/cpp-jwt', 'externals/dynarmic', 'externals/mbedtls',
