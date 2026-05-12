@@ -27,6 +27,7 @@ cdrommsf
 citra
 clion
 commitizen
+concurrentqueue
 conftest
 cooldown
 coveragerc
@@ -74,6 +75,7 @@ functools
 genindex
 glabels
 globaltoc
+glslang
 gomodule
 grepmail
 hoverxref
@@ -92,6 +94,7 @@ keepends
 kwargs
 launchable
 lextudio
+libadrenotools
 libb
 libchdr
 libera
@@ -102,6 +105,7 @@ libshared
 libsonnet
 libzrif
 limitedapitest
+linkernsbypass
 linters
 livecheck
 livechecks
@@ -167,6 +171,7 @@ rdparty
 readlink
 referer
 regen
+rela
 repology
 ripgreprc
 rstcheck
@@ -210,6 +215,7 @@ vendored
 venv
 vercmp
 virtualenv
+vulkanmemoryallocator
 wiswa
 wiswa's
 xbyak
