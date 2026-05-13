@@ -69,6 +69,7 @@ excinfo
 fetchlist
 fhdk
 findname
+flatcontainer
 forcelist
 foxundermoon
 functools
@@ -124,6 +125,7 @@ nestedsha
 netcore
 newbeef
 newcafe
+newtonsoft
 niquests
 norecursedirs
 notroj
