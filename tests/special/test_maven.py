@@ -80,8 +80,22 @@ async def test_update_maven_ebuild_success(mocker: MockerFixture) -> None:
     fetchlist = {'foo': ('bar',)}
     await update_maven_ebuild('ebuild', 'path', fetchlist)
 
-    mock_build_compress.assert_called_once_with(temp_dir, maven_path, '.m2', '-mvn.tar.xz',
-                                                fetchlist)
+    mock_build_compress.assert_called_once_with(temp_dir,
+                                                maven_path,
+                                                '.m2',
+                                                '-mvn.tar.xz',
+                                                fetchlist,
+                                                dist_settings=None)
+
+
+@pytest.mark.asyncio
+async def test_update_maven_ebuild_skips_when_archive_uploaded(mocker: MockerFixture) -> None:
+    mocker.patch('livecheck.special.maven.dist_archive_already_uploaded',
+                 new_callable=AsyncMock,
+                 return_value=True)
+    search = mocker.patch('livecheck.special.maven.search_ebuild', new_callable=AsyncMock)
+    await update_maven_ebuild('ebuild', 'path', {'foo': ('bar',)})
+    search.assert_not_called()
 
 
 @pytest.mark.asyncio

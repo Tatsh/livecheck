@@ -68,6 +68,13 @@ Options:
   -a, --auto-update            Rename and modify ebuilds.
   -d, --debug                  Enable debug logging.
   -D, --development            Include development packages.
+  --dist-github-release TEXT   GitHub release tag to upload vendor dist
+                               archives under.
+  --dist-github-repository TEXT
+                               GitHub `owner/repo` to upload vendor dist
+                               archives to as release assets.
+  --dist-force-upload          Force rebuild and re-upload of vendor dist
+                               archives even when present.
   -e, --exclude TEXT           Exclude package(s) from updates.
   -g, --git                    Use git and pkgdev to make changes.
   -H, --hook-dir               Run a hook directory scripts with various parameters.
@@ -78,6 +85,24 @@ Options:
   -W, --working-dir DIRECTORY  Working directory. Should be a port tree root.
   --help                       Show this message and exit.
 ```
+
+### Uploading vendor dist archives to GitHub releases
+
+When `--auto-update` regenerates a vendor archive (Composer, Go modules, Maven, Node modules, or
+NuGet packages), the file is normally written only into `DISTDIR`. Pass both
+`--dist-github-repository owner/repo` and `--dist-github-release tag` to additionally publish the
+archive as an asset of that release. Per-package overrides may also be set in `livecheck.json` with
+the keys `dist_github_repository` and `dist_github_release`.
+
+By default the asset is **skipped entirely** (no rebuild, no upload) if a release asset with the
+expected filename is already present; pass `--dist-force-upload` to rebuild and replace it. When
+the release does not exist, livecheck creates it as a **draft** and logs a warning instructing you
+to publish it from the GitHub UI so Portage can fetch the assets.
+
+> [!IMPORTANT]
+> Do **not** enable [immutable releases](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases#about-release-immutability)
+> on the destination repository. Replacing an existing asset requires deleting the previous one,
+> which is forbidden once a release is marked immutable, and the upload step will fail.
 
 ## Heuristic update detection
 
@@ -91,6 +116,7 @@ This package can do automated lookups based on commonly used hosts. Currently:
 - GitLab releases
 - Hex-Rays for IDA Free
 - JetBrains products
+- NuGet
 - PECL
 - Packages from Yarn and NPM
 - Perl CPAN
@@ -114,6 +140,13 @@ can be placed in the directory alongside the ebuild.
 - `branch` - string- The GitHub branch name to use for commits.
 - `composer_packages` - boolean - Download composer vendor modules.
 - `composer_path` - path - Where is 'composer.json' located (need composer_packages).
+- `dist_github_release` - string - Per-package override for `--dist-github-release`.
+- `dist_github_repository` - string - Per-package override for `--dist-github-repository`
+  (`owner/repo`).
+- `dotnet_packages` - boolean - Build a NuGet packages vendor archive
+  (`-nuget.tar.xz`).
+- `dotnet_project` - path - Project or solution file (`.csproj` / `.sln`) used by
+  `dotnet restore`.
 - `maven_packages` - boolean - Download Maven dependencies.
 - `maven_path` - path - Where is 'pom.xml' located (need maven_packages).
 - `development` - bool - Include development packages.

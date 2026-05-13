@@ -5,9 +5,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock
 
+from livecheck.dist_github import DistGitHubSettings
 from livecheck.special.utils import (
     EbuildTempFile,
     build_compress,
+    compute_vendor_archive_name,
+    dist_archive_already_uploaded,
     get_archive_extension,
     get_project_path,
     log_unhandled_commit,
@@ -268,3 +271,51 @@ def test_log_unhandled_commit_logs_warning(mocker: MockerFixture) -> None:
     src_uri = 'https://example.com/foo.tar.gz'
     log_unhandled_commit(catpkg, src_uri)
     mock_logger.warning.assert_called_once_with('Unhandled commit: %s SRC_URI: %s', catpkg, src_uri)
+
+
+def test_compute_vendor_archive_name_empty_fetchlist() -> None:
+    assert not compute_vendor_archive_name('-vendor.tar.xz', {})
+
+
+def test_compute_vendor_archive_name_no_extension() -> None:
+    assert not compute_vendor_archive_name('-vendor.tar.xz', {'plain-1.0': ()})
+
+
+def test_compute_vendor_archive_name_renames() -> None:
+    name = compute_vendor_archive_name('-vendor.tar.xz', {'foo-1.0.tar.gz': ()})
+    assert name == 'foo-1.0-vendor.tar.xz'
+
+
+def test_compute_vendor_archive_name_passes_through_when_suffix_present() -> None:
+    assert compute_vendor_archive_name('-vendor.tar.xz',
+                                       {'foo-1.0-vendor.tar.xz': ()}) == 'foo-1.0-vendor.tar.xz'
+
+
+@pytest.mark.asyncio
+async def test_dist_archive_already_uploaded_returns_false_without_settings() -> None:
+    assert await dist_archive_already_uploaded('-vendor.tar.xz', {'foo-1.0.tar.gz': ()},
+                                               None) is False
+
+
+@pytest.mark.asyncio
+async def test_dist_archive_already_uploaded_returns_false_when_forced() -> None:
+    settings = DistGitHubSettings(repository='Tatsh/livecheck', release='dist', force=True)
+    assert await dist_archive_already_uploaded('-vendor.tar.xz', {'foo-1.0.tar.gz': ()},
+                                               settings) is False
+
+
+@pytest.mark.asyncio
+async def test_dist_archive_already_uploaded_returns_false_when_name_blank() -> None:
+    settings = DistGitHubSettings(repository='Tatsh/livecheck', release='dist')
+    assert await dist_archive_already_uploaded('-vendor.tar.xz', {}, settings) is False
+
+
+@pytest.mark.asyncio
+async def test_dist_archive_already_uploaded_consults_asset_exists(mocker: MockerFixture) -> None:
+    asset_exists = mocker.patch('livecheck.special.utils.asset_exists',
+                                new_callable=AsyncMock,
+                                return_value=True)
+    settings = DistGitHubSettings(repository='Tatsh/livecheck', release='dist')
+    assert await dist_archive_already_uploaded('-vendor.tar.xz', {'foo-1.0.tar.gz': ()},
+                                               settings) is True
+    asset_exists.assert_awaited_once_with(settings, 'foo-1.0-vendor.tar.xz')

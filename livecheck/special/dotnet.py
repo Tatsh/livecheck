@@ -12,12 +12,21 @@ import tempfile
 from anyio import Path as AnyioPath
 from livecheck.utils import check_program
 
-from .utils import EbuildTempFile, search_ebuild
+from .utils import (
+    EbuildTempFile,
+    build_compress,
+    dist_archive_already_uploaded,
+    remove_url_ebuild,
+    search_ebuild,
+)
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncIterator, Mapping
 
-__all__ = ('check_dotnet_requirements', 'update_dotnet_ebuild')
+    from livecheck.dist_github import DistGitHubSettings
+
+__all__ = ('check_dotnet_requirements', 'remove_dotnet_url', 'update_dotnet_archive_ebuild',
+           'update_dotnet_ebuild')
 
 log = logging.getLogger(__name__)
 
@@ -151,6 +160,77 @@ async def update_dotnet_ebuild(ebuild: str, project_or_solution: str | Path) -> 
             else:
                 out.append(line)
         await AnyioPath(temp_file).write_text(''.join(out), encoding='utf-8')
+
+
+def remove_dotnet_url(ebuild_content: str) -> str:
+    """
+    Remove ``-nuget.tar.xz`` line from ebuild.
+
+    Parameters
+    ----------
+    ebuild_content : str
+        Full ebuild file text.
+
+    Returns
+    -------
+    str
+        Ebuild text with the NuGet archive URL line removed.
+    """
+    return remove_url_ebuild(ebuild_content, '-nuget.tar.xz')
+
+
+async def update_dotnet_archive_ebuild(ebuild: str,
+                                       project_or_solution: str | Path,
+                                       fetchlist: Mapping[str, tuple[str, ...]],
+                                       *,
+                                       dist_settings: DistGitHubSettings | None = None) -> None:
+    """
+    Build (and optionally upload) a NuGet packages vendor archive for a .NET ebuild.
+
+    The archive is created from a project-local ``packages`` directory populated by
+    ``dotnet restore --packages``.
+
+    Parameters
+    ----------
+    ebuild : str
+        Path to the ebuild file.
+    project_or_solution : str | pathlib.Path
+        Project or solution file relative to the unpacked source tree.
+    fetchlist : Mapping[str, tuple[str, ...]]
+        Fetch map used when compressing vendor output.
+    dist_settings : DistGitHubSettings | None
+        Optional GitHub release destination for the produced archive.
+    """
+    if await dist_archive_already_uploaded('-nuget.tar.xz', fetchlist, dist_settings):
+        log.info('NuGet archive already uploaded; skipping `dotnet restore`.')
+        return
+    project_or_solution = Path(project_or_solution)
+    dotnet_path, temp_dir = await search_ebuild(ebuild, project_or_solution.name, '')
+    if not dotnet_path:
+        return
+    project = Path(dotnet_path) / project_or_solution
+    dotnet_exe = which('dotnet')
+    if dotnet_exe is None:
+        log.error('dotnet executable not found in PATH.')
+        return
+    packages_dir = Path(dotnet_path) / 'packages'
+    try:
+        proc = await asyncio.create_subprocess_exec(dotnet_exe, 'restore',
+                                                    str(project.resolve(strict=True)), '--force',
+                                                    '-v', 'm', '--packages', str(packages_dir))
+        returncode = await proc.wait()
+        if returncode != 0:
+            log.error("Error running 'dotnet restore'.")
+            return
+    except OSError:
+        log.exception("Error running 'dotnet restore'.")
+        return
+    await build_compress(temp_dir,
+                         dotnet_path,
+                         'packages',
+                         '-nuget.tar.xz',
+                         fetchlist,
+                         dist_settings=dist_settings)
 
 
 def check_dotnet_requirements() -> bool:

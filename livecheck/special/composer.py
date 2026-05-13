@@ -8,10 +8,12 @@ import logging
 
 from livecheck.utils import check_program
 
-from .utils import build_compress, remove_url_ebuild, search_ebuild
+from .utils import build_compress, dist_archive_already_uploaded, remove_url_ebuild, search_ebuild
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
+
+    from livecheck.dist_github import DistGitHubSettings
 
 __all__ = ('check_composer_requirements', 'remove_composer_url', 'update_composer_ebuild')
 
@@ -35,8 +37,11 @@ def remove_composer_url(ebuild_content: str) -> str:
     return remove_url_ebuild(ebuild_content, '-vendor.tar.xz')
 
 
-async def update_composer_ebuild(ebuild: str, path: str | None,
-                                 fetchlist: Mapping[str, tuple[str, ...]]) -> None:
+async def update_composer_ebuild(ebuild: str,
+                                 path: str | None,
+                                 fetchlist: Mapping[str, tuple[str, ...]],
+                                 *,
+                                 dist_settings: DistGitHubSettings | None = None) -> None:
     """
     Update a Composer package ebuild.
 
@@ -48,7 +53,12 @@ async def update_composer_ebuild(ebuild: str, path: str | None,
         Optional subdirectory path inside the unpacked sources.
     fetchlist : Mapping[str, tuple[str, ...]]
         Fetch map used when compressing vendor output.
+    dist_settings : DistGitHubSettings | None
+        Optional GitHub release destination for the produced archive.
     """
+    if await dist_archive_already_uploaded('-vendor.tar.xz', fetchlist, dist_settings):
+        log.info('Vendor archive already uploaded; skipping `composer install`.')
+        return
     composer_path, temp_dir = await search_ebuild(ebuild, 'composer.json', path)
     if not composer_path:
         return
@@ -71,7 +81,12 @@ async def update_composer_ebuild(ebuild: str, path: str | None,
         log.exception("Error running 'composer'.")
         return
 
-    await build_compress(temp_dir, composer_path, 'vendor', '-vendor.tar.xz', fetchlist)
+    await build_compress(temp_dir,
+                         composer_path,
+                         'vendor',
+                         '-vendor.tar.xz',
+                         fetchlist,
+                         dist_settings=dist_settings)
 
 
 def check_composer_requirements() -> bool:

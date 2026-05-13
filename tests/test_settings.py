@@ -90,6 +90,38 @@ def test_get_package_manager_returns_override() -> None:
     assert s.get_package_manager('cat/pkg') == 'yarn'
 
 
+def test_dist_settings_for_returns_none_without_configuration() -> None:
+    s = LivecheckSettings()
+    assert s.dist_settings_for('cat/pkg') is None
+
+
+def test_dist_settings_for_returns_global() -> None:
+    s = LivecheckSettings(dist_github_repository='Tatsh/livecheck', dist_github_release='dist')
+    settings = s.dist_settings_for('cat/pkg')
+    assert settings is not None
+    assert settings.repository == 'Tatsh/livecheck'
+    assert settings.release == 'dist'
+    assert settings.force is False
+
+
+def test_dist_settings_for_per_package_overrides_global() -> None:
+    s = LivecheckSettings(dist_github_repository='Tatsh/global',
+                          dist_github_release='global-release',
+                          dist_github_repositories={'cat/pkg': 'Tatsh/specific'},
+                          dist_github_releases={'cat/pkg': 'specific-release'},
+                          dist_force_upload_flag=True)
+    settings = s.dist_settings_for('cat/pkg')
+    assert settings is not None
+    assert settings.repository == 'Tatsh/specific'
+    assert settings.release == 'specific-release'
+    assert settings.force is True
+
+
+def test_dist_settings_for_returns_none_when_release_missing() -> None:
+    s = LivecheckSettings(dist_github_repository='Tatsh/livecheck')
+    assert s.dist_settings_for('cat/pkg') is None
+
+
 def test_livecheck_settings_mutable_fields_are_independent() -> None:
     s1 = LivecheckSettings()
     s2 = LivecheckSettings()
@@ -187,6 +219,9 @@ def test_gather_settings_handles_various_fields(tmp_path: Path) -> None:
         'yarn_packages': ['bar', 'baz'],
         'go_sum_uri': 'https://example.com/go.sum',
         'dotnet_project': 'proj.csproj',
+        'dotnet_packages': True,
+        'dist_github_repository': 'Tatsh/livecheck',
+        'dist_github_release': 'dist',
         'jetbrains': True,
         'keep_old': True,
         'gomodule': True,
@@ -214,6 +249,9 @@ def test_gather_settings_handles_various_fields(tmp_path: Path) -> None:
     assert result.yarn_packages['cat/pkg'] == {'bar', 'baz'}
     assert result.go_sum_uri['cat/pkg'] == 'https://example.com/go.sum'
     assert result.dotnet_projects['cat/pkg'] == 'proj.csproj'
+    assert result.dotnet_packages['cat/pkg'] is True
+    assert result.dist_github_repositories['cat/pkg'] == 'Tatsh/livecheck'
+    assert result.dist_github_releases['cat/pkg'] == 'dist'
     assert result.jetbrains_packages['cat/pkg'] is True
     assert result.keep_old['cat/pkg'] is True
     assert result.gomodule_packages['cat/pkg'] is True

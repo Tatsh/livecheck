@@ -65,8 +65,22 @@ async def test_update_nodejs_ebuild_success(mocker: MockerFixture) -> None:
     await update_nodejs_ebuild('dummy.ebuild', '/some/path', fetchlist)
 
     mock_search_ebuild.assert_called_once_with('dummy.ebuild', 'package.json', '/some/path')
-    mock_build_compress.assert_called_once_with(temp_dir, package_path, 'node_modules',
-                                                '-node_modules.tar.xz', fetchlist)
+    mock_build_compress.assert_called_once_with(temp_dir,
+                                                package_path,
+                                                'node_modules',
+                                                '-node_modules.tar.xz',
+                                                fetchlist,
+                                                dist_settings=None)
+
+
+@pytest.mark.asyncio
+async def test_update_nodejs_ebuild_skips_when_archive_uploaded(mocker: MockerFixture) -> None:
+    mocker.patch('livecheck.special.nodejs.dist_archive_already_uploaded',
+                 new_callable=AsyncMock,
+                 return_value=True)
+    search = mocker.patch('livecheck.special.nodejs.search_ebuild', new_callable=AsyncMock)
+    await update_nodejs_ebuild('ebuild', 'path', {'foo': ('bar',)})
+    search.assert_not_called()
 
 
 @pytest.mark.asyncio

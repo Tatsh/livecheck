@@ -8,10 +8,12 @@ import logging
 
 from livecheck.utils import check_program
 
-from .utils import build_compress, remove_url_ebuild, search_ebuild
+from .utils import build_compress, dist_archive_already_uploaded, remove_url_ebuild, search_ebuild
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
+
+    from livecheck.dist_github import DistGitHubSettings
 
 __all__ = ('check_maven_requirements', 'remove_maven_url', 'update_maven_ebuild')
 
@@ -30,9 +32,28 @@ def remove_maven_url(ebuild_content: str) -> str:
     return remove_url_ebuild(ebuild_content, '-mvn.tar.xz')
 
 
-async def update_maven_ebuild(ebuild: str, path: str | None,
-                              fetchlist: Mapping[str, tuple[str, ...]]) -> None:
-    """Update a Maven package ebuild."""
+async def update_maven_ebuild(ebuild: str,
+                              path: str | None,
+                              fetchlist: Mapping[str, tuple[str, ...]],
+                              *,
+                              dist_settings: DistGitHubSettings | None = None) -> None:
+    """
+    Update a Maven package ebuild.
+
+    Parameters
+    ----------
+    ebuild : str
+        Path to the ebuild file.
+    path : str | None
+        Optional subdirectory path inside the unpacked sources.
+    fetchlist : Mapping[str, tuple[str, ...]]
+        Fetch map used when compressing the Maven repository output.
+    dist_settings : DistGitHubSettings | None
+        Optional GitHub release destination for the produced archive.
+    """
+    if await dist_archive_already_uploaded('-mvn.tar.xz', fetchlist, dist_settings):
+        log.info('Maven archive already uploaded; skipping `mvn` run.')
+        return
     maven_path, temp_dir = await search_ebuild(ebuild, 'pom.xml', path)
     if not maven_path:
         return
@@ -58,7 +79,12 @@ async def update_maven_ebuild(ebuild: str, path: str | None,
         log.exception("Error running 'mvn'.")
         return
 
-    await build_compress(temp_dir, maven_path, '.m2', '-mvn.tar.xz', fetchlist)
+    await build_compress(temp_dir,
+                         maven_path,
+                         '.m2',
+                         '-mvn.tar.xz',
+                         fetchlist,
+                         dist_settings=dist_settings)
 
 
 def check_maven_requirements() -> bool:

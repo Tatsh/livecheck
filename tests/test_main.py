@@ -93,6 +93,7 @@ def mock_settings(mocker: MockerFixture) -> Any:
     settings.auto_update_flag = False
     settings.composer_packages = set()
     settings.custom_livechecks = {}
+    settings.dotnet_packages = {}
     settings.dotnet_projects = set()
     settings.git_flag = False
     settings.go_sum_uri = set()
@@ -897,7 +898,9 @@ async def test_do_main_gomodule_packages(mocker: MockerFixture, tmp_path: Path,
                   top_hash=top_hash,
                   url=url)
     mock_update_gomodule_ebuild.assert_called_once_with(
-        f'{search_dir}/{cat}/{pkg}/{pkg}-{last_version}.ebuild', mocker.ANY, {})
+        f'{search_dir}/{cat}/{pkg}/{pkg}-{last_version}.ebuild',
+        mocker.ANY, {},
+        dist_settings=mocker.ANY)
     mock_write.assert_called_once_with('abcdef1', encoding='utf-8')
 
 
@@ -955,7 +958,10 @@ async def test_do_main_nodejs_packages(mocker: MockerFixture, tmp_path: Path,
                   top_hash=top_hash,
                   url=url)
     mock_update_nodejs_ebuild.assert_called_once_with(
-        f'{search_dir}/{cat}/{pkg}/{pkg}-{last_version}.ebuild', mocker.ANY, {}, 'npm')
+        f'{search_dir}/{cat}/{pkg}/{pkg}-{last_version}.ebuild',
+        mocker.ANY, {},
+        'npm',
+        dist_settings=mocker.ANY)
     mock_write.assert_called_once_with('abcdef1', encoding='utf-8')
 
 
@@ -1018,7 +1024,10 @@ async def test_do_main_nodejs_packages_custom_manager(mocker: MockerFixture, tmp
                   url=url)
 
     mock_update_nodejs_ebuild.assert_called_once_with(
-        f'{search_dir}/{cat}/{pkg}/{pkg}-{last_version}.ebuild', mocker.ANY, {}, 'yarn')
+        f'{search_dir}/{cat}/{pkg}/{pkg}-{last_version}.ebuild',
+        mocker.ANY, {},
+        'yarn',
+        dist_settings=mocker.ANY)
     mock_write.assert_called_once_with('abcdef1', encoding='utf-8')
 
 
@@ -1076,7 +1085,9 @@ async def test_do_main_composer_packages(mocker: MockerFixture, tmp_path: Path,
                   top_hash=top_hash,
                   url=url)
     mock_update_composer_ebuild.assert_called_once_with(
-        f'{search_dir}/{cat}/{pkg}/{pkg}-{last_version}.ebuild', mocker.ANY, {})
+        f'{search_dir}/{cat}/{pkg}/{pkg}-{last_version}.ebuild',
+        mocker.ANY, {},
+        dist_settings=mocker.ANY)
     mock_write.assert_called_once_with('abcdef1', encoding='utf-8')
 
 
@@ -1134,7 +1145,9 @@ async def test_do_main_maven_packages(mocker: MockerFixture, tmp_path: Path,
                   top_hash=top_hash,
                   url=url)
     mock_update_maven_ebuild.assert_called_once_with(
-        f'{search_dir}/{cat}/{pkg}/{pkg}-{last_version}.ebuild', mocker.ANY, {})
+        f'{search_dir}/{cat}/{pkg}/{pkg}-{last_version}.ebuild',
+        mocker.ANY, {},
+        dist_settings=mocker.ANY)
     mock_write.assert_called_once_with('abcdef1', encoding='utf-8')
 
 
@@ -1309,6 +1322,121 @@ async def test_do_main_dotnet_projects(mocker: MockerFixture, tmp_path: Path,
     mock_update_dotnet_ebuild.assert_called_once_with(
         f'{search_dir}/{cat}/{pkg}/{pkg}-{last_version}.ebuild', '')
     mock_write.assert_called_once_with('abcdef1', encoding='utf-8')
+
+
+@pytest.mark.asyncio
+async def test_do_main_dotnet_archive_packages(mocker: MockerFixture, tmp_path: Path,
+                                               mock_settings: Mock) -> None:
+    cat = 'cat'
+    pkg = 'pkg'
+    ebuild_version = '1.0.0'
+    last_version = '1.0.1'
+    top_hash = 'abcdef1'
+    hash_date = ''
+    url = 'https://example.com'
+    hook_dir = None
+    search_dir = tmp_path
+    cp = f'{cat}/{pkg}'
+    ebuild_path = tmp_path / f'{cat}/{pkg}/{pkg}-1.0.0.ebuild'
+    ebuild_path.parent.mkdir(parents=True)
+    ebuild_path.write_text('SHA="1234567"\n', encoding='utf-8')
+    mock_settings.auto_update_flag = True
+    mock_settings.dotnet_projects = {cp: 'proj.csproj'}
+    mock_settings.dotnet_packages = {cp: True}
+    mocker.patch('livecheck.main.check_dotnet_requirements', return_value=True)
+    mocker.patch('livecheck.main.get_old_sha', return_value='1234567')
+    mocker.patch('livecheck.main.replace_date_in_ebuild', side_effect=lambda v, _, __: v)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.catpkg_catpkgsplit', return_value=(cp, cat, pkg, last_version))
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
+    mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
+    mocker.patch('livecheck.main.digest_ebuild', return_value=True)
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
+    mocker.patch('livecheck.main.is_sha', return_value=True)
+    mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
+    mocker.patch('livecheck.main.execute_hooks')
+    mock_anyio_path_instance = mocker.AsyncMock()
+    mock_anyio_path_instance.read_text = mocker.AsyncMock(return_value='SHA="1234567"\n')
+    mock_anyio_path_instance.write_text = mocker.AsyncMock()
+    mocker.patch('livecheck.main.AnyioPath', return_value=mock_anyio_path_instance)
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
+    mock_async_proc = mocker.AsyncMock()
+    mock_async_proc.wait = mocker.AsyncMock(return_value=0)
+    mocker.patch('livecheck.main.asyncio.create_subprocess_exec', return_value=mock_async_proc)
+    mocker.patch('livecheck.main.update_dotnet_ebuild')
+    mocker.patch('livecheck.main.remove_dotnet_url', side_effect=lambda c: c)
+    mock_archive = mocker.patch('livecheck.main.update_dotnet_archive_ebuild')
+    await do_main(cat=cat,
+                  ebuild_version=ebuild_version,
+                  hash_date=hash_date,
+                  hook_dir=hook_dir,
+                  last_version=last_version,
+                  pkg=pkg,
+                  search_dir=search_dir,
+                  settings=mock_settings,
+                  top_hash=top_hash,
+                  url=url)
+    mock_archive.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_do_main_dotnet_recovers_on_exception(mocker: MockerFixture, tmp_path: Path,
+                                                    mock_settings: Mock) -> None:
+    cat = 'cat'
+    pkg = 'pkg'
+    ebuild_version = '1.0.0'
+    last_version = '1.0.1'
+    top_hash = 'abcdef1'
+    hash_date = ''
+    url = 'https://example.com'
+    hook_dir = None
+    search_dir = tmp_path
+    cp = f'{cat}/{pkg}'
+    ebuild_path = tmp_path / f'{cat}/{pkg}/{pkg}-1.0.0.ebuild'
+    ebuild_path.parent.mkdir(parents=True)
+    ebuild_path.write_text('SHA="1234567"\n', encoding='utf-8')
+    mock_settings.auto_update_flag = True
+    mock_settings.dotnet_projects = {cp: 'proj.csproj'}
+    mocker.patch('livecheck.main.check_dotnet_requirements', return_value=True)
+    mocker.patch('livecheck.main.get_old_sha', return_value='1234567')
+    mocker.patch('livecheck.main.replace_date_in_ebuild', side_effect=lambda v, _, __: v)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.catpkg_catpkgsplit', return_value=(cp, cat, pkg, last_version))
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
+    mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
+    mocker.patch('livecheck.main.digest_ebuild', return_value=True)
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
+    mocker.patch('livecheck.main.is_sha', return_value=True)
+    mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
+    mocker.patch('livecheck.main.execute_hooks')
+    mock_anyio_path_instance = mocker.AsyncMock()
+    mock_anyio_path_instance.read_text = mocker.AsyncMock(return_value='SHA="1234567"\n')
+    mock_anyio_path_instance.write_text = mocker.AsyncMock()
+    mocker.patch('livecheck.main.AnyioPath', return_value=mock_anyio_path_instance)
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
+    mock_async_proc = mocker.AsyncMock()
+    mock_async_proc.wait = mocker.AsyncMock(return_value=0)
+    mocker.patch('livecheck.main.asyncio.create_subprocess_exec', return_value=mock_async_proc)
+    mocker.patch('livecheck.main.update_dotnet_ebuild', side_effect=RuntimeError('boom'))
+    mock_jetbrains = mocker.patch('livecheck.main.update_jetbrains_ebuild')
+    mock_settings.jetbrains_packages = {cp: True}
+    await do_main(cat=cat,
+                  ebuild_version=ebuild_version,
+                  hash_date=hash_date,
+                  hook_dir=hook_dir,
+                  last_version=last_version,
+                  pkg=pkg,
+                  search_dir=search_dir,
+                  settings=mock_settings,
+                  top_hash=top_hash,
+                  url=url)
+    mock_jetbrains.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -1917,6 +2045,27 @@ async def test_parse_url_variants(mocker: MockerFixture, src_uri: str, is_gist_r
 
 
 @pytest.mark.asyncio
+async def test_parse_url_dispatches_to_nuget(mocker: MockerFixture) -> None:
+    mocker.patch('livecheck.main.is_pypi', return_value=False)
+    mocker.patch('livecheck.main.is_nuget', return_value=True)
+    mocker.patch('livecheck.main.urlparse',
+                 return_value=mocker.Mock(hostname='api.nuget.org', path='/v3-flatcontainer/foo'))
+    nuget_call = mocker.patch('livecheck.main.get_latest_nuget_package',
+                              return_value=('1.2.3', 'https://api.nuget.org/.../foo.1.2.3.nupkg'))
+    settings = mocker.Mock()
+    last_version, top_hash, hash_date, url = await parse_url(
+        'https://api.nuget.org/v3-flatcontainer/foo/index.json',
+        'cat/pkg-1.0.0',
+        settings,
+        force_sha=False)
+    assert last_version == '1.2.3'
+    assert not top_hash
+    assert not hash_date
+    assert url == 'https://api.nuget.org/.../foo.1.2.3.nupkg'
+    nuget_call.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_parse_metadata_no_metadata_file(tmp_path: Path, mocker: MockerFixture) -> None:
     repo_root = tmp_path
     ebuild = 'cat/pkg-1.0.0'
@@ -1943,7 +2092,9 @@ async def test_parse_metadata_no_metadata_file(tmp_path: Path, mocker: MockerFix
       ('latest_version', '', '', '')),
      ('pypi', 'get_latest_pypi_metadata', ('latest_version', 'url'),
       ('latest_version', '', '', 'url')),
-     ('pypi', 'get_latest_pypi_metadata', ('', 'url'), ('', '', '', ''))])
+     ('pypi', 'get_latest_pypi_metadata', ('', 'url'), ('', '', '', '')),
+     ('nuget', 'get_latest_nuget_metadata', ('latest_version', 'url'),
+      ('latest_version', '', '', 'url'))])
 async def test_parse_metadata_cases(attrib_type: str, get_latest_meta_func: str,
                                     get_latest_meta_return: str, expected: tuple[str, ...],
                                     tmp_path: Path, mocker: MockerFixture) -> None:
@@ -3170,6 +3321,22 @@ def test_main_exclude_logs_message(mocker: MockerFixture, runner: CliRunner, tmp
         result = runner.invoke(main, ['--exclude', 'cat/pkg', '--exclude', 'cat2/pkg2'])
     assert result.exit_code == 0
     assert 'Excluding cat/pkg, cat2/pkg2.' in caplog.messages
+
+
+def test_main_rejects_dist_github_flags_used_alone(mocker: MockerFixture, runner: CliRunner,
+                                                   tmp_path: Path) -> None:
+    mocker.patch('livecheck.main.chdir')
+    mocker.patch('livecheck.main.setup_logging')
+    mocker.patch('livecheck.main.gather_settings')
+    mocker.patch('livecheck.main.get_repository_root_if_inside',
+                 return_value=(str(tmp_path), 'repo'))
+    mocker.patch('livecheck.main.os.access', return_value=True)
+    result = runner.invoke(
+        main, ['--dist-github-repository', 'Tatsh/livecheck', '--working-dir',
+               str(tmp_path)])
+    assert result.exit_code != 0
+    assert '`--dist-github-repository` and `--dist-github-release` must be used together.' in (
+        result.output)
 
 
 def test_main_git_check_program_git(mocker: MockerFixture, runner: CliRunner, tmp_path: Path,

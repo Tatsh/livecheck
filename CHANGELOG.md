@@ -10,6 +10,32 @@ and this project adheres to
 
 ## [unreleased]
 
+### Added
+
+- Heuristic detection for NuGet packages, recognising
+  `https://api.nuget.org/v3-flatcontainer/...`, `https://www.nuget.org/packages/...`, and
+  `https://www.nuget.org/api/v2/package/...` URLs via both `parse_url` and `parse_metadata`
+  (`<remote-id type="nuget">`). #429
+- New `livecheck.json` configuration keys:
+  - `dotnet_packages` (boolean) - opt-in to build a NuGet `packages/` vendor archive named
+    `<pkg>-<ver>-nuget.tar.xz`.
+  - `dist_github_repository` (string) - per-package override of `--dist-github-repository`.
+  - `dist_github_release` (string) - per-package override of `--dist-github-release`.
+- New CLI flags for uploading regenerated vendor archives (composer, gomodule, maven, nodejs,
+  dotnet) as GitHub release assets:
+  - `--dist-github-repository owner/repo`
+  - `--dist-github-release tag`
+  - `--dist-force-upload`
+
+  When both the repository and release are configured (via CLI or per-package), every regenerated
+  vendor archive is uploaded as a release asset. If the release does not exist, livecheck creates
+  a draft release and logs a warning. If a same-named asset already exists, livecheck skips the
+  rebuild unless `--dist-force-upload` is passed, in which case the existing asset is deleted and
+  replaced.
+
+- README section "Uploading vendor dist archives to GitHub releases" documenting the new flags
+  and config keys, with a callout advising users to keep GitHub immutable releases disabled.
+
 ### Changed
 
 - Expanded `games-emulation/vita3k` submodule tracking to cover its full set of vendored
@@ -17,6 +43,12 @@ and this project adheres to
   `psvpfstools`, and `substitute`) and namespaced the related SHA variable names by parent
   submodule (for example `LIBB64_SHA` → `PSVPFSTOOLS_LIBB64_SHA`) so nested submodules can be
   distinguished.
+
+### Fixed
+
+- Rolled back the renamed ebuild via the existing recovery path when `update_dotnet_ebuild` or
+  the archive build raises (for example on a malformed `NUGETS=` block), instead of leaving the
+  ebuild in a broken state.
 
 ## [0.2.3] - 2026-05-08
 

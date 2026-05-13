@@ -9,6 +9,8 @@ from livecheck.special.dotnet import (
     NoNugetsFound,
     check_dotnet_requirements,
     dotnet_restore,
+    remove_dotnet_url,
+    update_dotnet_archive_ebuild,
     update_dotnet_ebuild,
 )
 import pytest
@@ -333,3 +335,133 @@ def test_check_dotnet_requirements_logs_error_on_failure(mocker: MockerFixture,
     assert result is False
     assert any(
         'dotnet is not installed or version is less than 9.0.0.' in m for m in caplog.messages)
+
+
+def test_remove_dotnet_url_strips_nuget_archive_line() -> None:
+    content = ('SRC_URI="https://github.com/Tatsh/foo/archive/1.0.tar.gz\n'
+               '\thttps://github.com/Tatsh/foo/releases/download/dist/foo-1.0-nuget.tar.xz"\n')
+    assert 'nuget.tar.xz' not in remove_dotnet_url(content)
+
+
+def test_remove_dotnet_url_preserves_unrelated_content() -> None:
+    content = 'SRC_URI="https://example.com/foo-1.0.tar.gz"\n'
+    assert remove_dotnet_url(content) == content
+
+
+@pytest.mark.asyncio
+async def test_update_dotnet_archive_ebuild_happy_path(mocker: MockerFixture,
+                                                       tmp_path: Path) -> None:
+    project = tmp_path / 'proj.csproj'
+    project.write_text('<Project></Project>')
+    mocker.patch('livecheck.special.dotnet.dist_archive_already_uploaded',
+                 new_callable=AsyncMock,
+                 return_value=False)
+    mocker.patch('livecheck.special.dotnet.search_ebuild',
+                 new_callable=AsyncMock,
+                 return_value=(str(tmp_path), str(tmp_path)))
+    mocker.patch('livecheck.special.dotnet.which', return_value='/bin/dotnet')
+
+    proc = mocker.MagicMock()
+    proc.wait = AsyncMock(return_value=0)
+    mocker.patch('livecheck.special.dotnet.asyncio.create_subprocess_exec',
+                 new_callable=AsyncMock,
+                 return_value=proc)
+    build = mocker.patch('livecheck.special.dotnet.build_compress',
+                         new_callable=AsyncMock,
+                         return_value=True)
+    await update_dotnet_archive_ebuild(str(tmp_path / 'pkg-1.ebuild'),
+                                       'proj.csproj', {'foo-1.tar.gz': ()},
+                                       dist_settings=None)
+    build.assert_awaited_once()
+    call = build.await_args
+    assert call is not None
+    assert call.args[3] == '-nuget.tar.xz'
+    assert call.kwargs == {'dist_settings': None}
+
+
+@pytest.mark.asyncio
+async def test_update_dotnet_archive_ebuild_skips_when_uploaded(mocker: MockerFixture,
+                                                                tmp_path: Path) -> None:
+    mocker.patch('livecheck.special.dotnet.dist_archive_already_uploaded',
+                 new_callable=AsyncMock,
+                 return_value=True)
+    search = mocker.patch('livecheck.special.dotnet.search_ebuild', new_callable=AsyncMock)
+    await update_dotnet_archive_ebuild(str(tmp_path / 'pkg-1.ebuild'), 'proj.csproj',
+                                       {'foo-1.tar.gz': ()})
+    search.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_update_dotnet_archive_ebuild_returns_when_no_dotnet(mocker: MockerFixture,
+                                                                   tmp_path: Path) -> None:
+    mocker.patch('livecheck.special.dotnet.dist_archive_already_uploaded',
+                 new_callable=AsyncMock,
+                 return_value=False)
+    mocker.patch('livecheck.special.dotnet.search_ebuild',
+                 new_callable=AsyncMock,
+                 return_value=(str(tmp_path), str(tmp_path)))
+    project = tmp_path / 'proj.csproj'
+    project.write_text('<Project></Project>')
+    mocker.patch('livecheck.special.dotnet.which', return_value=None)
+    build = mocker.patch('livecheck.special.dotnet.build_compress', new_callable=AsyncMock)
+    await update_dotnet_archive_ebuild(str(tmp_path / 'pkg-1.ebuild'), 'proj.csproj',
+                                       {'foo-1.tar.gz': ()})
+    build.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_update_dotnet_archive_ebuild_returns_when_restore_fails(
+        mocker: MockerFixture, tmp_path: Path) -> None:
+    project = tmp_path / 'proj.csproj'
+    project.write_text('<Project></Project>')
+    mocker.patch('livecheck.special.dotnet.dist_archive_already_uploaded',
+                 new_callable=AsyncMock,
+                 return_value=False)
+    mocker.patch('livecheck.special.dotnet.search_ebuild',
+                 new_callable=AsyncMock,
+                 return_value=(str(tmp_path), str(tmp_path)))
+    mocker.patch('livecheck.special.dotnet.which', return_value='/bin/dotnet')
+    proc = mocker.MagicMock()
+    proc.wait = AsyncMock(return_value=1)
+    mocker.patch('livecheck.special.dotnet.asyncio.create_subprocess_exec',
+                 new_callable=AsyncMock,
+                 return_value=proc)
+    build = mocker.patch('livecheck.special.dotnet.build_compress', new_callable=AsyncMock)
+    await update_dotnet_archive_ebuild(str(tmp_path / 'pkg-1.ebuild'), 'proj.csproj',
+                                       {'foo-1.tar.gz': ()})
+    build.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_update_dotnet_archive_ebuild_returns_on_oserror(mocker: MockerFixture,
+                                                               tmp_path: Path) -> None:
+    project = tmp_path / 'proj.csproj'
+    project.write_text('<Project></Project>')
+    mocker.patch('livecheck.special.dotnet.dist_archive_already_uploaded',
+                 new_callable=AsyncMock,
+                 return_value=False)
+    mocker.patch('livecheck.special.dotnet.search_ebuild',
+                 new_callable=AsyncMock,
+                 return_value=(str(tmp_path), str(tmp_path)))
+    mocker.patch('livecheck.special.dotnet.which', return_value='/bin/dotnet')
+    mocker.patch('livecheck.special.dotnet.asyncio.create_subprocess_exec',
+                 side_effect=OSError('boom'))
+    build = mocker.patch('livecheck.special.dotnet.build_compress', new_callable=AsyncMock)
+    await update_dotnet_archive_ebuild(str(tmp_path / 'pkg-1.ebuild'), 'proj.csproj',
+                                       {'foo-1.tar.gz': ()})
+    build.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_update_dotnet_archive_ebuild_returns_when_search_empty(mocker: MockerFixture,
+                                                                      tmp_path: Path) -> None:
+    mocker.patch('livecheck.special.dotnet.dist_archive_already_uploaded',
+                 new_callable=AsyncMock,
+                 return_value=False)
+    mocker.patch('livecheck.special.dotnet.search_ebuild',
+                 new_callable=AsyncMock,
+                 return_value=('', ''))
+    build = mocker.patch('livecheck.special.dotnet.build_compress', new_callable=AsyncMock)
+    await update_dotnet_archive_ebuild(str(tmp_path / 'pkg-1.ebuild'), 'proj.csproj',
+                                       {'foo-1.tar.gz': ()})
+    build.assert_not_called()

@@ -83,8 +83,22 @@ async def test_update_composer_ebuild_success(mocker: MockerFixture) -> None:
     fetchlist = {'foo': ('bar',)}
     await update_composer_ebuild('ebuild', 'path', fetchlist)
 
-    mock_build_compress.assert_called_once_with(temp_dir, composer_path, 'vendor', '-vendor.tar.xz',
-                                                fetchlist)
+    mock_build_compress.assert_called_once_with(temp_dir,
+                                                composer_path,
+                                                'vendor',
+                                                '-vendor.tar.xz',
+                                                fetchlist,
+                                                dist_settings=None)
+
+
+@pytest.mark.asyncio
+async def test_update_composer_ebuild_skips_when_archive_uploaded(mocker: MockerFixture) -> None:
+    mocker.patch('livecheck.special.composer.dist_archive_already_uploaded',
+                 new_callable=AsyncMock,
+                 return_value=True)
+    search = mocker.patch('livecheck.special.composer.search_ebuild', new_callable=AsyncMock)
+    await update_composer_ebuild('ebuild', 'path', {'foo': ('bar',)})
+    search.assert_not_called()
 
 
 @pytest.mark.asyncio

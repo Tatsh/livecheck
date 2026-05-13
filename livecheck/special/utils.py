@@ -9,13 +9,15 @@ import tarfile
 import tempfile
 
 from anyio import Path as AnyioPath, to_thread
+from livecheck.dist_github import DistGitHubSettings, asset_exists, upload_dist_archive
 from livecheck.utils.portage import get_distdir, unpack_ebuild
 from platformdirs import user_cache_dir
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Mapping
 
-__all__ = ('EbuildTempFile', 'build_compress', 'get_archive_extension', 'get_project_path',
+__all__ = ('EbuildTempFile', 'build_compress', 'compute_vendor_archive_name',
+           'dist_archive_already_uploaded', 'get_archive_extension', 'get_project_path',
            'remove_url_ebuild', 'search_ebuild')
 
 logger = logging.getLogger(__name__)
@@ -111,8 +113,65 @@ async def search_ebuild(ebuild: str, archive: str, path: str | None = None) -> t
     return result
 
 
-async def build_compress(temp_dir: str, base_dir: str, directory: str, extension: str,
-                         fetchlist: Mapping[str, Collection[str]]) -> bool:
+def compute_vendor_archive_name(extension: str, fetchlist: Mapping[str, Collection[str]]) -> str:
+    """
+    Derive the vendor archive filename for an ebuild's fetch map.
+
+    Parameters
+    ----------
+    extension : str
+        Filename suffix to apply when renaming the archive (for example ``-vendor.tar.xz``).
+    fetchlist : Mapping[str, Collection[str]]
+        Map of upstream filenames to mirror lists.
+
+    Returns
+    -------
+    str
+        Computed filename, or an empty string if no fetch entry or archive extension was found.
+    """
+    if not (filename := next(iter(fetchlist.keys()), None)):
+        return ''
+    if not (archive_ext := get_archive_extension(filename)):
+        logger.warning('Invalid extension.')
+        return ''
+    if extension in filename:
+        return filename
+    return f'{filename[:-len(archive_ext)]}{extension}'
+
+
+async def dist_archive_already_uploaded(extension: str, fetchlist: Mapping[str, Collection[str]],
+                                        dist_settings: DistGitHubSettings | None) -> bool:
+    """
+    Return whether the vendor archive is already published at the configured GitHub release.
+
+    Parameters
+    ----------
+    extension : str
+        Filename suffix used by the relevant ecosystem (for example ``-vendor.tar.xz``).
+    fetchlist : Mapping[str, Collection[str]]
+        Map of upstream filenames to mirror lists for the new ebuild.
+    dist_settings : DistGitHubSettings | None
+        GitHub Releases destination, or ``None`` when uploading is disabled.
+
+    Returns
+    -------
+    bool
+        ``True`` if the asset is already published and the rebuild can be skipped.
+    """
+    if dist_settings is None or dist_settings.force:
+        return False
+    if not (name := compute_vendor_archive_name(extension, fetchlist)):
+        return False
+    return await asset_exists(dist_settings, name)
+
+
+async def build_compress(temp_dir: str,
+                         base_dir: str,
+                         directory: str,
+                         extension: str,
+                         fetchlist: Mapping[str, Collection[str]],
+                         *,
+                         dist_settings: DistGitHubSettings | None = None) -> bool:
     """
     Build a compressed dist archive from vendor sources.
 
@@ -128,29 +187,22 @@ async def build_compress(temp_dir: str, base_dir: str, directory: str, extension
         Filename suffix to apply when renaming the archive.
     fetchlist : Mapping[str, Collection[str]]
         Map of upstream filenames to mirror lists.
+    dist_settings : DistGitHubSettings | None
+        Optional GitHub Releases destination. When set, the archive is also uploaded as a release
+        asset after being written to ``DISTDIR``.
 
     Returns
     -------
     bool
-        ``True`` if the archive was written, otherwise ``False``.
+        ``True`` if the archive was written (and uploaded, when requested), otherwise ``False``.
     """
     vendor_dir = Path(base_dir) / directory
     if not vendor_dir.exists():
         logger.warning('The directory vendor was not created.')
         return False
 
-    if not (filename := next(iter(fetchlist.keys()), None)):
+    if not (vendor_archive_name := compute_vendor_archive_name(extension, fetchlist)):
         return False
-
-    if not (archive_ext := get_archive_extension(filename)):
-        logger.warning('Invalid extension.')
-        return False
-
-    if extension in filename:
-        vendor_archive_name = filename
-    else:
-        base_name = filename[:-len(archive_ext)]
-        vendor_archive_name = f'{base_name}{extension}'
     vendor_archive_path = get_distdir() / vendor_archive_name
 
     vendor_path = Path(str(await AnyioPath(base_dir).resolve()))
@@ -163,7 +215,7 @@ async def build_compress(temp_dir: str, base_dir: str, directory: str, extension
             tar.add(vendor_dir, arcname=str(relative_path))
 
     await to_thread.run_sync(_compress)
-    return True
+    return dist_settings is None or await upload_dist_archive(dist_settings, vendor_archive_path)
 
 
 def get_archive_extension(filename: str) -> str:

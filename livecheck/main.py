@@ -52,7 +52,12 @@ from .special.composer import (
 )
 from .special.davinci import get_latest_davinci_package
 from .special.directory import get_latest_directory_package
-from .special.dotnet import check_dotnet_requirements, update_dotnet_ebuild
+from .special.dotnet import (
+    check_dotnet_requirements,
+    remove_dotnet_url,
+    update_dotnet_archive_ebuild,
+    update_dotnet_ebuild,
+)
 from .special.gist import get_latest_gist_package, is_gist
 from .special.github import (
     GITHUB_METADATA,
@@ -82,6 +87,12 @@ from .special.metacpan import (
     is_metacpan,
 )
 from .special.nodejs import check_nodejs_requirements, remove_nodejs_url, update_nodejs_ebuild
+from .special.nuget import (
+    NUGET_METADATA,
+    get_latest_nuget_metadata,
+    get_latest_nuget_package,
+    is_nuget,
+)
 from .special.package import get_latest_package, is_package
 from .special.pecl import PECL_METADATA, get_latest_pecl_metadata, get_latest_pecl_package, is_pecl
 from .special.pypi import PYPI_METADATA, get_latest_pypi_metadata, get_latest_pypi_package, is_pypi
@@ -279,6 +290,9 @@ async def parse_url(src_uri: str, ebuild: str, settings: LivecheckSettings, *,
     elif is_pypi(src_uri):
         log.debug('Matched handler: pypi for %s.', ebuild)
         last_version, url = await get_latest_pypi_package(src_uri, ebuild, settings)
+    elif is_nuget(src_uri):
+        log.debug('Matched handler: nuget for %s.', ebuild)
+        last_version, url = await get_latest_nuget_package(src_uri, ebuild, settings)
     elif is_jetbrains(src_uri):
         log.debug('Matched handler: jetbrains for %s.', ebuild)
         last_version = await get_latest_jetbrains_package(ebuild, settings)
@@ -373,6 +387,8 @@ async def parse_metadata(repo_root: str, ebuild: str,
                     last_version = await get_latest_sourceforge_metadata(remote, ebuild, settings)
                 if PYPI_METADATA in type_:
                     last_version, url = await get_latest_pypi_metadata(remote, ebuild, settings)
+                if NUGET_METADATA in type_:
+                    last_version, url = await get_latest_nuget_metadata(remote, ebuild, settings)
                 if last_version or top_hash:
                     return last_version, top_hash, hash_date, url
     return '', '', '', ''
@@ -827,6 +843,8 @@ async def do_main(  # noqa: C901, PLR0912, PLR0914, PLR0915
                 content = remove_composer_url(content)
             if cp in settings.maven_packages:
                 content = remove_maven_url(content)
+            if settings.dotnet_packages.get(cp):
+                content = remove_dotnet_url(content)
             if old_content != content:
                 await AnyioPath(new_filename).write_text(content, encoding='utf-8')
             if not await asyncio.to_thread(digest_ebuild, new_filename):
@@ -844,19 +862,42 @@ async def do_main(  # noqa: C901, PLR0912, PLR0914, PLR0915
                                                params=settings.request_params.get(cp, {}))
             if cp in settings.go_sum_uri:
                 await update_go_ebuild(new_filename, top_hash, settings.go_sum_uri[cp])
+            dist_settings = settings.dist_settings_for(cp)
             if cp in settings.dotnet_projects:
-                await update_dotnet_ebuild(new_filename, settings.dotnet_projects[cp])
+                try:
+                    await update_dotnet_ebuild(new_filename, settings.dotnet_projects[cp])
+                    if settings.dotnet_packages.get(cp):
+                        await update_dotnet_archive_ebuild(new_filename,
+                                                           settings.dotnet_projects[cp],
+                                                           fetchlist,
+                                                           dist_settings=dist_settings)
+                except Exception:
+                    log.exception('Error updating .NET ebuild `%s`.', new_filename)
+                    await _recover_ebuild(new_filename, ebuild, cp, search_dir, settings)
+                    return
             if cp in settings.jetbrains_packages:
                 await update_jetbrains_ebuild(new_filename)
             if cp in settings.maven_packages:
-                await update_maven_ebuild(new_filename, settings.maven_path[cp], fetchlist)
+                await update_maven_ebuild(new_filename,
+                                          settings.maven_path[cp],
+                                          fetchlist,
+                                          dist_settings=dist_settings)
             if cp in settings.nodejs_packages:
-                await update_nodejs_ebuild(new_filename, settings.nodejs_path[cp], fetchlist,
-                                           settings.get_package_manager(cp))
+                await update_nodejs_ebuild(new_filename,
+                                           settings.nodejs_path[cp],
+                                           fetchlist,
+                                           settings.get_package_manager(cp),
+                                           dist_settings=dist_settings)
             if cp in settings.gomodule_packages:
-                await update_gomodule_ebuild(new_filename, settings.gomodule_path[cp], fetchlist)
+                await update_gomodule_ebuild(new_filename,
+                                             settings.gomodule_path[cp],
+                                             fetchlist,
+                                             dist_settings=dist_settings)
             if cp in settings.composer_packages:
-                await update_composer_ebuild(new_filename, settings.composer_path[cp], fetchlist)
+                await update_composer_ebuild(new_filename,
+                                             settings.composer_path[cp],
+                                             fetchlist,
+                                             dist_settings=dist_settings)
             if old_content != content:
                 await AnyioPath(new_filename).write_text(old_content, encoding='utf-8')
                 if not await asyncio.to_thread(digest_ebuild, new_filename):
@@ -928,6 +969,15 @@ async def _async_main(*,
 @click.option('-a', '--auto-update', is_flag=True, help='Rename and modify ebuilds.')
 @click.option('-d', '--debug', is_flag=True, help='Enable debug logging.')
 @click.option('-D', '--development', is_flag=True, help='Include development packages.')
+@click.option('--dist-github-repository',
+              default='',
+              help='GitHub `owner/repo` to upload vendor dist archives to as release assets.')
+@click.option('--dist-github-release',
+              default='',
+              help='GitHub release tag to upload vendor dist archives under.')
+@click.option('--dist-force-upload',
+              is_flag=True,
+              help='Force rebuild and re-upload of vendor dist archives even when present.')
 @click.option('-e', '--exclude', multiple=True, help='Exclude package(s) from updates.')
 @click.option('-g', '--git', is_flag=True, help='Use git and pkgdev to make changes.')
 @click.option('-H',
@@ -965,6 +1015,8 @@ async def _async_main(*,
                               path_type=Path))
 @click.argument('package_names', nargs=-1)
 def main(working_dir: Path,
+         dist_github_release: str = '',
+         dist_github_repository: str = '',
          exclude: tuple[str, ...] | None = None,
          hook_dir: Path | None = None,
          max_concurrent_http: int = 3,
@@ -974,6 +1026,7 @@ def main(working_dir: Path,
          auto_update: bool = False,
          debug: bool = False,
          development: bool = False,
+         dist_force_upload: bool = False,
          git: bool = False,
          keep_old: bool = False,
          progress: bool = False,
@@ -1018,6 +1071,13 @@ def main(working_dir: Path,
     log.debug('search_dir=%s repo_root=%s repo_name=%s', search_dir, repo_root, repo_name)
     settings = gather_settings(Path(repo_root))
 
+    if (dist_github_repository and not dist_github_release) or (dist_github_release
+                                                                and not dist_github_repository):
+        msg = '`--dist-github-repository` and `--dist-github-release` must be used together.'
+        raise click.ClickException(msg)
+    settings.dist_github_release = dist_github_release
+    settings.dist_github_repository = dist_github_repository
+    settings.dist_force_upload_flag = dist_force_upload
     settings.auto_update_flag = auto_update
     settings.debug_flag = debug
     settings.development_flag = development

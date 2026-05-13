@@ -66,6 +66,9 @@ def gather_settings(search_dir: Path) -> LivecheckSettings:  # noqa: C901, PLR09
 
     branches: dict[str, str] = {}
     custom_livechecks: dict[str, tuple[str, str]] = {}
+    dist_github_repositories: dict[str, str] = {}
+    dist_github_releases: dict[str, str] = {}
+    dotnet_packages: dict[str, bool] = {}
     dotnet_projects: dict[str, str] = {}
     golang_packages: dict[str, str] = {}
     type_packages: dict[str, str] = {}
@@ -173,6 +176,17 @@ def gather_settings(search_dir: Path) -> LivecheckSettings:  # noqa: C901, PLR09
             if settings_parsed.get('dotnet_project'):
                 check_instance(settings_parsed['dotnet_project'], 'dotnet_project', 'string', path)
                 dotnet_projects[catpkg] = settings_parsed['dotnet_project']
+            if 'dotnet_packages' in settings_parsed:
+                check_instance(settings_parsed['dotnet_packages'], 'dotnet_packages', 'bool', path)
+                dotnet_packages[catpkg] = settings_parsed['dotnet_packages']
+            if settings_parsed.get('dist_github_repository'):
+                check_instance(settings_parsed['dist_github_repository'], 'dist_github_repository',
+                               'string', path)
+                dist_github_repositories[catpkg] = settings_parsed['dist_github_repository']
+            if settings_parsed.get('dist_github_release'):
+                check_instance(settings_parsed['dist_github_release'], 'dist_github_release',
+                               'string', path)
+                dist_github_releases[catpkg] = settings_parsed['dist_github_release']
             if 'jetbrains' in settings_parsed:
                 check_instance(settings_parsed['jetbrains'], 'jetbrains', 'bool', path)
                 jetbrains_packages[catpkg] = settings_parsed['jetbrains']
@@ -267,13 +281,40 @@ def gather_settings(search_dir: Path) -> LivecheckSettings:  # noqa: C901, PLR09
                 check_instance(settings_parsed['multiline'], 'multiline', 'bool', path)
                 regex_multiline[catpkg] = settings_parsed['multiline']
 
-    return LivecheckSettings(
-        branches, custom_livechecks, dotnet_projects, golang_packages, type_packages,
-        no_auto_update, sha_sources, transformations, yarn_base_packages, yarn_packages,
-        jetbrains_packages, keep_old, gomodule_packages, gomodule_path, nodejs_packages,
-        nodejs_path, nodejs_package_managers, development, composer_packages, composer_path,
-        maven_packages, maven_path, regex_version, restrict_version, sync_version, stable_version,
-        request_headers, request_params, request_method, request_data, regex_multiline)
+    return LivecheckSettings(branches=branches,
+                             composer_packages=composer_packages,
+                             composer_path=composer_path,
+                             custom_livechecks=custom_livechecks,
+                             development=development,
+                             dist_github_releases=dist_github_releases,
+                             dist_github_repositories=dist_github_repositories,
+                             dotnet_packages=dotnet_packages,
+                             dotnet_projects=dotnet_projects,
+                             go_sum_uri=golang_packages,
+                             gomodule_packages=gomodule_packages,
+                             gomodule_path=gomodule_path,
+                             jetbrains_packages=jetbrains_packages,
+                             keep_old=keep_old,
+                             maven_packages=maven_packages,
+                             maven_path=maven_path,
+                             no_auto_update=no_auto_update,
+                             nodejs_package_managers=nodejs_package_managers,
+                             nodejs_packages=nodejs_packages,
+                             nodejs_path=nodejs_path,
+                             regex_multiline=regex_multiline,
+                             regex_version=regex_version,
+                             request_data=request_data,
+                             request_headers=request_headers,
+                             request_method=request_method,
+                             request_params=request_params,
+                             restrict_version=restrict_version,
+                             sha_sources=sha_sources,
+                             stable_version=stable_version,
+                             sync_version=sync_version,
+                             transformations=transformations,
+                             type_packages=type_packages,
+                             yarn_base_packages=yarn_base_packages,
+                             yarn_packages=yarn_packages)
 
 
 def check_instance(
