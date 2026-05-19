@@ -683,7 +683,10 @@ def update_egit_branch(ebuild_content: str, branch: str) -> str:
     if not branch:
         return ebuild_content
     branch_line = f'EGIT_BRANCH="{branch}"'
-    content, replaced = re.subn(r'^EGIT_BRANCH=.*$', branch_line, ebuild_content, count=1,
+    content, replaced = re.subn(r'^EGIT_BRANCH=.*$',
+                                branch_line,
+                                ebuild_content,
+                                count=1,
                                 flags=re.MULTILINE)
     if replaced:
         return content

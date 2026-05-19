@@ -59,12 +59,10 @@ def _github_version_branch_candidates(version: str) -> tuple[str, ...]:
     candidates: list[str] = []
     for length in range(len(series_parts), 0, -1):
         candidate = '.'.join(series_parts[:length])
-        candidates.append(candidate)
-        candidates.append(f'v{candidate}')
+        candidates.extend((candidate, f'v{candidate}'))
     if len(parts) > 2:  # noqa: PLR2004
         candidate = '.'.join(parts)
-        candidates.append(candidate)
-        candidates.append(f'v{candidate}')
+        candidates.extend((candidate, f'v{candidate}'))
     return tuple(dict.fromkeys(candidates))
 
 
@@ -109,8 +107,8 @@ async def get_github_branch_for_commit(url: str, version: str, commit: str) -> s
     if not owner or not repo:
         return ''
     for branch in _github_version_branch_candidates(version):
-        compare_url = GITHUB_COMPARE_URL % (owner, repo, quote(commit, safe=''),
-                                            quote(branch, safe=''))
+        compare_url = GITHUB_COMPARE_URL % (owner, repo, quote(commit,
+                                                               safe=''), quote(branch, safe=''))
         if not (r := await get_content(compare_url)):
             continue
         if r.json().get('status') in GITHUB_COMPARE_REACHABLE_STATUSES:

@@ -41,16 +41,15 @@ def _patch_main_resolved_executables(mocker: MockerFixture) -> None:
 
 def test_update_egit_branch_adds_branch_after_commit() -> None:
     content = 'EGIT_REPO_URI="https://github.com/org/repo"\nEGIT_COMMIT="abc"\n'
-    assert update_egit_branch(content, '2.9') == (
-        'EGIT_REPO_URI="https://github.com/org/repo"\n'
-        'EGIT_COMMIT="abc"\n'
-        'EGIT_BRANCH="2.9"\n')
+    assert update_egit_branch(content, '2.9') == ('EGIT_REPO_URI="https://github.com/org/repo"\n'
+                                                  'EGIT_COMMIT="abc"\n'
+                                                  'EGIT_BRANCH="2.9"\n')
 
 
 def test_update_egit_branch_replaces_existing_branch() -> None:
     content = 'EGIT_REPO_URI="https://github.com/org/repo"\nEGIT_BRANCH="2.8"\n'
-    assert update_egit_branch(content, '2.9') == (
-        'EGIT_REPO_URI="https://github.com/org/repo"\nEGIT_BRANCH="2.9"\n')
+    assert update_egit_branch(
+        content, '2.9') == ('EGIT_REPO_URI="https://github.com/org/repo"\nEGIT_BRANCH="2.9"\n')
 
 
 def test_replace_date_in_ebuild_full_date() -> None:
@@ -298,8 +297,9 @@ async def test_do_main_sha_sources_parse_url_fixes(mocker: MockerFixture, tmp_pa
 
 
 @pytest.mark.asyncio
-async def test_do_main_sha_source_releases_ignore_existing_branch(
-        mocker: MockerFixture, tmp_path: Path, mock_settings: Mock) -> None:
+async def test_do_main_sha_source_releases_ignore_existing_branch(mocker: MockerFixture,
+                                                                  tmp_path: Path,
+                                                                  mock_settings: Mock) -> None:
     cat = 'cat'
     pkg = 'pkg'
     ebuild_version = '1.0.0'

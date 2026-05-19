@@ -212,8 +212,7 @@ async def test_get_latest_github_package_no_response_2(mocker: MockerFixture) ->
 
 
 @pytest.mark.asyncio
-async def test_get_github_branch_for_commit_uses_version_series(
-        mocker: MockerFixture) -> None:
+async def test_get_github_branch_for_commit_uses_version_series(mocker: MockerFixture) -> None:
     mocker.patch('livecheck.special.github.extract_owner_repo',
                  return_value=('https://github.com/composer/composer', 'composer', 'composer'))
     ahead_response = mocker.Mock()
@@ -221,8 +220,7 @@ async def test_get_github_branch_for_commit_uses_version_series(
     mocker.patch('livecheck.special.github.get_content', return_value=ahead_response)
 
     result = await get_github_branch_for_commit('https://github.com/composer/composer/releases',
-                                                '2.9.8',
-                                                '39ee8baff8e97a1b657bbfcd6a236ff93a5efbb2')
+                                                '2.9.8', '39ee8baff8e97a1b657bbfcd6a236ff93a5efbb2')
 
     assert result == '2.9'
 
