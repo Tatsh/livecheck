@@ -18,6 +18,7 @@ from livecheck.main import (
     process_submodules,
     replace_date_in_ebuild,
     str_version,
+    update_egit_branch,
 )
 import click
 import pytest
@@ -36,6 +37,19 @@ CP = 'sys-devel/gcc'
 def _patch_main_resolved_executables(mocker: MockerFixture) -> None:
     """Stub PATH resolution so git workflows in do_main need no portage tools."""
     mocker.patch('livecheck.main.which', side_effect=lambda name: f'/fake/bin/{name}')
+
+
+def test_update_egit_branch_adds_branch_after_commit() -> None:
+    content = 'EGIT_REPO_URI="https://github.com/org/repo"\nEGIT_COMMIT="abc"\n'
+    assert update_egit_branch(content, '2.9') == ('EGIT_REPO_URI="https://github.com/org/repo"\n'
+                                                  'EGIT_COMMIT="abc"\n'
+                                                  'EGIT_BRANCH="2.9"\n')
+
+
+def test_update_egit_branch_replaces_existing_branch() -> None:
+    content = 'EGIT_REPO_URI="https://github.com/org/repo"\nEGIT_BRANCH="2.8"\n'
+    assert update_egit_branch(
+        content, '2.9') == ('EGIT_REPO_URI="https://github.com/org/repo"\nEGIT_BRANCH="2.9"\n')
 
 
 def test_replace_date_in_ebuild_full_date() -> None:
@@ -280,6 +294,49 @@ async def test_do_main_sha_sources_parse_url_fixes(mocker: MockerFixture, tmp_pa
                   url=url,
                   hook_dir=hook_dir)
     mock_write.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_do_main_sha_source_releases_ignore_existing_branch(mocker: MockerFixture,
+                                                                  tmp_path: Path,
+                                                                  mock_settings: Mock) -> None:
+    cat = 'cat'
+    pkg = 'pkg'
+    ebuild_version = '1.0.0'
+    last_version = '1.0.1'
+    source = 'https://github.com/org/repo/releases'
+    cp = f'{cat}/{pkg}'
+    ebuild_path = tmp_path / cp / f'{pkg}-{ebuild_version}.ebuild'
+    ebuild_path.parent.mkdir(parents=True)
+    ebuild_path.write_text('EGIT_COMMIT="oldsha"\n', encoding='utf-8')
+    mock_settings.branches = {cp: '1.0'}
+    mock_settings.sha_sources = {cp: source}
+    top_hash = 'b' * 40
+    parse_url_mock = mocker.patch('livecheck.main.parse_url',
+                                  new_callable=mocker.AsyncMock,
+                                  return_value=('', top_hash, '', ''))
+    branch_mock = mocker.patch('livecheck.main.get_github_branch_for_commit',
+                               new_callable=mocker.AsyncMock,
+                               return_value='1.0')
+    mocker.patch('livecheck.main.get_old_sha', return_value='a' * 40)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.compare_versions', return_value=False)
+
+    await do_main(cat=cat,
+                  ebuild_version=ebuild_version,
+                  hash_date='',
+                  hook_dir=None,
+                  last_version=last_version,
+                  pkg=pkg,
+                  search_dir=tmp_path,
+                  settings=mock_settings,
+                  top_hash='',
+                  url='https://example.com')
+
+    parse_settings = parse_url_mock.call_args.args[2]
+    assert parse_settings is not mock_settings
+    assert cp not in parse_settings.branches
+    branch_mock.assert_called_once_with(source, last_version, top_hash)
 
 
 @pytest.mark.asyncio
