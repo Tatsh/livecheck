@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import TYPE_CHECKING
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 import re
 
 from defusedxml import ElementTree as ET  # noqa: N817
@@ -16,11 +16,14 @@ from .utils import get_archive_extension
 if TYPE_CHECKING:
     from livecheck.settings_model import LivecheckSettings
 
-__all__ = ('GITHUB_METADATA', 'get_latest_github', 'get_latest_github_commit',
-           'get_latest_github_commit2', 'get_latest_github_metadata', 'get_latest_github_package',
-           'is_github')
+__all__ = ('GITHUB_METADATA', 'get_github_branch_for_commit', 'get_latest_github',
+           'get_latest_github_commit', 'get_latest_github_commit2', 'get_latest_github_metadata',
+           'get_latest_github_package', 'is_github', 'is_github_release_url')
 
 GITHUB_DOWNLOAD_URL = '%s/tags.atom'
+GITHUB_COMPARE_URL = 'https://api.github.com/repos/%s/%s/compare/%s...%s'
+GITHUB_COMPARE_REACHABLE_STATUSES = frozenset({'ahead', 'identical'})
+"""GitHub compare ``status`` values meaning the base commit is reachable from the head ref."""
 GITHUB_COMMIT_URL = 'https://api.github.com/repos/%s/%s/branches/%s'
 GITHUB_DATE_URL = 'https://api.github.com/repos/%s/%s/git/refs/tags/%s'
 GITHUB_METADATA = 'github'
@@ -43,6 +46,28 @@ def _github_tag_reference(url: str) -> str:
     return ''
 
 
+def _github_version_branch_candidates(version: str) -> tuple[str, ...]:
+    target_version = re.sub(r'-r\d+$', '', version)
+    if not (match := re.match(r'^(\d+)(?:\.(\d+))?(?:\.(\d+))?', target_version)):
+        return (target_version,)
+
+    parts = [part for part in match.groups() if part]
+    # Try the release series (version without the patch level) from most to least specific
+    # first, since release branches are usually named after the series rather than the exact
+    # version; fall back to the full version last.
+    series_parts = parts[:2] if len(parts) > 2 else parts  # noqa: PLR2004
+    candidates: list[str] = []
+    for length in range(len(series_parts), 0, -1):
+        candidate = '.'.join(series_parts[:length])
+        candidates.append(candidate)
+        candidates.append(f'v{candidate}')
+    if len(parts) > 2:  # noqa: PLR2004
+        candidate = '.'.join(parts)
+        candidates.append(candidate)
+        candidates.append(f'v{candidate}')
+    return tuple(dict.fromkeys(candidates))
+
+
 def extract_owner_repo(url: str) -> tuple[str, str, str]:
     u = urlparse(url)
     d = n = u.netloc
@@ -60,6 +85,37 @@ def extract_owner_repo(url: str) -> tuple[str, str, str]:
         r = p[1].replace('.git', '')
         return f'https://{d}/{p[0]}/{r}', p[0], r
     return '', '', ''
+
+
+async def get_github_branch_for_commit(url: str, version: str, commit: str) -> str:
+    """
+    Find a likely GitHub branch containing a version commit.
+
+    Parameters
+    ----------
+    url : str
+        GitHub-related URL.
+    version : str
+        Ebuild version used to derive branch candidates.
+    commit : str
+        Commit SHA that must be reachable from the selected branch.
+
+    Returns
+    -------
+    str
+        Branch name containing ``commit``, or an empty string if none is found.
+    """
+    _, owner, repo = extract_owner_repo(url)
+    if not owner or not repo:
+        return ''
+    for branch in _github_version_branch_candidates(version):
+        compare_url = GITHUB_COMPARE_URL % (owner, repo, quote(commit, safe=''),
+                                            quote(branch, safe=''))
+        if not (r := await get_content(compare_url)):
+            continue
+        if r.json().get('status') in GITHUB_COMPARE_REACHABLE_STATUSES:
+            return branch
+    return ''
 
 
 async def get_latest_github_package(url: str, ebuild: str,
@@ -192,6 +248,23 @@ def is_github(url: str) -> bool:
         True if :py:func:`extract_owner_repo` yields a non-empty domain.
     """
     return bool(extract_owner_repo(url)[0])
+
+
+def is_github_release_url(url: str) -> bool:
+    """
+    Check if the URL is a GitHub releases URL.
+
+    Parameters
+    ----------
+    url : str
+        URL to inspect.
+
+    Returns
+    -------
+    bool
+        True if the URL is a GitHub URL with a ``releases`` path segment.
+    """
+    return is_github(url) and 'releases' in [part for part in urlparse(url).path.split('/') if part]
 
 
 def get_branch(url: str, ebuild: str, settings: LivecheckSettings) -> str:

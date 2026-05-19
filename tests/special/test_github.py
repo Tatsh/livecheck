@@ -6,6 +6,7 @@ from defusedxml import ElementTree as ET  # noqa: N817
 from livecheck.special.github import (
     extract_owner_repo,
     get_branch,
+    get_github_branch_for_commit,
     get_latest_github,
     get_latest_github_commit,
     get_latest_github_commit2,
@@ -208,6 +209,36 @@ async def test_get_latest_github_package_no_response_2(mocker: MockerFixture) ->
     result = await get_latest_github_package('', 'category/repo-1.0.0.ebuild',
                                              mocker.Mock(branches={}))
     assert result == ('version', '')
+
+
+@pytest.mark.asyncio
+async def test_get_github_branch_for_commit_uses_version_series(
+        mocker: MockerFixture) -> None:
+    mocker.patch('livecheck.special.github.extract_owner_repo',
+                 return_value=('https://github.com/composer/composer', 'composer', 'composer'))
+    ahead_response = mocker.Mock()
+    ahead_response.json.return_value = {'status': 'ahead'}
+    mocker.patch('livecheck.special.github.get_content', return_value=ahead_response)
+
+    result = await get_github_branch_for_commit('https://github.com/composer/composer/releases',
+                                                '2.9.8',
+                                                '39ee8baff8e97a1b657bbfcd6a236ff93a5efbb2')
+
+    assert result == '2.9'
+
+
+@pytest.mark.asyncio
+async def test_get_github_branch_for_commit_two_part_version(mocker: MockerFixture) -> None:
+    mocker.patch('livecheck.special.github.extract_owner_repo',
+                 return_value=('https://github.com/org/repo', 'org', 'repo'))
+    ahead_response = mocker.Mock()
+    ahead_response.json.return_value = {'status': 'identical'}
+    mocker.patch('livecheck.special.github.get_content', return_value=ahead_response)
+
+    result = await get_github_branch_for_commit('https://github.com/org/repo/releases', '10.4',
+                                                'c' * 40)
+
+    assert result == '10.4'
 
 
 @pytest.mark.asyncio
