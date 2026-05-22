@@ -772,10 +772,12 @@ async def do_main(  # noqa: C901, PLR0912, PLR0914, PLR0915
     ebuild = Path(search_dir) / cp / f'{pkg}-{ebuild_version}.ebuild'
     old_sha = ''
     top_branch = ''
-    if update_sha_too_source := settings.sha_sources.get(cp, None):
+    update_sha_too_source = settings.sha_sources.get(cp, None)
+    github_releases_sha_source = (update_sha_too_source is not None
+                                  and is_github_release_url(update_sha_too_source))
+    if update_sha_too_source:
         log.debug('Package also needs a SHA update.')
         sha_source_settings = settings
-        github_releases_sha_source = is_github_release_url(update_sha_too_source)
         if github_releases_sha_source:
             # Drop the configured per-package branch so the release tag resolves on its own
             # ref instead of being pinned to a branch that may not contain it.
@@ -786,12 +788,6 @@ async def do_main(  # noqa: C901, PLR0912, PLR0914, PLR0915
                                                     f'{cp}-{ebuild_version}',
                                                     sha_source_settings,
                                                     force_sha=True)
-        if top_hash and last_version and github_releases_sha_source:
-            top_branch = await get_github_branch_for_commit(update_sha_too_source, last_version,
-                                                            top_hash)
-            if top_branch:
-                log.debug('Resolved branch for %s %s: %s.', cp, last_version, top_branch)
-
         if not top_hash:
             log.warning('Could not get new SHA for %s.', update_sha_too_source)
             return
@@ -846,6 +842,12 @@ async def do_main(  # noqa: C901, PLR0912, PLR0914, PLR0915
                 if len(old_sha) == FULL_SHA_LENGTH and len(top_hash) >= SHORT_SHA_LENGTH:
                     content = content.replace(old_sha[:SHORT_SHA_LENGTH],
                                               top_hash[:SHORT_SHA_LENGTH])
+            if (github_releases_sha_source and update_sha_too_source and top_hash
+                    and old_sha != top_hash and last_version):
+                top_branch = await get_github_branch_for_commit(update_sha_too_source, last_version,
+                                                                top_hash)
+                if top_branch:
+                    log.debug('Resolved branch for %s %s: %s.', cp, last_version, top_branch)
             content = update_egit_branch(content, top_branch)
             ps_ref = top_hash
             if not is_sha(top_hash) and cp in TAG_NAME_FUNCTIONS:

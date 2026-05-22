@@ -308,7 +308,7 @@ async def test_do_main_sha_source_releases_ignore_existing_branch(mocker: Mocker
     cp = f'{cat}/{pkg}'
     ebuild_path = tmp_path / cp / f'{pkg}-{ebuild_version}.ebuild'
     ebuild_path.parent.mkdir(parents=True)
-    ebuild_path.write_text('EGIT_COMMIT="oldsha"\n', encoding='utf-8')
+    ebuild_path.write_text('EGIT_COMMIT="old_sha"\n', encoding='utf-8')
     mock_settings.branches = {cp: '1.0'}
     mock_settings.sha_sources = {cp: source}
     top_hash = 'b' * 40
@@ -336,7 +336,127 @@ async def test_do_main_sha_source_releases_ignore_existing_branch(mocker: Mocker
     parse_settings = parse_url_mock.call_args.args[2]
     assert parse_settings is not mock_settings
     assert cp not in parse_settings.branches
-    branch_mock.assert_called_once_with(source, last_version, top_hash)
+    branch_mock.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('resolved_branch', ['1.0', ''])
+async def test_do_main_sha_source_releases_resolves_branch_on_update(mocker: MockerFixture,
+                                                                     tmp_path: Path,
+                                                                     mock_settings: Mock,
+                                                                     resolved_branch: str) -> None:
+    cat = 'cat'
+    pkg = 'pkg'
+    ebuild_version = '1.0.0'
+    last_version = '1.0.1'
+    source = 'https://github.com/org/repo/releases'
+    cp = f'{cat}/{pkg}'
+    ebuild_path = tmp_path / cp / f'{pkg}-{ebuild_version}.ebuild'
+    ebuild_path.parent.mkdir(parents=True)
+    ebuild_path.write_text('EGIT_COMMIT="a"\nEGIT_BRANCH="old"\n', encoding='utf-8')
+    mock_settings.auto_update_flag = True
+    mock_settings.branches = {cp: 'old'}
+    mock_settings.sha_sources = {cp: source}
+    top_hash = 'b' * 40
+    old_sha = 'a' * 40
+    mocker.patch('livecheck.main.parse_url',
+                 new_callable=mocker.AsyncMock,
+                 return_value=('', top_hash, '', ''))
+    branch_mock = mocker.patch('livecheck.main.get_github_branch_for_commit',
+                               new_callable=mocker.AsyncMock,
+                               return_value=resolved_branch)
+    update_egit = mocker.patch('livecheck.main.update_egit_branch', side_effect=lambda c, _: c)
+    mocker.patch('livecheck.main.get_old_sha', return_value=old_sha)
+    mocker.patch('livecheck.main.replace_date_in_ebuild', side_effect=lambda v, _, __: v)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.catpkg_catpkgsplit', return_value=(cp, cat, pkg, last_version))
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
+    mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
+    mocker.patch('livecheck.main.digest_ebuild', return_value=True)
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
+    mocker.patch('livecheck.main.is_sha', return_value=True)
+    mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[2])
+    mocker.patch('livecheck.main.execute_hooks')
+    anyio_path_instance = mocker.AsyncMock()
+    anyio_path_instance.read_text = mocker.AsyncMock(
+        return_value='EGIT_COMMIT="a"\nEGIT_BRANCH="old"\n')
+    anyio_path_instance.write_text = mocker.AsyncMock()
+    mocker.patch('livecheck.main.AnyioPath', return_value=anyio_path_instance)
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
+    proc = mocker.AsyncMock()
+    proc.wait = mocker.AsyncMock(return_value=0)
+    mocker.patch('livecheck.main.asyncio.create_subprocess_exec', return_value=proc)
+    await do_main(cat=cat,
+                  ebuild_version=ebuild_version,
+                  hash_date='',
+                  hook_dir=None,
+                  last_version=last_version,
+                  pkg=pkg,
+                  search_dir=tmp_path,
+                  settings=mock_settings,
+                  top_hash='',
+                  url=source)
+    branch_mock.assert_awaited_once_with(source, last_version, top_hash)
+    update_egit.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_do_main_sha_source_releases_skips_branch_when_sha_unchanged(
+        mocker: MockerFixture, tmp_path: Path, mock_settings: Mock) -> None:
+    cat = 'cat'
+    pkg = 'pkg'
+    ebuild_version = '1.0.0'
+    last_version = '1.0.1'
+    source = 'https://github.com/org/repo/releases'
+    cp = f'{cat}/{pkg}'
+    ebuild_path = tmp_path / cp / f'{pkg}-{ebuild_version}.ebuild'
+    ebuild_path.parent.mkdir(parents=True)
+    ebuild_path.write_text('EGIT_COMMIT="a"\n', encoding='utf-8')
+    same_sha = 'a' * 40
+    mock_settings.auto_update_flag = True
+    mock_settings.sha_sources = {cp: source}
+    mocker.patch('livecheck.main.parse_url',
+                 new_callable=mocker.AsyncMock,
+                 return_value=('', same_sha, '', ''))
+    branch_mock = mocker.patch('livecheck.main.get_github_branch_for_commit',
+                               new_callable=mocker.AsyncMock,
+                               return_value='1.0')
+    mocker.patch('livecheck.main.get_old_sha', return_value=same_sha)
+    mocker.patch('livecheck.main.replace_date_in_ebuild', side_effect=lambda v, _, __: v)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.catpkg_catpkgsplit', return_value=(cp, cat, pkg, last_version))
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
+    mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
+    mocker.patch('livecheck.main.digest_ebuild', return_value=True)
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
+    mocker.patch('livecheck.main.is_sha', return_value=True)
+    mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[2])
+    mocker.patch('livecheck.main.execute_hooks')
+    anyio_path_instance = mocker.AsyncMock()
+    anyio_path_instance.read_text = mocker.AsyncMock(return_value='EGIT_COMMIT="a"\n')
+    anyio_path_instance.write_text = mocker.AsyncMock()
+    mocker.patch('livecheck.main.AnyioPath', return_value=anyio_path_instance)
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
+    proc = mocker.AsyncMock()
+    proc.wait = mocker.AsyncMock(return_value=0)
+    mocker.patch('livecheck.main.asyncio.create_subprocess_exec', return_value=proc)
+    await do_main(cat=cat,
+                  ebuild_version=ebuild_version,
+                  hash_date='',
+                  hook_dir=None,
+                  last_version=last_version,
+                  pkg=pkg,
+                  search_dir=tmp_path,
+                  settings=mock_settings,
+                  top_hash='',
+                  url=source)
+    branch_mock.assert_not_called()
 
 
 @pytest.mark.asyncio
