@@ -52,6 +52,16 @@ def test_update_egit_branch_replaces_existing_branch() -> None:
         content, '2.9') == ('EGIT_REPO_URI="https://github.com/org/repo"\nEGIT_BRANCH="2.9"\n')
 
 
+def test_update_egit_branch_returns_unchanged_when_no_anchor() -> None:
+    content = 'SHA="abc"\nKEYWORDS="amd64"\n'
+    assert update_egit_branch(content, '2.9') == content
+
+
+def test_update_egit_branch_returns_unchanged_when_branch_empty() -> None:
+    content = 'EGIT_COMMIT="abc"\n'
+    assert update_egit_branch(content, '') == content
+
+
 def test_replace_date_in_ebuild_full_date() -> None:
     ebuild = '20230101'
     new_date = '20240101'

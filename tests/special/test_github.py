@@ -575,3 +575,65 @@ async def test_get_latest_github_package_annotated_tag_success(mocker: MockerFix
     result = await get_latest_github_package('', 'category/repo-1.0.0.ebuild',
                                              mocker.Mock(branches={}))
     assert result == ('1.0.0', 'def456abc789')
+
+
+@pytest.mark.asyncio
+async def test_get_github_branch_for_commit_non_numeric_version(mocker: MockerFixture) -> None:
+    mocker.patch('livecheck.special.github.extract_owner_repo',
+                 return_value=('https://github.com/org/repo', 'org', 'repo'))
+    ahead_response = mocker.Mock()
+    ahead_response.json.return_value = {'status': 'ahead'}
+    mocker.patch('livecheck.special.github.get_content', return_value=ahead_response)
+    result = await get_github_branch_for_commit('https://github.com/org/repo/releases', 'main',
+                                                'a' * 40)
+    assert result == 'main'
+
+
+@pytest.mark.asyncio
+async def test_get_github_branch_for_commit_returns_empty_without_owner(
+        mocker: MockerFixture) -> None:
+    mocker.patch('livecheck.special.github.extract_owner_repo', return_value=('', '', ''))
+    get_content = mocker.patch('livecheck.special.github.get_content')
+    result = await get_github_branch_for_commit('https://example.com', '2.9', 'a' * 40)
+    assert not result
+    get_content.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_get_github_branch_for_commit_skips_when_get_content_falsy(
+        mocker: MockerFixture) -> None:
+    mocker.patch('livecheck.special.github.extract_owner_repo',
+                 return_value=('https://github.com/org/repo', 'org', 'repo'))
+    ahead_response = mocker.Mock()
+    ahead_response.json.return_value = {'status': 'identical'}
+    mocker.patch('livecheck.special.github.get_content', side_effect=[None, ahead_response])
+    result = await get_github_branch_for_commit('https://github.com/org/repo/releases', '2.9',
+                                                'a' * 40)
+    assert result == 'v2.9'
+
+
+@pytest.mark.asyncio
+async def test_get_github_branch_for_commit_skips_unreachable_status(mocker: MockerFixture) -> None:
+    mocker.patch('livecheck.special.github.extract_owner_repo',
+                 return_value=('https://github.com/org/repo', 'org', 'repo'))
+    behind = mocker.Mock()
+    behind.json.return_value = {'status': 'behind'}
+    ahead = mocker.Mock()
+    ahead.json.return_value = {'status': 'ahead'}
+    mocker.patch('livecheck.special.github.get_content', side_effect=[behind, ahead])
+    result = await get_github_branch_for_commit('https://github.com/org/repo/releases', '2.9',
+                                                'a' * 40)
+    assert result == 'v2.9'
+
+
+@pytest.mark.asyncio
+async def test_get_github_branch_for_commit_returns_empty_when_no_candidate_matches(
+        mocker: MockerFixture) -> None:
+    mocker.patch('livecheck.special.github.extract_owner_repo',
+                 return_value=('https://github.com/org/repo', 'org', 'repo'))
+    behind = mocker.Mock()
+    behind.json.return_value = {'status': 'behind'}
+    mocker.patch('livecheck.special.github.get_content', return_value=behind)
+    result = await get_github_branch_for_commit('https://github.com/org/repo/releases', '2.9',
+                                                'a' * 40)
+    assert not result
