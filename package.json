@@ -1,8 +1,8 @@
 {
   "_wiswa": {
     "commandLine": "wiswa",
-    "lastRun": "2026-05-03T00:57:22Z",
-    "version": "96ccc73"
+    "lastRun": "2026-05-31T21:04:49Z",
+    "version": "08e2e8b-dirty"
   },
   "contributors": ["Andrew Udvare <audvare@gmail.com>", "Francisco Javier <web@inode64.com>"],
   "cspell": {
@@ -75,7 +75,7 @@
     "showFound": true
   },
   "name": "livecheck",
-  "packageManager": "yarn@4.14.1",
+  "packageManager": "yarn@4.15.0",
   "prettier": {
     "endOfLine": "lf",
     "iniSpaceAroundEquals": true,
@@ -100,15 +100,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "git@github.com:Tatsh/livecheck.git"
+    "url": "git+https://github.com/Tatsh/livecheck.git"
   },
   "scripts": {
     "check-formatting": "prettier --check . && uv run yapf --diff --parallel --recursive . && markdownlint-cli2 --config package.json --configPointer /markdownlint-cli2",
     "check-spelling": "cspell --no-progress",
     "dict:update": "rm -f .vscode/dictionary.txt && cspell lint --no-progress --no-summary --unique --words-only | tr '[:upper:]' '[:lower:]' | sort -u > .vscode/dictionary.txt",
     "format": "prettier --write . && uv run yapf --in-place --parallel --recursive . && markdownlint-cli2 --config package.json --configPointer /markdownlint-cli2 --fix",
-    "gen-docs": "uv run sphinx-build --fresh-env --builder html --doctree-dir docs/_build/doctrees --define language=en docs docs/_build/html",
-    "gen-manpage": "uv run sphinx-build --fresh-env --builder man --doctree-dir docs/_build/doctrees --define language=en docs man",
+    "gen-docs": "uv run sphinx-build --fail-on-warning --fresh-env --builder html --doctree-dir docs/_build/doctrees --define language=en docs docs/_build/html",
+    "gen-manpage": "uv run sphinx-build --fail-on-warning --fresh-env --builder man --doctree-dir docs/_build/doctrees --define language=en docs man",
     "mypy": "uv run mypy",
     "qa": "yarn mypy . && yarn pyright && uv run ty check && yarn ruff . && yarn check-spelling && yarn check-formatting",
     "regen": "uv run wiswa",

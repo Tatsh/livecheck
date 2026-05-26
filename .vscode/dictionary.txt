@@ -151,6 +151,7 @@ platformdirs
 plistlib
 portdir
 porttree
+preapproved
 proc
 psvpfsparser
 psvpfstools
@@ -212,6 +213,8 @@ tryfirst
 tsschecker
 ubyte
 udvare
+undraft
+undrafted
 vapoursynth
 vendored
 venv
@@ -220,6 +223,7 @@ virtualenv
 vulkanmemoryallocator
 wiswa
 wiswa's
+worktree
 xbyak
 xemu
 xmatch
