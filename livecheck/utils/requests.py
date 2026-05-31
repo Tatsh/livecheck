@@ -193,6 +193,31 @@ async def get_content(url: str,
     return r
 
 
+async def _hash_response_content(r: niquests.AsyncResponse) -> tuple[str, str, int]:
+    """
+    Stream a response body and hash it with BLAKE2b and SHA-512.
+
+    Parameters
+    ----------
+    r : niquests.AsyncResponse
+        A streaming response whose body will be consumed.
+
+    Returns
+    -------
+    tuple[str, str, int]
+        BLAKE2b hex digest, SHA-512 hex digest, and byte length.
+    """
+    h_blake2b = hashlib.blake2b()
+    h_sha512 = hashlib.sha512()
+    size = 0
+    async for chunk in await r.iter_content(chunk_size=8192):
+        if chunk:
+            h_blake2b.update(chunk)
+            h_sha512.update(chunk)
+            size += len(chunk)
+    return h_blake2b.hexdigest(), h_sha512.hexdigest(), size
+
+
 async def hash_url(url: str,
                    headers: Mapping[str, str] | None = None,
                    params: Mapping[str, str] | None = None) -> tuple[str, str, int]:
@@ -214,23 +239,15 @@ async def hash_url(url: str,
         BLAKE2b hex digest, SHA-512 hex digest, and byte length; or two empty strings and ``0`` on
         failure.
     """
-    h_blake2b = hashlib.blake2b()
-    h_sha512 = hashlib.sha512()
-    size = 0
+    session = session_init('')
     try:
-        session = session_init('')
         r = await session.get(url,
                               headers=dict(headers) if headers else None,
                               params=params,
                               stream=True,
                               timeout=30)
         r.raise_for_status()
-        async for chunk in await r.iter_content(chunk_size=8192):
-            if chunk:
-                h_blake2b.update(chunk)
-                h_sha512.update(chunk)
-                size += len(chunk)
-        return h_blake2b.hexdigest(), h_sha512.hexdigest(), size
+        return await _hash_response_content(r)
     except niquests.RequestException:
         log.exception('Error hashing URL %s.', url)
 

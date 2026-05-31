@@ -743,24 +743,45 @@ async def execute_hooks(hook_dir: Path | None, action: str, search_dir: Path, cp
                 raise click.Abort
 
 
+async def _restore_ebuild_state(new_filename: str, ebuild: Path, cp: str, search_dir: Path,
+                                settings: LivecheckSettings) -> None:
+    """
+    Restore the original ebuild and Manifest after a failed digest.
+
+    Parameters
+    ----------
+    new_filename : str
+        Path to the new ebuild that should be reverted.
+    ebuild : Path
+        Path to the original ebuild to restore when keeping old versions.
+    cp : str
+        Category and package name (``category/package``).
+    search_dir : Path
+        Port tree root containing the package directory.
+    settings : LivecheckSettings
+        Resolved livecheck settings for the run.
+    """
+    if settings.keep_old.get(cp, not settings.keep_old_flag):
+        if settings.git_flag:
+            proc = await asyncio.create_subprocess_exec(_resolved_executable('git'), 'mv',
+                                                        new_filename, str(ebuild))
+            await proc.wait()
+        else:
+            await AnyioPath(new_filename).rename(ebuild)
+    else:
+        await AnyioPath(new_filename).unlink(missing_ok=True)
+    if settings.git_flag:
+        manifest_path = str(Path(search_dir) / cp / 'Manifest')
+        proc = await asyncio.create_subprocess_exec(_resolved_executable('git'), 'checkout',
+                                                    manifest_path)
+        await proc.wait()
+
+
 async def _recover_ebuild(new_filename: str, ebuild: Path, cp: str, search_dir: Path,
                           settings: LivecheckSettings) -> None:
     """Recover ebuild to its original state after a failed digest."""
     try:
-        if settings.keep_old.get(cp, not settings.keep_old_flag):
-            if settings.git_flag:
-                proc = await asyncio.create_subprocess_exec(_resolved_executable('git'), 'mv',
-                                                            new_filename, str(ebuild))
-                await proc.wait()
-            else:
-                await AnyioPath(new_filename).rename(ebuild)
-        else:
-            await AnyioPath(new_filename).unlink(missing_ok=True)
-        if settings.git_flag:
-            manifest_path = str(Path(search_dir) / cp / 'Manifest')
-            proc = await asyncio.create_subprocess_exec(_resolved_executable('git'), 'checkout',
-                                                        manifest_path)
-            await proc.wait()
+        await _restore_ebuild_state(new_filename, ebuild, cp, search_dir, settings)
     except OSError:
         log.exception('Error recovering `%s`.', new_filename)
 
@@ -812,7 +833,7 @@ async def do_main(  # noqa: C901, PLR0912, PLR0914, PLR0915
 
     log.debug('Comparing current ebuild version %s with live version %s.', ebuild_version,
               last_version)
-    if compare_versions(ebuild_version, last_version):  # noqa: PLR1702
+    if compare_versions(ebuild_version, last_version):
         dn = Path(ebuild).parent
         new_filename = f'{dn}/{pkg}-{last_version}.ebuild'
         _, _, _, new_version = catpkg_catpkgsplit(f'{cp}-{last_version}')
@@ -862,18 +883,19 @@ async def do_main(  # noqa: C901, PLR0912, PLR0914, PLR0915
             dn = Path(ebuild).parent
             log.debug('%s -> %s', ebuild, new_filename)
             if settings.keep_old.get(cp, not settings.keep_old_flag):
+                returncode = 0
                 try:
                     if settings.git_flag:
                         proc = await asyncio.create_subprocess_exec(_resolved_executable('git'),
                                                                     'mv', str(ebuild), new_filename)
                         returncode = await proc.wait()
-                        if returncode != 0:
-                            log.error('Error moving `%s` to `%s`.', ebuild, new_filename)
-                            return
                     else:
                         ebuild.rename(new_filename)
                 except OSError:
                     log.exception('Error moving `%s` to `%s`.', ebuild, new_filename)
+                    return
+                if returncode != 0:
+                    log.error('Error moving `%s` to `%s`.', ebuild, new_filename)
                     return
 
             try:
@@ -985,6 +1007,22 @@ async def _async_main(*,
                       max_concurrent_http: int = 3,
                       parallel: int = 1) -> None:
     init_sessions(asyncio.Semaphore(max_concurrent_http))
+    sem = asyncio.Semaphore(parallel)
+
+    async def _bounded_do_main(cat: str, pkg: str, ebuild_version: str, last_version: str,
+                               top_hash: str, hash_date: str, url: str) -> None:
+        async with sem:
+            await do_main(cat=cat,
+                          ebuild_version=ebuild_version,
+                          hash_date=hash_date,
+                          hook_dir=hook_dir,
+                          last_version=last_version,
+                          pkg=pkg,
+                          search_dir=Path(repo_root),
+                          settings=settings,
+                          top_hash=top_hash,
+                          url=url)
+
     try:
         props = await get_props(search_dir,
                                 Path(repo_root),
@@ -992,22 +1030,6 @@ async def _async_main(*,
                                 package_names,
                                 exclude,
                                 parallel=parallel)
-        sem = asyncio.Semaphore(parallel)
-
-        async def _bounded_do_main(cat: str, pkg: str, ebuild_version: str, last_version: str,
-                                   top_hash: str, hash_date: str, url: str) -> None:
-            async with sem:
-                await do_main(cat=cat,
-                              ebuild_version=ebuild_version,
-                              hash_date=hash_date,
-                              hook_dir=hook_dir,
-                              last_version=last_version,
-                              pkg=pkg,
-                              search_dir=Path(repo_root),
-                              settings=settings,
-                              top_hash=top_hash,
-                              url=url)
-
         await asyncio.gather(*starmap(_bounded_do_main, props))
     except Exception:
         log.exception('Exception during processing.')
