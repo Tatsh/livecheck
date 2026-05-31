@@ -27,9 +27,9 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "LIVECHECK" "1" "May 08, 2026" "0.2.3" "livecheck"
+.TH "LIVECHECK" "1" "May 31, 2026" "0.2.4" "livecheck"
 .SH NAME
-livecheck \- livecheck v0.2.3
+livecheck \- livecheck v0.2.4
 .sp
 Tool for overlays to update ebuilds. Inspired by the MacPorts \fBport\fP subcommand of the same name
 and \X'tty: link https://github.com/lilydjwg/nvchecker'\fI\%nvchecker\fP\X'tty: link'\&.
@@ -63,6 +63,21 @@ Enable debug logging.
 .TP
 .B \-D, \-\-development
 Include development packages.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-dist\-github\-repository <dist_github_repository>
+GitHub \fIowner/repo\fP to upload vendor dist archives to as release assets.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-dist\-github\-release <dist_github_release>
+GitHub release tag to upload vendor dist archives under.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-dist\-force\-upload
+Force rebuild and re\-upload of vendor dist archives even when present.
 .UNINDENT
 .INDENT 0.0
 .TP

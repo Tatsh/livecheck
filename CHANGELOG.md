@@ -10,6 +10,8 @@ and this project adheres to
 
 ## [unreleased]
 
+## [0.2.4] - 2026-05-31
+
 ### Added
 
 - Heuristic detection for NuGet packages, recognising
@@ -33,7 +35,7 @@ and this project adheres to
   rebuild unless `--dist-force-upload` is passed, in which case the existing asset is deleted and
   replaced.
 
-- README section "Uploading vendor dist archives to GitHub releases" documenting the new flags
+- README section 'Uploading vendor dist archives to GitHub releases' documenting the new flags
   and config keys, with a callout advising users to keep GitHub immutable releases disabled.
 
 ### Changed
@@ -49,6 +51,10 @@ and this project adheres to
 - Rolled back the renamed ebuild via the existing recovery path when `update_dotnet_ebuild` or
   the archive build raises (for example on a malformed `NUGETS=` block), instead of leaving the
   ebuild in a broken state.
+- Resolved the GitHub branch that contains a commit when rewriting an ebuild to a new commit SHA,
+  so `EGIT_BRANCH` points at a branch the commit actually belongs to. The lookup is now deferred
+  until an ebuild rewrite is about to happen and skipped when the SHA is unchanged, avoiding
+  unnecessary GitHub compare-API calls. #476
 
 ## [0.2.3] - 2026-05-08
 
@@ -238,7 +244,8 @@ and this project adheres to
 
 - When multiple ebuilds are in the same directory, only the latest one will be considered for updating.
 
-[unreleased]: https://github.com/Tatsh/livecheck/compare/v0.2.3...HEAD
+[unreleased]: https://github.com/Tatsh/livecheck/compare/v0.2.4...HEAD
+[0.2.4]: https://github.com/Tatsh/livecheck/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/Tatsh/livecheck/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/Tatsh/livecheck/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/Tatsh/livecheck/compare/v0.2.0...v0.2.1
