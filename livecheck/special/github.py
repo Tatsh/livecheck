@@ -107,6 +107,13 @@ async def get_github_branch_for_commit(url: str, version: str, commit: str) -> s
     if not owner or not repo:
         return ''
     for branch in _github_version_branch_candidates(version):
+        # Confirm the candidate is a real branch before trusting it. The compare API also
+        # resolves tags, so a version such as ``2.10.1`` that exists only as a tag would
+        # otherwise be returned as a branch and break ``git-r3`` (it fetches
+        # ``refs/heads/<branch>``).
+        branch_url = GITHUB_COMMIT_URL % (owner, repo, quote(branch, safe=''))
+        if not await get_content(branch_url):
+            continue
         compare_url = GITHUB_COMPARE_URL % (owner, repo, quote(commit,
                                                                safe=''), quote(branch, safe=''))
         if not (r := await get_content(compare_url)):

@@ -10,6 +10,14 @@ and this project adheres to
 
 ## [unreleased]
 
+### Fixed
+
+- Verified that a candidate resolved by `get_github_branch_for_commit` is a real branch (via the
+  GitHub branches API) before writing it to `EGIT_BRANCH`. The compare API also resolves tags, so a
+  version that exists only as a tag (for example `dev-php/composer` `2.10.1`) was previously written
+  as a branch, causing `git-r3` to fail because the tag ref has no matching `refs/heads/` entry. The
+  existing branch (such as `main`) is now preserved when no version-derived branch exists.
+
 ## [0.2.4] - 2026-05-31
 
 ### Added
