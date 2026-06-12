@@ -636,8 +636,6 @@ async def test_get_github_branch_for_commit_skips_unreachable_status(mocker: Moc
 async def test_get_github_branch_for_commit_skips_tag_only_candidate(mocker: MockerFixture) -> None:
     mocker.patch('livecheck.special.github.extract_owner_repo',
                  return_value=('https://github.com/composer/composer', 'composer', 'composer'))
-    identical = mocker.Mock()
-    identical.json.return_value = {'status': 'identical'}
     # No candidate exists as a branch (every branch-existence check returns falsy), so even
     # though the version tag would compare as identical, no branch is returned.
     mocker.patch('livecheck.special.github.get_content', return_value=None)
