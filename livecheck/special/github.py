@@ -21,10 +21,10 @@ __all__ = ('GITHUB_METADATA', 'get_github_branch_for_commit', 'get_latest_github
            'get_latest_github_package', 'is_github', 'is_github_release_url')
 
 GITHUB_DOWNLOAD_URL = '%s/tags.atom'
+GITHUB_BRANCH_URL = 'https://api.github.com/repos/%s/%s/branches/%s'
 GITHUB_COMPARE_URL = 'https://api.github.com/repos/%s/%s/compare/%s...%s'
 GITHUB_COMPARE_REACHABLE_STATUSES = frozenset({'ahead', 'identical'})
 """GitHub compare ``status`` values meaning the base commit is reachable from the head ref."""
-GITHUB_COMMIT_URL = 'https://api.github.com/repos/%s/%s/branches/%s'
 GITHUB_DATE_URL = 'https://api.github.com/repos/%s/%s/git/refs/tags/%s'
 GITHUB_METADATA = 'github'
 
@@ -111,7 +111,7 @@ async def get_github_branch_for_commit(url: str, version: str, commit: str) -> s
         # resolves tags, so a version such as ``2.10.1`` that exists only as a tag would
         # otherwise be returned as a branch and break ``git-r3`` (it fetches
         # ``refs/heads/<branch>``).
-        branch_url = GITHUB_COMMIT_URL % (owner, repo, quote(branch, safe=''))
+        branch_url = GITHUB_BRANCH_URL % (owner, repo, quote(branch, safe=''))
         if not await get_content(branch_url):
             continue
         compare_url = GITHUB_COMPARE_URL % (owner, repo, quote(commit,
@@ -226,7 +226,7 @@ async def get_latest_github_commit2(owner: str, repo: str, branch: str) -> tuple
     tuple[str, str]
         Commit SHA and formatted date string, or empty strings if the API call fails.
     """
-    url = GITHUB_COMMIT_URL % (owner, repo, branch)
+    url = GITHUB_BRANCH_URL % (owner, repo, quote(branch, safe=''))
     if not (r := await get_content(url)):
         return '', ''
     d = r.json()['commit']['commit']['committer']['date'][:10]

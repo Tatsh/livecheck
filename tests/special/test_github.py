@@ -364,6 +364,26 @@ async def test_get_latest_github_commit2_success(mocker: MockerFixture, owner: s
 
 
 @pytest.mark.asyncio
+async def test_get_latest_github_commit2_quotes_branch_name(mocker: MockerFixture) -> None:
+    mock_response = mocker.Mock()
+    mock_response.json.return_value = {
+        'commit': {
+            'sha': 'abc123def456',
+            'commit': {
+                'committer': {
+                    'date': '2024-06-01T12:34:56Z'
+                }
+            }
+        }
+    }
+    get_content = mocker.patch('livecheck.special.github.get_content', return_value=mock_response)
+    result = await get_latest_github_commit2('owner', 'repo', 'release/2.9')
+    assert result == ('abc123def456', '20240601')
+    get_content.assert_awaited_once_with(
+        'https://api.github.com/repos/owner/repo/branches/release%2F2.9')
+
+
+@pytest.mark.asyncio
 async def test_get_latest_github_commit2_no_response(mocker: MockerFixture) -> None:
     mocker.patch('livecheck.special.github.get_content', return_value=None)
     result = await get_latest_github_commit2('owner', 'repo', 'main')
