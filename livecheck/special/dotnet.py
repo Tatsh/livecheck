@@ -77,11 +77,14 @@ async def dotnet_restore(project_or_solution: str | Path) -> AsyncIterator[str]:
                                                          ';',
                                                          stdout=asyncio.subprocess.PIPE)
         stdout, _ = await find_proc.communicate()
-        for x in (re.sub(f'^{re.escape(td)}/', '', line).replace('/', '@')
-                  for line in stdout.decode().splitlines()):
+        packages = [
+            x for x in (re.sub(f'^{re.escape(td)}/', '', line).replace('/', '@')
+                        for line in stdout.decode().splitlines())
             if (not re.match(r'^microsoft\.(?:asp)?netcore\.app\.(?:host|ref|runtime)', x)
-                    and not re.match(r'^runtime\.win', x) and re.search(r'@[0-9]', x)):
-                yield x
+                and not re.match(r'^runtime\.win', x) and re.search(r'@[0-9]', x))
+        ]
+    for package in packages:
+        yield package
 
 
 class NoNugetsEnding(RuntimeError):
