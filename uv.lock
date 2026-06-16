@@ -234,15 +234,15 @@ wheels = [
 
 [[package]]
 name = "beautifulsoup4"
-version = "4.14.3"
+version = "4.15.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "soupsieve" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c3/b0/1c6a16426d389813b48d95e26898aff79abbde42ad353958ad95cc8c9b21/beautifulsoup4-4.14.3.tar.gz", hash = "sha256:6292b1c5186d356bba669ef9f7f051757099565ad9ada5dd630bd9de5fa7fb86", size = 627737, upload-time = "2025-11-30T15:08:26.084Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/43/65/318323f98dbee45d42dff61d8f047181bc6f2268a9068cfad035a46be5af/beautifulsoup4-4.15.0.tar.gz", hash = "sha256:288e3ca7d54b06f2ac191970bc275c1939cb46d450b255bf6718b04aa37ab4f7", size = 632571, upload-time = "2026-06-07T16:44:20.453Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/1a/39/47f9197bdd44df24d67ac8893641e16f386c984a0619ef2ee4c51fbbc019/beautifulsoup4-4.14.3-py3-none-any.whl", hash = "sha256:0918bfe44902e6ad8d57732ba310582e98da931428d231a5ecb9e7c703a735bb", size = 107721, upload-time = "2025-11-30T15:08:24.087Z" },
+    { url = "https://files.pythonhosted.org/packages/88/c6/92fcd42f1ba33e1184263f25bfabf3d27c383410470f169e4b8163bf9c17/beautifulsoup4-4.15.0-py3-none-any.whl", hash = "sha256:d6f88de62e1d4e38ecb1077eb9724cd0eff29d2a08ca16a401e9b9e93f117cf9", size = 109924, upload-time = "2026-06-07T16:44:21.566Z" },
 ]
 
 [[package]]
@@ -1540,16 +1540,16 @@ wheels = [
 
 [[package]]
 name = "niquests"
-version = "3.19.0"
+version = "3.19.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "charset-normalizer" },
     { name = "urllib3-future" },
     { name = "wassima", marker = "sys_platform != 'emscripten'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/2b/c3/9c37961443c4f5e2bcf2c7b31ede2bbed7667f2d552c98f3eac7c3966c6b/niquests-3.19.0.tar.gz", hash = "sha256:e3c9fc8aa7c77c3d066dd6a0551d15eee1660ac14a497264577115c3296022ff", size = 1034890, upload-time = "2026-06-01T12:25:38.162Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c5/6a/b3b4d63a2d80a067dd87d6e01e071733df128b95d6806d2eb7852c35e4d2/niquests-3.19.1.tar.gz", hash = "sha256:2c34591744c7ade45f5f3a65a637cf1366d399eb514200005a8823de0d66b91e", size = 1035701, upload-time = "2026-06-08T07:53:15.754Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ac/78/3ae749f05c392d670d8381302d07e8b5c147bf6bbe20725f69a4adc02cb0/niquests-3.19.0-py3-none-any.whl", hash = "sha256:d75efeedda74be9718b2e3508d8c900bd411a3f554c57e3b4d24d9245fc37a1f", size = 210982, upload-time = "2026-06-01T12:25:36.53Z" },
+    { url = "https://files.pythonhosted.org/packages/80/27/498b676bf5e4824d84c6bae37bf948c164bcad0484b30851a935f165756b/niquests-3.19.1-py3-none-any.whl", hash = "sha256:ed04a8e2813f0b12f2ec82982c500fd115499b88d1abfa689fc9116ecdc68ede", size = 211349, upload-time = "2026-06-08T07:53:13.938Z" },
 ]
 
 [[package]]
