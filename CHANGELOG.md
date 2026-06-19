@@ -10,6 +10,8 @@ and this project adheres to
 
 ## [unreleased]
 
+### Added
+
 - Add support for extracting versions from changelog files
 
 ### Fixed
