@@ -10,6 +10,8 @@ and this project adheres to
 
 ## [unreleased]
 
+- Add support for extracting versions from changelog files
+
 ### Fixed
 
 - Verified that a candidate resolved by `get_github_branch_for_commit` is a real branch (via the

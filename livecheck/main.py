@@ -21,6 +21,7 @@ import click
 
 from .constants import PACKAGE_MANAGERS, SUBMODULES, TAG_NAME_FUNCTIONS
 from .settings import (
+    TYPE_CHANGELOG,
     TYPE_CHECKSUM,
     TYPE_COMMIT,
     TYPE_DAVINCI,
@@ -40,6 +41,7 @@ from .special.bitbucket import (
     get_latest_bitbucket_metadata,
     is_bitbucket,
 )
+from .special.changelog import get_latest_changelog_package
 from .special.checksum import (
     get_latest_checksum_package,
     get_latest_location_checksum_package,
@@ -482,6 +484,9 @@ async def _check_one_package(  # noqa: C901, PLR0912, PLR0914
     elif settings.type_packages.get(catpkg) == TYPE_DIRECTORY:
         url, _ = settings.custom_livechecks[catpkg]
         last_version, url = await get_latest_directory_package(url, match, settings)
+    elif settings.type_packages.get(catpkg) == TYPE_CHANGELOG:
+        changelog_url, _ = settings.custom_livechecks[catpkg]
+        last_version = await get_latest_changelog_package(match, changelog_url, settings)
     elif settings.type_packages.get(catpkg) == TYPE_REPOLOGY:
         package, _ = settings.custom_livechecks[catpkg]
         last_version = await get_latest_repology(match, settings, package)

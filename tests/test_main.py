@@ -2725,6 +2725,37 @@ async def test_get_props_type_directory_calls_get_latest_directory_package(
 
 
 @pytest.mark.asyncio
+async def test_get_props_type_changelog_calls_get_latest_changelog_package(
+        mocker: MockerFixture, fake_repo: Path, mock_settings2: Mock) -> None:
+    mock_settings2.type_packages = {'cat/pkg': 'changelog'}
+    mock_settings2.custom_livechecks = {'cat/pkg': ('https://example.com/CHANGELOG.md', '')}
+    mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
+    mocker.patch('livecheck.main.catpkg_catpkgsplit',
+                 return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
+    mocker.patch('livecheck.main.get_first_src_uri',
+                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
+    mocker.patch('livecheck.main.get_old_sha', return_value='')
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
+    mocker.patch('livecheck.main.log')
+    mock_get_latest_changelog_package = mocker.patch('livecheck.main.get_latest_changelog_package',
+                                                     return_value='changelog_ver')
+    results = await get_props(search_dir=fake_repo,
+                              repo_root=fake_repo,
+                              settings=mock_settings2,
+                              names=['cat/pkg'],
+                              exclude=[])
+    assert results == [('cat', 'pkg', '1.0.0', 'changelog_ver', '', '', '')]
+    mock_get_latest_changelog_package.assert_called_once_with(
+        'cat/pkg-1.0.0', 'https://example.com/CHANGELOG.md', mock_settings2)
+
+
+@pytest.mark.asyncio
 async def test_get_props_type_repology_calls_get_latest_repology(mocker: MockerFixture,
                                                                  fake_repo: Path,
                                                                  mock_settings2: Mock) -> None:

@@ -164,17 +164,26 @@ can be placed in the directory alongside the ebuild.
 - `sync_version` - string - Category and ebuild with version to sync.
 - `transformation_function` - string - Function to use to transform the version string.
   Currently only `dotize` is supported. Others are for internal use.
-- `type` - string - Only one `none`, `davinci`, `regex`, `directory`, `commit`, `repology` or
-  `checksum`.
+- `type` - string - Only one `none`, `davinci`, `regex`, `directory`, `changelog`, `commit`,
+  `repology` or `checksum`.
 
 Use the pattern to adjust the version using a regular expression:
 
 - `pattern_version` - string - The pattern string.
 - `replace_version` - string - The replacement string.
 
-Only then `type` is `regex` or `directory`
+Only then `type` is `regex`, `directory`, or `changelog`
 
 - `url` - URL of the document to run regular expressions against. Required.
+
+Example for `type` `changelog`:
+
+```json
+{
+  "type": "changelog",
+  "url": "https://raw.githubusercontent.com/standard/standard/refs/heads/master/CHANGELOG.md"
+}
+```
 
 Only then `type` is `regex`
 

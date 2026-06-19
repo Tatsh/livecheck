@@ -15,11 +15,12 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
 
-__all__ = ('TYPE_CHECKSUM', 'TYPE_COMMIT', 'TYPE_DAVINCI', 'TYPE_DIRECTORY', 'TYPE_IDA_FREE',
-           'TYPE_LOCATION_CHECKSUM', 'TYPE_METADATA', 'TYPE_NONE', 'TYPE_REGEX', 'TYPE_REPOLOGY',
-           'LivecheckSettings', 'gather_settings')
+__all__ = ('TYPE_CHANGELOG', 'TYPE_CHECKSUM', 'TYPE_COMMIT', 'TYPE_DAVINCI', 'TYPE_DIRECTORY',
+           'TYPE_IDA_FREE', 'TYPE_LOCATION_CHECKSUM', 'TYPE_METADATA', 'TYPE_NONE', 'TYPE_REGEX',
+           'TYPE_REPOLOGY', 'LivecheckSettings', 'gather_settings')
 
 log = logging.getLogger(__name__)
+TYPE_CHANGELOG = 'changelog'
 TYPE_CHECKSUM = 'checksum'
 TYPE_COMMIT = 'commit'
 TYPE_DAVINCI = 'davinci'
@@ -32,8 +33,8 @@ TYPE_REPOLOGY = 'repology'
 TYPE_LOCATION_CHECKSUM = 'location+hash-check'
 
 SETTINGS_TYPES = {
-    TYPE_CHECKSUM, TYPE_COMMIT, TYPE_DAVINCI, TYPE_DIRECTORY, TYPE_IDA_FREE, TYPE_METADATA,
-    TYPE_NONE, TYPE_REGEX, TYPE_REPOLOGY, TYPE_LOCATION_CHECKSUM
+    TYPE_CHANGELOG, TYPE_CHECKSUM, TYPE_COMMIT, TYPE_DAVINCI, TYPE_DIRECTORY, TYPE_IDA_FREE,
+    TYPE_METADATA, TYPE_NONE, TYPE_REGEX, TYPE_REPOLOGY, TYPE_LOCATION_CHECKSUM
 }
 
 
@@ -129,6 +130,12 @@ def gather_settings(search_dir: Path) -> LivecheckSettings:  # noqa: C901, PLR09
                         log.error('No "url" in %s.', path)
                         continue
                     custom_livechecks[catpkg] = (settings_parsed.get('url'), '')
+                if type_ == TYPE_CHANGELOG:
+                    if settings_parsed.get('url') is None:
+                        log.error('No "url" in %s.', path)
+                        continue
+                    check_instance(settings_parsed['url'], 'url', 'url', path)
+                    custom_livechecks[catpkg] = (settings_parsed['url'], '')
                 if type_ == TYPE_CHECKSUM and settings_parsed.get('url') is not None:
                     custom_livechecks[catpkg] = (settings_parsed.get('url'), '')
                 if type_ == TYPE_LOCATION_CHECKSUM:
