@@ -174,7 +174,7 @@ Use the pattern to adjust the version using a regular expression:
 
 Only then `type` is `regex`, `directory`, or `changelog`
 
-- `url` - URL of the document to run regular expressions against. Required.
+- `url` - URL of the document or directory listing to scan for versions. Required.
 
 Example for `type` `changelog`:
 
