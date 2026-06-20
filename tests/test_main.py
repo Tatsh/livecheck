@@ -3563,6 +3563,44 @@ def test_main_continues_after_package_failure(mocker: MockerFixture, runner: Cli
                                  hook_dir=None)
 
 
+def test_main_unexpected_error_continues_but_exits_nonzero(mocker: MockerFixture, runner: CliRunner,
+                                                           tmp_path: Path) -> None:
+    mock_settings = mocker.Mock()
+    mocker.patch('livecheck.main.chdir')
+    mocker.patch('livecheck.main.setup_logging')
+    mocker.patch('livecheck.main.gather_settings', return_value=mock_settings)
+    mocker.patch('livecheck.main.get_repository_root_if_inside',
+                 return_value=(str(tmp_path), 'repo'))
+    mocker.patch('os.access', return_value=True)
+    mocker.patch('pathlib.Path.is_dir', return_value=True)
+    mocker.patch('livecheck.main.check_program', return_value=True)
+
+    def fake_do_main(*, cat: str, **_: Any) -> None:
+        if cat == 'cat':
+            msg = 'boom'
+            raise RuntimeError(msg)
+
+    mock_do_main = mocker.patch('livecheck.main.do_main', side_effect=fake_do_main)
+    mocker.patch('livecheck.main.get_props',
+                 return_value=[('cat', 'pkg', '1.0.0', '1.0.1', 'sha', 'date', 'url'),
+                               ('cat2', 'pkg2', '2.0.0', '2.0.1', 'sha2', 'date2', 'url2')])
+    result = runner.invoke(
+        main, ['--auto-update', '--working-dir',
+               str(tmp_path), 'cat/pkg', 'cat2/pkg2'])
+    assert result.exit_code != 0
+    assert mock_do_main.call_count == 2
+    mock_do_main.assert_any_call(cat='cat2',
+                                 pkg='pkg2',
+                                 ebuild_version='2.0.0',
+                                 last_version='2.0.1',
+                                 top_hash='sha2',
+                                 hash_date='date2',
+                                 url='url2',
+                                 search_dir=tmp_path,
+                                 settings=mock_settings,
+                                 hook_dir=None)
+
+
 def test_main_exclude_logs_message(mocker: MockerFixture, runner: CliRunner, tmp_path: Path,
                                    caplog: LogCaptureFixture) -> None:
     mocker.patch('livecheck.main.chdir')
@@ -3742,7 +3780,7 @@ def test_main_handles_exception_in_do_main(mocker: MockerFixture, runner: CliRun
     mock_do_main = mocker.patch('livecheck.main.do_main', side_effect=Exception('fail in do_main'))
     args = ['--auto-update', '--working-dir', str(tmp_path), 'cat/pkg']
     result = runner.invoke(main, args)
-    assert result.exit_code == 0
+    assert result.exit_code != 0
     assert mock_do_main.called
 
 

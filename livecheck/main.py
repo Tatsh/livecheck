@@ -1019,7 +1019,7 @@ async def _async_main(*,
     sem = asyncio.Semaphore(parallel)
 
     async def _bounded_do_main(cat: str, pkg: str, ebuild_version: str, last_version: str,
-                               top_hash: str, hash_date: str, url: str) -> None:
+                               top_hash: str, hash_date: str, url: str) -> bool:
         async with sem:
             try:
                 await do_main(cat=cat,
@@ -1032,8 +1032,12 @@ async def _async_main(*,
                               settings=settings,
                               top_hash=top_hash,
                               url=url)
+            except HookError:
+                log.exception('Hook failed; skipping `%s/%s`.', cat, pkg)
             except Exception:
-                log.exception('Error processing `%s/%s`. Skipping.', cat, pkg)
+                log.exception('Unexpected error processing `%s/%s`; skipping.', cat, pkg)
+                return True
+        return False
 
     try:
         props = await get_props(search_dir,
@@ -1042,12 +1046,14 @@ async def _async_main(*,
                                 package_names,
                                 exclude,
                                 parallel=parallel)
-        await asyncio.gather(*starmap(_bounded_do_main, props))
+        failures = await asyncio.gather(*starmap(_bounded_do_main, props))
     except Exception:
         log.exception('Exception during processing.')
         raise
     finally:
         await close_sessions()
+    if any(failures):
+        raise click.exceptions.Exit(1)
 
 
 @click.command(context_settings={'help_option_names': ['-h', '--help']})
