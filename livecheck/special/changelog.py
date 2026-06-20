@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 __all__ = ('get_latest_changelog_package',)
 
-CHANGELOG_HEADING_RE = re.compile(
+_CHANGELOG_HEADING_RE = re.compile(
     r'^\s{0,3}#{1,6}\s+(?:\[(?P<bracketed>[vV]?\d[\w.+-]*)\]|'
     r'(?P<plain>[vV]?\d[\w.+-]*))(?=\s|$)', re.MULTILINE)
 
