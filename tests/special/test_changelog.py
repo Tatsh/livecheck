@@ -58,8 +58,8 @@ async def test_get_latest_changelog_package_extracts_v_prefixed_headings(
 async def test_get_latest_changelog_package_ignores_date_headings(mocker: MockerFixture) -> None:
     settings = make_settings(mocker)
     response = mocker.Mock()
-    response.text = ('# Changelog\n\n## [2024-01-31]\n\n### Added\n\n## 1.2.3\n\n'
-                     '### Fixed\n\n## 2023-01-01\n')
+    response.text = ('# Changelog\n\n## [2024-01-31]\n\n### Added\n\n## 20240130\n\n'
+                     '## 2024.01.29\n\n## 1.2.3\n\n### Fixed\n\n## 2023-01-01\n')
     mocker.patch('livecheck.special.changelog.get_content', return_value=response)
     mock_get_last_version = mocker.patch('livecheck.special.changelog.get_last_version',
                                          return_value={'version': '1.2.3'})
