@@ -16,6 +16,7 @@ and this project adheres to
 
 ### Fixed
 
+- Continuing after an error or an update.
 - Ignore date-only changelog headings (for example `## 2024-01-31`) when extracting versions, so
   they are no longer mistaken for releases on normal semantic-versioning packages.
 - Verified that a candidate resolved by `get_github_branch_for_commit` is a real branch (via the
