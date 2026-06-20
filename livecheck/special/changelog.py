@@ -45,7 +45,7 @@ async def get_latest_changelog_package(ebuild: str, url: str, settings: Livechec
 
     results = [{
         'tag': match.group('bracketed') or match.group('plain')
-    } for match in CHANGELOG_HEADING_RE.finditer(r.text or '')]
+    } for match in _CHANGELOG_HEADING_RE.finditer(r.text or '')]
     if last_version := get_last_version(results, '', ebuild, settings):
         return last_version['version']
 
