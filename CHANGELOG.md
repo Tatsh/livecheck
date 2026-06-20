@@ -10,8 +10,14 @@ and this project adheres to
 
 ## [unreleased]
 
+### Added
+
+- Add support for extracting versions from changelog files.
+
 ### Fixed
 
+- Ignore date-only changelog headings (for example `## 2024-01-31`) when extracting versions, so
+  they are no longer mistaken for releases on normal semantic-versioning packages.
 - Verified that a candidate resolved by `get_github_branch_for_commit` is a real branch (via the
   GitHub branches API) before writing it to `EGIT_BRANCH`. The compare API also resolves tags, so a
   version that exists only as a tag (for example `dev-php/composer` `2.10.1`) was previously written

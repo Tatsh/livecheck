@@ -6,6 +6,7 @@ import json
 import operator
 
 from livecheck.settings import (
+    TYPE_CHANGELOG,
     TYPE_DIRECTORY,
     TYPE_REGEX,
     LivecheckSettings,
@@ -167,6 +168,16 @@ def test_gather_settings_basic(tmp_path: Path) -> None:
     assert result.type_packages['cat/pkg'] == TYPE_REGEX
 
 
+def test_gather_settings_type_changelog_with_url(tmp_path: Path, mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    data = {'type': TYPE_CHANGELOG, 'url': 'https://example.com/CHANGELOG.md'}
+    make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
+    result = gather_settings(tmp_path)
+    logger.error.assert_not_called()
+    assert result.custom_livechecks['cat/pkg'] == ('https://example.com/CHANGELOG.md', '')
+    assert result.type_packages['cat/pkg'] == TYPE_CHANGELOG
+
+
 def test_gather_settings_with_transformation_function(tmp_path: Path) -> None:
     data = {
         'type': TYPE_REGEX,
@@ -322,6 +333,16 @@ def test_gather_settings_type_directory_missing_url_logs_error(tmp_path: Path,
                                                                mocker: MockerFixture) -> None:
     logger = mocker.patch('livecheck.settings.log')
     data = {'type': TYPE_DIRECTORY}
+    make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
+    result = gather_settings(tmp_path)
+    logger.error.assert_any_call('No "url" in %s.', mocker.ANY)
+    assert 'cat/pkg' not in result.custom_livechecks
+
+
+def test_gather_settings_type_changelog_missing_url_logs_error(tmp_path: Path,
+                                                               mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    data = {'type': TYPE_CHANGELOG}
     make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
     result = gather_settings(tmp_path)
     logger.error.assert_any_call('No "url" in %s.', mocker.ANY)
