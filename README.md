@@ -172,7 +172,7 @@ Use the pattern to adjust the version using a regular expression:
 - `pattern_version` - string - The pattern string.
 - `replace_version` - string - The replacement string.
 
-Only then `type` is `regex`, `directory`, or `changelog`
+Only when `type` is `regex`, `directory`, or `changelog`:
 
 - `url` - URL of the document or directory listing to scan for versions. Required.
 
@@ -185,11 +185,11 @@ Example for `type` `changelog`:
 }
 ```
 
-Only then `type` is `regex`
+Only when `type` is `regex`:
 
 - `regex` - string - The regular expression to use. Required.
 
-Only then `type` is `repology`
+Only when `type` is `repology`:
 
 - `package` - string - The package to search in repology. Required.
 

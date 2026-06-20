@@ -82,6 +82,20 @@ async def test_get_latest_changelog_package_only_date_headings(mocker: MockerFix
     assert mock_get_last_version.call_args.args[0] == []
 
 
+async def test_get_latest_changelog_package_keeps_date_headings_for_date_version(
+        mocker: MockerFixture) -> None:
+    settings = make_settings(mocker)
+    response = mocker.Mock()
+    response.text = '# Changelog\n\n## 2024-01-31\n\n### Added\n\n## 2023-01-01\n'
+    mocker.patch('livecheck.special.changelog.get_content', return_value=response)
+    mock_get_last_version = mocker.patch('livecheck.special.changelog.get_last_version',
+                                         return_value={'version': '2024.01.31'})
+    result = await get_latest_changelog_package('cat/pkg-2023.01.01',
+                                                'https://example.com/CHANGELOG.md', settings)
+    assert result == '2024.01.31'
+    assert mock_get_last_version.call_args.args[0] == [{'tag': '2024-01-31'}, {'tag': '2023-01-01'}]
+
+
 async def test_get_latest_changelog_package_no_content(mocker: MockerFixture) -> None:
     settings = make_settings(mocker)
     mocker.patch('livecheck.special.changelog.get_content', return_value=None)
