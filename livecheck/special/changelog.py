@@ -15,6 +15,8 @@ __all__ = ('get_latest_changelog_package',)
 _CHANGELOG_HEADING_RE = re.compile(
     r'^\s{0,3}#{1,6}\s+(?:\[(?P<bracketed>[vV]?\d[\w.+-]*)\]|'
     r'(?P<plain>[vV]?\d[\w.+-]*))(?=\s|$)', re.MULTILINE)
+_ISO_DATE_RE = re.compile(r'^\d{4}-\d{2}-\d{2}$')
+"""Matches a date-only heading such as ``2024-01-31`` so it is not mistaken for a version."""
 
 
 async def get_latest_changelog_package(ebuild: str, url: str, settings: LivecheckSettings) -> str:
@@ -44,8 +46,9 @@ async def get_latest_changelog_package(ebuild: str, url: str, settings: Livechec
         return ''
 
     results = [{
-        'tag': match.group('bracketed') or match.group('plain')
-    } for match in _CHANGELOG_HEADING_RE.finditer(r.text or '')]
+        'tag': tag
+    } for match in _CHANGELOG_HEADING_RE.finditer(r.text or '')
+              if not _ISO_DATE_RE.match(tag := match.group('bracketed') or match.group('plain'))]
     if last_version := get_last_version(results, '', ebuild, settings):
         return last_version['version']
 
