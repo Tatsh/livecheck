@@ -12,7 +12,7 @@ and this project adheres to
 
 ### Added
 
-- Add support for extracting versions from changelog files
+- Add support for extracting versions from changelog files.
 
 ### Fixed
 
