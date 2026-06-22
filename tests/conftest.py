@@ -99,7 +99,7 @@ def requests_mock(monkeypatch: pytest.MonkeyPatch) -> Iterator[NiquestsMocker]:
         yield NiquestsMocker(router)
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=True)  # noqa: RUF076
 def _init_test_sessions() -> Iterator[None]:
     """Bootstrap the session infrastructure for every test."""
     init_sessions(asyncio.Semaphore(1))
