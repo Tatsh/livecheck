@@ -142,7 +142,11 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-__all__ = ('main',)
+__all__ = ('HookError', 'main')
+
+
+class HookError(RuntimeError):
+    """Raised when a hook script exits with a non-zero status."""
 
 
 def _resolved_executable(name: str) -> str:
@@ -744,8 +748,8 @@ async def execute_hooks(hook_dir: Path | None, action: str, search_dir: Path, cp
                                                         new_sha, hash_date)
             returncode = await proc.wait()
             if returncode != 0:
-                click.echo(f'Error running hook {hook}.', err=True)
-                raise click.Abort
+                msg = f'Hook `{hook}` exited with status {returncode}.'
+                raise HookError(msg)
 
 
 async def _restore_ebuild_state(new_filename: str, ebuild: Path, cp: str, search_dir: Path,
@@ -1015,18 +1019,25 @@ async def _async_main(*,
     sem = asyncio.Semaphore(parallel)
 
     async def _bounded_do_main(cat: str, pkg: str, ebuild_version: str, last_version: str,
-                               top_hash: str, hash_date: str, url: str) -> None:
+                               top_hash: str, hash_date: str, url: str) -> bool:
         async with sem:
-            await do_main(cat=cat,
-                          ebuild_version=ebuild_version,
-                          hash_date=hash_date,
-                          hook_dir=hook_dir,
-                          last_version=last_version,
-                          pkg=pkg,
-                          search_dir=Path(repo_root),
-                          settings=settings,
-                          top_hash=top_hash,
-                          url=url)
+            try:
+                await do_main(cat=cat,
+                              ebuild_version=ebuild_version,
+                              hash_date=hash_date,
+                              hook_dir=hook_dir,
+                              last_version=last_version,
+                              pkg=pkg,
+                              search_dir=Path(repo_root),
+                              settings=settings,
+                              top_hash=top_hash,
+                              url=url)
+            except HookError:
+                log.exception('Hook failed; skipping `%s/%s`.', cat, pkg)
+            except Exception:
+                log.exception('Unexpected error processing `%s/%s`; skipping.', cat, pkg)
+                return True
+        return False
 
     try:
         props = await get_props(search_dir,
@@ -1035,12 +1046,14 @@ async def _async_main(*,
                                 package_names,
                                 exclude,
                                 parallel=parallel)
-        await asyncio.gather(*starmap(_bounded_do_main, props))
+        failures = await asyncio.gather(*starmap(_bounded_do_main, props))
     except Exception:
         log.exception('Exception during processing.')
         raise
     finally:
         await close_sessions()
+    if any(failures):
+        raise click.exceptions.Exit(1)
 
 
 @click.command(context_settings={'help_option_names': ['-h', '--help']})

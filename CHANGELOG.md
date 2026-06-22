@@ -16,6 +16,9 @@ and this project adheres to
 
 ### Fixed
 
+- Continue processing the remaining packages when one package fails (for example a hook script
+  error), instead of aborting the whole run. Unexpected errors are still reported with a non-zero
+  exit code once every package has been attempted.
 - Ignore date-only changelog headings (for example `## 2024-01-31`) when extracting versions, so
   they are no longer mistaken for releases on normal semantic-versioning packages.
 - Verified that a candidate resolved by `get_github_branch_for_commit` is a real branch (via the
