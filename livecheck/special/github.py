@@ -305,7 +305,8 @@ async def get_latest_github(url: str, ebuild: str, settings: LivecheckSettings, 
     settings : LivecheckSettings
         Livecheck settings.
     force_sha : bool
-        Whether to retain commit hashes when not required.
+        Whether to retain the commit hash from tag lookups. Hashes from branch lookups are
+        always kept because a branch is only resolved for commit-pinned ebuilds.
 
     Returns
     -------
@@ -318,9 +319,8 @@ async def get_latest_github(url: str, ebuild: str, settings: LivecheckSettings, 
         top_hash, hash_date = await get_latest_github_commit(url, branch)
     else:
         last_version, top_hash = await get_latest_github_package(url, ebuild, settings)
-
-    if not force_sha:
-        top_hash = ''
+        if not force_sha:
+            top_hash = ''
 
     return last_version, top_hash, hash_date
 

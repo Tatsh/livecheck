@@ -159,8 +159,8 @@ def get_branch(url: str, ebuild: str, settings: LivecheckSettings) -> str:
     return ''
 
 
-async def get_latest_sourcehut(url: str, ebuild: str, settings: LivecheckSettings, *,
-                               force_sha: bool) -> tuple[str, str, str]:
+async def get_latest_sourcehut(url: str, ebuild: str,
+                               settings: LivecheckSettings) -> tuple[str, str, str]:
     """
     Get the latest version and commit hash from a SourceHut repository.
 
@@ -172,8 +172,6 @@ async def get_latest_sourcehut(url: str, ebuild: str, settings: LivecheckSetting
         Ebuild content or path context for branch and version selection.
     settings : LivecheckSettings
         Livecheck configuration.
-    force_sha : bool
-        When ``False`` and a branch is resolved, omit the commit hash from the result.
 
     Returns
     -------
@@ -184,8 +182,6 @@ async def get_latest_sourcehut(url: str, ebuild: str, settings: LivecheckSetting
 
     if (branch := get_branch(url, ebuild, settings)):
         top_hash, hash_date = await get_latest_sourcehut_commit(url, branch)
-        if not force_sha:
-            top_hash = ''
     else:
         last_version = await get_latest_sourcehut_package(url, ebuild, settings)
 

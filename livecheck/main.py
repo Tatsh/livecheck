@@ -291,10 +291,7 @@ async def parse_url(src_uri: str, ebuild: str, settings: LivecheckSettings, *,
                                                                     force_sha=force_sha)
     elif is_sourcehut(src_uri):
         log.debug('Matched handler: sourcehut for %s.', ebuild)
-        last_version, top_hash, hash_date = await get_latest_sourcehut(src_uri,
-                                                                       ebuild,
-                                                                       settings,
-                                                                       force_sha=force_sha)
+        last_version, top_hash, hash_date = await get_latest_sourcehut(src_uri, ebuild, settings)
     elif is_pypi(src_uri):
         log.debug('Matched handler: pypi for %s.', ebuild)
         last_version, url = await get_latest_pypi_package(src_uri, ebuild, settings)

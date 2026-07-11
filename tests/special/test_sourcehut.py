@@ -204,22 +204,8 @@ async def test_get_latest_sourcehut_branch_returns_commit_and_date(mocker: Mocke
     url = 'https://git.sr.ht/~owner/repo'
     ebuild = 'app-portage/livecheck-1.0'
     settings = mocker.Mock()
-    result = await sourcehut.get_latest_sourcehut(url, ebuild, settings, force_sha=True)
+    result = await sourcehut.get_latest_sourcehut(url, ebuild, settings)
     assert result == ('', mock_commit, mock_date)
-
-
-@pytest.mark.asyncio
-async def test_get_latest_sourcehut_branch_force_sha_false(mocker: MockerFixture) -> None:
-    mocker.patch('livecheck.special.sourcehut.get_branch', return_value='main')
-    mock_commit = 'abcdef1234567890'
-    mock_date = '20240601'
-    mocker.patch('livecheck.special.sourcehut.get_latest_sourcehut_commit',
-                 return_value=(mock_commit, mock_date))
-    url = 'https://git.sr.ht/~owner/repo'
-    ebuild = 'app-portage/livecheck-1.0'
-    settings = mocker.Mock()
-    result = await sourcehut.get_latest_sourcehut(url, ebuild, settings, force_sha=False)
-    assert result == ('', '', mock_date)
 
 
 @pytest.mark.asyncio
@@ -229,7 +215,7 @@ async def test_get_latest_sourcehut_no_branch_returns_last_version(mocker: Mocke
     url = 'https://git.sr.ht/~owner/repo'
     ebuild = 'app-portage/livecheck-1.0'
     settings = mocker.Mock()
-    result = await sourcehut.get_latest_sourcehut(url, ebuild, settings, force_sha=True)
+    result = await sourcehut.get_latest_sourcehut(url, ebuild, settings)
     assert result == ('v2.0.0', '', '')
 
 
@@ -240,7 +226,7 @@ async def test_get_latest_sourcehut_no_branch_no_version(mocker: MockerFixture) 
     url = 'https://git.sr.ht/~owner/repo'
     ebuild = 'app-portage/livecheck-1.0'
     settings = mocker.Mock()
-    result = await sourcehut.get_latest_sourcehut(url, ebuild, settings, force_sha=True)
+    result = await sourcehut.get_latest_sourcehut(url, ebuild, settings)
     assert result == ('', '', '')
 
 
@@ -251,7 +237,7 @@ async def test_get_latest_sourcehut_branch_commit_empty(mocker: MockerFixture) -
     url = 'https://git.sr.ht/~owner/repo'
     ebuild = 'app-portage/livecheck-1.0'
     settings = mocker.Mock()
-    result = await sourcehut.get_latest_sourcehut(url, ebuild, settings, force_sha=True)
+    result = await sourcehut.get_latest_sourcehut(url, ebuild, settings)
     assert result == ('', '', '')
 
 

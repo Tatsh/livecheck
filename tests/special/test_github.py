@@ -440,7 +440,8 @@ def test_get_branch(mocker: MockerFixture, url: str, ebuild: str, branches_dict:
             'abc123',
             '20240601',
             ('', 'abc123', '20240601')),
-        # Case: branch found, get_latest_github_commit returns values, force_sha False
+        # Case: branch found, get_latest_github_commit returns values, force_sha False.
+        # The hash is kept because branch lookups only happen for commit-pinned ebuilds.
         (
             'https://github.com/user/repo',
             'cat/repo-1.0.0.ebuild',
@@ -449,7 +450,7 @@ def test_get_branch(mocker: MockerFixture, url: str, ebuild: str, branches_dict:
             '',  # last_version
             'abc123',
             '20240601',
-            ('', '', '20240601')),
+            ('', 'abc123', '20240601')),
         # Case: no branch, get_latest_github_package returns values, force_sha True
         ('https://github.com/user/repo', 'cat/repo-2.0.0.ebuild', '', True, '2.0.0', 'deadbeef', '',
          ('2.0.0', 'deadbeef', '')),
