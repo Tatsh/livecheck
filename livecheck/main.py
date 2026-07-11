@@ -1127,6 +1127,9 @@ def main(working_dir: Path,
                       'niquests': {},
                       'niquests_cache': {},
                       'urllib3': {},
+                      'urllib3.util.retry': {
+                          'level': 'ERROR'
+                      },
                       'urllib3_future': {}
                   })
     chdir(working_dir)
