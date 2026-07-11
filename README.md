@@ -230,7 +230,7 @@ located. Use `python -m livecheck` instead of `livecheck` to execute commands.
 
 ### With a virtualenv
 
-Run `poetry install --all-extras --with=dev,docs,tests` to set up a virtualenv.
+Run `uv sync --all-groups --all-extras` to set up a virtualenv.
 
 Fully copy `/etc/portage` to the root of your virtualenv. Then you must fix `make.profile`. Also
 consider making changes in `repos.conf` if necessary.
@@ -238,8 +238,9 @@ consider making changes in `repos.conf` if necessary.
 Example:
 
 ```shell
-eval "$(poetry env activate)"
-pip install keyrings-alt
-cp -R /etc/portage "${VIRTUAL_ENV}/etc/"
+. .venv/bin/activate
+uv pip install keyrings-alt
+sudo cp -R /etc/portage "${VIRTUAL_ENV}/etc/"
+sudo chown -R "${USER}:" "${VIRTUAL_ENV}/etc/portage"
 ln -sf "$(readlink -f /etc/portage/make.profile)" "${VIRTUAL_ENV}/etc/portage/make.profile"
 ```
