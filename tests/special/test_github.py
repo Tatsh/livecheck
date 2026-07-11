@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from defusedxml import ElementTree as ET  # noqa: N817
 from livecheck.special.github import (
     extract_owner_repo,
     get_branch,
@@ -131,37 +130,26 @@ async def test_get_latest_github_package(mocker: MockerFixture, url: str, ebuild
         'livecheck.special.github.extract_owner_repo',
         return_value=(f'https://github.com/{owner}/{repo}' if owner and repo else '', owner, repo))
 
-    # Patch get_content for the tags.atom and tag sha requests
+    # Patch get_content for the tags API and tag sha requests
     mock_get_content = mocker.patch('livecheck.special.github.get_content')
     # Patch get_last_version to simulate version extraction
     mock_get_last_version = mocker.patch('livecheck.special.github.get_last_version')
 
     if owner and repo and tag:
-        # Simulate tags.atom XML response
-        xml = f"""<?xml version="1.0" encoding="UTF-8"?>
-        <feed xmlns="http://www.w3.org/2005/Atom">
-            <entry>
-                <id>https://github.com/{owner}/{repo}/releases/tag/{tag}</id>
-            </entry>
-            <entry>
-                <id />
-            </entry>
-        </feed>
-        """
+        # Simulate tags API JSON response, including entries that must be skipped
         mock_response_tags = mocker.Mock()
-        mock_response_tags.text = xml
+        mock_response_tags.json.return_value = [{'name': tag}, {'name': ''}, {}, 'junk']
         # Simulate tag sha API response
         mock_response_sha = mocker.Mock()
         mock_response_sha.json.return_value = {'object': {'sha': sha}}
-        # get_content returns tags.atom response first, then sha response
+        # get_content returns the tags response first, then the sha response
         mock_get_content.side_effect = [mock_response_tags, mock_response_sha]
         # get_last_version returns a dict with version and id
         mock_get_last_version.return_value = {'version': expected_version, 'id': tag}
     elif owner and repo and not tag:
-        # Simulate tags.atom XML response with no entries
-        xml = """<?xml version="1.0" encoding="UTF-8"?><feed xmlns="http://www.w3.org/2005/Atom"></feed>"""
+        # Simulate a tags API JSON response with no entries
         mock_response_tags = mocker.Mock()
-        mock_response_tags.text = xml
+        mock_response_tags.json.return_value = []
         mock_get_content.return_value = mock_response_tags
         mock_get_last_version.return_value = None
 
@@ -180,16 +168,27 @@ async def test_get_latest_github_package_no_response(mocker: MockerFixture) -> N
 
 
 @pytest.mark.asyncio
-async def test_get_latest_github_package_xml_parse_error(mocker: MockerFixture) -> None:
+async def test_get_latest_github_package_invalid_json(mocker: MockerFixture) -> None:
     # Patch extract_owner_repo to return valid values
     mocker.patch('livecheck.special.github.extract_owner_repo',
                  return_value=('https://github.com/owner/repo', 'owner', 'repo'))
-    # Patch get_content to return a mock response with any text
+    # Patch get_content to return a response whose body is not valid JSON
     mock_response = mocker.Mock()
-    mock_response.text = '<invalid><xml>'
+    mock_response.json.side_effect = ValueError
     mocker.patch('livecheck.special.github.get_content', return_value=mock_response)
-    # Patch ET.fromstring to raise ParseError
-    mocker.patch('livecheck.special.github.ET.fromstring', side_effect=ET.ParseError)
+    result = await get_latest_github_package('https://github.com/owner/repo',
+                                             'cat/repo-1.0.0.ebuild', mocker.Mock())
+    assert result == ('', '')
+
+
+@pytest.mark.asyncio
+async def test_get_latest_github_package_non_list_json(mocker: MockerFixture) -> None:
+    mocker.patch('livecheck.special.github.extract_owner_repo',
+                 return_value=('https://github.com/owner/repo', 'owner', 'repo'))
+    # Simulate an API error object instead of a list of tags
+    mock_response = mocker.Mock()
+    mock_response.json.return_value = {'message': 'Not Found'}
+    mocker.patch('livecheck.special.github.get_content', return_value=mock_response)
     result = await get_latest_github_package('https://github.com/owner/repo',
                                              'cat/repo-1.0.0.ebuild', mocker.Mock())
     assert result == ('', '')
@@ -197,8 +196,9 @@ async def test_get_latest_github_package_xml_parse_error(mocker: MockerFixture) 
 
 @pytest.mark.asyncio
 async def test_get_latest_github_package_no_response_2(mocker: MockerFixture) -> None:
-    xml = '<?xml version="1.0" encoding="UTF-8"?><feed xmlns="http://www.w3.org/2005/Atom"></feed>'
-    mocker.patch('livecheck.special.github.get_content', side_effect=[mocker.Mock(text=xml), None])
+    tags_response = mocker.Mock()
+    tags_response.json.return_value = [{'name': 'id'}]
+    mocker.patch('livecheck.special.github.get_content', side_effect=[tags_response, None])
     mocker.patch('livecheck.special.github.extract_owner_repo',
                  return_value=('domain', 'owner', 'repo'))
     mocker.patch('livecheck.special.github.get_last_version',
@@ -241,19 +241,11 @@ async def test_get_github_branch_for_commit_two_part_version(mocker: MockerFixtu
 
 @pytest.mark.asyncio
 async def test_get_latest_github_package_uses_release_download_tag(mocker: MockerFixture) -> None:
-    xml = """<?xml version="1.0" encoding="UTF-8"?>
-    <feed xmlns="http://www.w3.org/2005/Atom">
-        <entry>
-            <id>https://github.com/grafana/loki/releases/tag/helm-loki-7.0.0</id>
-        </entry>
-        <entry>
-            <id>https://github.com/grafana/loki/releases/tag/v3.7.2</id>
-        </entry>
-    </feed>
-    """
+    tags_response = mocker.Mock()
+    tags_response.json.return_value = [{'name': 'helm-loki-7.0.0'}, {'name': 'v3.7.2'}]
     mocker.patch('livecheck.special.github.extract_owner_repo',
                  return_value=('https://github.com/grafana/loki', 'grafana', 'loki'))
-    mocker.patch('livecheck.special.github.get_content', side_effect=[mocker.Mock(text=xml), None])
+    mocker.patch('livecheck.special.github.get_content', side_effect=[tags_response, None])
     settings = mocker.Mock()
     settings.regex_version = {}
     settings.restrict_version = {}
@@ -271,19 +263,11 @@ async def test_get_latest_github_package_uses_release_download_tag(mocker: Mocke
 
 @pytest.mark.asyncio
 async def test_get_latest_github_package_uses_archive_tag(mocker: MockerFixture) -> None:
-    xml = """<?xml version="1.0" encoding="UTF-8"?>
-    <feed xmlns="http://www.w3.org/2005/Atom">
-        <entry>
-            <id>https://github.com/grafana/loki/releases/tag/helm-loki-7.0.0</id>
-        </entry>
-        <entry>
-            <id>https://github.com/grafana/loki/releases/tag/v3.7.2</id>
-        </entry>
-    </feed>
-    """
+    tags_response = mocker.Mock()
+    tags_response.json.return_value = [{'name': 'helm-loki-7.0.0'}, {'name': 'v3.7.2'}]
     mocker.patch('livecheck.special.github.extract_owner_repo',
                  return_value=('https://github.com/grafana/loki', 'grafana', 'loki'))
-    mocker.patch('livecheck.special.github.get_content', side_effect=[mocker.Mock(text=xml), None])
+    mocker.patch('livecheck.special.github.get_content', side_effect=[tags_response, None])
     settings = mocker.Mock()
     settings.regex_version = {}
     settings.restrict_version = {}
@@ -521,10 +505,11 @@ async def test_get_latest_github_metadata(mocker: MockerFixture, remote: str, eb
 @pytest.mark.asyncio
 async def test_get_latest_github_package_uses_archive_tag_no_extension(
         mocker: MockerFixture) -> None:
-    xml = '<?xml version="1.0" encoding="UTF-8"?><feed xmlns="http://www.w3.org/2005/Atom"></feed>'
+    tags_response = mocker.Mock()
+    tags_response.json.return_value = []
     mocker.patch('livecheck.special.github.extract_owner_repo',
                  return_value=('https://github.com/owner/repo', 'owner', 'repo'))
-    mocker.patch('livecheck.special.github.get_content', side_effect=[mocker.Mock(text=xml), None])
+    mocker.patch('livecheck.special.github.get_content', side_effect=[tags_response, None])
     mock_get_last_version = mocker.patch('livecheck.special.github.get_last_version',
                                          return_value=None)
     result = await get_latest_github_package('https://github.com/owner/repo/archive/v1.0.0',
@@ -535,10 +520,11 @@ async def test_get_latest_github_package_uses_archive_tag_no_extension(
 
 @pytest.mark.asyncio
 async def test_get_latest_github_package_uses_codeload_tag(mocker: MockerFixture) -> None:
-    xml = '<?xml version="1.0" encoding="UTF-8"?><feed xmlns="http://www.w3.org/2005/Atom"></feed>'
+    tags_response = mocker.Mock()
+    tags_response.json.return_value = []
     mocker.patch('livecheck.special.github.extract_owner_repo',
                  return_value=('https://codeload.github.com/owner', 'codeload', 'owner'))
-    mocker.patch('livecheck.special.github.get_content', side_effect=[mocker.Mock(text=xml), None])
+    mocker.patch('livecheck.special.github.get_content', side_effect=[tags_response, None])
     mock_get_last_version = mocker.patch('livecheck.special.github.get_last_version',
                                          return_value=None)
     result = await get_latest_github_package(
@@ -550,7 +536,8 @@ async def test_get_latest_github_package_uses_codeload_tag(mocker: MockerFixture
 
 @pytest.mark.asyncio
 async def test_get_latest_github_package_annotated_tag_no_response(mocker: MockerFixture) -> None:
-    xml = '<?xml version="1.0" encoding="UTF-8"?><feed xmlns="http://www.w3.org/2005/Atom"></feed>'
+    tags_response = mocker.Mock()
+    tags_response.json.return_value = []
     ref_response = mocker.Mock()
     ref_response.json.return_value = {
         'object': {
@@ -559,7 +546,7 @@ async def test_get_latest_github_package_annotated_tag_no_response(mocker: Mocke
         }
     }
     mocker.patch('livecheck.special.github.get_content',
-                 side_effect=[mocker.Mock(text=xml), ref_response, None])
+                 side_effect=[tags_response, ref_response, None])
     mocker.patch('livecheck.special.github.extract_owner_repo',
                  return_value=('domain', 'owner', 'repo'))
     mocker.patch('livecheck.special.github.get_last_version',
@@ -574,7 +561,8 @@ async def test_get_latest_github_package_annotated_tag_no_response(mocker: Mocke
 
 @pytest.mark.asyncio
 async def test_get_latest_github_package_annotated_tag_success(mocker: MockerFixture) -> None:
-    xml = '<?xml version="1.0" encoding="UTF-8"?><feed xmlns="http://www.w3.org/2005/Atom"></feed>'
+    tags_response = mocker.Mock()
+    tags_response.json.return_value = []
     ref_response = mocker.Mock()
     ref_response.json.return_value = {
         'object': {
@@ -585,7 +573,7 @@ async def test_get_latest_github_package_annotated_tag_success(mocker: MockerFix
     tag_response = mocker.Mock()
     tag_response.json.return_value = {'object': {'sha': 'def456abc789'}}
     mocker.patch('livecheck.special.github.get_content',
-                 side_effect=[mocker.Mock(text=xml), ref_response, tag_response])
+                 side_effect=[tags_response, ref_response, tag_response])
     mocker.patch('livecheck.special.github.extract_owner_repo',
                  return_value=('domain', 'owner', 'repo'))
     mocker.patch('livecheck.special.github.get_last_version',

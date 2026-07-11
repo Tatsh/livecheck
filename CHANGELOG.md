@@ -14,8 +14,20 @@ and this project adheres to
 
 - Add support for extracting versions from changelog files.
 
+### Changed
+
+- GitHub tag lookups now use the paginated REST tags API (up to 100 tags) instead of the
+  `tags.atom` feed, which only returns the 10 most recent tags. Stable releases are now detected
+  even when they are buried under many newer prerelease tags (for example
+  `dev-db/prisma-engines`). Note this adds one GitHub API request per tag-based package, so using
+  an API token is recommended to avoid rate limiting.
+
 ### Fixed
 
+- Keep the resolved commit hash from branch lookups in the GitHub and SourceHut handlers.
+  Commit-pinned ebuilds (a commit SHA in `SRC_URI`) previously discarded the resolved commit and
+  fell back to tag heuristics, which could propose wrong versions such as downgrading
+  `app-emulation/basiliskii` to a stale tag.
 - Continue processing the remaining packages when one package fails (for example a hook script
   error), instead of aborting the whole run. Unexpected errors are still reported with a non-zero
   exit code once every package has been attempted.

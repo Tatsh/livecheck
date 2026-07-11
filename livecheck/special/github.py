@@ -6,8 +6,6 @@ from typing import TYPE_CHECKING
 from urllib.parse import quote, urlparse
 import re
 
-from defusedxml import ElementTree as ET  # noqa: N817
-from livecheck.constants import RSS_NS
 from livecheck.utils import get_content, is_sha
 from livecheck.utils.portage import catpkg_catpkgsplit, get_last_version
 
@@ -20,13 +18,13 @@ __all__ = ('GITHUB_METADATA', 'get_github_branch_for_commit', 'get_latest_github
            'get_latest_github_commit', 'get_latest_github_commit2', 'get_latest_github_metadata',
            'get_latest_github_package', 'is_github', 'is_github_release_url')
 
-GITHUB_DOWNLOAD_URL = '%s/tags.atom'
 GITHUB_BRANCH_URL = 'https://api.github.com/repos/%s/%s/branches/%s'
 GITHUB_COMPARE_URL = 'https://api.github.com/repos/%s/%s/compare/%s...%s'
 GITHUB_COMPARE_REACHABLE_STATUSES = frozenset({'ahead', 'identical'})
 """GitHub compare ``status`` values meaning the base commit is reachable from the head ref."""
 GITHUB_DATE_URL = 'https://api.github.com/repos/%s/%s/git/refs/tags/%s'
 GITHUB_METADATA = 'github'
+GITHUB_TAGS_URL = 'https://api.github.com/repos/%s/%s/tags?per_page=100'
 
 
 def _github_tag_reference(url: str) -> str:
@@ -143,23 +141,21 @@ async def get_latest_github_package(url: str, ebuild: str,
         Latest tag version and resolved commit SHA, or empty strings if unavailable.
     """
     version_reference = _github_tag_reference(url)
-    domain, owner, repo = extract_owner_repo(url)
-    url = GITHUB_DOWNLOAD_URL % (domain)
-    if not owner or not repo or not (r := await get_content(url)):
+    _, owner, repo = extract_owner_repo(url)
+    if not owner or not repo or not (r := await get_content(GITHUB_TAGS_URL % (owner, repo))):
         return '', ''
 
     try:
-        root = ET.fromstring(r.text or '')
-    except ET.ParseError:
+        tags = r.json()
+    except ValueError:
+        return '', ''
+    if not isinstance(tags, list):
         return '', ''
 
-    results: list[dict[str, str]] = []
-    for tag_id_element in root.findall('entry/id', RSS_NS):
-        tag_id = tag_id_element.text
-
-        tag = tag_id.split('/')[-1] if tag_id and '/' in tag_id else ''
-        if tag := (tag_id.split('/')[-1] if tag_id and '/' in tag_id else ''):
-            results.append({'tag': tag, 'id': tag})
+    results = [{
+        'tag': name,
+        'id': name
+    } for entry in tags if isinstance(entry, dict) and (name := entry.get('name'))]
 
     if not (last_version := get_last_version(
             results, repo, ebuild, settings, version_reference=version_reference)):
