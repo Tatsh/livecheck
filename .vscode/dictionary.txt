@@ -13,6 +13,7 @@ autodoc
 automodule
 autouse
 bascom
+basiliskii
 beautifulsoup
 beefcafe
 beefdead
