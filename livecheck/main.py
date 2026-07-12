@@ -1126,7 +1126,13 @@ def main(working_dir: Path,
                       'livecheck': {},
                       'niquests': {},
                       'niquests_cache': {},
+                      'quic': {
+                          'level': 'ERROR'
+                      },
                       'urllib3': {},
+                      'urllib3._async.connectionpool': {
+                          'level': 'ERROR'
+                      },
                       'urllib3.util.retry': {
                           'level': 'ERROR'
                       },
