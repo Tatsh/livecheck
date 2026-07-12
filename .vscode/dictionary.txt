@@ -30,6 +30,7 @@ clion
 commitizen
 concurrentqueue
 conftest
+connectionpool
 cooldown
 coveragerc
 coverallsapp
@@ -170,6 +171,7 @@ pytestmark
 pythonhosted
 pythonpath
 qpxtool
+quic
 raphnet
 rdparty
 readlink
