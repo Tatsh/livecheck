@@ -1,4 +1,4 @@
-# ruff: noqa: FBT001
+# ruff:file-ignore[boolean-type-hint-positional-argument]
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -70,7 +70,7 @@ def make_mock_response(json_data: Any, *, ok: bool = True) -> Any:
     class MockResponse:
         ok: bool = True
 
-        def json(self) -> Any:  # noqa: PLR6301
+        def json(self) -> Any:  # ruff:ignore[no-self-use]
             return json_data
 
     return MockResponse(ok=ok)

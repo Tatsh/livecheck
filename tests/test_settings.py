@@ -1,4 +1,4 @@
-# ruff: noqa: FBT003
+# ruff:file-ignore[boolean-positional-value-in-call]
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any

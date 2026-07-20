@@ -195,7 +195,7 @@ class _FakeEbuildTempFile:
     async def __aenter__(self) -> Path:
         import tempfile as tf
         self._temp = Path(
-            tf.NamedTemporaryFile(  # noqa: SIM115
+            tf.NamedTemporaryFile(  # ruff:ignore[open-file-with-context-handler]
                 mode='w',
                 prefix=self._ebuild.stem,
                 suffix=self._ebuild.suffix,
@@ -228,7 +228,7 @@ async def test_update_dotnet_ebuild_updates_nugets_correctly(mocker: MockerFixtu
                  new_callable=AsyncMock,
                  return_value=(str(tmp_path), None))
 
-    async def _mock_dotnet_restore(_: Any) -> Any:  # noqa: RUF029
+    async def _mock_dotnet_restore(_: Any) -> Any:  # ruff:ignore[unused-async]
         for pkg in ('New.Package@2.0.0', 'Another.Package@3.1.4'):
             yield pkg
 
@@ -251,7 +251,7 @@ async def test_update_dotnet_ebuild_raises_no_nugets_found(mocker: MockerFixture
                  new_callable=AsyncMock,
                  return_value=(str(tmp_path), None))
 
-    async def _mock_dotnet_restore(_: Any) -> Any:  # noqa: RUF029
+    async def _mock_dotnet_restore(_: Any) -> Any:  # ruff:ignore[unused-async]
         return
         yield
 
@@ -272,7 +272,7 @@ async def test_update_dotnet_ebuild_raises_runtime_error(mocker: MockerFixture,
                  new_callable=AsyncMock,
                  return_value=(str(tmp_path), None))
 
-    async def _mock_dotnet_restore(_: Any) -> Any:  # noqa: RUF029
+    async def _mock_dotnet_restore(_: Any) -> Any:  # ruff:ignore[unused-async]
         return
         yield
 
@@ -293,7 +293,7 @@ async def test_update_dotnet_ebuild_raises_no_nugets_ending(mocker: MockerFixtur
                  new_callable=AsyncMock,
                  return_value=(str(tmp_path), None))
 
-    async def _mock_dotnet_restore(_: Any) -> Any:  # noqa: RUF029
+    async def _mock_dotnet_restore(_: Any) -> Any:  # ruff:ignore[unused-async]
         return
         yield
 

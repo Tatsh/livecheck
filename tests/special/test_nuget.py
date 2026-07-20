@@ -33,7 +33,8 @@ def test_extract_project(url: str, expected: str) -> None:
     ('https://api.nuget.org/v3-flatcontainer/a.b/index.json', True),
     ('https://github.com/Tatsh/livecheck', False),
 ])
-def test_is_nuget(url: str, expected: bool) -> None:  # noqa: FBT001
+def test_is_nuget(url: str,
+                  expected: bool) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]
     assert nuget.is_nuget(url) is expected
 
 

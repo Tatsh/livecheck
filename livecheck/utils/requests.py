@@ -38,7 +38,7 @@ def init_sessions(semaphore: asyncio.Semaphore) -> None:
     semaphore : asyncio.Semaphore
         Shared semaphore bounding concurrent in-flight HTTP requests.
     """
-    global _semaphore  # noqa: PLW0603
+    global _semaphore  # ruff:ignore[global-statement]
     _semaphore = semaphore
     _sessions.clear()
 

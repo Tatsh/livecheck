@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from defusedxml import ElementTree as ET  # noqa: N817
+from defusedxml import ElementTree as ET  # ruff:ignore[camelcase-imported-as-acronym]
 from livecheck.special.regex import get_latest_regex_package
 import pytest
 

@@ -48,7 +48,7 @@ async def get_latest_ida_free_package(_ebuild: str, _settings: LivecheckSettings
     version_tuples = []
     for v in versions:
         parts = v.split('.')
-        if len(parts) == 2:  # noqa: PLR2004
+        if len(parts) == 2:  # ruff:ignore[magic-value-comparison]
             try:
                 major, minor = int(parts[0]), int(parts[1])
                 version_tuples.append((major, minor, v))

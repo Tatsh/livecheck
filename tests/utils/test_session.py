@@ -1,4 +1,4 @@
-# ruff: noqa: EM101, RUF012, RUF069, SLF001
+# ruff:file-ignore[raw-string-in-exception, mutable-class-default, float-equality-comparison, private-member-access]
 from __future__ import annotations
 
 from http import HTTPStatus

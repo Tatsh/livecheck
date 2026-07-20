@@ -1,10 +1,10 @@
-# ruff: noqa: FBT001
+# ruff:file-ignore[boolean-type-hint-positional-argument]
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 import logging
 
-from defusedxml import ElementTree as ET  # noqa: N817
+from defusedxml import ElementTree as ET  # ruff:ignore[camelcase-imported-as-acronym]
 from livecheck.main import (
     HookError,
     do_main,

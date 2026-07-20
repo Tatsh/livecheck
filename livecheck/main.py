@@ -16,7 +16,7 @@ import re
 
 from anyio import Path as AnyioPath
 from bascom import setup_logging
-from defusedxml import ElementTree as ET  # noqa: N817
+from defusedxml import ElementTree as ET  # ruff:ignore[camelcase-imported-as-acronym]
 import click
 
 from .constants import PACKAGE_MANAGERS, SUBMODULES, TAG_NAME_FUNCTIONS
@@ -203,7 +203,7 @@ async def process_submodules(pkg_name: str, ref: str, contents: str, repo_uri: s
 
     async def _fetch_one(item: object) -> tuple[str, str] | None:
         name = item
-        if isinstance(item, tuple) and len(item) == 3:  # noqa: PLR2004
+        if isinstance(item, tuple) and len(item) == 3:  # ruff:ignore[magic-value-comparison]
             nested_path, grep_for_var, parent_path = item
             grep_for = f'{grep_for_var}="'
             parent_r = await get_content(f'https://api.github.com/repos/{repo_root}/contents/'
@@ -420,7 +420,7 @@ def extract_restrict_version(cp: str) -> tuple[str, str]:
     return cp, ''
 
 
-async def _check_one_package(  # noqa: C901, PLR0912, PLR0914
+async def _check_one_package(  # ruff:ignore[complex-structure, too-many-branches, too-many-locals]
         match_: str, settings: LivecheckSettings, repo_root: Path,
         exclude: Sequence[str]) -> PropTuple | None:
     """
@@ -792,7 +792,7 @@ async def _recover_ebuild(new_filename: str, ebuild: Path, cp: str, search_dir: 
         log.exception('Error recovering `%s`.', new_filename)
 
 
-async def do_main(  # noqa: C901, PLR0912, PLR0914, PLR0915
+async def do_main(  # ruff:ignore[complex-structure, too-many-branches, too-many-locals, too-many-statements]
         *, cat: str, ebuild_version: str, pkg: str, search_dir: Path, settings: LivecheckSettings,
         last_version: str, top_hash: str, hash_date: str, url: str, hook_dir: Path | None) -> None:
     cp = f'{cat}/{pkg}'
@@ -852,7 +852,7 @@ async def do_main(  # noqa: C901, PLR0912, PLR0914, PLR0915
                  no_auto_update_str)
 
         if settings.auto_update_flag and cp not in settings.no_auto_update:
-            if ((  # noqa: PLR0916
+            if ((  # ruff:ignore[too-many-boolean-expressions]
                     cp in settings.dotnet_projects and not check_dotnet_requirements())
                     or (cp in settings.composer_packages and not check_composer_requirements())
                     or (cp in settings.maven_packages and not check_maven_requirements())
@@ -1119,7 +1119,7 @@ def main(working_dir: Path,
          keep_old: bool = False,
          progress: bool = False,
          package_manager: str = 'npm') -> None:
-    """Update ebuilds to their latest versions."""  # noqa: DOC501
+    """Update ebuilds to their latest versions."""  # ruff:ignore[docstring-missing-exception]
     setup_logging(debug=debug,
                   log_colors={'INFO': 'green'},
                   loggers={

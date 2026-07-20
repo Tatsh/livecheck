@@ -27,7 +27,7 @@ def extract_project(url: str) -> str:
     parsed = urlparse(url)
     path = parsed.path.split('/')
     if (parsed.netloc in {'pypi', 'pypi.org', 'pypi.io', 'files.pythonhosted.org'}
-            and len(path) > 3):  # noqa: PLR2004
+            and len(path) > 3):  # ruff:ignore[magic-value-comparison]
         if path[2] == 'source':
             return path[4]
         if m := re.search(r'^(.*?)(?=-\d)', path[-1]):

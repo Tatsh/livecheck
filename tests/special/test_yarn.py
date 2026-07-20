@@ -1,4 +1,4 @@
-# ruff: noqa: S108
+# ruff:file-ignore[hardcoded-temp-file]
 from __future__ import annotations
 
 from pathlib import Path

@@ -39,7 +39,8 @@ def _github_tag_reference(url: str) -> str:
             if ext := get_archive_extension(archive_ref):
                 return archive_ref[:-len(ext)]
             return archive_ref
-    if parsed.netloc == 'codeload.github.com' and len(parts) >= 4:  # noqa: PLR2004
+    if parsed.netloc == 'codeload.github.com' and len(
+            parts) >= 4:  # ruff:ignore[magic-value-comparison]
         return re.sub(r'^(?:refs/)?tags/', '', '/'.join(parts[3:]))
     return ''
 
@@ -53,12 +54,12 @@ def _github_version_branch_candidates(version: str) -> tuple[str, ...]:
     # Try the release series (version without the patch level) from most to least specific
     # first, since release branches are usually named after the series rather than the exact
     # version; fall back to the full version last.
-    series_parts = parts[:2] if len(parts) > 2 else parts  # noqa: PLR2004
+    series_parts = parts[:2] if len(parts) > 2 else parts  # ruff:ignore[magic-value-comparison]
     candidates: list[str] = []
     for length in range(len(series_parts), 0, -1):
         candidate = '.'.join(series_parts[:length])
         candidates.extend((candidate, f'v{candidate}'))
-    if len(parts) > 2:  # noqa: PLR2004
+    if len(parts) > 2:  # ruff:ignore[magic-value-comparison]
         candidate = '.'.join(parts)
         candidates.extend((candidate, f'v{candidate}'))
     return tuple(dict.fromkeys(candidates))
@@ -76,7 +77,7 @@ def extract_owner_repo(url: str) -> tuple[str, str, str]:
     # check if uri start with github. and has at least 3 parts
     if (m := re.match(r'^github\.(io|com)$', n)):
         p = [x for x in u.path.split('/') if x]
-        if len(p) < 2:  # noqa: PLR2004
+        if len(p) < 2:  # ruff:ignore[magic-value-comparison]
             return '', '', ''
         r = p[1].replace('.git', '')
         return f'https://{d}/{p[0]}/{r}', p[0], r
@@ -273,7 +274,7 @@ def get_branch(url: str, ebuild: str, settings: LivecheckSettings) -> str:
 
     # get branch from url
     parts = url.strip('/').split('/')
-    if len(parts) >= 2 and parts[-2] == 'commits':  # noqa: PLR2004
+    if len(parts) >= 2 and parts[-2] == 'commits':  # ruff:ignore[magic-value-comparison]
         return parts[-1].replace('.atom', '')
 
     # get branch from settings

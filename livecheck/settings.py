@@ -43,7 +43,9 @@ class UnknownTransformationFunction(NameError):
         super().__init__(f'Unknown transformation function: {tfs}')
 
 
-def gather_settings(search_dir: Path) -> LivecheckSettings:  # noqa: C901, PLR0912, PLR0914, PLR0915
+def gather_settings(
+    search_dir: Path
+) -> LivecheckSettings:  # ruff:ignore[complex-structure, too-many-branches, too-many-locals, too-many-statements]
     """
     Gather settings from ``livecheck.json`` files in the given directory.
 
@@ -63,7 +65,7 @@ def gather_settings(search_dir: Path) -> LivecheckSettings:  # noqa: C901, PLR09
         If a transformation function is invalid.
     """
     # Prevent circular import.
-    import livecheck.special.handlers as sc  # noqa: PLC0415
+    import livecheck.special.handlers as sc  # ruff:ignore[import-outside-top-level]
 
     branches: dict[str, str] = {}
     custom_livechecks: dict[str, tuple[str, str]] = {}
@@ -153,7 +155,7 @@ def gather_settings(search_dir: Path) -> LivecheckSettings:  # noqa: C901, PLR09
                 branches[catpkg] = settings_parsed['branch']
             if 'no_auto_update' in settings_parsed:
                 check_instance(settings_parsed['no_auto_update'], 'no_auto_update', 'bool', path,
-                               True)  # noqa: FBT003
+                               True)  # ruff:ignore[boolean-positional-value-in-call]
                 no_auto_update.add(catpkg)
             if settings_parsed.get('transformation_function', None):
                 tfs = settings_parsed['transformation_function']
@@ -325,11 +327,13 @@ def gather_settings(search_dir: Path) -> LivecheckSettings:  # noqa: C901, PLR09
 
 
 def check_instance(
-        value: int | str | bool | list[str] | dict[str, str] | None,  # noqa: FBT001
-        key: str,
-        dtype: str,
-        path: str | object,
-        specific_value: bool | int | str | None = None) -> None:  # noqa: FBT001
+    value: int | str | bool | list[str] | dict[str, str]
+    | None,  # ruff:ignore[boolean-type-hint-positional-argument]
+    key: str,
+    dtype: str,
+    path: str | object,
+    specific_value: bool | int | str | None = None
+) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]
     is_type = False
     match dtype:
         case 'bool':
