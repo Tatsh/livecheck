@@ -110,7 +110,7 @@ async def test_get_latest_gitlab(
         mocker: MockerFixture,
         url: str,
         ebuild: str,
-        force_sha: bool,  # noqa: FBT001
+        force_sha: bool,  # ruff:ignore[boolean-type-hint-positional-argument]
         content_return: str,
         expected_version: str,
         expected_hash: str,

@@ -46,14 +46,15 @@ def extract_project(url: str) -> str:
     if not parts:
         return ''
     # https://www.nuget.org/packages/<id>[/<ver>]
-    if parts[0] == 'packages' and len(parts) >= 2:  # noqa: PLR2004
+    if parts[0] == 'packages' and len(parts) >= 2:  # ruff:ignore[magic-value-comparison]
         return parts[1].lower()
     # https://www.nuget.org/api/v2/package/<id>/<ver>
-    if (len(parts) >= 4 and parts[0] == 'api' and parts[2] == 'package'):  # noqa: PLR2004
+    if (len(parts) >= 4 and parts[0] == 'api'
+            and parts[2] == 'package'):  # ruff:ignore[magic-value-comparison]
         return parts[3].lower()
     # https://api.nuget.org/v3-flatcontainer/<id>/...
-    if parts[0] == 'v3-flatcontainer' and len(parts) >= 2:  # noqa: PLR2004
-        if (len(parts) >= 3  # noqa: PLR2004
+    if parts[0] == 'v3-flatcontainer' and len(parts) >= 2:  # ruff:ignore[magic-value-comparison]
+        if (len(parts) >= 3  # ruff:ignore[magic-value-comparison]
                 and (m := _NUPKG_RE.match(parts[-1]))):
             return m.group('id').lower()
         return parts[1].lower()

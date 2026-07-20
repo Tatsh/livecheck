@@ -87,7 +87,7 @@ async def test_get_latest_metacpan_package(mocker: MockerFixture, url: str, ebui
                                            expected_version: str) -> None:
     def fake_get_content(url_arg: str) -> Any:
         class FakeResponse:
-            def json(self) -> Any:  # noqa: PLR6301
+            def json(self) -> Any:  # ruff:ignore[no-self-use]
                 if 'release/_search' in url_arg:
                     return {'hits': {'hits': api_hits}}
                 return api_release
@@ -131,7 +131,7 @@ async def test_get_latest_metacpan_metadata(mocker: MockerFixture, remote: str, 
                                             expected_version: str) -> None:
     def fake_get_content(url_arg: str) -> Any:
         class FakeResponse:
-            def json(self) -> Any:  # noqa: PLR6301
+            def json(self) -> Any:  # ruff:ignore[no-self-use]
                 if 'release/_search' in url_arg:
                     return {'hits': {'hits': api_hits}}
                 return api_release

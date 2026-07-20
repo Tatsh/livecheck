@@ -403,7 +403,7 @@ def normalize_version(ver: str) -> str:
         return f'{main}{letters}'
     # Discard tags with long unrecognised suffixes (likely test/development tags),
     # e.g. 'limitedapitest1' from 'R71-limited-api-test1'.
-    if len(letters) > 10 and digits:  # noqa: PLR2004
+    if len(letters) > 10 and digits:  # ruff:ignore[magic-value-comparison]
         return ''
     # No recognised suffix.
     if digits:

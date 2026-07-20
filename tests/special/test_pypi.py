@@ -231,7 +231,7 @@ async def test_get_latest_pypi_package_accepts_release_with_different_archive_ex
      ('https://pypi.io/project/source/s/someproject/1.0.0/', 'someproject', True),
      ('https://1pypi.io/project/source/someproject/1.0.0/', '', False), ('', '', False)])
 def test_is_pypi(mocker: MockerFixture, url: str, extract_project_return: str,
-                 expected: bool) -> None:  # noqa: FBT001
+                 expected: bool) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]
     mocker.patch('livecheck.special.pypi.extract_project', return_value=extract_project_return)
     assert is_pypi(url) is expected
 

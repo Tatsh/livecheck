@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 import re
 
-from defusedxml import ElementTree as ET  # noqa: N817
+from defusedxml import ElementTree as ET  # ruff:ignore[camelcase-imported-as-acronym]
 from livecheck.utils import get_content, is_sha
 from livecheck.utils.portage import catpkg_catpkgsplit, get_last_version
 
@@ -145,7 +145,7 @@ def get_branch(url: str, ebuild: str, settings: LivecheckSettings) -> str:
 
     # get branch from url
     parts = url.strip('/').split('/')
-    if len(parts) >= 3 and parts[-3] == 'log':  # noqa: PLR2004
+    if len(parts) >= 3 and parts[-3] == 'log':  # ruff:ignore[magic-value-comparison]
         return parts[-2]
 
     # get branch from settings

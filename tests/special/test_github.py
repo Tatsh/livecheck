@@ -454,7 +454,7 @@ async def test_get_latest_github(
         url: str,
         ebuild: str,
         branch: str,
-        force_sha: bool,  # noqa: FBT001
+        force_sha: bool,  # ruff:ignore[boolean-type-hint-positional-argument]
         last_version: str,
         top_hash: str,
         hash_date: str,

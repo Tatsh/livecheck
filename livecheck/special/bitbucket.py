@@ -39,7 +39,7 @@ def extract_workspace_and_repository(url: str) -> tuple[str, str]:
     parsed = urlparse(url)
 
     if (parsed.netloc != 'bitbucket.org'
-            or len(parsed.path.strip('/').split('/')) < 2):  # noqa: PLR2004
+            or len(parsed.path.strip('/').split('/')) < 2):  # ruff:ignore[magic-value-comparison]
         return '', ''
 
     workspace, repository = parsed.path.strip('/').split('/')[:2]

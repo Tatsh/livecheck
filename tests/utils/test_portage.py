@@ -496,7 +496,9 @@ def test_get_repository_root_if_inside_local_path_exclusion(mocker: MockerFixtur
                                                    ('1.2.3rc', True), ('1.2.3dev', True),
                                                    ('1.2.3-rc2', True), ('1.2.3-dev2', True),
                                                    ('1.2.3-pre2', True)])
-async def test_is_version_development(version: str, expected: bool) -> None:  # noqa: FBT001, RUF029
+async def test_is_version_development(
+        version: str,
+        expected: bool) -> None:  # ruff:ignore[boolean-type-hint-positional-argument, unused-async]
     assert is_version_development(version) == expected
 
 
@@ -517,8 +519,9 @@ def test_remove_initial_match_various_cases(a: str, b: str, expected: str) -> No
                                                                        ('2.1', '2.0', 1, False),
                                                                        ('1.0', '1.0.0', -1, True),
                                                                        ('1.0.0', '1.0', 1, False)])
-def test_compare_versions(mocker: MockerFixture, old: str, new: str, vercmp_result: int,
-                          expected: bool) -> None:  # noqa: FBT001
+def test_compare_versions(
+        mocker: MockerFixture, old: str, new: str, vercmp_result: int,
+        expected: bool) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]
     mock_vercmp = mocker.patch('livecheck.utils.portage.vercmp', return_value=vercmp_result)
     result = compare_versions(old, new)
     mock_vercmp.assert_called_once_with(old, new)
@@ -540,8 +543,9 @@ def test_get_distdir(mocker: MockerFixture, distdir_value: str | None, expected:
 @pytest.mark.parametrize(('ebuild_path', 'doebuild_return', 'expected'),
                          [('/path/to/foo.ebuild', 0, True), ('/path/to/bar.ebuild', 1, False),
                           ('/path/to/baz.ebuild', -1, False)])
-def test_fetch_ebuild_basic(mocker: MockerFixture, ebuild_path: str, doebuild_return: int,
-                            expected: bool) -> None:  # noqa: FBT001
+def test_fetch_ebuild_basic(
+        mocker: MockerFixture, ebuild_path: str, doebuild_return: int,
+        expected: bool) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]
     mock_config = mocker.MagicMock()
     mock_portage = mocker.patch('livecheck.utils.portage.portage')
     mock_portage.config.return_value = mock_config
@@ -559,8 +563,9 @@ def test_fetch_ebuild_basic(mocker: MockerFixture, ebuild_path: str, doebuild_re
 @pytest.mark.parametrize(('ebuild_path', 'doebuild_return', 'expected'),
                          [('/path/to/foo.ebuild', 0, True), ('/path/to/bar.ebuild', 1, False),
                           ('/path/to/baz.ebuild', -1, False)])
-def test_digest_ebuild_basic(mocker: MockerFixture, ebuild_path: str, doebuild_return: int,
-                             expected: bool) -> None:  # noqa: FBT001
+def test_digest_ebuild_basic(
+        mocker: MockerFixture, ebuild_path: str, doebuild_return: int,
+        expected: bool) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]
     mock_config = mocker.MagicMock()
     mock_portage = mocker.patch('livecheck.utils.portage.portage')
     mock_portage.config.return_value = mock_config
@@ -593,8 +598,8 @@ def test_unpack_ebuild(
         mocker: MockerFixture,
         clean_return: int,
         unpack_return: int,
-        workdir_exists: bool,  # noqa: FBT001
-        workdir_is_dir: bool,  # noqa: FBT001
+        workdir_exists: bool,  # ruff:ignore[boolean-type-hint-positional-argument]
+        workdir_is_dir: bool,  # ruff:ignore[boolean-type-hint-positional-argument]
         expected: str) -> None:
     mock_config = mocker.MagicMock()
     mock_portage = mocker.patch('livecheck.utils.portage.portage')
@@ -942,9 +947,10 @@ def test_get_last_version_rejects_mismatched_file_reference(mocker: MockerFixtur
             'is_devel': lambda _: False
         }, False)
     ])
-def test_accept_version_cases(mocker: MockerFixture, ebuild_version: str, version: str, catpkg: str,
-                              settings_attrs: Mapping[str,
-                                                      Any], expected: bool) -> None:  # noqa: FBT001
+def test_accept_version_cases(
+        mocker: MockerFixture, ebuild_version: str, version: str, catpkg: str,
+        settings_attrs: Mapping[str, Any],
+        expected: bool) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]
     # Patch is_version_development to match the real implementation
     mocker.patch(
         'livecheck.utils.portage.is_version_development',

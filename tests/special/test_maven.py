@@ -1,5 +1,5 @@
 """Tests for Maven helpers."""
-# ruff: noqa: S108
+# ruff:file-ignore[hardcoded-temp-file]
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

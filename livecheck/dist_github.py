@@ -50,7 +50,7 @@ def parse_repository(spec: str) -> tuple[str, str]:
         If the specifier is not in ``owner/repo`` form.
     """
     parts = spec.strip().split('/')
-    if len(parts) != 2 or not parts[0] or not parts[1]:  # noqa: PLR2004
+    if len(parts) != 2 or not parts[0] or not parts[1]:  # ruff:ignore[magic-value-comparison]
         msg = f'Invalid GitHub repository specifier: {spec!r}'
         raise ValueError(msg)
     return parts[0], parts[1]
