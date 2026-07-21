@@ -56,16 +56,16 @@ wheels = [
 
 [[package]]
 name = "anyio"
-version = "4.14.1"
+version = "4.14.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "exceptiongroup", marker = "python_full_version < '3.11'" },
     { name = "idna" },
     { name = "typing-extensions", marker = "python_full_version < '3.13'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/3b/72/5562aabb8dd7181e8e860622a38bea08d17842b99ecd4c91f84ac95251b0/anyio-4.14.1.tar.gz", hash = "sha256:8d648a3544c1a700e3ff78615cd679e4c5c3f149904287e73687b2596963629e", size = 254831, upload-time = "2026-06-24T20:56:06.017Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/61/cc/a381afa6efea9f496eff839d4a6a1aed3bfafc7b3ab4b0d1b243a12573dd/anyio-4.14.2.tar.gz", hash = "sha256:cfa139f3ed1a23ee8f88a145ddb5ac7605b8bbfd8592baacd7ce3d8bb4313c7f", size = 260176, upload-time = "2026-07-12T20:29:07.082Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b0/7b/90df4a0a816d98d6ea26f559d87836d494a2cf1fcf063be67df50a7bcc30/anyio-4.14.1-py3-none-any.whl", hash = "sha256:4e5533c5b8ff0a24f5d7a176cbe6877129cd183893f66b537f8f227d10527d72", size = 124875, upload-time = "2026-06-24T20:56:04.413Z" },
+    { url = "https://files.pythonhosted.org/packages/da/35/f2287558c17e29fafc8ef3daf819bb9834061cfa43bff8014f7df7f63bdc/anyio-4.14.2-py3-none-any.whl", hash = "sha256:9f505dda5ac9f0c8309b5e8bd445a8c2bf7246f3ce950121e45ea15bc41d1494", size = 125813, upload-time = "2026-07-12T20:29:05.763Z" },
 ]
 
 [[package]]
@@ -1544,16 +1544,16 @@ wheels = [
 
 [[package]]
 name = "niquests"
-version = "3.20.0"
+version = "3.20.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "charset-normalizer" },
     { name = "urllib3-future" },
     { name = "wassima", marker = "sys_platform != 'emscripten'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d3/ee/9a33c6d343b298ca7faca7d5a25693aca62f7f2553f2f0e6e54f844c3a75/niquests-3.20.0.tar.gz", hash = "sha256:dba85ce23ac5052f0a1e1c1cf1c017511a993f906686e8b6c84e0b54818fd1dc", size = 1039225, upload-time = "2026-06-26T16:34:39.892Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f2/6f/c2310e0c0d09ef1c22d235ef82d2d5d16f6b04b3a3702ebe1bc8d1dfbd6c/niquests-3.20.1.tar.gz", hash = "sha256:55951812cf997963bfef8e4f797ff0460ca571e53ec184039b010e12152c0e41", size = 1039594, upload-time = "2026-07-09T06:18:39.488Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3f/40/ffc07ba89b8138408d930bb8072407fa2f80e1fc45f55ccc10e8e1056b24/niquests-3.20.0-py3-none-any.whl", hash = "sha256:86281a62314d7395f049d748480589e273dc1f429953afbac377fff142860429", size = 213612, upload-time = "2026-06-26T16:34:38.409Z" },
+    { url = "https://files.pythonhosted.org/packages/23/25/8c5412b047ab545ac59b59712a840e2d1ce91759aec1afdf47b85c12c748/niquests-3.20.1-py3-none-any.whl", hash = "sha256:71062880739c94d67aead1f8b7972baad3236b97a55a490493729789d1639fc4", size = 213889, upload-time = "2026-07-09T06:18:37.969Z" },
 ]
 
 [[package]]
@@ -1704,11 +1704,11 @@ wheels = [
 
 [[package]]
 name = "portage"
-version = "3.0.81.1"
+version = "3.0.81.2"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/8b/f6/eb8a62797e1623328cd236f5871fbff59b8258fa42ab89cf390ca4b101c6/portage-3.0.81.1.tar.gz", hash = "sha256:245b88a9a3156501e8e331971d653cc285ff99bea8fd965e364a6ec6f34c3898", size = 1636261, upload-time = "2026-07-05T21:12:32.603Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/15/be/876819696088c82687f42d8e6ddef6d2e8a53ba3bdd042f67cf317ec221c/portage-3.0.81.2.tar.gz", hash = "sha256:f9a5e17dc367db5161f7654e42b5c99dcbe124b1155b7d601de82971cd737b39", size = 1637697, upload-time = "2026-07-10T19:34:36.262Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/62/88/9ce7c9865148277353ae6b439facac6b069a97df296255bad60af81d8b39/portage-3.0.81.1-py3-none-any.whl", hash = "sha256:b1d4064fa2de460890dc897b36b3b5d2a275e722d41bd210457661dd725186c8", size = 1811552, upload-time = "2026-07-05T21:12:30.774Z" },
+    { url = "https://files.pythonhosted.org/packages/e4/bb/1a6f5f7c10002a6bb725d2dc546ecf75dafe88af2c5e7df409503b78c650/portage-3.0.81.2-py3-none-any.whl", hash = "sha256:645ab5536ed01c053cdffd57cd5ada3682b115c0c9ff14ef786eb0d1b16872f7", size = 1812730, upload-time = "2026-07-10T19:34:34.341Z" },
 ]
 
 [[package]]
