@@ -49,8 +49,7 @@ def extract_project(url: str) -> str:
     if parts[0] == 'packages' and len(parts) >= 2:  # ruff:ignore[magic-value-comparison]
         return parts[1].lower()
     # https://www.nuget.org/api/v2/package/<id>/<ver>
-    if (len(parts) >= 4 and parts[0] == 'api'
-            and parts[2] == 'package'):  # ruff:ignore[magic-value-comparison]
+    if (len(parts) >= 4 and parts[0] == 'api' and parts[2] == 'package'):
         return parts[3].lower()
     # https://api.nuget.org/v3-flatcontainer/<id>/...
     if parts[0] == 'v3-flatcontainer' and len(parts) >= 2:  # ruff:ignore[magic-value-comparison]

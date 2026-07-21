@@ -162,8 +162,7 @@ def test_session_init_bitbucket_no_token(mocker: MockerFixture) -> None:
 async def test_hash_url_success(mocker: MockerFixture) -> None:
     url = 'https://example.com/file.txt'
 
-    async def _iter_content(
-            chunk_size: int = 8192) -> AsyncGenerator[bytes]:  # ruff:ignore[unused-async]
+    async def _iter_content(chunk_size: int = 8192) -> AsyncGenerator[bytes]:
         for chunk in (b'abc', b'def'):
             yield chunk
 
@@ -193,8 +192,7 @@ async def test_hash_url_request_exception(mocker: MockerFixture) -> None:
 async def test_hash_url_with_headers_and_params(mocker: MockerFixture) -> None:
     url = 'https://example.com/file.txt'
 
-    async def _iter_content(
-            chunk_size: int = 8192) -> AsyncGenerator[bytes]:  # ruff:ignore[unused-async]
+    async def _iter_content(chunk_size: int = 8192) -> AsyncGenerator[bytes]:
         for chunk in (b'abc',):
             yield chunk
 
@@ -314,8 +312,7 @@ async def test_get_content_request_exception(mocker: MockerFixture) -> None:
 async def test_hash_url_skips_empty_chunks(mocker: MockerFixture) -> None:
     url = 'https://example.com/file.txt'
 
-    async def _iter_content(
-            chunk_size: int = 8192) -> AsyncGenerator[bytes]:  # ruff:ignore[unused-async]
+    async def _iter_content(chunk_size: int = 8192) -> AsyncGenerator[bytes]:
         for chunk in (b'abc', b'', b'def'):
             yield chunk
 

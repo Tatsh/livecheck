@@ -43,9 +43,7 @@ class UnknownTransformationFunction(NameError):
         super().__init__(f'Unknown transformation function: {tfs}')
 
 
-def gather_settings(
-    search_dir: Path
-) -> LivecheckSettings:  # ruff:ignore[complex-structure, too-many-branches, too-many-locals, too-many-statements]
+def gather_settings(search_dir: Path) -> LivecheckSettings:
     """
     Gather settings from ``livecheck.json`` files in the given directory.
 
@@ -326,14 +324,12 @@ def gather_settings(
                              yarn_packages=yarn_packages)
 
 
-def check_instance(
-    value: int | str | bool | list[str] | dict[str, str]
-    | None,  # ruff:ignore[boolean-type-hint-positional-argument]
-    key: str,
-    dtype: str,
-    path: str | object,
-    specific_value: bool | int | str | None = None
-) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]
+def check_instance(value: int | str | bool | list[str] | dict[str, str]
+                   | None,
+                   key: str,
+                   dtype: str,
+                   path: str | object,
+                   specific_value: bool | int | str | None = None) -> None:
     is_type = False
     match dtype:
         case 'bool':
