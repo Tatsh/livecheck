@@ -497,8 +497,7 @@ def test_get_repository_root_if_inside_local_path_exclusion(mocker: MockerFixtur
                                                    ('1.2.3-rc2', True), ('1.2.3-dev2', True),
                                                    ('1.2.3-pre2', True)])
 async def test_is_version_development(
-        version: str,
-        expected: bool) -> None:  # ruff:ignore[boolean-type-hint-positional-argument, unused-async]
+        version: str, expected: bool) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]
     assert is_version_development(version) == expected
 
 
