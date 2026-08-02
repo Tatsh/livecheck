@@ -10,6 +10,8 @@ and this project adheres to
 
 ## [unreleased]
 
+## [0.2.5] - 2026-08-02
+
 ### Added
 
 - Add support for extracting versions from changelog files.
@@ -50,7 +52,7 @@ and this project adheres to
   exit code once every package has been attempted.
 - Ignore date-only changelog headings (for example `## 2024-01-31`) when extracting versions, so
   they are no longer mistaken for releases on normal semantic-versioning packages.
-- Verified that a candidate resolved by `get_github_branch_for_commit` is a real branch (via the
+- Verify that a candidate resolved by `get_github_branch_for_commit` is a real branch (via the
   GitHub branches API) before writing it to `EGIT_BRANCH`. The compare API also resolves tags, so a
   version that exists only as a tag (for example `dev-php/composer` `2.10.1`) was previously written
   as a branch, causing `git-r3` to fail because the tag ref has no matching `refs/heads/` entry. The
@@ -290,7 +292,8 @@ and this project adheres to
 
 - When multiple ebuilds are in the same directory, only the latest one will be considered for updating.
 
-[unreleased]: https://github.com/Tatsh/livecheck/compare/v0.2.4...HEAD
+[unreleased]: https://github.com/Tatsh/livecheck/compare/v0.2.5...HEAD
+[0.2.5]: https://github.com/Tatsh/livecheck/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/Tatsh/livecheck/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/Tatsh/livecheck/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/Tatsh/livecheck/compare/v0.2.1...v0.2.2
