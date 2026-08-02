@@ -24,6 +24,9 @@ and this project adheres to
 
 ### Fixed
 
+- Ignore upstream tags that consist only of a pre-release qualifier and its counter, such as the
+  `FFMS2beta10` tag on `media-video/ffms2`. Stripping the repository name left `beta10`, which was
+  read as version `10` and proposed as an update over `5.0`.
 - Apply a connect and read timeout (10 and 30 seconds) to every HTTP request. Requests made by the
   main fetch helper previously had no timeout at all, so a host that silently drops connections (for
   example the retired `cgit.freedesktop.org`) stalled the whole run indefinitely with no output.

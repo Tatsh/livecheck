@@ -97,10 +97,23 @@ if TYPE_CHECKING:
         # rpcs3: filter vcpkg dependency tags
         ('vcpkg-v1.0', ''),
         ('vcpkg-prebuilt-v1.0', ''),
-        ('v0.0.39', '0.0.39')
+        ('v0.0.39', '0.0.39'),
+        # A pre-release counter on its own is not a version
+        ('beta10', ''),
+        ('rc-3', ''),
+        ('pre_2', '')
     ])
 def test_sanitize_version(version: str, expected: str) -> None:
     assert sanitize_version(version) == expected
+
+
+@pytest.mark.parametrize(('version', 'repo', 'expected'), [('FFMS2beta10', 'ffms2', ''),
+                                                           ('ffms-2.17', 'ffms2', '2.17'),
+                                                           ('5.0-RC4', 'ffms2', '5.0_rc4'),
+                                                           ('2.40', 'ffms2', '2.40'),
+                                                           ('test-190', 'other', '190')])
+def test_sanitize_version_with_repo(version: str, repo: str, expected: str) -> None:
+    assert sanitize_version(version, repo) == expected
 
 
 @pytest.mark.parametrize(('version', 'expected'), [('2022.01.06', '2022.1.6'),

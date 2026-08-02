@@ -333,6 +333,9 @@ def remove_initial_match(a: str, b: str) -> str:
     return a[i:]
 
 
+_QUALIFIER_ONLY_RE = re.compile(r'^(?:alpha|beta|rc|pre|dev|post|patchlevel|pl)[._\- ]?\d*$')
+
+
 def extract_version(s: str, repo: str) -> str:
     # Force-convert to string to avoid an int object having no attribute 'lower'.
     s = str(s).lower().strip()
@@ -345,6 +348,11 @@ def extract_version(s: str, repo: str) -> str:
     # Check if the first word of s is equal to repo and remove repo from s.
     s = remove_initial_match(s, repo.lower())
     s.strip()
+
+    # A pre-release qualifier followed only by its own number (for example `FFMS2beta10`) is a
+    # pre-release counter, not a version.
+    if _QUALIFIER_ONLY_RE.match(s.strip('.-_ ')):
+        return ''
 
     if m := re.search(r'[-_]?([0-9][0-9\._-].*)', s):
         return m.group(1).strip()
