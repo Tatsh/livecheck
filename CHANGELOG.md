@@ -24,6 +24,11 @@ and this project adheres to
 
 ### Fixed
 
+- Apply a connect and read timeout (10 and 30 seconds) to every HTTP request. Requests made by the
+  main fetch helper previously had no timeout at all, so a host that silently drops connections (for
+  example the retired `cgit.freedesktop.org`) stalled the whole run indefinitely with no output.
+  These requests also now go through the session's rate limiting and concurrency limiting, which
+  they previously bypassed.
 - Discover packages with Portage's own `category/package` listing instead of globbing for
   `**/*.ebuild` and assuming the two parent directory names form an atom. An unrelated directory in
   the repository containing an ebuild (for example a scratch or build directory) previously aborted

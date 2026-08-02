@@ -18,11 +18,16 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     import asyncio
 
-__all__ = ('TextDataResponse', 'close_sessions', 'get_content', 'get_last_modified', 'hash_url',
-           'init_sessions', 'session_init')
+__all__ = ('REQUEST_TIMEOUT', 'TextDataResponse', 'close_sessions', 'get_content',
+           'get_last_modified', 'hash_url', 'init_sessions', 'session_init')
 
 log = logging.getLogger(__name__)
 
+REQUEST_TIMEOUT = (10.0, 30.0)
+"""Connect and read timeouts in seconds applied to every request.
+
+:meta hide-value:
+"""
 _semaphore: asyncio.Semaphore | None = None
 _sessions: dict[str, niquests.AsyncSession] = {}
 
@@ -107,7 +112,6 @@ def session_init(module: str) -> niquests.AsyncSession:
             if token:
                 session.headers['Authorization'] = f'Bearer {token}'
             session.headers['Accept'] = 'application/json'
-    session.headers['timeout'] = '30'
     _sessions[module] = session
     return session
 
@@ -167,15 +171,20 @@ async def get_content(url: str,
     else:
         session = session_init('')
 
-    if headers:
-        for key, value in headers.items():
-            session.headers[key] = value
-
     r: TextDataResponse | niquests.Response
     try:
-        req = niquests.Request(method=method.upper(), url=url, data=data, params=params)
-        prepared = session.prepare_request(req)
-        r = await session.send(prepared, allow_redirects=allow_redirects)
+        r = await session.request(method.upper(),
+                                  url,
+                                  allow_redirects=allow_redirects,
+                                  data=data,
+                                  headers=dict(headers) if headers else None,
+                                  params=params,
+                                  timeout=REQUEST_TIMEOUT)
+    except niquests.Timeout:
+        log.exception('Timed out fetching `%s`.', url)
+        r = niquests.Response()
+        r.status_code = HTTPStatus.GATEWAY_TIMEOUT
+        return r
     except niquests.RequestException:
         log.exception('Caught error attempting to fetch `%s`.', url)
         r = niquests.Response()
@@ -245,7 +254,7 @@ async def hash_url(url: str,
                               headers=dict(headers) if headers else None,
                               params=params,
                               stream=True,
-                              timeout=30)
+                              timeout=REQUEST_TIMEOUT)
         r.raise_for_status()
         return await _hash_response_content(r)
     except niquests.RequestException:
@@ -279,7 +288,7 @@ async def get_last_modified(url: str,
         r = await session.head(url,
                                headers=dict(headers) if headers else None,
                                params=params,
-                               timeout=30)
+                               timeout=REQUEST_TIMEOUT)
         r.raise_for_status()
         if last_modified := str(r.headers.get('last-modified', '')):
             return parsedate_to_datetime(last_modified).strftime('%Y%m%d')

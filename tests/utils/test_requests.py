@@ -5,7 +5,13 @@ from typing import TYPE_CHECKING
 import hashlib
 import re
 
-from livecheck.utils.requests import get_content, get_last_modified, hash_url, session_init
+from livecheck.utils.requests import (
+    REQUEST_TIMEOUT,
+    get_content,
+    get_last_modified,
+    hash_url,
+    session_init,
+)
 import niquests
 import pytest
 
@@ -98,7 +104,7 @@ def test_session_init_github_sets_headers_and_token(mocker: MockerFixture) -> No
     session = session_init('github')
     assert session.headers['Authorization'] == 'Bearer gh-token'
     assert session.headers['Accept'] == 'application/vnd.github.v3+json'
-    assert session.headers['timeout'] == '30'
+    assert 'timeout' not in session.headers
 
 
 def test_session_init_github_no_token(mocker: MockerFixture) -> None:
@@ -106,7 +112,7 @@ def test_session_init_github_no_token(mocker: MockerFixture) -> None:
     session = session_init('github')
     assert 'Authorization' not in session.headers
     assert session.headers['Accept'] == 'application/vnd.github.v3+json'
-    assert session.headers['timeout'] == '30'
+    assert 'timeout' not in session.headers
 
 
 def test_session_init_gitlab_sets_headers_and_token(mocker: MockerFixture) -> None:
@@ -114,7 +120,7 @@ def test_session_init_gitlab_sets_headers_and_token(mocker: MockerFixture) -> No
     session = session_init('gitlab')
     assert session.headers['Authorization'] == 'Bearer gl-token'
     assert session.headers['Accept'] == 'application/json'
-    assert session.headers['timeout'] == '30'
+    assert 'timeout' not in session.headers
 
 
 def test_session_init_bitbucket_sets_headers_and_token(mocker: MockerFixture) -> None:
@@ -122,24 +128,24 @@ def test_session_init_bitbucket_sets_headers_and_token(mocker: MockerFixture) ->
     session = session_init('bitbucket')
     assert session.headers['Authorization'] == 'Bearer bb-token'
     assert session.headers['Accept'] == 'application/json'
-    assert session.headers['timeout'] == '30'
+    assert 'timeout' not in session.headers
 
 
 def test_session_init_xml_sets_accept_header() -> None:
     session = session_init('xml')
     assert session.headers['Accept'] == 'application/xml'
-    assert session.headers['timeout'] == '30'
+    assert 'timeout' not in session.headers
 
 
 def test_session_init_json_sets_accept_header() -> None:
     session = session_init('json')
     assert session.headers['Accept'] == 'application/json'
-    assert session.headers['timeout'] == '30'
+    assert 'timeout' not in session.headers
 
 
 def test_session_init_default() -> None:
     session = session_init('')
-    assert session.headers['timeout'] == '30'
+    assert 'timeout' not in session.headers
 
 
 def test_session_init_gitlab_no_token(mocker: MockerFixture) -> None:
@@ -147,7 +153,7 @@ def test_session_init_gitlab_no_token(mocker: MockerFixture) -> None:
     session = session_init('gitlab')
     assert 'Authorization' not in session.headers
     assert session.headers['Accept'] == 'application/json'
-    assert session.headers['timeout'] == '30'
+    assert 'timeout' not in session.headers
 
 
 def test_session_init_bitbucket_no_token(mocker: MockerFixture) -> None:
@@ -155,14 +161,39 @@ def test_session_init_bitbucket_no_token(mocker: MockerFixture) -> None:
     session = session_init('bitbucket')
     assert 'Authorization' not in session.headers
     assert session.headers['Accept'] == 'application/json'
-    assert session.headers['timeout'] == '30'
+    assert 'timeout' not in session.headers
+
+
+@pytest.mark.asyncio
+async def test_get_content_passes_timeout(mocker: MockerFixture) -> None:
+    mock_request = mocker.patch.object(session_init(''), 'request')
+    mock_request.return_value.status_code = HTTPStatus.OK
+    await get_content('https://example.com/file.txt')
+    assert mock_request.call_args.kwargs['timeout'] == REQUEST_TIMEOUT
+
+
+@pytest.mark.asyncio
+async def test_get_content_timeout(mocker: MockerFixture) -> None:
+    mocker.patch.object(session_init(''), 'request', side_effect=niquests.Timeout('too slow'))
+    r = await get_content('https://example.com/file.txt')
+    assert r.status_code == HTTPStatus.GATEWAY_TIMEOUT
+
+
+@pytest.mark.asyncio
+async def test_get_content_does_not_mutate_session_headers(mocker: MockerFixture) -> None:
+    session = session_init('')
+    mock_request = mocker.patch.object(session, 'request')
+    mock_request.return_value.status_code = HTTPStatus.OK
+    await get_content('https://example.com/file.txt', headers={'Referer': 'https://example.com'})
+    assert mock_request.call_args.kwargs['headers'] == {'Referer': 'https://example.com'}
+    assert 'Referer' not in session.headers
 
 
 @pytest.mark.asyncio
 async def test_hash_url_success(mocker: MockerFixture) -> None:
     url = 'https://example.com/file.txt'
 
-    async def _iter_content(chunk_size: int = 8192) -> AsyncGenerator[bytes]:
+    async def _iter_content() -> AsyncGenerator[bytes]:  # ruff:ignore[unused-async]
         for chunk in (b'abc', b'def'):
             yield chunk
 
@@ -192,7 +223,7 @@ async def test_hash_url_request_exception(mocker: MockerFixture) -> None:
 async def test_hash_url_with_headers_and_params(mocker: MockerFixture) -> None:
     url = 'https://example.com/file.txt'
 
-    async def _iter_content(chunk_size: int = 8192) -> AsyncGenerator[bytes]:
+    async def _iter_content() -> AsyncGenerator[bytes]:  # ruff:ignore[unused-async]
         for chunk in (b'abc',):
             yield chunk
 
@@ -312,7 +343,7 @@ async def test_get_content_request_exception(mocker: MockerFixture) -> None:
 async def test_hash_url_skips_empty_chunks(mocker: MockerFixture) -> None:
     url = 'https://example.com/file.txt'
 
-    async def _iter_content(chunk_size: int = 8192) -> AsyncGenerator[bytes]:
+    async def _iter_content() -> AsyncGenerator[bytes]:  # ruff:ignore[unused-async]
         for chunk in (b'abc', b'', b'def'):
             yield chunk
 
