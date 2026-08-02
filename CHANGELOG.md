@@ -29,6 +29,8 @@ and this project adheres to
   example the retired `cgit.freedesktop.org`) stalled the whole run indefinitely with no output.
   These requests also now go through the session's rate limiting and concurrency limiting, which
   they previously bypassed.
+- Report package checks that have not finished after 30 seconds, naming each package and how long it
+  has been running, so a stalled run identifies itself instead of appearing to hang.
 - Discover packages with Portage's own `category/package` listing instead of globbing for
   `**/*.ebuild` and assuming the two parent directory names form an atom. An unrelated directory in
   the repository containing an ebuild (for example a scratch or build directory) previously aborted

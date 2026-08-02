@@ -137,13 +137,13 @@ from .utils.portage import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Mapping, Sequence
 
     from .typing import PropTuple
 
 log = logging.getLogger(__name__)
 
-__all__ = ('HookError', 'main')
+__all__ = ('STALL_REPORT_INTERVAL', 'HookError', 'main')
 
 
 class HookError(RuntimeError):
@@ -562,6 +562,30 @@ async def _check_one_package(  # ruff:ignore[complex-structure, too-many-branche
     return None
 
 
+STALL_REPORT_INTERVAL = 30.0
+"""Seconds between reports of package checks that have not finished yet.
+
+:meta hide-value:
+"""
+_STALL_REPORT_NAMES = 10
+
+
+async def _watch_in_flight(in_flight: Mapping[str, float], interval: float) -> None:
+    while True:
+        await asyncio.sleep(interval)
+        now = asyncio.get_running_loop().time()
+        if not (stalled := sorted(
+            ((now - started, name)
+             for name, started in in_flight.items() if now - started >= interval),
+                reverse=True)):
+            continue
+        log.warning(
+            'Still waiting on %d package check%s (longest first): %s. Enable debug logging to see '
+            'the last URL fetched for each.', len(stalled), 's' if len(stalled) != 1 else '',
+            ', '.join(
+                f'{name} ({elapsed:.0f}s)' for elapsed, name in stalled[:_STALL_REPORT_NAMES]))
+
+
 async def get_props(search_dir: Path,
                     repo_root: Path,
                     settings: LivecheckSettings,
@@ -605,17 +629,26 @@ async def get_props(search_dir: Path,
     sem = asyncio.Semaphore(parallel)
     total = len(matches_list)
     completed = 0
+    in_flight: dict[str, float] = {}
 
     async def _bounded(match_: str) -> PropTuple | None:
         nonlocal completed
         async with sem:
-            result = await _check_one_package(match_, settings, repo_root, exclude)
+            in_flight[match_] = asyncio.get_running_loop().time()
+            try:
+                result = await _check_one_package(match_, settings, repo_root, exclude)
+            finally:
+                del in_flight[match_]
             completed += 1
             if settings.progress_flag:
                 log.info('Progress: %d/%d packages checked.', completed, total)
             return result
 
-    results = await asyncio.gather(*(_bounded(m) for m in matches_list))
+    watchdog = asyncio.create_task(_watch_in_flight(in_flight, STALL_REPORT_INTERVAL))
+    try:
+        results = await asyncio.gather(*(_bounded(m) for m in matches_list))
+    finally:
+        watchdog.cancel()
     return [r for r in results if r is not None]
 
 

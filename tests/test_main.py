@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
+import asyncio
 import logging
 
 from defusedxml import ElementTree as ET  # ruff:ignore[camelcase-imported-as-acronym]
@@ -2452,6 +2453,35 @@ async def test_get_props_basic_yields(mocker: MockerFixture, fake_repo: Path,
     assert results == [('cat', 'pkg', '1.0.0', 'ver', 'sha', 'date',
                         'https://example.com/pkg-1.0.0.tar.gz')]
     assert not any(call.args[0].startswith('Progress:') for call in mock_log.info.call_args_list)
+
+
+@pytest.mark.asyncio
+async def test_get_props_reports_stalled_package(mocker: MockerFixture, fake_repo: Path,
+                                                 mock_settings2: Mock) -> None:
+    mocker.patch('livecheck.main.STALL_REPORT_INTERVAL', 0.01)
+    mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
+    mocker.patch('livecheck.main.catpkg_catpkgsplit',
+                 return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
+
+    async def _slow_src_uri(*_: Any, **__: Any) -> str:
+        await asyncio.sleep(0.05)
+        return ''
+
+    mocker.patch('livecheck.main.get_first_src_uri', side_effect=_slow_src_uri)
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
+    mocker.patch('livecheck.main.get_aux', new_callable=mocker.AsyncMock, return_value=[''])
+    mocker.patch('livecheck.main.parse_url', return_value=('', '', '', ''))
+    mocker.patch('livecheck.main.parse_metadata', return_value=('', '', '', ''))
+    mocker.patch('livecheck.main.get_latest_repology', return_value='')
+    mocker.patch('livecheck.main.get_latest_directory_package', return_value=('', ''))
+    mock_log = mocker.patch('livecheck.main.log')
+    await get_props(search_dir=fake_repo,
+                    repo_root=fake_repo,
+                    settings=mock_settings2,
+                    names=['cat/pkg'],
+                    exclude=[])
+    assert any('Still waiting on' in call.args[0] for call in mock_log.warning.call_args_list)
+    assert any('cat/pkg-1.0.0' in call.args[3] for call in mock_log.warning.call_args_list)
 
 
 @pytest.mark.asyncio
