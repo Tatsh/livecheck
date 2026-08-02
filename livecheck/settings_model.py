@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from .dist_github import DistGitHubSettings
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping
+    from collections.abc import Callable
 
 __all__ = ('LivecheckSettings',)
 
@@ -34,7 +34,7 @@ class LivecheckSettings:
     no_auto_update: set[str] = field(default_factory=set)
     """Disable auto-detection of semantic versioning."""
     sha_sources: dict[str, str] = field(default_factory=dict)
-    transformations: Mapping[str, Callable[[str], str]] = field(default_factory=dict)
+    transformations: dict[str, Callable[[str], str]] = field(default_factory=dict)
     yarn_base_packages: dict[str, str] = field(default_factory=dict)
     yarn_packages: dict[str, set[str]] = field(default_factory=dict)
     jetbrains_packages: dict[str, bool] = field(default_factory=dict)

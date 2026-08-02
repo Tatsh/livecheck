@@ -1,7 +1,7 @@
 """Settings."""
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 import json
 import logging
@@ -12,7 +12,7 @@ from .constants import PACKAGE_MANAGERS
 from .settings_model import LivecheckSettings
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Mapping
     from pathlib import Path
 
 __all__ = ('TYPE_CHANGELOG', 'TYPE_CHECKSUM', 'TYPE_COMMIT', 'TYPE_DAVINCI', 'TYPE_DIRECTORY',
@@ -43,9 +43,216 @@ class UnknownTransformationFunction(NameError):
         super().__init__(f'Unknown transformation function: {tfs}')
 
 
+def _apply_type(settings: LivecheckSettings, parsed: Mapping[str, Any], catpkg: str,
+                path: Path) -> bool:
+    if parsed.get('type') is None:
+        return True
+    type_ = parsed['type'].lower()
+    if type_ == TYPE_REGEX:
+        if parsed.get('url') is None:
+            log.error('No "url" in %s.', path)
+            return False
+        if parsed.get('regex') is None:
+            log.error('No "regex" in %s.', path)
+            return False
+        settings.custom_livechecks[catpkg] = (parsed['url'], parsed['regex'])
+    if type_ == TYPE_REPOLOGY:
+        if parsed.get('package') is None:
+            log.error('No "package" in %s.', path)
+            return False
+        settings.custom_livechecks[catpkg] = (parsed['package'], '')
+    if type_ == TYPE_DIRECTORY:
+        if parsed.get('url') is None:
+            log.error('No "url" in %s.', path)
+            return False
+        settings.custom_livechecks[catpkg] = (parsed['url'], '')
+    if type_ == TYPE_CHANGELOG:
+        if parsed.get('url') is None:
+            log.error('No "url" in %s.', path)
+            return False
+        check_instance(parsed['url'], 'url', 'url', path)
+        settings.custom_livechecks[catpkg] = (parsed['url'], '')
+    if type_ == TYPE_CHECKSUM and parsed.get('url') is not None:
+        settings.custom_livechecks[catpkg] = (parsed['url'], '')
+    if type_ == TYPE_LOCATION_CHECKSUM:
+        if parsed.get('url') is None:
+            log.error('No "url" in %s.', path)
+            return False
+        settings.custom_livechecks[catpkg] = (parsed['url'], '')
+    if type_ not in SETTINGS_TYPES:
+        log.error('Unknown "type" in %s.', path)
+    else:
+        settings.type_packages[catpkg] = type_
+    return True
+
+
+def _apply_general(settings: LivecheckSettings, parsed: Mapping[str, Any], catpkg: str,
+                   path: Path) -> bool:
+    # Prevent circular import.
+    import livecheck.special.handlers as sc  # ruff:ignore[import-outside-top-level]
+
+    if parsed.get('branch'):
+        check_instance(parsed['branch'], 'branch', 'string', path)
+        settings.branches[catpkg] = parsed['branch']
+    if 'no_auto_update' in parsed:
+        check_instance(parsed['no_auto_update'],
+                       'no_auto_update',
+                       'bool',
+                       path,
+                       specific_value=True)
+        settings.no_auto_update.add(catpkg)
+    if parsed.get('transformation_function'):
+        tfs = parsed['transformation_function']
+        check_instance(tfs, 'transformation_function', 'string', path)
+        try:
+            tf: Callable[[str], str] = getattr(sc, tfs)
+        except AttributeError:
+            try:
+                tf = getattr(utils, tfs)
+            except AttributeError as e:
+                raise UnknownTransformationFunction(tfs) from e
+        settings.transformations[catpkg] = tf
+    if parsed.get('sha_source'):
+        check_instance(parsed['sha_source'], 'sha_source', 'url', path)
+        settings.sha_sources[catpkg] = parsed['sha_source']
+    if parsed.get('dist_github_repository'):
+        check_instance(parsed['dist_github_repository'], 'dist_github_repository', 'string', path)
+        settings.dist_github_repositories[catpkg] = parsed['dist_github_repository']
+    if parsed.get('dist_github_release'):
+        check_instance(parsed['dist_github_release'], 'dist_github_release', 'string', path)
+        settings.dist_github_releases[catpkg] = parsed['dist_github_release']
+    if 'jetbrains' in parsed:
+        check_instance(parsed['jetbrains'], 'jetbrains', 'bool', path)
+        settings.jetbrains_packages[catpkg] = parsed['jetbrains']
+    if 'keep_old' in parsed:
+        check_instance(parsed['keep_old'], 'keep_old', 'bool', path)
+        settings.keep_old[catpkg] = parsed['keep_old']
+    if 'development' in parsed:
+        check_instance(parsed['development'], 'development', 'bool', path)
+        settings.development[catpkg] = parsed['development']
+    return True
+
+
+def _apply_vendor(settings: LivecheckSettings, parsed: Mapping[str, Any], catpkg: str,
+                  path: Path) -> bool:
+    if parsed.get('yarn_base_package'):
+        check_instance(parsed['yarn_base_package'], 'yarn_base_package', 'string', path)
+        settings.yarn_base_packages[catpkg] = parsed['yarn_base_package']
+        if parsed.get('yarn_packages'):
+            check_instance(parsed['yarn_packages'], 'yarn_packages', 'list', path)
+            settings.yarn_packages[catpkg] = set(parsed['yarn_packages'])
+    if parsed.get('go_sum_uri'):
+        check_instance(parsed['go_sum_uri'], 'go_sum_uri', 'url', path)
+        settings.go_sum_uri[catpkg] = parsed['go_sum_uri']
+    if parsed.get('dotnet_project'):
+        check_instance(parsed['dotnet_project'], 'dotnet_project', 'string', path)
+        settings.dotnet_projects[catpkg] = parsed['dotnet_project']
+    if 'dotnet_packages' in parsed:
+        check_instance(parsed['dotnet_packages'], 'dotnet_packages', 'bool', path)
+        settings.dotnet_packages[catpkg] = parsed['dotnet_packages']
+    if 'gomodule' in parsed:
+        check_instance(parsed['gomodule'], 'gomodule', 'bool', path)
+        settings.gomodule_packages[catpkg] = parsed['gomodule']
+        settings.gomodule_path[catpkg] = ''
+        if parsed.get('gomodule_path'):
+            check_instance(parsed['gomodule_path'], 'gomodule_path', 'string', path)
+            settings.gomodule_path[catpkg] = parsed['gomodule_path']
+    if 'nodejs' in parsed:
+        _apply_nodejs(settings, parsed, catpkg, path)
+    if 'composer' in parsed:
+        check_instance(parsed['composer'], 'composer', 'bool', path)
+        settings.composer_packages[catpkg] = parsed['composer']
+        settings.composer_path[catpkg] = ''
+        if parsed.get('composer_path'):
+            check_instance(parsed['composer_path'], 'composer_path', 'string', path)
+            settings.composer_path[catpkg] = parsed['composer_path']
+    if 'maven' in parsed:
+        check_instance(parsed['maven'], 'maven', 'bool', path)
+        settings.maven_packages[catpkg] = parsed['maven']
+        settings.maven_path[catpkg] = ''
+        if parsed.get('maven_path'):
+            check_instance(parsed['maven_path'], 'maven_path', 'string', path)
+            settings.maven_path[catpkg] = parsed['maven_path']
+    return True
+
+
+def _apply_nodejs(settings: LivecheckSettings, parsed: Mapping[str, Any], catpkg: str,
+                  path: Path) -> None:
+    check_instance(parsed['nodejs'], 'nodejs', 'bool', path)
+    settings.nodejs_packages[catpkg] = parsed['nodejs']
+    settings.nodejs_path[catpkg] = ''
+    if parsed.get('nodejs_path'):
+        check_instance(parsed['nodejs_path'], 'nodejs_path', 'string', path)
+        settings.nodejs_path[catpkg] = parsed['nodejs_path']
+    if parsed.get('nodejs_package_manager'):
+        check_instance(parsed['nodejs_package_manager'], 'nodejs_package_manager', 'string', path)
+        manager = parsed['nodejs_package_manager'].lower()
+        if manager not in PACKAGE_MANAGERS:
+            log.error('Invalid "nodejs_package_manager" in %s.', path)
+        else:
+            settings.nodejs_package_managers[catpkg] = manager
+
+
+def _apply_version(settings: LivecheckSettings, parsed: Mapping[str, Any], catpkg: str,
+                   path: Path) -> bool:
+    if 'pattern_version' in parsed or 'replace_version' in parsed:
+        if 'pattern_version' not in parsed:
+            log.error('No "pattern_version" in %s.', path)
+            return False
+        if 'replace_version' not in parsed:
+            log.error('No "replace_version" in %s.', path)
+            return False
+        check_instance(parsed['pattern_version'], 'pattern_version', 'regex', path)
+        check_instance(parsed['replace_version'], 'replace_version', 'string', path)
+        settings.regex_version[catpkg] = (parsed['pattern_version'], parsed['replace_version'])
+    if 'restrict_version' in parsed:
+        if parsed['restrict_version'].lower() not in {'full', 'major', 'minor'}:
+            log.error('Invalid "restrict_version" in %s.', path)
+            return False
+        settings.restrict_version[catpkg] = parsed['restrict_version'].lower()
+    if 'sync_version' in parsed:
+        check_instance(parsed['sync_version'], 'sync_version', 'string', path)
+        settings.sync_version[catpkg] = parsed['sync_version']
+    if 'stable_version' in parsed:
+        check_instance(parsed['stable_version'], 'stable_version', 'regex', path)
+        settings.stable_version[catpkg] = parsed['stable_version']
+    return True
+
+
+def _apply_request(settings: LivecheckSettings, parsed: Mapping[str, Any], catpkg: str,
+                   path: Path) -> bool:
+    if 'headers' in parsed:
+        check_instance(parsed['headers'], 'headers', 'dict', path)
+        settings.request_headers[catpkg] = parsed['headers']
+    if 'params' in parsed:
+        check_instance(parsed['params'], 'params', 'dict', path)
+        settings.request_params[catpkg] = parsed['params']
+    if 'method' in parsed:
+        check_instance(parsed['method'], 'method', 'string', path)
+        method = parsed['method'].upper()
+        if method not in {'DELETE', 'GET', 'HEAD', 'PATCH', 'POST', 'PUT'}:
+            log.error('Invalid "method" in %s. Must be GET, POST, PUT, DELETE, PATCH, or HEAD.',
+                      path)
+        else:
+            settings.request_method[catpkg] = method
+    if 'data' in parsed:
+        check_instance(parsed['data'], 'data', 'dict', path)
+        settings.request_data[catpkg] = parsed['data']
+    if 'multiline' in parsed:
+        check_instance(parsed['multiline'], 'multiline', 'bool', path)
+        settings.regex_multiline[catpkg] = parsed['multiline']
+    return True
+
+
+_APPLIERS = (_apply_type, _apply_general, _apply_vendor, _apply_version, _apply_request)
+
+
 def gather_settings(search_dir: Path) -> LivecheckSettings:
     """
     Gather settings from ``livecheck.json`` files in the given directory.
+
+    A configuration naming an unknown ``transformation_function`` propagates
+    :py:class:`UnknownTransformationFunction`.
 
     Parameters
     ----------
@@ -56,280 +263,29 @@ def gather_settings(search_dir: Path) -> LivecheckSettings:
     -------
     LivecheckSettings
         Merged settings loaded from discovered configuration.
-
-    Raises
-    ------
-    UnknownTransformationFunction
-        If a transformation function is invalid.
     """
-    # Prevent circular import.
-    import livecheck.special.handlers as sc  # ruff:ignore[import-outside-top-level]
-
-    branches: dict[str, str] = {}
-    custom_livechecks: dict[str, tuple[str, str]] = {}
-    dist_github_repositories: dict[str, str] = {}
-    dist_github_releases: dict[str, str] = {}
-    dotnet_packages: dict[str, bool] = {}
-    dotnet_projects: dict[str, str] = {}
-    golang_packages: dict[str, str] = {}
-    type_packages: dict[str, str] = {}
-    no_auto_update: set[str] = set()
-    sha_sources: dict[str, str] = {}
-    transformations: dict[str, Callable[[str], str]] = {}
-    yarn_base_packages: dict[str, str] = {}
-    yarn_packages: dict[str, set[str]] = {}
-    jetbrains_packages: dict[str, bool] = {}
-    keep_old: dict[str, bool] = {}
-    gomodule_packages: dict[str, bool] = {}
-    gomodule_path: dict[str, str] = {}
-    nodejs_packages: dict[str, bool] = {}
-    nodejs_path: dict[str, str] = {}
-    nodejs_package_managers: dict[str, str] = {}
-    development: dict[str, bool] = {}
-    composer_packages: dict[str, bool] = {}
-    composer_path: dict[str, str] = {}
-    maven_packages: dict[str, bool] = {}
-    maven_path: dict[str, str] = {}
-    regex_version: dict[str, tuple[str, str]] = {}
-    restrict_version: dict[str, str] = {}
-    sync_version: dict[str, str] = {}
-    stable_version: dict[str, str] = {}
-    request_headers: dict[str, dict[str, str]] = {}
-    request_params: dict[str, dict[str, str]] = {}
-    request_method: dict[str, str] = {}
-    request_data: dict[str, dict[str, str]] = {}
-    regex_multiline: dict[str, bool] = {}
-
+    settings = LivecheckSettings()
     for path in search_dir.glob('**/livecheck.json'):
         log.debug('Opening %s.', path)
         with path.open() as f:
-            dn = path.parent
-            catpkg = f'{dn.parent.name}/{dn.name}'
             try:
-                settings_parsed = json.load(f)
+                parsed = json.load(f)
             except json.JSONDecodeError:
                 log.exception('Error parsing file %s.', path)
                 continue
-            if settings_parsed.get('type') is not None:
-                type_ = settings_parsed.get('type').lower()
-                if type_ == TYPE_REGEX:
-                    if settings_parsed.get('url') is None:
-                        log.error('No "url" in %s.', path)
-                        continue
-                    if settings_parsed.get('regex') is None:
-                        log.error('No "regex" in %s.', path)
-                        continue
-                    custom_livechecks[catpkg] = (settings_parsed['url'], settings_parsed['regex'])
-                if type_ == TYPE_REPOLOGY:
-                    if settings_parsed.get('package') is None:
-                        log.error('No "package" in %s.', path)
-                        continue
-                    custom_livechecks[catpkg] = (settings_parsed.get('package'), '')
-                if type_ == TYPE_DIRECTORY:
-                    if settings_parsed.get('url') is None:
-                        log.error('No "url" in %s.', path)
-                        continue
-                    custom_livechecks[catpkg] = (settings_parsed.get('url'), '')
-                if type_ == TYPE_CHANGELOG:
-                    if settings_parsed.get('url') is None:
-                        log.error('No "url" in %s.', path)
-                        continue
-                    check_instance(settings_parsed['url'], 'url', 'url', path)
-                    custom_livechecks[catpkg] = (settings_parsed['url'], '')
-                if type_ == TYPE_CHECKSUM and settings_parsed.get('url') is not None:
-                    custom_livechecks[catpkg] = (settings_parsed.get('url'), '')
-                if type_ == TYPE_LOCATION_CHECKSUM:
-                    if settings_parsed.get('url') is None:
-                        log.error('No "url" in %s.', path)
-                        continue
-                    custom_livechecks[catpkg] = (settings_parsed.get('url'), '')
-                if type_ not in SETTINGS_TYPES:
-                    log.error('Unknown "type" in %s.', path)
-                else:
-                    type_packages[catpkg] = type_
-
-            if settings_parsed.get('branch'):
-                check_instance(settings_parsed['branch'], 'branch', 'string', path)
-                branches[catpkg] = settings_parsed['branch']
-            if 'no_auto_update' in settings_parsed:
-                check_instance(settings_parsed['no_auto_update'], 'no_auto_update', 'bool', path,
-                               True)  # ruff:ignore[boolean-positional-value-in-call]
-                no_auto_update.add(catpkg)
-            if settings_parsed.get('transformation_function', None):
-                tfs = settings_parsed['transformation_function']
-                check_instance(settings_parsed['transformation_function'],
-                               'transformation_function', 'string', path)
-                try:
-                    tf: Callable[[str], str] = getattr(sc, tfs)
-                except AttributeError:
-                    try:
-                        tf = getattr(utils, tfs)
-                    except AttributeError as e:
-                        raise UnknownTransformationFunction(tfs) from e
-                transformations[catpkg] = tf
-            if settings_parsed.get('sha_source'):
-                check_instance(settings_parsed['sha_source'], 'sha_source', 'url', path)
-                sha_sources[catpkg] = settings_parsed['sha_source']
-            if settings_parsed.get('yarn_base_package'):
-                check_instance(settings_parsed['yarn_base_package'], 'yarn_base_package', 'string',
-                               path)
-                yarn_base_packages[catpkg] = settings_parsed['yarn_base_package']
-                if settings_parsed.get('yarn_packages'):
-                    check_instance(settings_parsed['yarn_packages'], 'yarn_packages', 'list', path)
-                    yarn_packages[catpkg] = set(settings_parsed['yarn_packages'])
-            if settings_parsed.get('go_sum_uri'):
-                check_instance(settings_parsed['go_sum_uri'], 'go_sum_uri', 'url', path)
-                golang_packages[catpkg] = settings_parsed['go_sum_uri']
-            if settings_parsed.get('dotnet_project'):
-                check_instance(settings_parsed['dotnet_project'], 'dotnet_project', 'string', path)
-                dotnet_projects[catpkg] = settings_parsed['dotnet_project']
-            if 'dotnet_packages' in settings_parsed:
-                check_instance(settings_parsed['dotnet_packages'], 'dotnet_packages', 'bool', path)
-                dotnet_packages[catpkg] = settings_parsed['dotnet_packages']
-            if settings_parsed.get('dist_github_repository'):
-                check_instance(settings_parsed['dist_github_repository'], 'dist_github_repository',
-                               'string', path)
-                dist_github_repositories[catpkg] = settings_parsed['dist_github_repository']
-            if settings_parsed.get('dist_github_release'):
-                check_instance(settings_parsed['dist_github_release'], 'dist_github_release',
-                               'string', path)
-                dist_github_releases[catpkg] = settings_parsed['dist_github_release']
-            if 'jetbrains' in settings_parsed:
-                check_instance(settings_parsed['jetbrains'], 'jetbrains', 'bool', path)
-                jetbrains_packages[catpkg] = settings_parsed['jetbrains']
-            if 'keep_old' in settings_parsed:
-                check_instance(settings_parsed['keep_old'], 'keep_old', 'bool', path)
-                keep_old[catpkg] = settings_parsed['keep_old']
-            if 'gomodule' in settings_parsed:
-                check_instance(settings_parsed['gomodule'], 'gomodule', 'bool', path)
-                gomodule_packages[catpkg] = settings_parsed['gomodule']
-                gomodule_path[catpkg] = ''
-                if settings_parsed.get('gomodule_path'):
-                    check_instance(settings_parsed['gomodule_path'], 'gomodule_path', 'string',
-                                   path)
-                    gomodule_path[catpkg] = settings_parsed['gomodule_path']
-            if 'nodejs' in settings_parsed:
-                check_instance(settings_parsed['nodejs'], 'nodejs', 'bool', path)
-                nodejs_packages[catpkg] = settings_parsed['nodejs']
-                nodejs_path[catpkg] = ''
-                if settings_parsed.get('nodejs_path'):
-                    check_instance(settings_parsed['nodejs_path'], 'nodejs_path', 'string', path)
-                    nodejs_path[catpkg] = settings_parsed['nodejs_path']
-                if settings_parsed.get('nodejs_package_manager'):
-                    check_instance(settings_parsed['nodejs_package_manager'],
-                                   'nodejs_package_manager', 'string', path)
-                    manager = settings_parsed['nodejs_package_manager'].lower()
-                    if manager not in PACKAGE_MANAGERS:
-                        log.error('Invalid "nodejs_package_manager" in %s.', path)
-                    else:
-                        nodejs_package_managers[catpkg] = manager
-            if 'development' in settings_parsed:
-                check_instance(settings_parsed['development'], 'development', 'bool', path)
-                development[catpkg] = settings_parsed['development']
-            if 'composer' in settings_parsed:
-                check_instance(settings_parsed['composer'], 'composer', 'bool', path)
-                composer_packages[catpkg] = settings_parsed['composer']
-                composer_path[catpkg] = ''
-                if settings_parsed.get('composer_path'):
-                    check_instance(settings_parsed['composer_path'], 'composer_path', 'string',
-                                   path)
-                    composer_path[catpkg] = settings_parsed['composer_path']
-            if 'maven' in settings_parsed:
-                check_instance(settings_parsed['maven'], 'maven', 'bool', path)
-                maven_packages[catpkg] = settings_parsed['maven']
-                maven_path[catpkg] = ''
-                if settings_parsed.get('maven_path'):
-                    check_instance(settings_parsed['maven_path'], 'maven_path', 'string', path)
-                    maven_path[catpkg] = settings_parsed['maven_path']
-            if 'pattern_version' in settings_parsed or 'replace_version' in settings_parsed:
-                if 'pattern_version' not in settings_parsed:
-                    log.error('No "pattern_version" in %s.', path)
-                    continue
-                if 'replace_version' not in settings_parsed:
-                    log.error('No "replace_version" in %s.', path)
-                    continue
-                check_instance(settings_parsed['pattern_version'], 'pattern_version', 'regex', path)
-                check_instance(settings_parsed['replace_version'], 'replace_version', 'string',
-                               path)
-                regex_version[catpkg] = (settings_parsed['pattern_version'],
-                                         settings_parsed['replace_version'])
-            if 'restrict_version' in settings_parsed:
-                if settings_parsed.get('restrict_version').lower(
-                ) != 'full' and settings_parsed.get('restrict_version').lower(
-                ) != 'major' and settings_parsed.get('restrict_version').lower() != 'minor':
-                    log.error('Invalid "restrict_version" in %s.', path)
-                    continue
-                restrict_version[catpkg] = settings_parsed['restrict_version'].lower()
-            if 'sync_version' in settings_parsed:
-                check_instance(settings_parsed['sync_version'], 'sync_version', 'string', path)
-                sync_version[catpkg] = settings_parsed['sync_version']
-            if 'stable_version' in settings_parsed:
-                check_instance(settings_parsed['stable_version'], 'stable_version', 'regex', path)
-                stable_version[catpkg] = settings_parsed['stable_version']
-            if 'headers' in settings_parsed:
-                check_instance(settings_parsed['headers'], 'headers', 'dict', path)
-                request_headers[catpkg] = settings_parsed['headers']
-            if 'params' in settings_parsed:
-                check_instance(settings_parsed['params'], 'params', 'dict', path)
-                request_params[catpkg] = settings_parsed['params']
-            if 'method' in settings_parsed:
-                check_instance(settings_parsed['method'], 'method', 'string', path)
-                method = settings_parsed['method'].upper()
-                if method not in {'DELETE', 'GET', 'HEAD', 'PATCH', 'POST', 'PUT'}:
-                    log.error(
-                        'Invalid "method" in %s. Must be GET, POST, PUT, DELETE, PATCH, or '
-                        'HEAD.', path)
-                else:
-                    request_method[catpkg] = method
-            if 'data' in settings_parsed:
-                check_instance(settings_parsed['data'], 'data', 'dict', path)
-                request_data[catpkg] = settings_parsed['data']
-            if 'multiline' in settings_parsed:
-                check_instance(settings_parsed['multiline'], 'multiline', 'bool', path)
-                regex_multiline[catpkg] = settings_parsed['multiline']
-
-    return LivecheckSettings(branches=branches,
-                             composer_packages=composer_packages,
-                             composer_path=composer_path,
-                             custom_livechecks=custom_livechecks,
-                             development=development,
-                             dist_github_releases=dist_github_releases,
-                             dist_github_repositories=dist_github_repositories,
-                             dotnet_packages=dotnet_packages,
-                             dotnet_projects=dotnet_projects,
-                             go_sum_uri=golang_packages,
-                             gomodule_packages=gomodule_packages,
-                             gomodule_path=gomodule_path,
-                             jetbrains_packages=jetbrains_packages,
-                             keep_old=keep_old,
-                             maven_packages=maven_packages,
-                             maven_path=maven_path,
-                             no_auto_update=no_auto_update,
-                             nodejs_package_managers=nodejs_package_managers,
-                             nodejs_packages=nodejs_packages,
-                             nodejs_path=nodejs_path,
-                             regex_multiline=regex_multiline,
-                             regex_version=regex_version,
-                             request_data=request_data,
-                             request_headers=request_headers,
-                             request_method=request_method,
-                             request_params=request_params,
-                             restrict_version=restrict_version,
-                             sha_sources=sha_sources,
-                             stable_version=stable_version,
-                             sync_version=sync_version,
-                             transformations=transformations,
-                             type_packages=type_packages,
-                             yarn_base_packages=yarn_base_packages,
-                             yarn_packages=yarn_packages)
+        catpkg = f'{path.parent.parent.name}/{path.parent.name}'
+        for apply_settings in _APPLIERS:
+            if not apply_settings(settings, parsed, catpkg, path):
+                break
+    return settings
 
 
-def check_instance(value: int | str | bool | list[str] | dict[str, str]
-                   | None,
+def check_instance(value: object,
                    key: str,
                    dtype: str,
                    path: str | object,
-                   specific_value: bool | int | str | None = None) -> None:
+                   *,
+                   specific_value: object | None = None) -> None:
     is_type = False
     match dtype:
         case 'bool':
