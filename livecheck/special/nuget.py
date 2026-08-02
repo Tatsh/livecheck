@@ -42,22 +42,19 @@ def extract_project(url: str) -> str:
     parsed = urlparse(url)
     if parsed.netloc not in _NUGET_HOSTS:
         return ''
-    parts = [p for p in parsed.path.split('/') if p]
-    if not parts:
-        return ''
-    # https://www.nuget.org/packages/<id>[/<ver>]
-    if parts[0] == 'packages' and len(parts) >= 2:  # ruff:ignore[magic-value-comparison]
-        return parts[1].lower()
-    # https://www.nuget.org/api/v2/package/<id>/<ver>
-    if (len(parts) >= 4 and parts[0] == 'api' and parts[2] == 'package'):
-        return parts[3].lower()
-    # https://api.nuget.org/v3-flatcontainer/<id>/...
-    if parts[0] == 'v3-flatcontainer' and len(parts) >= 2:  # ruff:ignore[magic-value-comparison]
-        if (len(parts) >= 3  # ruff:ignore[magic-value-comparison]
-                and (m := _NUPKG_RE.match(parts[-1]))):
-            return m.group('id').lower()
-        return parts[1].lower()
-    return ''
+    # Recognised path forms are `/packages/<id>[/<ver>]`, `/api/v2/package/<id>/<ver>`, and
+    # `/v3-flatcontainer/<id>/<ver>/<id>.<ver>.nupkg`.
+    match [p for p in parsed.path.split('/') if p]:
+        case ['packages', id_, *_]:
+            return id_.lower()
+        case ['api', _, 'package', id_, *_]:
+            return id_.lower()
+        case ['v3-flatcontainer', id_, *rest]:
+            if rest and (m := _NUPKG_RE.match(rest[-1])):
+                return m.group('id').lower()
+            return id_.lower()
+        case _:
+            return ''
 
 
 def is_nuget(url: str) -> bool:
