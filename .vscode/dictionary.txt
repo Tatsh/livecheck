@@ -23,6 +23,7 @@ bsky
 bsnes
 caplog
 catpkg
+catpkgs
 catpkgsplit
 cdrommsf
 citra
@@ -151,6 +152,7 @@ pkgmetadata
 pkgs
 platformdirs
 plistlib
+portdbapi
 portdir
 porttree
 preapproved
