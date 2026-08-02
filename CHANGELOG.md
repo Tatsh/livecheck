@@ -12,6 +12,12 @@ and this project adheres to
 
 ### Fixed
 
+- Match candidate tags against the fixed part of the `SRC_URI` tag name even when the ebuild
+  version does not appear in it, which is the case whenever the ebuild renames the version through
+  `MY_PV`. `games-emulation/dosbox-x` fetches `dosbox-x-v${MY_PV}.tar.gz`, so nothing rejected the
+  unrelated `dosbox-x-wip-20180715-1600` tag, whose date read as version `20180715.1600` and beat
+  every real release. A prefix consisting only of a `v` marker is still ignored, since a single
+  repository often carries several tag schemes that all use it.
 - Drop the digits of an unrecognised tag suffix instead of appending them to the version. The
   VapourSynth tag `R55-API4-test3` became `554` and was proposed as an update over version 74 of
   `media-video/vapoursynth`, and the ares tag `v105tr1` became `1051` the same way. Both now

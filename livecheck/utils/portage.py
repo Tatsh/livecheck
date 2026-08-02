@@ -577,17 +577,29 @@ def _candidate_version_reference(result: Mapping[str, str], tag: str) -> str:
     return tag
 
 
+_REFERENCE_PREFIX_RE = re.compile(r'^\D+(?=\d)')
+
+
 def _candidate_version_from_reference(candidate: str, reference: str,
                                       ebuild_version: str) -> str | None:
     if not reference:
         return ''
 
     reference_version = re.sub(r'-r\d+$', '', ebuild_version)
-    if not (match := re.search(re.escape(reference_version), reference)):
+    if match := re.search(re.escape(reference_version), reference):
+        prefix = reference[:match.start()]
+        suffix = reference[match.end():]
+    elif (prefix_match :=
+          _REFERENCE_PREFIX_RE.match(reference)) and prefix_match.group().strip('vV-_.'):
+        # The ebuild version does not appear in the reference, which happens when the ebuild
+        # renames it (for example through `MY_PV`). Fall back to the fixed text before the
+        # version, but only when it names the project. A bare `v` marker is used by too many
+        # tag schemes in the same repository to tell them apart.
+        prefix = prefix_match.group()
+        suffix = ''
+    else:
         return ''
 
-    prefix = reference[:match.start()]
-    suffix = reference[match.end():]
     if not candidate.startswith(prefix) or not candidate.endswith(suffix):
         return None
     end = -len(suffix) if suffix else None

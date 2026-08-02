@@ -894,6 +894,55 @@ def test_get_last_version_version_reference_without_ebuild_version(mocker: Mocke
     assert result['tag'] == 'v3.7.2'
 
 
+def test_get_last_version_renamed_version_uses_reference_prefix(mocker: MockerFixture) -> None:
+    dummy_settings = mocker.Mock()
+    dummy_settings.regex_version = {}
+    dummy_settings.restrict_version = {}
+    dummy_settings.restrict_version_process = ''
+    dummy_settings.stable_version = {}
+    dummy_settings.transformations = {}
+    dummy_settings.is_devel = lambda _: False
+
+    # The ebuild version is absent from the reference because the ebuild renames it, so only the
+    # `dosbox-x-v` prefix identifies a release tag.
+    result = get_last_version([{
+        'tag': 'dosbox-x-wip-20180715-1600'
+    }, {
+        'tag': 'dosbox-x-v2026.07.02'
+    }],
+                              'dosbox-x',
+                              'games-emulation/dosbox-x-2026.3.29',
+                              dummy_settings,
+                              version_reference='dosbox-x-v2025.10.07')
+
+    assert result['version'] == '2026.7.2'
+    assert result['tag'] == 'dosbox-x-v2026.07.02'
+
+
+def test_get_last_version_renamed_version_ignores_bare_v_prefix(mocker: MockerFixture) -> None:
+    dummy_settings = mocker.Mock()
+    dummy_settings.regex_version = {}
+    dummy_settings.restrict_version = {}
+    dummy_settings.restrict_version_process = ''
+    dummy_settings.stable_version = {}
+    dummy_settings.transformations = {}
+    dummy_settings.is_devel = lambda _: False
+
+    # A `v` marker says nothing about the tag scheme, so a tag using a longer scheme still counts.
+    result = get_last_version([{
+        'tag': 'underthesea-v9.5.0'
+    }, {
+        'tag': 'v9.3.0'
+    }],
+                              'underthesea',
+                              'dev-python/underthesea-core-9.4.0',
+                              dummy_settings,
+                              version_reference='v8.3.0')
+
+    assert result['version'] == '9.5.0'
+    assert result['tag'] == 'underthesea-v9.5.0'
+
+
 def test_get_last_version_rejects_mismatched_file_reference(mocker: MockerFixture) -> None:
     dummy_settings = mocker.Mock()
     dummy_settings.regex_version = {}
