@@ -59,7 +59,7 @@ if TYPE_CHECKING:
         ('1.2.3_test 1', '1.2.3_beta1'),
         ('1.2.3p', '1.2.3_p'),
         ('1.2.3-unknown', '1.2.3'),
-        ('1.2.3-unknown1', '1.2.31'),
+        ('1.2.3-unknown1', '1.2.3'),
         ('1.2.3-1', '1.2.3.1'),
         ('1.2.3_1', '1.2.3.1'),
         ('1.2.3 1', '1.2.3.1'),
@@ -94,6 +94,10 @@ if TYPE_CHECKING:
         ('R71-limited-api-test1', ''),
         ('R73', '73'),
         ('R73-RC1', '73_rc1'),
+        # VapourSynth: an API level is not part of the release version
+        ('R55-API3', '55'),
+        ('R55-API4-RC4', '55'),
+        ('R55-API4-test3', '55'),
         # rpcs3: filter vcpkg dependency tags
         ('vcpkg-v1.0', ''),
         ('vcpkg-prebuilt-v1.0', ''),

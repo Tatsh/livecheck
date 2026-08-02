@@ -474,10 +474,8 @@ def normalize_version(ver: str) -> str:
     # e.g. 'limitedapitest1' from 'R71-limited-api-test1'.
     if len(letters) > 10 and digits:  # ruff:ignore[magic-value-comparison]
         return ''
-    # No recognised suffix.
-    if digits:
-        # Just attach the digits directly (e.g. '1.2.3' + '4').
-        return f'{main}{digits}'
+    # An unrecognised suffix such as `api4` in `R55-API4-test3` numbers something other than the
+    # release, so its digits are dropped rather than appended to the version.
     # If the version ends with a letter like 1.2.20a (and not recognised),
     # the requirement says 'it is preserved' only if it is exactly a single letter.
     # For multi-letter unknown suffix -> discard.

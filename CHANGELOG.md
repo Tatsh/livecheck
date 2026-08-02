@@ -10,6 +10,13 @@ and this project adheres to
 
 ## [unreleased]
 
+### Fixed
+
+- Drop the digits of an unrecognised tag suffix instead of appending them to the version. The
+  VapourSynth tag `R55-API4-test3` became `554` and was proposed as an update over version 74 of
+  `media-video/vapoursynth`, and the ares tag `v105tr1` became `1051` the same way. Both now
+  resolve to their release number, so the real newest tags (`R78` and `v148`) win.
+
 ## [0.2.5] - 2026-08-02
 
 ### Added
