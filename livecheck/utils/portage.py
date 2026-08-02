@@ -4,11 +4,12 @@ from __future__ import annotations
 from functools import cache
 from itertools import chain
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import urlparse
 import logging
 import re
 
+from portage import exception  # type: ignore[attr-defined]  # ty: ignore[unresolved-import]
 from portage.versions import catpkgsplit, vercmp
 import portage
 
@@ -20,8 +21,8 @@ if TYPE_CHECKING:
 
 __all__ = ('P', 'catpkg_catpkgsplit', 'catpkgsplit2', 'compare_versions', 'fetch_ebuild', 'get_aux',
            'get_distdir', 'get_fetch_map', 'get_first_src_uri', 'get_highest_matches',
-           'get_last_version', 'get_repository_root_if_inside', 'remove_leading_zeros',
-           'sanitize_version', 'unpack_ebuild')
+           'get_last_version', 'get_repository_catpkgs', 'get_repository_root_if_inside',
+           'remove_leading_zeros', 'sanitize_version', 'unpack_ebuild')
 
 P = portage.db[portage.root]['porttree'].dbapi
 """Portage tree database API instance.
@@ -37,6 +38,61 @@ def mask_version(cp: str, version: str, restrict_version: str | None = 'full') -
     if restrict_version == 'minor':
         return cp + ':' + re.sub(r'^(\d+\.\d+).*', r'\1', version) + ':'
     return cp
+
+
+def _repository_categories() -> frozenset[str]:
+    # `portage-stubs` does not declare `portdbapi.settings`.
+    return frozenset(cast('Any', P).settings.categories)
+
+
+def _all_catpkgs(repo_root: Path) -> list[str]:
+    # `portage-stubs` does not declare `portdbapi.cp_all()`.
+    return [str(catpkg) for catpkg in cast('Any', P).cp_all(trees=[str(repo_root)])]
+
+
+def _log_unknown_categories(repo_root: Path) -> None:
+    categories = _repository_categories()
+    for path in sorted(p for p in repo_root.iterdir()
+                       if p.is_dir() and not p.name.startswith('.') and p.name not in categories):
+        if next(path.glob('*/*.ebuild'), None) is not None:
+            log.warning(
+                'Skipping directory `%s` because it is not a known category. Add it to '
+                '`profiles/categories` for it to be checked.', path.name)
+
+
+def get_repository_catpkgs(search_dir: Path, repo_root: Path) -> list[str]:
+    """
+    Get the package names in a repository, limited to the search directory.
+
+    Only directories that Portage recognises as ``category/package`` are returned, so unrelated
+    directories in the repository (build artefacts, version control data, and so on) are ignored.
+
+    Parameters
+    ----------
+    search_dir : Path
+        Directory to limit the search to. It may be the repository root, a category directory, or
+        a package directory (or anything inside one).
+    repo_root : Path
+        Repository root path.
+
+    Returns
+    -------
+    list[str]
+        Sorted list of ``category/package`` names.
+    """
+    repo_root = repo_root.resolve()
+    try:
+        parts = search_dir.resolve().relative_to(repo_root).parts
+    except ValueError:
+        log.debug('`%s` is not inside `%s`. Searching the whole repository.', search_dir, repo_root)
+        parts = ()
+    catpkgs = _all_catpkgs(repo_root)
+    if not parts:
+        _log_unknown_categories(repo_root)
+        return catpkgs
+    if len(parts) == 1:
+        return [catpkg for catpkg in catpkgs if catpkg.startswith(f'{parts[0]}/')]
+    return [catpkg for catpkg in catpkgs if catpkg == f'{parts[0]}/{parts[1]}']
 
 
 async def get_highest_matches(names: Iterable[str], repo_root: Path | None,
@@ -61,7 +117,12 @@ async def get_highest_matches(names: Iterable[str], repo_root: Path | None,
     log.debug('Searching for %s.', ', '.join(names))
     result: dict[str, str] = {}
     for name in names:
-        if not (matches := await P.async_xmatch('match-all', name)):
+        try:
+            matches = await P.async_xmatch('match-all', name)
+        except exception.InvalidAtom:
+            log.warning('Ignoring `%s` because it is not a valid package name.', name)
+            continue
+        if not matches:
             log.debug('Found no matches with xmatch("match-all").')
             continue
         for m in matches:

@@ -2600,8 +2600,9 @@ async def test_get_props_no_names_argument_yields(mocker: MockerFixture, fake_re
     ebuild2.parent.mkdir(parents=True, exist_ok=True)
     ebuild1.write_text('EAPI=8\n', encoding='utf-8')
     ebuild2.write_text('EAPI=8\n', encoding='utf-8')
-    mocker.patch('livecheck.main.get_highest_matches',
-                 return_value=['cat1/pkg1-1.0.0', 'cat2/pkg2-2.0.0'])
+    mocker.patch('livecheck.main.get_repository_catpkgs', return_value=['cat1/pkg1', 'cat2/pkg2'])
+    mock_get_highest_matches = mocker.patch('livecheck.main.get_highest_matches',
+                                            return_value=['cat1/pkg1-1.0.0', 'cat2/pkg2-2.0.0'])
 
     def fake_catpkg_catpkgsplit(arg: str) -> tuple[str, str, str, str]:
         if arg == 'cat1/pkg1-1.0.0':
@@ -2630,6 +2631,7 @@ async def test_get_props_no_names_argument_yields(mocker: MockerFixture, fake_re
                               exclude=[])
     assert results == [('cat1', 'pkg1', '1.0.0', 'ver1', 'sha1', 'date1', 'url1'),
                        ('cat2', 'pkg2', '2.0.0', 'ver2', 'sha2', 'date2', 'url2')]
+    assert mock_get_highest_matches.call_args.args[0] == ['cat1/pkg1', 'cat2/pkg2']
 
 
 @pytest.mark.asyncio
@@ -2638,6 +2640,7 @@ async def test_get_props_no_names_argument_exclude_all(mocker: MockerFixture, fa
     ebuild1 = fake_repo / 'cat1' / 'pkg1' / 'pkg1-1.0.0.ebuild'
     ebuild1.parent.mkdir(parents=True, exist_ok=True)
     ebuild1.write_text('EAPI=8\n', encoding='utf-8')
+    mocker.patch('livecheck.main.get_repository_catpkgs', return_value=['cat1/pkg1'])
     mocker.patch('livecheck.main.get_highest_matches', return_value=['cat1/pkg1-1.0.0'])
     mocker.patch('livecheck.main.catpkg_catpkgsplit',
                  return_value=('cat1/pkg1', 'cat1', 'pkg1', '1.0.0'))
@@ -2655,6 +2658,7 @@ async def test_get_props_no_names_argument_exclude_all(mocker: MockerFixture, fa
 @pytest.mark.asyncio
 async def test_get_props_no_names_argument_no_matches(mocker: MockerFixture, fake_repo: Path,
                                                       mock_settings2: Mock) -> None:
+    mocker.patch('livecheck.main.get_repository_catpkgs', return_value=[])
     mocker.patch('livecheck.main.get_highest_matches', return_value=[])
     mocker.patch('livecheck.main.log')
     with pytest.raises(click.Abort):

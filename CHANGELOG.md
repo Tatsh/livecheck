@@ -24,6 +24,13 @@ and this project adheres to
 
 ### Fixed
 
+- Discover packages with Portage's own `category/package` listing instead of globbing for
+  `**/*.ebuild` and assuming the two parent directory names form an atom. An unrelated directory in
+  the repository containing an ebuild (for example a scratch or build directory) previously aborted
+  the whole run with `portage.exception.InvalidAtom`. A directory that looks like a category and
+  contains ebuilds but is not listed in `profiles/categories` is now reported with a warning, and
+  invalid package names (including ones passed on the command line) are skipped with a warning
+  instead of raising.
 - Keep the resolved commit hash from branch lookups in the GitHub and SourceHut handlers.
   Commit-pinned ebuilds (a commit SHA in `SRC_URI`) previously discarded the resolved commit and
   fell back to tag heuristics, which could propose wrong versions such as downgrading

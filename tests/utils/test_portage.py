@@ -18,6 +18,7 @@ from livecheck.utils.portage import (
     get_first_src_uri,
     get_highest_matches,
     get_last_version,
+    get_repository_catpkgs,
     get_repository_root_if_inside,
     is_version_development,
     mask_version,
@@ -26,6 +27,7 @@ from livecheck.utils.portage import (
     sanitize_version,
     unpack_ebuild,
 )
+from portage import exception  # type: ignore[attr-defined]  # ty: ignore[unresolved-import]
 import pytest
 
 if TYPE_CHECKING:
@@ -199,6 +201,13 @@ async def test_get_highest_matches_ignores_9999(mocker: MockerFixture) -> None:
     repo_root = Path('/repo/root')
     dummy_settings = mocker.Mock()
     result = await get_highest_matches(names, repo_root, dummy_settings)
+    assert result == []
+
+
+async def test_get_highest_matches_invalid_atom(mocker: MockerFixture) -> None:
+    mock_p = mocker.patch('livecheck.utils.portage.P')
+    mock_p.async_xmatch = mocker.AsyncMock(side_effect=exception.InvalidAtom('repo/.stray-dir'))
+    result = await get_highest_matches(['repo/.stray-dir'], Path('/repo/root'), mocker.Mock())
     assert result == []
 
 
@@ -496,7 +505,7 @@ def test_get_repository_root_if_inside_local_path_exclusion(mocker: MockerFixtur
                                                    ('1.2.3rc', True), ('1.2.3dev', True),
                                                    ('1.2.3-rc2', True), ('1.2.3-dev2', True),
                                                    ('1.2.3-pre2', True)])
-async def test_is_version_development(
+def test_is_version_development(
         version: str, expected: bool) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]
     assert is_version_development(version) == expected
 
@@ -978,3 +987,48 @@ async def test_get_fetch_map_calls_async_fetch_map(mocker: MockerFixture) -> Non
     result = await get_fetch_map('cat/pkg-1.2.3')
     assert result == {'src.tar.gz': ('uri',)}
     mock_p.async_fetch_map.assert_awaited_once_with('cat/pkg-1.2.3')
+
+
+@pytest.mark.parametrize(('search_subdirectory', 'expected'),
+                         [('', ['cat1/pkg1', 'cat1/pkg2', 'cat2/pkg3']),
+                          ('cat1', ['cat1/pkg1', 'cat1/pkg2']), ('cat1/pkg2', ['cat1/pkg2']),
+                          ('cat1/pkg2/files', ['cat1/pkg2']), ('.stray-directory', []),
+                          ('metadata', [])])
+def test_get_repository_catpkgs(mocker: MockerFixture, tmp_path: Path, search_subdirectory: str,
+                                expected: list[str]) -> None:
+    mock_p = mocker.patch('livecheck.utils.portage.P')
+    mock_p.settings.categories = frozenset({'cat1', 'cat2'})
+    mock_p.cp_all.return_value = ['cat1/pkg1', 'cat1/pkg2', 'cat2/pkg3']
+    search_dir = tmp_path / search_subdirectory
+    search_dir.mkdir(parents=True, exist_ok=True)
+    assert get_repository_catpkgs(search_dir, tmp_path) == expected
+    mock_p.cp_all.assert_called_once_with(trees=[str(tmp_path)])
+
+
+def test_get_repository_catpkgs_outside_repository(mocker: MockerFixture, tmp_path: Path) -> None:
+    mock_p = mocker.patch('livecheck.utils.portage.P')
+    mock_p.settings.categories = frozenset({'cat1'})
+    mock_p.cp_all.return_value = ['cat1/pkg1']
+    outside = tmp_path / 'outside'
+    repo_root = tmp_path / 'repo'
+    outside.mkdir()
+    repo_root.mkdir()
+    assert get_repository_catpkgs(outside, repo_root) == ['cat1/pkg1']
+
+
+def test_get_repository_catpkgs_warns_about_unknown_category(mocker: MockerFixture,
+                                                             tmp_path: Path) -> None:
+    mock_p = mocker.patch('livecheck.utils.portage.P')
+    mock_log = mocker.patch('livecheck.utils.portage.log')
+    mock_p.settings.categories = frozenset({'cat1'})
+    mock_p.cp_all.return_value = ['cat1/pkg1']
+    (tmp_path / 'cat1' / 'pkg1').mkdir(parents=True)
+    (tmp_path / 'cat1' / 'pkg1' / 'pkg1-1.0.ebuild').touch()
+    (tmp_path / 'not-a-category' / 'pkg2').mkdir(parents=True)
+    (tmp_path / 'not-a-category' / 'pkg2' / 'pkg2-1.0.ebuild').touch()
+    (tmp_path / '.stray-directory').mkdir()
+    (tmp_path / '.stray-directory' / 'generated.ebuild').touch()
+    (tmp_path / 'metadata').mkdir()
+    assert get_repository_catpkgs(tmp_path, tmp_path) == ['cat1/pkg1']
+    assert mock_log.warning.call_count == 1
+    assert mock_log.warning.call_args.args[1] == 'not-a-category'

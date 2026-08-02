@@ -131,6 +131,7 @@ from .utils.portage import (
     get_fetch_map,
     get_first_src_uri,
     get_highest_matches,
+    get_repository_catpkgs,
     get_repository_root_if_inside,
     remove_leading_zeros,
 )
@@ -595,10 +596,7 @@ async def get_props(search_dir: Path,
     """
     exclude = exclude or []
     if not names:
-        names = [
-            f'{path.parent.parent.name}/{path.parent.name}'
-            async for path in AnyioPath(search_dir).glob('**/*.ebuild')
-        ]
+        names = get_repository_catpkgs(search_dir, repo_root)
     matches_list = sorted(await get_highest_matches(names, repo_root, settings))
     log.info('Found %d ebuild%s.', len(matches_list), 's' if len(matches_list) != 1 else '')
     if not matches_list:
