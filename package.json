@@ -1,8 +1,8 @@
 {
   "_wiswa": {
-    "commandLine": "wiswa",
-    "lastRun": "2026-05-31T21:04:49Z",
-    "version": "08e2e8b-dirty"
+    "commandLine": "wiswa -d",
+    "lastRun": "2026-08-02T08:33:02Z",
+    "version": "22472cc"
   },
   "contributors": ["Andrew Udvare <audvare@gmail.com>", "Francisco Javier <web@inode64.com>"],
   "cspell": {
@@ -75,7 +75,7 @@
     "showFound": true
   },
   "name": "livecheck",
-  "packageManager": "yarn@4.15.0",
+  "packageManager": "yarn@4.18.0",
   "prettier": {
     "endOfLine": "lf",
     "iniSpaceAroundEquals": true,
