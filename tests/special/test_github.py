@@ -17,6 +17,7 @@ import pytest
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
+    from unittest.mock import Mock
 
     from pytest_mock import MockerFixture
 
@@ -622,6 +623,22 @@ async def test_get_github_branch_for_commit_skips_when_get_content_falsy(
     result = await get_github_branch_for_commit('https://github.com/org/repo/releases', '2.9',
                                                 'a' * 40)
     assert result == 'v2.9'
+
+
+@pytest.mark.asyncio
+async def test_get_github_branch_for_commit_skips_when_compare_falsy(mocker: MockerFixture) -> None:
+    mocker.patch('livecheck.special.github.extract_owner_repo',
+                 return_value=('https://github.com/org/repo', 'org', 'repo'))
+    branch_response = mocker.Mock()
+
+    # Every candidate exists as a branch, but no compare request succeeds.
+    def _get_content(url: str) -> Mock | None:
+        return branch_response if '/branches/' in url else None
+
+    mocker.patch('livecheck.special.github.get_content', side_effect=_get_content)
+    result = await get_github_branch_for_commit('https://github.com/org/repo/releases', '2.9',
+                                                'a' * 40)
+    assert not result
 
 
 @pytest.mark.asyncio
