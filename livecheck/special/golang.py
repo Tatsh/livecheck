@@ -35,9 +35,8 @@ async def update_go_ebuild(ebuild: str, version: str, go_sum_uri_template: str) 
     sha = ''
     ebuild_text = await AnyioPath(ebuild).read_text(encoding='utf-8')
     with contextlib.suppress(StopIteration):
-        if (first_match := next(y for y in (re.match(r'^SHA="([^"]+)"', x)
-                                            for x in ebuild_text.splitlines()) if y is not None)):
-            sha = first_match.group(1)
+        sha = next(y for y in (re.match(r'^SHA="([^"]+)"', x) for x in ebuild_text.splitlines())
+                   if y is not None).group(1)
     uri = go_sum_uri_template.replace('@PV@', version).replace('@SHA@', sha)
     if not (r := await get_content(uri)) or not r.text:
         return
