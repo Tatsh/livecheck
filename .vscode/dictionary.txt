@@ -71,6 +71,7 @@ esbonio
 eselect
 excinfo
 fetchlist
+ffms
 fhdk
 findname
 flatcontainer
@@ -83,6 +84,7 @@ globaltoc
 glslang
 gomodule
 grepmail
+handoff
 hoverxref
 htmlcov
 icingaweb
@@ -193,7 +195,6 @@ shellformat
 simpleini
 sirit
 snapcraft
-softprops
 someproject
 soundtouch
 soupsieve
@@ -202,6 +203,7 @@ sourcehut
 sphinxcontrib
 spirv
 srcname
+statusline
 subelem
 submod
 sudachi
@@ -227,6 +229,7 @@ venv
 vercmp
 virtualenv
 vulkanmemoryallocator
+winget
 wiswa
 wiswa's
 worktree
@@ -238,3 +241,4 @@ yapfignore
 yarnpkg
 yarnrc
 yuzu
+zizmor
