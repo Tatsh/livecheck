@@ -44,7 +44,7 @@ def extract_workspace_and_repository(url: str) -> tuple[str, str]:
 
     workspace, repository = parsed.path.strip('/').split('/')[:2]
 
-    return workspace, repository.replace('.git', '')
+    return workspace, repository.removesuffix('.git')
 
 
 async def get_latest_bitbucket_package(url: str, cpv: str,

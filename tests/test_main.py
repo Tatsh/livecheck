@@ -2267,11 +2267,11 @@ async def test_parse_metadata_no_metadata_file(tmp_path: Path, mocker: MockerFix
 @pytest.mark.parametrize(
     ('attrib_type', 'get_latest_meta_func', 'get_latest_meta_return', 'expected'),
     [('github', 'get_latest_github_metadata', ('latest_version', 'top_hash'),
-      ('latest_version', 'top_hash', '', '')),
+      ('latest_version', 'top_hash', '', 'https://github.com/github')),
      ('sourcehut', 'get_latest_sourcehut_metadata', 'latest_version',
       ('latest_version', '', '', '')),
      ('bitbucket', 'get_latest_bitbucket_metadata', ('latest_version', 'top_hash'),
-      ('latest_version', 'top_hash', '', '')),
+      ('latest_version', 'top_hash', '', 'https://bitbucket.org/bitbucket')),
      ('gitlab', 'get_latest_gitlab_metadata', ('latest_version', 'top_hash'),
       ('latest_version', 'top_hash', '', '')),
      ('metacpan', 'get_latest_metacpan_metadata', 'latest_version', ('latest_version', '', '', '')),

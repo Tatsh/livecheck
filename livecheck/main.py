@@ -217,7 +217,7 @@ async def process_submodules(pkg_name: str, ref: str, contents: str, repo_uri: s
             if not parent_git_url:
                 return None
             parent_repo = '/'.join(
-                [x for x in urlparse(parent_git_url).path.replace('.git', '').split('/') if x][:2])
+                [x for x in urlparse(parent_git_url).path.removesuffix('.git').split('/') if x][:2])
             r = await get_content(f'https://api.github.com/repos/{parent_repo}/contents/'
                                   f'{nested_path}?ref={parent_sha}')
         elif isinstance(item, tuple):
@@ -375,9 +375,11 @@ async def parse_metadata(repo_root: str, ebuild: str,
                 if GITHUB_METADATA in type_:
                     last_version, top_hash = await get_latest_github_metadata(
                         remote, ebuild, settings)
+                    url = f'https://github.com/{remote}'
                 if BITBUCKET_METADATA in type_:
                     last_version, top_hash = await get_latest_bitbucket_metadata(
                         remote, ebuild, settings)
+                    url = f'https://bitbucket.org/{remote}'
                 if GITLAB_METADATA in type_:
                     last_version, top_hash = await get_latest_gitlab_metadata(
                         remote, type_, ebuild, settings)
@@ -652,6 +654,66 @@ async def get_props(search_dir: Path,
     return [r for r in results if r is not None]
 
 
+def _repo_key(url: str) -> str:
+    """
+    Normalise a forge URL down to the repository it points at.
+
+    Parameters
+    ----------
+    url : str
+        URL to inspect.
+
+    Returns
+    -------
+    str
+        ``host/owner/repo`` in lower case, or an empty string if ``url`` is not a forge URL.
+    """
+    parsed = urlparse(url.removeprefix('mirror+'))
+    parts = [p for p in parsed.path.split('/') if p]
+    if not parsed.netloc or len(parts) < 2:  # ruff:ignore[magic-value-comparison]
+        return ''
+    return f'{parsed.netloc}/{parts[0]}/{parts[1].removesuffix(".git")}'.lower()
+
+
+def _sha_for_repo(content: str, url: str) -> str | None:
+    """
+    Find the commit an ebuild pins for one particular repository.
+
+    Parameters
+    ----------
+    content : str
+        Full text of the ebuild.
+    url : str
+        URL of the repository being checked.
+
+    Returns
+    -------
+    str | None
+        The commit pinned for that repository, an empty string when the repository is referenced
+        but pinned by tag rather than by commit, or ``None`` when the ebuild does not reference it
+        (leaving the caller to fall back to its other strategies).
+    """
+    if not (wanted := _repo_key(url)):
+        return None
+    variables = {
+        m.group(1): m.group(2)
+        for m in re.finditer(r'^(\w+)=["\']?([a-f0-9]{40})["\']?\s*$', content, re.MULTILINE)
+    }
+    found = False
+    for match in re.finditer(r'(?:mirror\+)?https?://\S+', content):
+        candidate = match.group(0).rstrip('"\'')
+        if _repo_key(candidate) != wanted:
+            continue
+        found = True
+        if sha := re.search(r'\b([a-f0-9]{40})\b', candidate):
+            return sha.group(1)
+        for var in re.findall(r'\$\{(\w+)(?::[^}]*)?\}', candidate):
+            if var in variables:
+                return variables[var]
+    # Referenced only by tag, so there is no commit to compare.
+    return '' if found else None
+
+
 def get_old_sha(ebuild: Path, url: str) -> str:
     """
     Get the old SHA from an ebuild file, checking named variables, bare hex strings, and URL.
@@ -673,6 +735,12 @@ def get_old_sha(ebuild: Path, url: str) -> str:
 
     with Path(ebuild).open(encoding='utf-8') as file:
         lines = file.readlines()
+    content = ''.join(lines)
+
+    # An ebuild may pin several repositories, and comparing another one's pin against this
+    # repository's HEAD reports a difference on every run.
+    if (repo_sha := _sha_for_repo(content, url)) is not None:
+        return repo_sha
 
     for line in lines:
         if match := sha_pattern.search(line):

@@ -79,7 +79,7 @@ def extract_owner_repo(url: str) -> tuple[str, str, str]:
         p = [x for x in u.path.split('/') if x]
         if len(p) < 2:  # ruff:ignore[magic-value-comparison]
             return '', '', ''
-        r = p[1].replace('.git', '')
+        r = p[1].removesuffix('.git')
         return f'https://{d}/{p[0]}/{r}', p[0], r
     return '', '', ''
 
