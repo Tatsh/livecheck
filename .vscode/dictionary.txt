@@ -29,6 +29,7 @@ cdrommsf
 cgit
 citra
 clion
+coinhsl
 commitizen
 concurrentqueue
 conftest
@@ -134,6 +135,8 @@ newcafe
 newtonsoft
 niquests
 norecursedirs
+notofonts
+notofontshub
 notroj
 npmjs
 ntasos
