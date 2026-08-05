@@ -142,6 +142,7 @@ npmjs
 ntasos
 nuanceur
 nugets
+nullglob
 numpy
 nvchecker
 oneline
@@ -195,6 +196,7 @@ sdist
 setattr
 shellcheck
 shellformat
+shopt
 simpleini
 sirit
 snapcraft
