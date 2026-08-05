@@ -3868,6 +3868,44 @@ def test_get_old_sha_named_preferred_over_bare(tmp_path: Path) -> None:
     assert result == 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 
 
+@pytest.mark.parametrize(
+    ('ebuild_content', 'url', 'expected'),
+    [
+        # The commit of the repository under check is part of its own URL.
+        (('EAPI=8\n'
+          'SRC_URI="mirror+https://github.com/owner/repo/archive/'
+          'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.tar.gz"\n'),
+         'https://github.com/owner/repo.git', 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'),
+        # The commit of the repository under check is held in a variable.
+        (('EAPI=8\n'
+          'MY_COMMIT="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"\n'
+          'SRC_URI="https://github.com/owner/repo/archive/${MY_COMMIT}.tar.gz -> ${P}.tar.gz"\n'),
+         'https://github.com/owner/repo', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'),
+        # The repository under check is pinned by tag while another one is pinned by commit.
+        (('EAPI=8\n'
+          'DEP_COMMIT="cccccccccccccccccccccccccccccccccccccccc"\n'
+          'SRC_URI="https://github.com/owner/repo/archive/refs/tags/${PV}.tar.gz -> ${P}.tar.gz\n'
+          '\thttps://github.com/other/dep/archive/${DEP_COMMIT}.tar.gz -> dep.tar.gz"\n'),
+         'https://github.com/owner/repo', ''),
+        # The ebuild does not reference the repository under check at all.
+        (('EAPI=8\n'
+          'SRC_URI="https://github.com/other/dep/archive/'
+          'dddddddddddddddddddddddddddddddddddddddd.tar.gz"\n'
+          'SHA="eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"\n'), 'https://github.com/owner/repo',
+         'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'),
+        # The URL does not name a repository, so the named variable is used.
+        (('EAPI=8\n'
+          'SRC_URI="https://github.com/owner/repo/archive/refs/tags/${PV}.tar.gz"\n'
+          'SHA="ffffffffffffffffffffffffffffffffffffffff"\n'), 'https://example.com',
+         'ffffffffffffffffffffffffffffffffffffffff')
+    ])
+def test_get_old_sha_multiple_repositories(tmp_path: Path, ebuild_content: str, url: str,
+                                           expected: str) -> None:
+    ebuild_path = tmp_path / 'test.ebuild'
+    ebuild_path.write_text(ebuild_content, encoding='utf-8')
+    assert get_old_sha(ebuild_path, url) == expected
+
+
 @pytest.mark.asyncio
 async def test_process_submodules_3tuple_success(mocker: MockerFixture) -> None:
     mocker.patch('livecheck.main.SUBMODULES',
