@@ -10,6 +10,8 @@ and this project adheres to
 
 ## [unreleased]
 
+## [0.2.6] - 2026-08-05
+
 ### Fixed
 
 - Match candidate tags against the fixed part of the `SRC_URI` tag name even when the ebuild
@@ -22,6 +24,13 @@ and this project adheres to
   VapourSynth tag `R55-API4-test3` became `554` and was proposed as an update over version 74 of
   `media-video/vapoursynth`, and the ares tag `v105tr1` became `1051` the same way. Both now
   resolve to their release number, so the real newest tags (`R78` and `v148`) win.
+- Strip a `.git` suffix only from the end of a repository name. It was previously stripped anywhere
+  in the name, so `notofonts/notofonts.github.io` became `notofonts/notofontshub.io` and every tag
+  and branch request for that repository returned a 404.
+- Compare the commit belonging to the repository actually being checked. The old commit hash was
+  read as the first 40-character hexadecimal string in the ebuild, which is the wrong one whenever
+  an ebuild pins more than one repository: `sci-libs/coinhsl` compared the BuildTools pin against
+  the commit of the ThirdParty-HSL tag and asked for a revision bump on every run.
 
 ## [0.2.5] - 2026-08-02
 
@@ -305,7 +314,8 @@ and this project adheres to
 
 - When multiple ebuilds are in the same directory, only the latest one will be considered for updating.
 
-[unreleased]: https://github.com/Tatsh/livecheck/compare/v0.2.5...HEAD
+[unreleased]: https://github.com/Tatsh/livecheck/compare/v0.2.6...HEAD
+[0.2.6]: https://github.com/Tatsh/livecheck/compare/v0.2.5...v0.2.6
 [0.2.5]: https://github.com/Tatsh/livecheck/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/Tatsh/livecheck/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/Tatsh/livecheck/compare/v0.2.2...v0.2.3
