@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import pytest
+
 from livecheck.special.pypi import (
     extract_project,
     get_latest_pypi_metadata,
@@ -9,7 +11,6 @@ from livecheck.special.pypi import (
     get_url,
     is_pypi,
 )
-import pytest
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Mapping

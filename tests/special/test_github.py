@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+import pytest
+
 from livecheck.special.github import (
     extract_owner_repo,
     get_branch,
@@ -13,7 +15,6 @@ from livecheck.special.github import (
     get_latest_github_package,
     is_github,
 )
-import pytest
 
 if TYPE_CHECKING:
     from collections.abc import Mapping

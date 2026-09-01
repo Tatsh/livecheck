@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock
 
+import pytest
+
 from livecheck.dist_github import DistGitHubSettings
 from livecheck.special.utils import (
     EbuildTempFile,
@@ -17,7 +19,6 @@ from livecheck.special.utils import (
     remove_url_ebuild,
     search_ebuild,
 )
-import pytest
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Mapping

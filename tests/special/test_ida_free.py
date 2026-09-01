@@ -3,8 +3,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from livecheck.special.ida_free import get_latest_ida_free_package
 import pytest
+
+from livecheck.special.ida_free import get_latest_ida_free_package
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture

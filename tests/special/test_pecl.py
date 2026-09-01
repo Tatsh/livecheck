@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import pytest
+
 from livecheck.special.pecl import (
     get_latest_pecl_metadata,
     get_latest_pecl_package,
     get_latest_pecl_package2,
 )
-import pytest
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture

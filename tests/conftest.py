@@ -7,11 +7,12 @@ import contextlib
 import os
 
 from click.testing import CliRunner
-from livecheck.utils.requests import close_sessions, init_sessions
 from niquests_cache.session import CacheMixin
 from niquests_mock import MockRouter
 from niquests_mock.router import build_response
 import pytest
+
+from livecheck.utils.requests import close_sessions, init_sessions
 
 if TYPE_CHECKING:
     from collections.abc import Iterator

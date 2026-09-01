@@ -9,9 +9,10 @@ import tarfile
 import tempfile
 
 from anyio import Path as AnyioPath, to_thread
+from platformdirs import user_cache_dir
+
 from livecheck.dist_github import DistGitHubSettings, asset_exists, upload_dist_archive
 from livecheck.utils.portage import get_distdir, unpack_ebuild
-from platformdirs import user_cache_dir
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Mapping

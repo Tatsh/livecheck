@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 from defusedxml import ElementTree as ET  # ruff:ignore[camelcase-imported-as-acronym]
+
 from livecheck.utils import assert_not_none, get_content
 from livecheck.utils.portage import catpkg_catpkgsplit, get_last_version
 

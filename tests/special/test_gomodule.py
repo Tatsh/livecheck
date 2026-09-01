@@ -4,8 +4,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock
 
-from livecheck.special.gomodule import remove_gomodule_url, update_gomodule_ebuild
 import pytest
+
+from livecheck.special.gomodule import remove_gomodule_url, update_gomodule_ebuild
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture

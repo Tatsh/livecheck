@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from livecheck.special.directory import get_latest_directory_package
 import pytest
+
+from livecheck.special.directory import get_latest_directory_package
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture

@@ -5,8 +5,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock
 
-from livecheck.special.maven import check_maven_requirements, remove_maven_url, update_maven_ebuild
 import pytest
+
+from livecheck.special.maven import check_maven_requirements, remove_maven_url, update_maven_ebuild
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture

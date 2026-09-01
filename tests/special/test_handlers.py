@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import pytest
+
 from livecheck.special.handlers import (
     handle_bsnes_hd,
     handle_cython_post_suffix,
@@ -11,7 +13,6 @@ from livecheck.special.handlers import (
     handle_outfox_serenity,
     handle_pl,
 )
-import pytest
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture

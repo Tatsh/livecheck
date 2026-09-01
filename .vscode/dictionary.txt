@@ -1,5 +1,4 @@
 anchore
-Ångström
 anyio
 appauthor
 appdir
@@ -34,7 +33,6 @@ commitizen
 concurrentqueue
 conftest
 connectionpool
-cooldown
 coveragerc
 coverallsapp
 cpan
@@ -66,6 +64,7 @@ eclass
 eeyore
 egit
 elif
+endswith
 esac
 esbenp
 esbonio
@@ -90,7 +89,6 @@ hoverxref
 htmlcov
 icingaweb
 imgui
-intersphinx
 isort
 itertools
 jimevins
@@ -134,6 +132,7 @@ newbeef
 newcafe
 newtonsoft
 niquests
+noqa
 norecursedirs
 notofonts
 notofontshub
@@ -191,6 +190,7 @@ repology
 ripgreprc
 rstcheck
 rubygems
+sbclaude
 schemafile
 sdist
 setattr
@@ -248,3 +248,4 @@ yarnpkg
 yarnrc
 yuzu
 zizmor
+Ångström

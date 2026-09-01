@@ -5,6 +5,9 @@ from typing import TYPE_CHECKING
 import hashlib
 import re
 
+import niquests
+import pytest
+
 from livecheck.utils.requests import (
     REQUEST_TIMEOUT,
     get_content,
@@ -12,13 +15,12 @@ from livecheck.utils.requests import (
     hash_url,
     session_init,
 )
-import niquests
-import pytest
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
 
     from pytest_mock import MockerFixture
+
     from tests.conftest import NiquestsMocker
 
 

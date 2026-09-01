@@ -10,6 +10,7 @@ import re
 import tempfile
 
 from anyio import Path as AnyioPath
+
 from livecheck.utils import check_program
 
 from .utils import (

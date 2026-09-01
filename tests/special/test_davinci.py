@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from livecheck.special.davinci import get_latest_davinci_package
 import pytest
+
+from livecheck.special.davinci import get_latest_davinci_package
 
 pytestmark = pytest.mark.asyncio
 

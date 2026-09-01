@@ -5,6 +5,9 @@ from typing import TYPE_CHECKING, Any, NoReturn
 import operator
 import re as real_re
 
+from portage import exception  # type: ignore[attr-defined]  # ty: ignore[unresolved-import]
+import pytest
+
 from livecheck.utils.portage import (
     accept_version,
     catpkg_catpkgsplit,
@@ -27,8 +30,6 @@ from livecheck.utils.portage import (
     sanitize_version,
     unpack_ebuild,
 )
-from portage import exception  # type: ignore[attr-defined]  # ty: ignore[unresolved-import]
-import pytest
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Mapping

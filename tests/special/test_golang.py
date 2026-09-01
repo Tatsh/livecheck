@@ -3,8 +3,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from anyio import Path as AnyioPath
-from livecheck.special.golang import InvalidGoSumURITemplate, update_go_ebuild
 import pytest
+
+from livecheck.special.golang import InvalidGoSumURITemplate, update_go_ebuild
 
 if TYPE_CHECKING:
     from pathlib import Path

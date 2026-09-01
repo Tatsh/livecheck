@@ -6,6 +6,9 @@ import asyncio
 import logging
 
 from defusedxml import ElementTree as ET  # ruff:ignore[camelcase-imported-as-acronym]
+import click
+import pytest
+
 from livecheck.main import (
     HookError,
     do_main,
@@ -22,8 +25,6 @@ from livecheck.main import (
     str_version,
     update_egit_branch,
 )
-import click
-import pytest
 
 if TYPE_CHECKING:
     from pathlib import Path

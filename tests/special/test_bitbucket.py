@@ -4,6 +4,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+import pytest
+
 from livecheck.special.bitbucket import (
     extract_workspace_and_repository,
     get_latest_bitbucket,
@@ -11,7 +13,6 @@ from livecheck.special.bitbucket import (
     get_latest_bitbucket_package,
     is_bitbucket,
 )
-import pytest
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture

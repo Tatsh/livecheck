@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+import pytest
+
 from livecheck.special.gitlab import (
     extract_domain_and_namespace,
     get_latest_gitlab,
     get_latest_gitlab_metadata,
     is_gitlab,
 )
-import pytest
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture

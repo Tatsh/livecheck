@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+import pytest
+
 from livecheck.special.metacpan import (
     extract_perl_package,
     get_latest_metacpan_metadata,
     get_latest_metacpan_package,
     is_metacpan,
 )
-import pytest
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Mapping, Sequence

@@ -4,13 +4,14 @@ from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock
 
+import pytest
+
 from livecheck.dist_github import (
     DistGitHubSettings,
     asset_exists,
     parse_repository,
     upload_dist_archive,
 )
-import pytest
 
 if TYPE_CHECKING:
     from pathlib import Path

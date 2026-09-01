@@ -4,12 +4,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock
 
+import pytest
+
 from livecheck.special.composer import (
     check_composer_requirements,
     remove_composer_url,
     update_composer_ebuild,
 )
-import pytest
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture

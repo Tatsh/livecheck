@@ -26,11 +26,28 @@ jobs:
           wget -O generic.svg 'https://raw.githubusercontent.com/KDE/breeze-icons/refs/heads/master/icons/preferences/32/preferences-other.svg'
         shell: 'bash'
       - name: 'Build with python-appimage'
+        env:
+          GH_TOKEN: '${{ github.token }}'
         run: |
           project_name=$(tomlq -r '.project.urls.repository|split("/")[-1]' pyproject.toml)
           version=$(tomlq -r .project.version pyproject.toml)
           rm -fR dist
           mkdir dist
+          base_image_tag='manylinux2014_${{ matrix.system.arch }}.AppImage'
+          base_image=$(curl -fsSL \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H 'Accept: application/vnd.github+json' \
+              "https://api.github.com/repos/niess/python-appimage/releases/tags/python3.13" |
+              jq -r --arg suffix "${base_image_tag}" \
+                  'first(.assets[] | select(.name | endswith($suffix)) | .browser_download_url)')
+          if [[ -z "${base_image}" || "${base_image}" == 'null' ]]; then
+              echo "No python3.13 base image ending in ${base_image_tag}." >&2
+              exit 1
+          fi
+          curl -fsSL -O "${base_image}"
+          base_image="${base_image##*/}"
+          chmod +x "${base_image}"
+          echo "Using base image ${base_image}."
           while IFS=$' ' read -r script_name python_path func_name; do
               func_name="${func_name#"${func_name%%[![:space:]]*}"}"
               func_name="${func_name%"${func_name##*[![:space:]]}"}"
@@ -89,7 +106,7 @@ jobs:
               fi
               cp generic.svg "recipe/${script_name}.svg"
               echo "Building AppImage for '${script_name}'..."
-              uv run python -m python_appimage -v build app -l "manylinux2014_${{ matrix.system.arch }}" -p 3.13 recipe
+              uv run python -m python_appimage -v build app -b "${base_image}" recipe
               mv "${script_name}-${{ matrix.system.arch }}.AppImage" "dist/${script_name}-v${version}-${{ matrix.system.arch }}.AppImage"
           done < <(tomlq -r '.project.scripts|to_entries[]|"\(.key) \(.value|split(":")|join(" "))"' pyproject.toml)
         shell: 'bash'
@@ -113,7 +130,7 @@ jobs:
           path: |
             dist/*
       - name: 'Generate SBOM'
-        uses: 'anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610'
+        uses: 'anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26'
         env:
           SYFT_SOURCE_NAME: 'livecheck'
           SYFT_SOURCE_VERSION: ${{ github.ref_name }}

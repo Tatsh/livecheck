@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING, Any
 import json
 import operator
 
+import pytest
+
 from livecheck.settings import (
     TYPE_CHANGELOG,
     TYPE_DIRECTORY,
@@ -14,7 +16,6 @@ from livecheck.settings import (
     check_instance,
     gather_settings,
 )
-import pytest
 
 if TYPE_CHECKING:
     from pathlib import Path

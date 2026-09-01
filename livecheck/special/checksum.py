@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 import re
 
 from anyio import Path as AnyioPath
+
 from livecheck.utils import get_content, get_last_modified, hash_url
 from livecheck.utils.portage import catpkg_catpkgsplit
 

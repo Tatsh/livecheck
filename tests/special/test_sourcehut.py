@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import pytest
+
 from livecheck.settings import LivecheckSettings
 from livecheck.special import sourcehut
 from livecheck.special.sourcehut import extract_owner_repo, get_branch
-import pytest
 
 if TYPE_CHECKING:
     from collections.abc import Collection

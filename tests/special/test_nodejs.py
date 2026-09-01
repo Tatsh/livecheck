@@ -4,12 +4,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock
 
+import pytest
+
 from livecheck.special.nodejs import (
     check_nodejs_requirements,
     remove_nodejs_url,
     update_nodejs_ebuild,
 )
-import pytest
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture

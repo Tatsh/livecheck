@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from livecheck.special import nuget
 import pytest
+
+from livecheck.special import nuget
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture

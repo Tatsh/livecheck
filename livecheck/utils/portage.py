@@ -16,8 +16,9 @@ import portage
 if TYPE_CHECKING:
     from collections.abc import Collection, Iterable, Mapping
 
-    from livecheck.settings_model import LivecheckSettings
     from portage.dbapi import _AuxKey
+
+    from livecheck.settings_model import LivecheckSettings
 
 __all__ = ('P', 'catpkg_catpkgsplit', 'catpkgsplit2', 'compare_versions', 'fetch_ebuild', 'get_aux',
            'get_distdir', 'get_fetch_map', 'get_first_src_uri', 'get_highest_matches',

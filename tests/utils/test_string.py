@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from livecheck.utils.string import (
     InvalidPackageName,
     dash_to_underscore,
@@ -9,7 +11,6 @@ from livecheck.utils.string import (
     parse_npm_package_name,
     prefix_v,
 )
-import pytest
 
 
 def test_parse_npm_package_name_scoped() -> None:

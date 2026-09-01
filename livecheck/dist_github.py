@@ -7,6 +7,7 @@ import logging
 import mimetypes
 
 from anyio import Path as AnyioPath
+
 from livecheck.utils.requests import session_init
 
 if TYPE_CHECKING:

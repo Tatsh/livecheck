@@ -3,12 +3,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from anyio import Path as AnyioPath
+import pytest
+
 from livecheck.special.checksum import (
     get_latest_checksum_package,
     get_latest_location_checksum_package,
     update_checksum_metadata,
 )
-import pytest
 
 if TYPE_CHECKING:
     from pathlib import Path

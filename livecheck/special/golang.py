@@ -6,6 +6,7 @@ import logging
 import re
 
 from anyio import Path as AnyioPath
+
 from livecheck.utils import get_content
 
 from .utils import EbuildTempFile

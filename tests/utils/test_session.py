@@ -7,8 +7,9 @@ from typing import TYPE_CHECKING, Any, cast
 from unittest.mock import AsyncMock
 import asyncio
 
-from livecheck.utils.session import build_github_session, build_retry, build_session
 import pytest
+
+from livecheck.utils.session import build_github_session, build_retry, build_session
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture

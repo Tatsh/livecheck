@@ -7,6 +7,7 @@ from urllib.parse import urljoin, urlparse
 import re
 
 from bs4 import BeautifulSoup
+
 from livecheck.utils import get_content
 from livecheck.utils.portage import get_last_version
 

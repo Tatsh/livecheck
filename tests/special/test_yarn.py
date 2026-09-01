@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock
 
 from anyio import Path as AnyioPath
+import pytest
+
 from livecheck.special.yarn import (
     Lockfile,
     check_yarn_requirements,
@@ -14,7 +16,6 @@ from livecheck.special.yarn import (
     update_yarn_ebuild,
     yarn_pkgs,
 )
-import pytest
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture

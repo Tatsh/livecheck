@@ -3,12 +3,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from anyio import Path as AnyioPath
+import pytest
+
 from livecheck.special.jetbrains import (
     get_latest_jetbrains_package,
     is_jetbrains,
     update_jetbrains_ebuild,
 )
-import pytest
 
 if TYPE_CHECKING:
     from pathlib import Path

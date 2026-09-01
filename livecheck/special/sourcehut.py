@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 import re
 
 from defusedxml import ElementTree as ET  # ruff:ignore[camelcase-imported-as-acronym]
+
 from livecheck.utils import get_content, is_sha
 from livecheck.utils.portage import catpkg_catpkgsplit, get_last_version
 

@@ -4,6 +4,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock
 
+import pytest
+
 from livecheck.special.dotnet import (
     NoNugetsEnding,
     NoNugetsFound,
@@ -13,7 +15,6 @@ from livecheck.special.dotnet import (
     update_dotnet_archive_ebuild,
     update_dotnet_ebuild,
 )
-import pytest
 
 if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture

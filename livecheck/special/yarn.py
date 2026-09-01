@@ -10,8 +10,9 @@ import logging
 import re
 
 from anyio import Path as AnyioPath
-from livecheck.utils import check_program
 from typing_extensions import NotRequired
+
+from livecheck.utils import check_program
 
 from .utils import EbuildTempFile, get_project_path
 

@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from livecheck.special.gist import extract_id, get_latest_gist_package, is_gist
 import pytest
+
+from livecheck.special.gist import extract_id, get_latest_gist_package, is_gist
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture

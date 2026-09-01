@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 import logging
 
 from anyio import Path as AnyioPath
+
 from livecheck.utils import get_content
 from livecheck.utils.portage import catpkg_catpkgsplit, get_last_version
 
