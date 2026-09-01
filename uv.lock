@@ -1692,11 +1692,11 @@ wheels = [
 
 [[package]]
 name = "platformdirs"
-version = "4.11.3"
+version = "4.11.4"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/b8/d7/e7bfbc86e9f99ff7807e24de7703f032e9c9ba80bb355cf26e0e9bc5a75e/platformdirs-4.11.3.tar.gz", hash = "sha256:66a73d38a849810252df809a3d8bcbda8e26f6c189920e7535ad608a48dbb5ab", size = 33050, upload-time = "2026-08-13T22:43:27.52Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/50/bb/ebc6636e1ae41314f796ebb7215fd28febb45f9aac72f2b04cb74b5071dc/platformdirs-4.11.4.tar.gz", hash = "sha256:f3373be828247211d0febabea97e238c3dfde8a60b3c90c32756fb52cb21556d", size = 34079, upload-time = "2026-08-24T14:53:49.676Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/19/a9/c34aebedd3a4c9afe5101b1b8713710b3fec18087c8a36c35d2f909861bd/platformdirs-4.11.3-py3-none-any.whl", hash = "sha256:5ed065d443751de711da036041a7a214122efc4a4de393b3f4137ba5576540e7", size = 23491, upload-time = "2026-08-13T22:43:26.121Z" },
+    { url = "https://files.pythonhosted.org/packages/28/be/0ff05fcd2938fb58ad9219bd54135968342d214737e012d62d43f06a2dd6/platformdirs-4.11.4-py3-none-any.whl", hash = "sha256:e34ff91a24bcddc6d939b878bdf3f5c437c9c46fe9e212b1bf455fdf1ee57586", size = 23741, upload-time = "2026-08-24T14:53:48.406Z" },
 ]
 
 [[package]]
@@ -1710,11 +1710,11 @@ wheels = [
 
 [[package]]
 name = "portage"
-version = "3.0.81.2"
+version = "3.0.82.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/15/be/876819696088c82687f42d8e6ddef6d2e8a53ba3bdd042f67cf317ec221c/portage-3.0.81.2.tar.gz", hash = "sha256:f9a5e17dc367db5161f7654e42b5c99dcbe124b1155b7d601de82971cd737b39", size = 1637697, upload-time = "2026-07-10T19:34:36.262Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/66/20/6fcbbd5479dc9d01a36915eb744747ba3ee033719fb04831e12e1a296f12/portage-3.0.82.1.tar.gz", hash = "sha256:d24c8f86f340d551fbf8b97b06a93fb1573b1206aae6e10c058d38a6198e4650", size = 1708246, upload-time = "2026-08-24T20:44:15.221Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e4/bb/1a6f5f7c10002a6bb725d2dc546ecf75dafe88af2c5e7df409503b78c650/portage-3.0.81.2-py3-none-any.whl", hash = "sha256:645ab5536ed01c053cdffd57cd5ada3682b115c0c9ff14ef786eb0d1b16872f7", size = 1812730, upload-time = "2026-07-10T19:34:34.341Z" },
+    { url = "https://files.pythonhosted.org/packages/27/8d/ed6b03e4be0af735d52d0c8890d05d58d68d610c8b344b86b17d6142c88f/portage-3.0.82.1-py3-none-any.whl", hash = "sha256:922efddb4e07b39e17ba801f0aebaf9c2cc3b7aa6844b97de944f9aff08e50d8", size = 1870932, upload-time = "2026-08-24T20:44:10.063Z" },
 ]
 
 [[package]]
