@@ -10,6 +10,8 @@ and this project adheres to
 
 ## [unreleased]
 
+## [0.2.7] - 2026-09-04
+
 ### Fixed
 
 - Stop the fetcher used by `ebuild digest` from overwriting its own output. Portage hands the
@@ -323,7 +325,8 @@ and this project adheres to
 
 - When multiple ebuilds are in the same directory, only the latest one will be considered for updating.
 
-[unreleased]: https://github.com/Tatsh/livecheck/compare/v0.2.6...HEAD
+[unreleased]: https://github.com/Tatsh/livecheck/compare/v0.2.7...HEAD
+[0.2.7]: https://github.com/Tatsh/livecheck/compare/v0.2.6...v0.2.7
 [0.2.6]: https://github.com/Tatsh/livecheck/compare/v0.2.5...v0.2.6
 [0.2.5]: https://github.com/Tatsh/livecheck/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/Tatsh/livecheck/compare/v0.2.3...v0.2.4
