@@ -606,6 +606,32 @@ def test_digest_ebuild_basic(
     assert result is expected
 
 
+def test_digest_ebuild_quiets_fetch_commands(mocker: MockerFixture) -> None:
+    commands = {
+        'FETCHCOMMAND': 'wget -t 3 -O "${DISTDIR}/${FILE}" "${URI}"',
+        'FETCHCOMMAND_RSYNC': 'rsync -LtvP "${URI}" "${DISTDIR}/${FILE}"',
+        'PATH': '/usr/bin',
+        'RESUMECOMMAND_HTTPS': '/usr/bin/curl -o "${DISTDIR}/${FILE}" "${URI}"'
+    }
+    mock_config = mocker.MagicMock()
+    mock_config.__iter__.side_effect = lambda: iter(tuple(commands))
+    mock_config.__getitem__.side_effect = commands.__getitem__
+    mock_config.__setitem__.side_effect = commands.__setitem__
+    mock_portage = mocker.patch('livecheck.utils.portage.portage')
+    mock_portage.config.return_value = mock_config
+    mock_portage.doebuild.return_value = 0
+
+    assert digest_ebuild('/path/to/foo.ebuild') is True
+    assert commands['FETCHCOMMAND'] == 'wget --no-verbose -t 3 -O "${DISTDIR}/${FILE}" "${URI}"'
+    assert commands['RESUMECOMMAND_HTTPS'] == ('/usr/bin/curl --silent --show-error -o '
+                                               '"${DISTDIR}/${FILE}" "${URI}"')
+    assert commands['FETCHCOMMAND_RSYNC'] == 'rsync -LtvP "${URI}" "${DISTDIR}/${FILE}"'
+    assert mock_config.backup_changes.call_count == 2
+    mock_config.backup_changes.assert_has_calls(
+        [mocker.call('FETCHCOMMAND'),
+         mocker.call('RESUMECOMMAND_HTTPS')], any_order=True)
+
+
 @pytest.mark.parametrize(
     ('clean_return', 'unpack_return', 'workdir_exists', 'workdir_is_dir', 'expected'),
     [

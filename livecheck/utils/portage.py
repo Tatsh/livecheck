@@ -519,6 +519,33 @@ def get_distdir() -> Path:
     return Path('/var/cache/distfiles')
 
 
+_FETCH_COMMAND_PREFIXES = ('FETCHCOMMAND', 'RESUMECOMMAND')
+_QUIET_FETCH_FLAGS = {'curl': '--silent --show-error', 'wget': '--no-verbose'}
+
+
+def _quiet_fetch_command(command: str) -> str:
+    executable, separator, arguments = command.partition(' ')
+    if flags := _QUIET_FETCH_FLAGS.get(Path(executable).name):
+        return f'{executable} {flags}{separator}{arguments}'
+    return command
+
+
+def _doebuild_settings() -> portage.config:
+    # Portage gives the fetcher this process's terminal, so several packages being updated at once
+    # share one line of progress bar. The flags go in front of the configured ones so an explicit
+    # `--verbose` still wins.
+    settings = portage.config(clone=portage.settings)
+    # `portage-stubs` does not declare key iteration or `config.backup_changes()`. The latter is
+    # required because `doebuild()` calls `config.reset()`, which drops unbacked changes.
+    config = cast('Any', settings)
+    for key in tuple(config):
+        if (key.startswith(_FETCH_COMMAND_PREFIXES)
+                and (quiet := _quiet_fetch_command(settings[key])) != settings[key]):
+            settings[key] = quiet
+            config.backup_changes(key)
+    return settings
+
+
 def fetch_ebuild(ebuild_path: str) -> bool:
     """
     Perform ``ebuild fetch`` operation.
@@ -533,12 +560,12 @@ def fetch_ebuild(ebuild_path: str) -> bool:
     bool
         ``True`` if the fetch succeeded.
     """
-    settings = portage.config(clone=portage.settings)
+    settings = _doebuild_settings()
     return bool(portage.doebuild(ebuild_path, 'fetch', settings=settings, tree='porttree') == 0)
 
 
 def digest_ebuild(ebuild_path: str) -> bool:
-    settings = portage.config(clone=portage.settings)
+    settings = _doebuild_settings()
     return bool(portage.doebuild(ebuild_path, 'digest', settings=settings, tree='porttree') == 0)
 
 
@@ -556,7 +583,7 @@ def unpack_ebuild(ebuild_path: str) -> str:
     str
         The ``WORKDIR`` path, or an empty string on failure.
     """
-    settings = portage.config(clone=portage.settings)
+    settings = _doebuild_settings()
 
     if portage.doebuild(ebuild_path, 'clean', settings=settings, tree='porttree') != 0:
         return ''

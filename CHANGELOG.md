@@ -10,6 +10,15 @@ and this project adheres to
 
 ## [unreleased]
 
+### Fixed
+
+- Stop the fetcher used by `ebuild digest` from overwriting its own output. Portage hands the
+  fetcher this process's terminal, so with several packages updated at once every `wget` progress
+  bar redrew the same line and the log became unreadable. `FETCHCOMMAND` and `RESUMECOMMAND` now
+  get `--no-verbose` (`wget`) or `--silent --show-error` (`curl`) before the configured arguments,
+  which keeps one line per file and leaves errors visible
+  ([#558](https://github.com/Tatsh/livecheck/issues/558)).
+
 ## [0.2.6] - 2026-08-05
 
 ### Fixed

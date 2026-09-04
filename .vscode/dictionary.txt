@@ -70,6 +70,7 @@ esbenp
 esbonio
 eselect
 excinfo
+fetchcommand
 fetchlist
 ffms
 fhdk
@@ -187,6 +188,7 @@ referer
 regen
 rela
 repology
+resumecommand
 ripgreprc
 rstcheck
 rubygems
