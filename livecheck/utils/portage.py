@@ -535,14 +535,12 @@ def _doebuild_settings() -> portage.config:
     # share one line of progress bar. The flags go in front of the configured ones so an explicit
     # `--verbose` still wins.
     settings = portage.config(clone=portage.settings)
-    # `portage-stubs` does not declare key iteration or `config.backup_changes()`. The latter is
-    # required because `doebuild()` calls `config.reset()`, which drops unbacked changes.
-    config = cast('Any', settings)
-    for key in tuple(config):
+    for key in tuple(settings):
         if (key.startswith(_FETCH_COMMAND_PREFIXES)
                 and (quiet := _quiet_fetch_command(settings[key])) != settings[key]):
             settings[key] = quiet
-            config.backup_changes(key)
+            # `doebuild()` calls `config.reset()`, which drops changes that are not backed up.
+            settings.backup_changes(key)
     return settings
 
 
