@@ -547,14 +547,11 @@ wheels = [
 
 [[package]]
 name = "click"
-version = "8.4.2"
+version = "8.5.0"
 source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/76/d4/81420972a676e8ffea40450d8c8c92943e7218a78fe9b64359836cc9876b/click-8.4.2.tar.gz", hash = "sha256:9a6cea6e60b17ebe0a44c5cc636d94f09bd66142c1cd7d8b4cd731c4917a15f6", size = 338000, upload-time = "2026-06-24T17:45:15.148Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c7/0e/7fa0ef50764b67090eca4114772a2abf8b6148198475e54c660b97caeee6/click-8.5.0.tar.gz", hash = "sha256:ba0d2089de75ea0310e2dde03160e6ca10009947fb95a182f9b54021bb272e34", size = 382235, upload-time = "2026-08-26T13:33:14.56Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/fb/e2/79c688af8b210d232694e31e59da9f6ec747bae31c3f5946e4e9b98860d5/click-8.4.2-py3-none-any.whl", hash = "sha256:e6f9f66136c816745b9d65817da91d61d957fb16e02e4dcd0552553c5a197b76", size = 119243, upload-time = "2026-06-24T17:45:13.73Z" },
+    { url = "https://files.pythonhosted.org/packages/58/50/6c0d534c5f134586a8e1ba4e330569e32f057e33372ae556463212fb4cd3/click-8.5.0-py3-none-any.whl", hash = "sha256:255bc9599cf7748b4b1a446ccc735421bd08a2ae529a8b88597d3de5664ee360", size = 125251, upload-time = "2026-08-26T13:33:12.928Z" },
 ]
 
 [[package]]
@@ -1723,16 +1720,16 @@ wheels = [
 
 [[package]]
 name = "niquests"
-version = "3.21.0"
+version = "3.21.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "charset-normalizer" },
     { name = "urllib3-future" },
     { name = "wassima", marker = "sys_platform != 'emscripten'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/03/1c/836ad34fb18fac781722019100e2bffd81eb9a0011d7a91c434a7094460d/niquests-3.21.0.tar.gz", hash = "sha256:5b7d10a05f4c7ed08cede0af74f492ae7a8a5a71291833d029e23365fc3ea80a", size = 1070211, upload-time = "2026-07-29T10:26:24.993Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/21/e0/bf0dfc98ff4fd6dc1f4872972c14688f159013ebecda27c71ccb42bfdff4/niquests-3.21.1.tar.gz", hash = "sha256:8ba6ee8712570ae41dfc59ac2ac7e509dcde660c6cc47078b43be423a2f99e64", size = 1081377, upload-time = "2026-08-28T09:36:36.291Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/23/9b/c08403f905f9aaffc74b483fbb0ad4cc372d1da22cccb4ca771a3e65a185/niquests-3.21.0-py3-none-any.whl", hash = "sha256:dbea441b9e9d5d755e02caa2b57b94cdb97b23d754ead21b80a4ac18ef66805f", size = 230382, upload-time = "2026-07-29T10:26:23.194Z" },
+    { url = "https://files.pythonhosted.org/packages/be/fe/fca859af3c83c718d8228c918716b6b32dcda96ee94980cb9849a415e1c9/niquests-3.21.1-py3-none-any.whl", hash = "sha256:ac1ff8061cb480cdaad07f08b95cf21ee0a68ef21fbc2b6ddf5afff8e0d0072e", size = 230450, upload-time = "2026-08-28T09:36:34.682Z" },
 ]
 
 [[package]]
@@ -1856,11 +1853,11 @@ wheels = [
 
 [[package]]
 name = "platformdirs"
-version = "4.11.4"
+version = "4.11.6"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/50/bb/ebc6636e1ae41314f796ebb7215fd28febb45f9aac72f2b04cb74b5071dc/platformdirs-4.11.4.tar.gz", hash = "sha256:f3373be828247211d0febabea97e238c3dfde8a60b3c90c32756fb52cb21556d", size = 34079, upload-time = "2026-08-24T14:53:49.676Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/8e/1d/6e762a6b060e662208951aefc5c39f6a96a272c4a10c0c1f7b6113fc3c09/platformdirs-4.11.6.tar.gz", hash = "sha256:1a4016e373f89f8ec458431fe0e0c5c4285858ac623f3e20efdfcbc0bd862941", size = 35131, upload-time = "2026-09-01T04:41:00.6Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/28/be/0ff05fcd2938fb58ad9219bd54135968342d214737e012d62d43f06a2dd6/platformdirs-4.11.4-py3-none-any.whl", hash = "sha256:e34ff91a24bcddc6d939b878bdf3f5c437c9c46fe9e212b1bf455fdf1ee57586", size = 23741, upload-time = "2026-08-24T14:53:48.406Z" },
+    { url = "https://files.pythonhosted.org/packages/4e/d8/2784c6eabb991b5b7494ff9e9888c74a0a72ad613c3ec5adbfcecc0724c7/platformdirs-4.11.6-py3-none-any.whl", hash = "sha256:b22d992e863bc651c26b16242041c7979db6e3286e548f9a76cc91238fac599e", size = 23938, upload-time = "2026-09-01T04:40:58.977Z" },
 ]
 
 [[package]]
@@ -1874,11 +1871,11 @@ wheels = [
 
 [[package]]
 name = "portage"
-version = "3.0.82.1"
+version = "3.0.82.2"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/66/20/6fcbbd5479dc9d01a36915eb744747ba3ee033719fb04831e12e1a296f12/portage-3.0.82.1.tar.gz", hash = "sha256:d24c8f86f340d551fbf8b97b06a93fb1573b1206aae6e10c058d38a6198e4650", size = 1708246, upload-time = "2026-08-24T20:44:15.221Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/77/e4/4b928205f54ceaf1e23f28f9fae6d33b55957486c98d65e6edfc6e27694c/portage-3.0.82.2.tar.gz", hash = "sha256:abe78cdbe9e1473bc5bc3262d4a80977b4b2e197ccaa3db8378f6a5a71e61e42", size = 1709599, upload-time = "2026-08-28T07:57:30.456Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/27/8d/ed6b03e4be0af735d52d0c8890d05d58d68d610c8b344b86b17d6142c88f/portage-3.0.82.1-py3-none-any.whl", hash = "sha256:922efddb4e07b39e17ba801f0aebaf9c2cc3b7aa6844b97de944f9aff08e50d8", size = 1870932, upload-time = "2026-08-24T20:44:10.063Z" },
+    { url = "https://files.pythonhosted.org/packages/b2/46/8fbaeda7b4b78357450e3e68916a7a63d574f76eb2c328005700c49b853f/portage-3.0.82.2-py3-none-any.whl", hash = "sha256:72036dbbcd56ff62de0aad660474abe918a526436f69a0bb4a955bc40cccb8bb", size = 1872628, upload-time = "2026-08-28T07:57:24.337Z" },
 ]
 
 [[package]]
