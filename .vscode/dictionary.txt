@@ -33,7 +33,6 @@ commitizen
 concurrentqueue
 conftest
 connectionpool
-cooldown
 coveragerc
 coverallsapp
 cpan
@@ -92,7 +91,6 @@ hoverxref
 htmlcov
 icingaweb
 imgui
-intersphinx
 isort
 itertools
 jimevins
@@ -136,6 +134,7 @@ newbeef
 newcafe
 newtonsoft
 niquests
+noone
 noqa
 norecursedirs
 notofonts
@@ -147,6 +146,7 @@ nuanceur
 nugets
 nullglob
 numpy
+numpydoc
 nvchecker
 oneline
 onlyhash
@@ -162,6 +162,7 @@ pkgmetadata
 pkgs
 platformdirs
 plistlib
+popen
 portdbapi
 portdir
 porttree

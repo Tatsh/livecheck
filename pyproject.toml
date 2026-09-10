@@ -8,8 +8,8 @@ dev = [
   "cz-path>=0.0.7",
   "mypy>=2.3.1",
   "portage-stubs>=0.0.10",
-  "ruff==0.16.5",
-  "ty>=0.0.74",
+  "ruff==0.16.6",
+  "ty>=0.0.78",
   "types-beautifulsoup4>=4.12.0.20250516",
   "types-defusedxml>=0.7.0.20260504",
   "yapf>=0.43.0",
@@ -29,7 +29,7 @@ docs = [
 tests = [
   "coveralls>=4.1.0",
   "mock>=5.2.0",
-  "niquests-mock>=0.5.0",
+  "niquests-mock>=0.5.1",
   "pytest-asyncio>=1.4.0",
   "pytest-cov>=7.1.0",
   "pytest-mock>=3.15.1",
@@ -49,17 +49,17 @@ classifiers = [
   "Typing :: Typed",
 ]
 dependencies = [
-  "anyio>=4.14.2",
+  "anyio>=4.15.0",
   "bascom>=0.2.0",
   "beautifulsoup4>=4.15.0",
-  "click>=8.4.2",
+  "click>=8.5.0",
   "defusedxml>=0.7.1",
   "html5lib>=1.1",
   "keyring>=25.7.0",
   "niquests-cache>=0.2.4",
-  "niquests>=3.21.0",
-  "platformdirs>=4.11.4",
-  "portage>=3.0.82.1",
+  "niquests>=3.21.1",
+  "platformdirs>=4.11.7",
+  "portage>=3.0.82.2",
   "typing-extensions>=4.16.0",
 ]
 description = "Tool to update ebuilds."
@@ -178,7 +178,6 @@ cache-dir = "~/.cache/ruff"
 force-exclude = true
 line-length = 100
 namespace-packages = ["docs", "tests"]
-output-prefer-rule-codes = true
 target-version = "py310"
 unsafe-fixes = true
 
@@ -191,19 +190,16 @@ quote-style = "single"
 [tool.ruff.lint]
 extend-select = ["ALL"]
 ignore = [
-  "ANN401",
-  "COM812",
-  "CPY001",
-  "D203",
-  "D204",
-  "D212",
-  "N818",
-  "RUF105",
-  "RUF106",
-  "RUF201",
-  "S404",
-  "S603",
-  "TD002",
+  "any-type",
+  "error-suffix-on-exception-name",
+  "incorrect-blank-line-after-class",
+  "incorrect-blank-line-before-class",
+  "missing-copyright-notice",
+  "missing-todo-author",
+  "missing-trailing-comma",
+  "multi-line-summary-first-line",
+  "subprocess-without-shell-equals-true",
+  "suspicious-subprocess-import",
 ]
 preview = true
 
@@ -229,7 +225,7 @@ max-complexity = 20
 extend-ignore-names = ["test_*"]
 
 [tool.ruff.lint.per-file-ignores]
-"livecheck/main.py" = ["PLR0913"]
+"livecheck/main.py" = ["too-many-arguments"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
