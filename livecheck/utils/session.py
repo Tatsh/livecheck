@@ -213,6 +213,8 @@ def build_session(semaphore: asyncio.Semaphore) -> _ConcurrencyLimitedSession:
     """
     Build a cached async session with concurrency limiting.
 
+    Revalidate cached responses on every request to detect upstream version changes.
+
     Parameters
     ----------
     semaphore : asyncio.Semaphore
@@ -226,6 +228,7 @@ def build_session(semaphore: asyncio.Semaphore) -> _ConcurrencyLimitedSession:
     return _ConcurrencyLimitedSession(cache_name=_cache_path(),
                                       backend='sqlite',
                                       cache_control=True,
+                                      always_revalidate=True,
                                       retries=build_retry(),
                                       semaphore=semaphore)
 
