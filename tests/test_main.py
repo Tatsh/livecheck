@@ -25,6 +25,7 @@ from livecheck.main import (
     str_version,
     update_egit_branch,
 )
+from livecheck.settings_model import LivecheckSettings
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -2459,6 +2460,51 @@ async def test_get_props_basic_yields(mocker: MockerFixture, fake_repo: Path,
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize('parallel', [1, 3])
+@pytest.mark.parametrize('failed_package', ['first', 'second', 'third'])
+async def test_get_props_continues_after_detection_failure(mocker: MockerFixture, tmp_path: Path,
+                                                           caplog: LogCaptureFixture, parallel: int,
+                                                           failed_package: str) -> None:
+    packages = ('first', 'second', 'third')
+    settings = LivecheckSettings(progress_flag=True,
+                                 type_packages={f'cat/{pkg}': 'davinci'
+                                                for pkg in packages})
+    mocker.patch('livecheck.main.get_highest_matches',
+                 return_value=[f'cat/{pkg}-1.0' for pkg in packages])
+    mocker.patch('livecheck.main.get_first_src_uri', return_value='')
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
+    valid_response = mocker.Mock()
+    valid_response.json.return_value = {'linux': {'major': 2, 'minor': 0, 'releaseNum': 0}}
+    invalid_response = mocker.Mock()
+    invalid_response.json.return_value = {}
+    fetch = mocker.patch('livecheck.special.davinci.get_content',
+                         side_effect=lambda url: invalid_response
+                         if url.endswith(f'/{failed_package}/linux') else valid_response)
+
+    with caplog.at_level(logging.INFO):
+        results = await get_props(tmp_path,
+                                  tmp_path,
+                                  settings, [f'cat/{pkg}' for pkg in packages],
+                                  parallel=parallel)
+
+    assert results == [('cat', pkg, '1.0', '2.0', '', '', '') for pkg in packages
+                       if pkg != failed_package]
+    assert fetch.await_count == 3
+    assert 'Progress: 3/3 packages checked.' in caplog.messages
+    assert any(record.levelno == logging.ERROR and f'cat/{failed_package}-1.0' in record.message
+               and record.exc_info is not None for record in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_get_props_propagates_cancellation(mocker: MockerFixture, tmp_path: Path) -> None:
+    mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0'])
+    mocker.patch('livecheck.main.get_first_src_uri', side_effect=asyncio.CancelledError)
+
+    with pytest.raises(asyncio.CancelledError):
+        await get_props(tmp_path, tmp_path, LivecheckSettings(), ['cat/pkg'])
+
+
+@pytest.mark.asyncio
 async def test_get_props_reports_stalled_package(mocker: MockerFixture, fake_repo: Path,
                                                  mock_settings2: Mock) -> None:
     mocker.patch('livecheck.main.STALL_REPORT_INTERVAL', 0.01)
@@ -3338,7 +3384,8 @@ def hook_dir(tmp_path: Path) -> Path:
 
 @pytest.mark.asyncio
 async def test_execute_hooks_runs_executable_files(mocker: MockerFixture, hook_dir: Path,
-                                                   tmp_path: Path) -> None:
+                                                   tmp_path: Path,
+                                                   caplog: LogCaptureFixture) -> None:
     action = 'pre'
     cp = 'cat/pkg'
     search_dir = tmp_path
@@ -3353,12 +3400,13 @@ async def test_execute_hooks_runs_executable_files(mocker: MockerFixture, hook_d
     mock_async_proc.wait = mocker.AsyncMock(return_value=0)
     mock_create = mocker.patch('livecheck.main.asyncio.create_subprocess_exec',
                                return_value=mock_async_proc)
-    mocker.patch('livecheck.main.log.debug')
-    await execute_hooks(hook_dir, action, search_dir, cp, str_old_version, str_new_version, old_sha,
-                        new_sha, hash_date)
+    with caplog.at_level(logging.DEBUG):
+        await execute_hooks(hook_dir, action, search_dir, cp, str_old_version, str_new_version,
+                            old_sha, new_sha, hash_date)
     mock_create.assert_called_once()
     args = mock_create.call_args[0]
     assert str(hook_path / 'hook1.sh') == args[0]
+    assert f'Running hook `{hook_path / "hook1.sh"}`.' in caplog.messages
 
 
 @pytest.mark.asyncio
@@ -3560,7 +3608,7 @@ def test_main_calls_get_props_and_do_main(mocker: MockerFixture, runner: CliRunn
 
 
 def test_main_continues_after_package_failure(mocker: MockerFixture, runner: CliRunner,
-                                              tmp_path: Path) -> None:
+                                              tmp_path: Path, caplog: LogCaptureFixture) -> None:
     mock_settings = mocker.Mock()
     mocker.patch('livecheck.main.chdir')
     mocker.patch('livecheck.main.setup_logging')
@@ -3585,6 +3633,11 @@ def test_main_continues_after_package_failure(mocker: MockerFixture, runner: Cli
                str(tmp_path), 'cat/pkg', 'cat2/pkg2'])
     assert result.exit_code == 0
     assert mock_do_main.call_count == 2
+    errors = [record for record in caplog.records if record.levelno == logging.ERROR]
+    assert len(errors) == 1
+    assert 'boom' in errors[0].getMessage()
+    assert 'cat/pkg' in errors[0].getMessage()
+    assert errors[0].exc_info is None
     mock_do_main.assert_any_call(cat='cat2',
                                  pkg='pkg2',
                                  ebuild_version='2.0.0',
@@ -3597,8 +3650,53 @@ def test_main_continues_after_package_failure(mocker: MockerFixture, runner: Cli
                                  hook_dir=None)
 
 
+@pytest.mark.parametrize('parallel', [1, 3])
+@pytest.mark.parametrize('failed_packages', [(), ('first',), ('first', 'second', 'third')])
+def test_main_processes_successful_detections_and_reports_failures(
+        mocker: MockerFixture, runner: CliRunner, tmp_path: Path, caplog: LogCaptureFixture,
+        parallel: int, failed_packages: tuple[str, ...]) -> None:
+    packages = ('first', 'second', 'third')
+    settings = LivecheckSettings(type_packages={f'cat/{pkg}': 'davinci' for pkg in packages})
+    mocker.patch('livecheck.main.chdir')
+    mocker.patch('livecheck.main.setup_logging')
+    mocker.patch('livecheck.main.gather_settings', return_value=settings)
+    mocker.patch('livecheck.main.get_repository_root_if_inside',
+                 return_value=(str(tmp_path), 'repo'))
+    mocker.patch('livecheck.main.get_highest_matches',
+                 return_value=[f'cat/{pkg}-1.0' for pkg in packages])
+    mocker.patch('livecheck.main.get_first_src_uri', return_value='')
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
+    valid_response = mocker.Mock()
+    valid_response.json.return_value = {'linux': {'major': 2, 'minor': 0, 'releaseNum': 0}}
+    invalid_response = mocker.Mock()
+    invalid_response.json.return_value = {}
+    fetch = mocker.patch('livecheck.special.davinci.get_content',
+                         side_effect=lambda url: invalid_response
+                         if url.split('/')[-2] in failed_packages else valid_response)
+    process = mocker.patch('livecheck.main.do_main')
+    close = mocker.patch('livecheck.main.close_sessions')
+
+    result = runner.invoke(main, [
+        '--working-dir',
+        str(tmp_path), '--parallel',
+        str(parallel), *(f'cat/{pkg}' for pkg in packages)
+    ])
+
+    assert result.exit_code == (1 if failed_packages else 0)
+    assert 'Traceback' not in result.output
+    assert fetch.await_count == 3
+    assert [call.kwargs['pkg'] for call in process.await_args_list] == [
+        pkg for pkg in packages if pkg not in failed_packages
+    ]
+    for pkg in failed_packages:
+        assert any(record.levelno == logging.ERROR and f'cat/{pkg}-1.0' in record.message
+                   for record in caplog.records)
+    close.assert_awaited_once()
+
+
 def test_main_unexpected_error_continues_but_exits_nonzero(mocker: MockerFixture, runner: CliRunner,
-                                                           tmp_path: Path) -> None:
+                                                           tmp_path: Path,
+                                                           caplog: LogCaptureFixture) -> None:
     mock_settings = mocker.Mock()
     mocker.patch('livecheck.main.chdir')
     mocker.patch('livecheck.main.setup_logging')
@@ -3621,8 +3719,12 @@ def test_main_unexpected_error_continues_but_exits_nonzero(mocker: MockerFixture
     result = runner.invoke(
         main, ['--auto-update', '--working-dir',
                str(tmp_path), 'cat/pkg', 'cat2/pkg2'])
-    assert result.exit_code != 0
+    assert result.exit_code == 1
     assert mock_do_main.call_count == 2
+    errors = [record for record in caplog.records if record.levelno == logging.ERROR]
+    assert len(errors) == 1
+    assert 'cat/pkg' in errors[0].getMessage()
+    assert errors[0].exc_info is not None
     mock_do_main.assert_any_call(cat='cat2',
                                  pkg='pkg2',
                                  ebuild_version='2.0.0',

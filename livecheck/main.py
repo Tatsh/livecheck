@@ -137,7 +137,7 @@ from .utils.portage import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
+    from collections.abc import Callable, Mapping, Sequence
 
     from .typing import PropTuple
 
@@ -594,7 +594,9 @@ async def get_props(search_dir: Path,
                     settings: LivecheckSettings,
                     names: Sequence[str] | None = None,
                     exclude: Sequence[str] | None = None,
-                    parallel: int = 20) -> list[PropTuple]:
+                    parallel: int = 20,
+                    *,
+                    on_error: Callable[[str], None] | None = None) -> list[PropTuple]:
     """
     Get properties for packages in the search directory.
 
@@ -612,10 +614,14 @@ async def get_props(search_dir: Path,
         Package names to exclude.
     parallel : int
         Maximum number of packages to check concurrently.
+    on_error : Callable[[str], None] | None
+        Callback receiving each package atom whose detection failed. Failures are logged and
+        remaining packages are checked.
 
     Returns
     -------
     list[PropTuple]
+        Results from successful package checks.
 
     Raises
     ------
@@ -640,6 +646,11 @@ async def get_props(search_dir: Path,
             in_flight[match_] = asyncio.get_running_loop().time()
             try:
                 result = await _check_one_package(match_, settings, repo_root, exclude)
+            except Exception:
+                log.exception('Update detection failed for `%s`; skipping.', match_)
+                if on_error is not None:
+                    on_error(match_)
+                result = None
             finally:
                 del in_flight[match_]
             completed += 1
@@ -839,7 +850,7 @@ async def execute_hooks(hook_dir: Path | None, action: str, search_dir: Path, cp
         return
     for hook in sorted(hook_path.iterdir()):
         if hook.is_file() and os.access(hook, os.X_OK):
-            log.debug('Running hook {hook}')
+            log.debug('Running hook `%s`.', hook)
             proc = await asyncio.create_subprocess_exec(str(hook), str(search_dir), cp,
                                                         str_old_version, str_new_version, old_sha,
                                                         new_sha, hash_date)
@@ -1115,6 +1126,7 @@ async def _async_main(*,
                       parallel: int = 1) -> None:
     init_sessions(asyncio.Semaphore(max_concurrent_http))
     sem = asyncio.Semaphore(parallel)
+    detection_failures: list[str] = []
 
     async def _bounded_do_main(cat: str, pkg: str, ebuild_version: str, last_version: str,
                                top_hash: str, hash_date: str, url: str) -> bool:
@@ -1130,8 +1142,9 @@ async def _async_main(*,
                               settings=settings,
                               top_hash=top_hash,
                               url=url)
-            except HookError:
-                log.exception('Hook failed; skipping `%s/%s`.', cat, pkg)
+            except HookError as exc:
+                log.error(  # ruff:ignore[error-instead-of-exception]
+                    '%s Skipping `%s/%s`.', exc, cat, pkg)
             except Exception:
                 log.exception('Unexpected error processing `%s/%s`; skipping.', cat, pkg)
                 return True
@@ -1143,6 +1156,7 @@ async def _async_main(*,
                                 settings,
                                 package_names,
                                 exclude,
+                                on_error=detection_failures.append,
                                 parallel=parallel)
         failures = await asyncio.gather(*starmap(_bounded_do_main, props))
     except Exception:
@@ -1150,7 +1164,7 @@ async def _async_main(*,
         raise
     finally:
         await close_sessions()
-    if any(failures):
+    if detection_failures or any(failures):
         raise click.exceptions.Exit(1)
 
 
