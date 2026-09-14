@@ -134,6 +134,35 @@ async def test_get_latest_pypi_package_success(mocker: MockerFixture, src_uri: s
 
 
 @pytest.mark.asyncio
+async def test_get_latest_pypi_package_skips_yanked(mocker: MockerFixture) -> None:
+    mocker.patch('livecheck.special.pypi.extract_project', return_value='srsly')
+    mocker.patch('livecheck.special.pypi.get_archive_extension', return_value='.tar.gz')
+    mock_response = mocker.Mock()
+    mock_response.json.return_value = {
+        'releases': {
+            '2.5.3': [{
+                'url': 'https://files.pythonhosted.org/srsly-2.5.3.tar.gz',
+                'yanked': False
+            }],
+            '3.0.0': [{
+                'url': 'https://files.pythonhosted.org/srsly-3.0.0.tar.gz',
+                'yanked': True
+            }, {
+                'url': 'https://files.pythonhosted.org/srsly-3.0.0-py3-none-any.whl',
+                'yanked': True
+            }]
+        }
+    }
+    mocker.patch('livecheck.special.pypi.get_content', return_value=mock_response)
+    mock_get_last_version = mocker.patch('livecheck.special.pypi.get_last_version',
+                                         return_value=None)
+    await get_latest_pypi_package(
+        'https://files.pythonhosted.org/packages/source/s/srsly/srsly-2.5.3.tar.gz',
+        'dev-python/srsly-2.5.3', mocker.Mock())
+    assert [result['tag'] for result in mock_get_last_version.call_args.args[0]] == ['2.5.3']
+
+
+@pytest.mark.asyncio
 async def test_get_latest_pypi_package_no_content(mocker: MockerFixture) -> None:
     mocker.patch('livecheck.special.pypi.extract_project', return_value='someproject')
     mocker.patch('livecheck.special.pypi.get_archive_extension', return_value='.tar.gz')

@@ -68,6 +68,10 @@ async def get_latest_pypi_package2(project_name: str, src_uri: str, ebuild: str,
     results: list[dict[str, str]] = []
     if r := await get_content(url):
         for release, item in r.json().get('releases', {}).items():
+            # PyPI keeps yanked releases in the index. They have been withdrawn by the maintainer,
+            # so they must never be offered as an update.
+            if item and all(file.get('yanked') for file in item):
+                continue
             results.extend([{'tag': release, 'url': get_url(ext, item)}])
 
         version_reference = Path(urlparse(src_uri).path).name
