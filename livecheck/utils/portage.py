@@ -644,6 +644,11 @@ def _candidate_version_from_reference(candidate: str, reference: str,
     return sanitize_version(candidate[len(prefix):end])
 
 
+def _has_version_rewrite(catpkg: str, settings: LivecheckSettings) -> bool:
+    # Whether the package configures how a tag maps to a version.
+    return bool(settings.transformations.get(catpkg)) or catpkg in settings.regex_version
+
+
 def _candidate_version(tag: str, catpkg: str, repo: str, settings: LivecheckSettings) -> str:
     version = tag
     if tf := settings.transformations.get(catpkg, None):
@@ -723,8 +728,7 @@ def get_last_version(results: Collection[Mapping[str, str]],
     # tag scheme the ebuild follows, so results using another scheme (for example Go's
     # ``weekly.2012-03-27`` next to ``go1.27.1``) are not mistaken for releases. Only sanitised
     # versions are compared, as a transformation or regex may rewrite the scheme itself.
-    if (not version_reference and not settings.transformations.get(catpkg)
-            and catpkg not in settings.regex_version
+    if (not version_reference and not _has_version_rewrite(catpkg, settings)
             and (current := _current_result(results, catpkg, ebuild_version, repo, settings))):
         version_reference = _candidate_version_reference(current, current['tag'])
         log.debug('Using the packaged version `%s` as the version reference.', version_reference)
@@ -740,7 +744,9 @@ def get_last_version(results: Collection[Mapping[str, str]],
         if reference_version is None:
             log.debug('Skip tag with mismatched version pattern: %s', tag)
             continue
-        if reference_version:
+        # The reference still decides which tag schemes are comparable, but a package that
+        # configures its own rewrite has already said what the version must look like.
+        if reference_version and not _has_version_rewrite(catpkg, settings):
             version = reference_version
         # Skip extraneous version without dots, e.g. Post120ToMaster.
         if ebuild_version.count('.') > 1 and version.count('.') == 0:

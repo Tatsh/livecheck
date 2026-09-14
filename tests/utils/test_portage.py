@@ -906,6 +906,29 @@ def test_get_last_version_rejects_mismatched_version_reference(mocker: MockerFix
     assert result['tag'] == 'v3.7.2'
 
 
+def test_get_last_version_regex_version_beats_version_reference(mocker: MockerFixture) -> None:
+    dummy_settings = mocker.Mock()
+    dummy_settings.regex_version = {'dev-util/ghidra-xbe': (r'^(?:build-)?(\d{8})\d{4}$', r'0_p\1')}
+    dummy_settings.restrict_version = {}
+    dummy_settings.restrict_version_process = ''
+    dummy_settings.stable_version = {}
+    dummy_settings.transformations = {}
+    dummy_settings.is_devel = lambda _: False
+
+    result = get_last_version([{
+        'tag': 'build-202602250354'
+    }, {
+        'tag': 'build-202509032227'
+    }],
+                              'ghidra-xbe',
+                              'dev-util/ghidra-xbe-0_p20260225',
+                              dummy_settings,
+                              version_reference='build-202602250354')
+
+    # Without the rewrite the reference strips the `build-` prefix and yields `202602250354`.
+    assert result['version'] == '0_p20260225'
+
+
 def test_get_last_version_version_reference_without_ebuild_version(mocker: MockerFixture) -> None:
     dummy_settings = mocker.Mock()
     dummy_settings.regex_version = {}
