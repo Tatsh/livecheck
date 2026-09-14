@@ -14,6 +14,11 @@ and this project adheres to
 
 - Add the `nodejs_omit_dev` package setting. When enabled, the `node_modules` archive is built with
   the runtime dependencies only, so it is only suitable for ebuilds that do not run a build step.
+- Follow the branch head for GitLab ebuilds that pin a commit, as is already done for GitHub. A
+  project with no tags previously reported nothing and fell through to the directory listing, which
+  on `gitlab.com` means a request GitLab answers with a Cloudflare challenge. The commit is read
+  from the path or from the `sha` query of an `/api/v4/projects/` URL, the branch comes from the
+  `branch` setting, and the project's default branch is used when none is configured.
 
 ### Fixed
 
@@ -21,6 +26,14 @@ and this project adheres to
   on every request instead of reusing stale versions indefinitely.
 - Ignore GitHub tags that sort above the packaged version but whose commit predates the packaged
   tag, such as a `v1.0.0` left behind on an abandoned branch next to the `v0.9.x` releases.
+- Never propose a yanked PyPI release. `srsly` 3.0.0 was withdrawn but remains in the index, and it
+  was offered over the current 2.5.3.
+- Let a package's own `pattern_version` or `transformation_function` decide the version instead of
+  the tag naming the packaged version. The reference still filters out tags of another scheme, but
+  it no longer overwrites a rewrite that was configured for exactly that tag.
+- Stop appending an empty `/commit/` to `EGIT_REPO_URI` when the ebuild pins no hash. The trailing
+  segment was read as part of the repository path, so the lookup asked for a project that does not
+  exist.
 - Treat an ebuild that pins the commit of a GitHub release tag (for example the ROCm
   `therock-10.0` monorepo tags) as tracking that tag line. Newer tags on the same line are
   proposed instead of bumping the revision to the branch head on every run.
