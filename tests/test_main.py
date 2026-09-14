@@ -2930,9 +2930,13 @@ async def test_get_props_type_checksum_uses_custom_url(mocker: MockerFixture, fa
         params={'key': 'value'})
 
 
+@pytest.mark.parametrize(('old_sha', 'expected_url'),
+                         [('', 'egit_url'), ('abc123def456', 'egit_url/commit/abc123def456')],
+                         ids=['no-sha', 'sha'])
 @pytest.mark.asyncio
 async def test_get_props_type_commit_calls_parse_url(mocker: MockerFixture, fake_repo: Path,
-                                                     mock_settings2: Mock) -> None:
+                                                     mock_settings2: Mock, old_sha: str,
+                                                     expected_url: str) -> None:
     mock_settings2.type_packages = {'cat/pkg': 'commit'}
     mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
     mocker.patch('livecheck.main.catpkg_catpkgsplit',
@@ -2940,7 +2944,7 @@ async def test_get_props_type_commit_calls_parse_url(mocker: MockerFixture, fake
     mocker.patch('livecheck.main.get_first_src_uri',
                  return_value='https://example.com/pkg-1.0.0.tar.gz')
     mocker.patch('livecheck.main.get_egit_repo', return_value=('egit_url', ''))
-    mocker.patch('livecheck.main.get_old_sha', return_value='')
+    mocker.patch('livecheck.main.get_old_sha', return_value=old_sha)
     mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
     mocker.patch('livecheck.main.compare_versions', return_value=True)
     mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
@@ -2958,7 +2962,7 @@ async def test_get_props_type_commit_calls_parse_url(mocker: MockerFixture, fake
                               exclude=[])
     assert results == [('cat', 'pkg', '1.0.0', 'commit_ver', 'commit_sha', 'commit_date',
                         'commit_url')]
-    mock_parse_url.assert_called_once_with('egit_url/commit/',
+    mock_parse_url.assert_called_once_with(expected_url,
                                            'cat/pkg-1.0.0',
                                            mock_settings2,
                                            force_sha=True)

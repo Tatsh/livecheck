@@ -466,9 +466,10 @@ async def _check_one_package(  # ruff:ignore[complex-structure, too-many-branche
     last_version = hash_date = top_hash = url = ''
     ebuild = Path(repo_root) / catpkg / f'{pkg}-{ebuild_version}.ebuild'
     egit, branch = get_egit_repo(ebuild)
-    if egit:
-        old_sha = get_old_sha(ebuild, '')
-        egit = egit + '/commit/' + old_sha
+    if egit and (old_sha := get_old_sha(ebuild, '')):
+        # Without a hash the trailing `/commit/` is read as part of the repository path, which
+        # sends the lookup to a project that does not exist.
+        egit = f'{egit}/commit/{old_sha}'
     if branch:
         settings.branches[catpkg] = branch
     if catpkg in settings.sync_version:
