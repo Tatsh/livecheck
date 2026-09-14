@@ -932,3 +932,120 @@ async def test_get_latest_github_pinned_commit_not_a_tag_uses_branch(mocker: Moc
 
     assert result == ('', 'abc123', '20260906')
     mock_commit.assert_called_once_with(url, 'master')
+
+
+@pytest.mark.asyncio
+async def test_get_latest_github_package_stops_at_the_tag_page_limit(mocker: MockerFixture) -> None:
+    api = 'https://api.github.com/repos/org/repo'
+    # The packaged tag sits on no page, so every page is full and paging only stops at the limit.
+    # A sixth page is deliberately absent from the responses, as requesting it must not happen.
+    responses: dict[str, Any] = {
+        f'{api}/tags?per_page=100&page={page}': [{
+            'name': f'v1.0.{tag}',
+            'commit': {
+                'sha': f'{tag:040x}'
+            }
+        } for tag in range((page - 1) * 100 + 1, page * 100 + 1)]
+        for page in range(1, 6)
+    }
+    responses[f'{api}/git/refs/tags/v1.0.500'] = {
+        'object': {
+            'type': 'commit',
+            'sha': f'{500:040x}'
+        }
+    }
+    _patch_github_api(mocker, responses)
+
+    result = await get_latest_github_package('https://github.com/org/repo', 'dev-libs/repo-2.0.0',
+                                             LivecheckSettings())
+
+    assert result == ('1.0.500', f'{500:040x}')
+
+
+@pytest.mark.parametrize('commit_json', [None, {}], ids=['unreadable', 'no-date'])
+@pytest.mark.asyncio
+async def test_get_latest_github_package_accepts_tag_when_commit_date_is_unknown(
+        mocker: MockerFixture, commit_json: dict[str, Any] | None) -> None:
+    api = 'https://api.github.com/repos/org/repo'
+    responses: dict[str, Any] = {
+        f'{api}/tags?per_page=100&page=1': [{
+            'name': 'v1.0.0',
+            'commit': {
+                'sha': 'a' * 40
+            }
+        }, {
+            'name': 'v0.9.55',
+            'commit': {
+                'sha': 'b' * 40
+            }
+        }],
+        f'{api}/git/refs/tags/v1.0.0': {
+            'object': {
+                'type': 'commit',
+                'sha': 'a' * 40
+            }
+        }
+    }
+
+    def fake_get_content(url: str) -> Mock | None:
+        response: Mock = mocker.Mock()
+        if '/commits/' in url:
+            if commit_json is None:
+                return None
+            response.json.return_value = commit_json
+            return response
+        response.json.return_value = responses[url]
+        return response
+
+    mocker.patch('livecheck.special.github.get_content', side_effect=fake_get_content)
+
+    result = await get_latest_github_package('https://github.com/org/repo', 'dev-libs/repo-0.9.55',
+                                             LivecheckSettings())
+
+    # With no date for the packaged tag, the highest tag is taken rather than dropped as stale.
+    assert result == ('1.0.0', 'a' * 40)
+
+
+@pytest.mark.asyncio
+async def test_get_latest_github_pinned_commit_falls_back_when_tags_unreadable(
+        mocker: MockerFixture) -> None:
+    sha = 'f' * 40
+    # No tag page can be read, so the pinned commit cannot be recognised as a tag.
+    mocker.patch('livecheck.special.github.get_content', return_value=None)
+    mock_commit = mocker.patch('livecheck.special.github.get_latest_github_commit',
+                               return_value=('abc123', '20260906'))
+    url = f'https://github.com/org/repo/archive/{sha}.tar.gz'
+
+    result = await get_latest_github(url,
+                                     'cat/repo-1.0_p20260101',
+                                     LivecheckSettings(),
+                                     force_sha=False)
+
+    assert result == ('', 'abc123', '20260906')
+    mock_commit.assert_called_once_with(url, 'master')
+
+
+@pytest.mark.asyncio
+async def test_get_latest_github_pinned_commit_tag_is_not_a_version(mocker: MockerFixture) -> None:
+    sha = 'f' * 40
+    # The pinned commit does have a tag, yet `nightly` names no version to compare against.
+    _patch_github_api(
+        mocker, {
+            'https://api.github.com/repos/org/repo/tags?per_page=100&page=1': [{
+                'name': 'nightly',
+                'commit': {
+                    'sha': sha
+                }
+            }]
+        })
+    mock_commit = mocker.patch('livecheck.special.github.get_latest_github_commit',
+                               return_value=('abc123', '20260906'))
+    url = f'https://github.com/org/repo/archive/{sha}.tar.gz'
+
+    result = await get_latest_github(url,
+                                     'cat/repo-1.0_p20260101',
+                                     LivecheckSettings(),
+                                     force_sha=False)
+
+    assert result == ('', 'abc123', '20260906')
+    mock_commit.assert_called_once_with(url, 'master')
