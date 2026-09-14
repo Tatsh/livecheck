@@ -9,6 +9,7 @@ from livecheck.special.handlers import (
     handle_cython_post_suffix,
     handle_glabels,
     handle_libretro,
+    handle_npm_prerelease,
     handle_outfox,
     handle_outfox_serenity,
     handle_pl,
@@ -191,3 +192,12 @@ def test_handle_libretro_mixed_separators() -> None:
     input_version = '1/2.3/4'
     result = handle_libretro(input_version)
     assert result == '1.2.3.4'
+
+
+@pytest.mark.parametrize(('input_version', 'expected'), [('3.9.3-12', '3.9.3_pre12'),
+                                                         ('v3.9.3-12', 'v3.9.3_pre12'),
+                                                         ('3.9.2', '3.9.2'),
+                                                         ('1.2.3-rc1', '1.2.3-rc1'),
+                                                         ('10.0.4-release', '10.0.4-release')])
+def test_handle_npm_prerelease(input_version: str, expected: str) -> None:
+    assert handle_npm_prerelease(input_version) == expected

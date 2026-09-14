@@ -137,3 +137,22 @@ def handle_libretro(s: str) -> str:
     ret = s.replace('/', '.')
     logger.debug('handle_libretro() -> "%s"', ret)
     return ret
+
+
+def handle_npm_prerelease(s: str) -> str:
+    """
+    Handle the counter npm packages use for pre-releases of the next version.
+
+    Converts tags like "3.9.3-12" to "3.9.3_pre12". A dot would put the pre-release above the
+    release it precedes, which is the opposite of what the npm version means. Other tags are
+    returned unchanged.
+
+    Returns
+    -------
+    str
+        Version string with the pre-release counter spelled `_pre`.
+    """
+    logger.debug('handle_npm_prerelease() <- "%s"', s)
+    ret = re.sub(r'^(v?\d+(?:\.\d+)*)-(\d+)$', r'\1_pre\2', s)
+    logger.debug('handle_npm_prerelease() -> "%s"', ret)
+    return ret

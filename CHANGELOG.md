@@ -19,6 +19,9 @@ and this project adheres to
   on `gitlab.com` means a request GitLab answers with a Cloudflare challenge. The commit is read
   from the path or from the `sha` query of an `/api/v4/projects/` URL, the branch comes from the
   `branch` setting, and the project's default branch is used when none is configured.
+- Add the `handle_npm_prerelease` transformation function. npm spells the builds leading up to a
+  release as `3.9.3-12`, which sanitising turned into `3.9.3.12`, a version *above* the 3.9.3 it
+  precedes. The function spells the counter `_pre` instead.
 
 ### Fixed
 
