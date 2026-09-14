@@ -17,6 +17,8 @@ and this project adheres to
 
 ### Fixed
 
+- Fixed missed upstream updates, including DaVinci Resolve, by revalidating cached HTTP responses
+  on every request instead of reusing stale versions indefinitely.
 - Ignore GitHub tags that sort above the packaged version but whose commit predates the packaged
   tag, such as a `v1.0.0` left behind on an abandoned branch next to the `v0.9.x` releases.
 - Treat an ebuild that pins the commit of a GitHub release tag (for example the ROCm
