@@ -36,6 +36,7 @@ connectionpool
 coveragerc
 coverallsapp
 cpan
+cscs
 ctypes
 dashcam
 dataclasses
@@ -80,6 +81,7 @@ forcelist
 foxundermoon
 functools
 genindex
+ghidra
 glabels
 globaltoc
 glslang
@@ -119,6 +121,7 @@ livecheck
 livechecks
 lodepng
 manylinux
+maxperfwiz
 mbedtls
 metacpan
 mktemp
