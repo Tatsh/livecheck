@@ -23,7 +23,22 @@ and this project adheres to
   release as `3.9.3-12`, which sanitising turned into `3.9.3.12`, a version _above_ the 3.9.3 it
   precedes. The function spells the counter `_pre` instead.
 
+### Changed
+
+- Report connection errors and timeouts with concise messages. HTTP retry warnings and request
+  tracebacks are shown only with `--debug`.
+- Report hook failures without a traceback and include the hook path in debug messages.
+
 ### Fixed
+
+- Continued checking remaining packages after an update detection exception and returned exit
+  code 1 after processing successful results.
+- Returned exit code 1 when HTTP failures prevented upstream version detection and no fallback
+  produced a result, instead of reporting a successful run.
+- Resolved PECL package names from download URLs, fixing HTTP 404 responses for `pecl-http`,
+  whose upstream package name is `pecl_http`.
+- Expanded package variables such as `${PN}` and `${PV}` in `EGIT_REPO_URI` and `EGIT_BRANCH`.
+  Unresolved values are skipped instead of being sent to upstream services.
 
 - Fixed missed upstream updates, including DaVinci Resolve, by revalidating cached HTTP responses
   on every request instead of reusing stale versions indefinitely.
