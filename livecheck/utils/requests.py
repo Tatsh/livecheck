@@ -1,6 +1,7 @@
 """Utilities for requests module."""
 from __future__ import annotations
 
+from contextvars import ContextVar
 from dataclasses import dataclass
 from email.utils import parsedate_to_datetime
 from http import HTTPStatus
@@ -19,7 +20,8 @@ if TYPE_CHECKING:
     import asyncio
 
 __all__ = ('REQUEST_TIMEOUT', 'TextDataResponse', 'close_sessions', 'get_content',
-           'get_last_modified', 'hash_url', 'init_sessions', 'session_init')
+           'get_last_modified', 'get_request_failure_count', 'hash_url', 'init_sessions',
+           'session_init')
 
 log = logging.getLogger(__name__)
 
@@ -30,6 +32,19 @@ REQUEST_TIMEOUT = (10.0, 30.0)
 """
 _semaphore: asyncio.Semaphore | None = None
 _sessions: dict[str, niquests.AsyncSession] = {}
+_request_failures: ContextVar[int] = ContextVar('request_failures', default=0)
+
+
+def get_request_failure_count() -> int:
+    """
+    Return failed HTTP request counts for current task context.
+
+    Returns
+    -------
+    int
+        Failures recorded by :py:func:`get_content`, including inherited context counts.
+    """
+    return _request_failures.get()
 
 
 def init_sessions(semaphore: asyncio.Semaphore) -> None:
@@ -126,6 +141,9 @@ async def get_content(url: str,
     """
     Fetch content from a URL.
 
+    Request failures increment current task context counts. Connection errors and timeouts
+    produce error messages; tracebacks require debug logging.
+
     Parameters
     ----------
     url : str
@@ -181,12 +199,17 @@ async def get_content(url: str,
                                   params=params,
                                   timeout=REQUEST_TIMEOUT)
     except niquests.Timeout:
-        log.exception('Timed out fetching `%s`.', url)
+        _request_failures.set(_request_failures.get() + 1)
+        log.exception('Timed out fetching `%s`.', url, exc_info=log.isEnabledFor(logging.DEBUG))
         r = niquests.Response()
         r.status_code = HTTPStatus.GATEWAY_TIMEOUT
         return r
-    except niquests.RequestException:
-        log.exception('Caught error attempting to fetch `%s`.', url)
+    except niquests.RequestException as exc:
+        _request_failures.set(_request_failures.get() + 1)
+        log.exception('Failed to fetch `%s` (%s). Enable debug logging for details.',
+                      url,
+                      type(exc).__name__,
+                      exc_info=log.isEnabledFor(logging.DEBUG))
         r = niquests.Response()
         r.status_code = HTTPStatus.SERVICE_UNAVAILABLE
         return r
@@ -195,6 +218,7 @@ async def get_content(url: str,
             HTTPStatus.MOVED_PERMANENTLY, HTTPStatus.FOUND, HTTPStatus.TEMPORARY_REDIRECT,
             HTTPStatus.PERMANENT_REDIRECT
     }:
+        _request_failures.set(_request_failures.get() + 1)
         log.error('Error fetching %s. Status code: %d', url, r.status_code)
     elif not r.text:
         log.warning('Empty response for %s.', url)

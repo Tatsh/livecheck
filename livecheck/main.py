@@ -7,6 +7,7 @@ from os import chdir
 from pathlib import Path
 from re import Match
 from shutil import which
+from string import Template
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 import asyncio
@@ -135,6 +136,7 @@ from .utils.portage import (
     get_repository_root_if_inside,
     remove_leading_zeros,
 )
+from .utils.requests import get_request_failure_count
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
@@ -313,7 +315,7 @@ async def parse_url(src_uri: str, ebuild: str, settings: LivecheckSettings, *,
         last_version = await get_latest_package(src_uri, ebuild, settings)
     elif is_pecl(src_uri):
         log.debug('Matched handler: pecl for %s.', ebuild)
-        last_version = await get_latest_pecl_package(ebuild, settings)
+        last_version = await get_latest_pecl_package(ebuild, settings, src_uri)
     elif is_metacpan(src_uri):
         log.debug('Matched handler: metacpan for %s.', ebuild)
         last_version = await get_latest_metacpan_package(src_uri, ebuild, settings)
@@ -644,8 +646,15 @@ async def get_props(search_dir: Path,
         nonlocal completed
         async with sem:
             in_flight[match_] = asyncio.get_running_loop().time()
+            request_failures = get_request_failure_count()
             try:
                 result = await _check_one_package(match_, settings, repo_root, exclude)
+                if result is None and get_request_failure_count() > request_failures:
+                    log.error(
+                        'Could not determine an upstream version for `%s` after HTTP failures.',
+                        match_)
+                    if on_error is not None:
+                        on_error(match_)
             except Exception:
                 log.exception('Update detection failed for `%s`; skipping.', match_)
                 if on_error is not None:
@@ -774,6 +783,25 @@ def get_egit_repo(ebuild: Path) -> tuple[str, str]:
                 egit = match.group(2)
             if match := re.compile(r'^EGIT_BRANCH=(["\'])?(.*)\1').search(line):
                 branch = match.group(2)
+    if '$' in egit or '$' in branch:
+        category, package, version, revision = catpkgsplit2(
+            f'{ebuild.parent.parent.name}/{ebuild.stem}')
+        variables = {
+            'CATEGORY': category,
+            'P': f'{package}-{version}',
+            'PF': ebuild.stem,
+            'PN': package,
+            'PR': revision,
+            'PV': version,
+            'PVR': version if revision == 'r0' else f'{version}-{revision}'
+        }
+        egit = Template(egit).safe_substitute(variables)
+        branch = Template(branch).safe_substitute(variables)
+        if '$' in egit:
+            log.debug('Skipping unresolved EGIT_REPO_URI `%s`.', egit)
+            egit = ''
+        if '$' in branch:
+            branch = ''
     return egit, branch
 
 
@@ -1246,12 +1274,24 @@ def main(working_dir: Path,
                       },
                       'urllib3': {},
                       'urllib3._async.connectionpool': {
-                          'level': 'ERROR'
+                          'level': 'DEBUG' if debug else 'ERROR'
+                      },
+                      'urllib3.connectionpool': {
+                          'level': 'DEBUG' if debug else 'ERROR'
                       },
                       'urllib3.util.retry': {
-                          'level': 'ERROR'
+                          'level': 'DEBUG' if debug else 'ERROR'
                       },
-                      'urllib3_future': {}
+                      'urllib3_future': {},
+                      'urllib3_future._async.connectionpool': {
+                          'level': 'DEBUG' if debug else 'ERROR'
+                      },
+                      'urllib3_future.connectionpool': {
+                          'level': 'DEBUG' if debug else 'ERROR'
+                      },
+                      'urllib3_future.util.retry': {
+                          'level': 'DEBUG' if debug else 'ERROR'
+                      }
                   })
     chdir(working_dir)
     if exclude:
