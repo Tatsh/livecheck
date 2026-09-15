@@ -507,6 +507,16 @@ def test_gather_settings_composer_without_composer_path(tmp_path: Path,
     logger.error.assert_not_called()
 
 
+def test_gather_settings_crates_without_crates_path(tmp_path: Path, mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    data = {'type': TYPE_DIRECTORY, 'url': 'https://example.com/dir', 'crates': True}
+    make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
+    result = gather_settings(tmp_path)
+    assert result.crates_packages['cat/pkg'] is True
+    assert not result.crates_path['cat/pkg']
+    logger.error.assert_not_called()
+
+
 def test_gather_settings_composer_key_without_type(tmp_path: Path, mocker: MockerFixture) -> None:
     logger = mocker.patch('livecheck.settings.log')
     data = {

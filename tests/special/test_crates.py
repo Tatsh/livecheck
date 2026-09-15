@@ -6,17 +6,31 @@ import tarfile
 
 import pytest
 
-from livecheck.special.crates import remove_crates_url, update_crates_ebuild
+from livecheck.special.crates import (
+    check_crates_requirements,
+    remove_crates_url,
+    update_crates_ebuild,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     from pytest_mock import MockerFixture
 
+REGISTRY_LOCK = ('version = 3\n\n[[package]]\nname = "example"\nversion = "1.0.0"\n'
+                 'source = "registry+https://github.com/rust-lang/crates.io-index"\n')
+
 
 def test_remove_crates_url_preserves_source() -> None:
     content = 'SRC_URI="https://example.com/${P}.tar.gz\nhttps://example.com/${P}-crates.tar.xz"\n'
     assert remove_crates_url(content) == 'SRC_URI="https://example.com/${P}.tar.gz\n"\n'
+
+
+@pytest.mark.parametrize('available', [True, False])
+def test_check_crates_requirements(mocker: MockerFixture, *, available: bool) -> None:
+    check_program = mocker.patch('livecheck.special.crates.check_program', return_value=available)
+    assert check_crates_requirements() is available
+    check_program.assert_called_once_with('cargo', ['--version'])
 
 
 @pytest.mark.asyncio
@@ -29,7 +43,7 @@ async def test_update_crates_ebuild_creates_gentoo_archive(mocker: MockerFixture
     source = tmp_path / 'source'
     source.mkdir()
     (source / 'Cargo.toml').write_text('[workspace]\n', encoding='utf-8')
-    (source / 'Cargo.lock').write_text('version = 3\n', encoding='utf-8')
+    (source / 'Cargo.lock').write_text(REGISTRY_LOCK, encoding='utf-8')
     vendor = tmp_path / 'cargo_home' / 'gentoo' / 'example-1.0.0'
     vendor.mkdir(parents=True)
     (vendor / '.cargo-checksum.json').write_text('{"files": {}}', encoding='utf-8')
@@ -52,16 +66,16 @@ async def test_update_crates_ebuild_creates_gentoo_archive(mocker: MockerFixture
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('failure', ['lock', 'source', 'cargo', 'download', 'archive'])
+@pytest.mark.parametrize('failure', ['unpacked', 'lock', 'source', 'cargo', 'download', 'archive'])
 async def test_update_crates_ebuild_reports_failures(mocker: MockerFixture, tmp_path: Path,
                                                      failure: str) -> None:
     (tmp_path / 'Cargo.toml').write_text('[workspace]\n', encoding='utf-8')
-    if failure != 'lock':
+    if failure not in {'lock', 'unpacked'}:
         lock = ('[[package]]\nsource = "git+https://example.com/repo"\n'
                 if failure == 'source' else 'version = 3\n')
         (tmp_path / 'Cargo.lock').write_text(lock, encoding='utf-8')
     mocker.patch('livecheck.special.crates.search_ebuild',
-                 return_value=(str(tmp_path), str(tmp_path)))
+                 return_value=('' if failure == 'unpacked' else str(tmp_path), str(tmp_path)))
     mocker.patch('livecheck.special.crates.which',
                  return_value=None if failure == 'cargo' else '/usr/bin/cargo')
     proc = mocker.AsyncMock()

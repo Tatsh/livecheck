@@ -2731,6 +2731,32 @@ async def test_get_props_type_none_skips(mocker: MockerFixture, fake_repo: Path,
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize('report_errors', [True, False])
+async def test_get_props_reports_http_failures(mocker: MockerFixture, fake_repo: Path,
+                                               mock_settings2: Mock, caplog: LogCaptureFixture, *,
+                                               report_errors: bool) -> None:
+    mock_settings2.type_packages = {'cat/pkg': 'none'}
+    mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
+    mocker.patch('livecheck.main.catpkg_catpkgsplit',
+                 return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
+    mocker.patch('livecheck.main.get_first_src_uri',
+                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
+    mocker.patch('livecheck.main.get_request_failure_count', side_effect=[0, 1])
+    failed: list[str] = []
+    with caplog.at_level(logging.ERROR):
+        results = await get_props(search_dir=fake_repo,
+                                  repo_root=fake_repo,
+                                  settings=mock_settings2,
+                                  names=['cat/pkg'],
+                                  exclude=[],
+                                  on_error=failed.append if report_errors else None)
+    assert results == []
+    assert failed == (['cat/pkg-1.0.0'] if report_errors else [])
+    assert any('after HTTP failures' in record.message for record in caplog.records)
+
+
+@pytest.mark.asyncio
 async def test_get_props_type_metadata_calls_parse_metadata(mocker: MockerFixture, fake_repo: Path,
                                                             mock_settings2: Mock) -> None:
     mock_settings2.type_packages = {'cat/pkg': 'metadata'}
