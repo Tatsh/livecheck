@@ -976,8 +976,7 @@ async def do_main(  # ruff:ignore[complex-structure, too-many-branches, too-many
                 log.warning('Update is not possible.')
                 return
             ebuild_path = AnyioPath(ebuild)
-            old_content = content = await ebuild_path.read_text(encoding='utf-8')
-            original_content = content
+            original_content = content = await ebuild_path.read_text(encoding='utf-8')
             if top_hash and old_sha:
                 content = content.replace(old_sha, top_hash)
                 if len(old_sha) == FULL_SHA_LENGTH and len(top_hash) >= SHORT_SHA_LENGTH:
@@ -1028,7 +1027,7 @@ async def do_main(  # ruff:ignore[complex-structure, too-many-branches, too-many
             if not settings.crates_packages.get(cp):
                 await asyncio.to_thread(digest_ebuild, new_filename)
             fetchlist = await get_fetch_map(f'{cp}-{last_version}')
-            old_content = content
+            updated_content = content
             if cp in settings.gomodule_packages:
                 content = remove_gomodule_url(content)
             if cp in settings.nodejs_packages:
@@ -1041,7 +1040,7 @@ async def do_main(  # ruff:ignore[complex-structure, too-many-branches, too-many
                 content = remove_maven_url(content)
             if settings.dotnet_packages.get(cp):
                 content = remove_dotnet_url(content)
-            if old_content != content:
+            if updated_content != content:
                 await AnyioPath(new_filename).write_text(content, encoding='utf-8')
             if not await asyncio.to_thread(digest_ebuild, new_filename):
                 log.error('Error digesting `%s`.', new_filename)
@@ -1109,8 +1108,8 @@ async def do_main(  # ruff:ignore[complex-structure, too-many-branches, too-many
                                              settings.composer_path[cp],
                                              fetchlist,
                                              dist_settings=dist_settings)
-            if old_content != content:
-                await AnyioPath(new_filename).write_text(old_content, encoding='utf-8')
+            if updated_content != content:
+                await AnyioPath(new_filename).write_text(updated_content, encoding='utf-8')
                 if not await asyncio.to_thread(digest_ebuild, new_filename):
                     log.error('Error digesting `%s`.', new_filename)
                     await _recover_ebuild(new_filename, ebuild, cp, search_dir, settings)
