@@ -3392,6 +3392,8 @@ def test_get_egit_repo_expands_package_variables(tmp_path: Path, variable: str) 
     ('uri', 'branch', 'expected_uri', 'expected_branch'),
     [('https://example.com/repo$', 'release$', 'https://example.com/repo$', 'release$'),
      ('https://example.com/repo$5', 'release$5', 'https://example.com/repo$5', 'release$5'),
+     ('https://example.com/${PN}', 'release$$', 'https://example.com/example', 'release$$'),
+     ('https://example.com/repo$$', 'v${PV}', 'https://example.com/repo$$', 'v2.3.2'),
      ('https://example.com/${PN}$', 'v${PV}$', 'https://example.com/example$', 'v2.3.2$'),
      ('https://example.com/${PN}/$$USER', 'v${PV}', 'https://example.com/example/$USER', 'v2.3.2'),
      ('https://example.com/${PN}/$${literal}', 'v${PV}', 'https://example.com/example/${literal}',

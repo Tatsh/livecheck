@@ -817,11 +817,11 @@ def get_egit_repo(ebuild: Path) -> tuple[str, str]:
         if egit_variables.difference(variables):
             log.debug('Skipping unresolved EGIT_REPO_URI `%s`.', egit)
             egit = ''
-        else:
+        elif egit_variables:
             egit = Template(egit).safe_substitute(variables)
         if branch_variables.difference(variables):
             branch = ''
-        else:
+        elif branch_variables:
             branch = Template(branch).safe_substitute(variables)
     return egit, branch
 
