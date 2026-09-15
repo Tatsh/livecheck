@@ -40,22 +40,27 @@ CP = 'sys-devel/gcc'
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('keep_old', [False, True])
+@pytest.mark.parametrize('failure', ['download', 'source_digest', 'archive_digest'])
 async def test_do_main_crates_failure_restores_ebuild(mocker: MockerFixture, tmp_path: Path, *,
-                                                      keep_old: bool) -> None:
+                                                      keep_old: bool, failure: str) -> None:
     ebuild = tmp_path / 'cat' / 'pkg' / 'pkg-1.0.ebuild'
     ebuild.parent.mkdir(parents=True)
-    original = 'SRC_URI="https://example.com/${P}-crates.tar.xz"\n'
+    original = 'SRC_URI="https://example.com/${P}-crates.tar.xz"\nEGIT_COMMIT="abcdef1"\n'
     ebuild.write_text(original, encoding='utf-8')
     settings = LivecheckSettings(auto_update_flag=True,
                                  crates_packages={'cat/pkg': True},
                                  keep_old_flag=keep_old)
     mocker.patch('livecheck.main.check_crates_requirements', return_value=True)
-    mocker.patch('livecheck.main.digest_ebuild', return_value=True)
+    mocker.patch('livecheck.main.get_old_sha', return_value='abcdef1')
+    mocker.patch('livecheck.main.digest_ebuild',
+                 side_effect=[True, False] if failure == 'archive_digest' else None,
+                 return_value=failure != 'source_digest')
     mocker.patch('livecheck.main.get_fetch_map', return_value={'pkg-2.0.tar.gz': ()})
-    update = mocker.patch('livecheck.main.update_crates_ebuild',
-                          side_effect=RuntimeError('Download failed'))
+    update = mocker.patch(
+        'livecheck.main.update_crates_ebuild',
+        side_effect=RuntimeError('Download failed') if failure == 'download' else None)
     hook = mocker.patch('livecheck.main.execute_hooks')
-    with pytest.raises(RuntimeError, match='Download failed'):
+    with pytest.raises(RuntimeError):
         await do_main(cat='cat',
                       ebuild_version='1.0',
                       hash_date='',
@@ -64,9 +69,9 @@ async def test_do_main_crates_failure_restores_ebuild(mocker: MockerFixture, tmp
                       pkg='pkg',
                       search_dir=tmp_path,
                       settings=settings,
-                      top_hash='',
+                      top_hash='abcdef2',
                       url='')
-    update.assert_awaited_once()
+    assert update.await_count == (0 if failure == 'source_digest' else 1)
     assert ebuild.read_text(encoding='utf-8') == original
     assert not (ebuild.parent / 'pkg-2.0.ebuild').exists()
     assert all(call.args[1] != 'post' for call in hook.await_args_list)
@@ -1073,8 +1078,8 @@ async def test_resolved_executable_raises_when_missing(mocker: MockerFixture, mo
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('ecosystem', ['gomodule', 'crates'])
-async def test_do_main_gomodule_packages(mocker: MockerFixture, tmp_path: Path, mock_settings: Mock,
-                                         ecosystem: str) -> None:
+async def test_do_main_dependency_archive_packages(mocker: MockerFixture, tmp_path: Path,
+                                                   mock_settings: Mock, ecosystem: str) -> None:
     cat = 'cat'
     pkg = 'pkg'
     ebuild_version = '1.0.0'

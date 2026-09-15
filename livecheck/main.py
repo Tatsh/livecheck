@@ -977,7 +977,7 @@ async def do_main(  # ruff:ignore[complex-structure, too-many-branches, too-many
                 return
             ebuild_path = AnyioPath(ebuild)
             old_content = content = await ebuild_path.read_text(encoding='utf-8')
-            original_crates_content = content
+            original_content = content
             if top_hash and old_sha:
                 content = content.replace(old_sha, top_hash)
                 if len(old_sha) == FULL_SHA_LENGTH and len(top_hash) >= SHORT_SHA_LENGTH:
@@ -1046,6 +1046,10 @@ async def do_main(  # ruff:ignore[complex-structure, too-many-branches, too-many
             if not await asyncio.to_thread(digest_ebuild, new_filename):
                 log.error('Error digesting `%s`.', new_filename)
                 await _recover_ebuild(new_filename, ebuild, cp, search_dir, settings)
+                if settings.crates_packages.get(cp):
+                    await ebuild_path.write_text(original_content, encoding='utf-8')
+                    msg = 'Could not digest sources for the crate archive.'
+                    raise RuntimeError(msg)
                 return
             if cp in settings.yarn_base_packages:
                 await update_yarn_ebuild(new_filename, settings.yarn_base_packages[cp], pkg,
@@ -1067,7 +1071,7 @@ async def do_main(  # ruff:ignore[complex-structure, too-many-branches, too-many
                                                dist_settings=dist_settings)
                 except Exception:
                     await _recover_ebuild(new_filename, ebuild, cp, search_dir, settings)
-                    await ebuild_path.write_text(original_crates_content, encoding='utf-8')
+                    await ebuild_path.write_text(original_content, encoding='utf-8')
                     raise
             if cp in settings.dotnet_projects:
                 try:
@@ -1110,6 +1114,10 @@ async def do_main(  # ruff:ignore[complex-structure, too-many-branches, too-many
                 if not await asyncio.to_thread(digest_ebuild, new_filename):
                     log.error('Error digesting `%s`.', new_filename)
                     await _recover_ebuild(new_filename, ebuild, cp, search_dir, settings)
+                    if settings.crates_packages.get(cp):
+                        await ebuild_path.write_text(original_content, encoding='utf-8')
+                        msg = 'Could not digest the ebuild with the crate archive.'
+                        raise RuntimeError(msg)
                     return
             if settings.git_flag:
                 proc = await asyncio.create_subprocess_exec(_resolved_executable('ebuild'),

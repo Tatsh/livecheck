@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import asyncio
 import logging
 
-import tomli as tomllib
+import tomlkit
 
 from livecheck.utils import check_program
 
@@ -95,8 +95,8 @@ async def update_crates_ebuild(ebuild: str,
     if not lock_path.is_file() or not (Path(source_dir) / 'Cargo.toml').is_file():
         msg = 'Crate archives require Cargo.toml and Cargo.lock in the selected source directory.'
         raise RuntimeError(msg)
-    with lock_path.open('rb') as stream:
-        lock = tomllib.load(stream)
+    with lock_path.open(encoding='utf-8') as stream:
+        lock = tomlkit.load(stream)
     for package in lock.get('package', ()):
         source = package.get('source', '')
         if source and source != 'registry+https://github.com/rust-lang/crates.io-index':
