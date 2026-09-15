@@ -73,7 +73,7 @@ def test_main_reports_http_detection_failures(mocker: MockerFixture, runner: Cli
          str(tmp_path), '--parallel',
          str(parallel), *(f'cat/{pkg}' for pkg in packages)])
     assert result.exit_code == (1 if status == HTTPStatus.FORBIDDEN else 0)
-    assert [call.kwargs['pkg'] for call in process.await_args_list] == ['first', 'third']
+    assert sorted(call.kwargs['pkg'] for call in process.await_args_list) == ['first', 'third']
     assert 'Traceback' not in result.output
 
 
@@ -3386,6 +3386,22 @@ def test_get_egit_repo_expands_package_variables(tmp_path: Path, variable: str) 
         'EGIT_BRANCH="v${PV}"\n',
         encoding='utf-8')
     assert get_egit_repo(ebuild) == ('https://gitlab.com/dslackw/example', 'v2.3.2')
+
+
+@pytest.mark.parametrize(
+    ('uri', 'branch', 'expected_uri', 'expected_branch'),
+    [('https://example.com/repo$', 'release$', 'https://example.com/repo$', 'release$'),
+     ('https://example.com/repo$5', 'release$5', 'https://example.com/repo$5', 'release$5'),
+     ('https://example.com/${PN}$', 'v${PV}$', 'https://example.com/example$', 'v2.3.2$'),
+     ('https://example.com/${PN}/$$USER', 'v${PV}', 'https://example.com/example/$USER', 'v2.3.2'),
+     ('https://example.com/${UNKNOWN}', 'release$', '', 'release$'),
+     ('https://example.com/repo$', '${UNKNOWN}', 'https://example.com/repo$', '')])
+def test_get_egit_repo_distinguishes_literal_dollars(tmp_path: Path, uri: str, branch: str,
+                                                     expected_uri: str,
+                                                     expected_branch: str) -> None:
+    ebuild = tmp_path / 'example-2.3.2.ebuild'
+    ebuild.write_text(f'EGIT_REPO_URI="{uri}"\nEGIT_BRANCH="{branch}"\n', encoding='utf-8')
+    assert get_egit_repo(ebuild) == (expected_uri, expected_branch)
 
 
 def test_get_egit_repo_skips_unresolved_variables(tmp_path: Path) -> None:

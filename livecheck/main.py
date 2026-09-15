@@ -775,6 +775,11 @@ def get_old_sha(ebuild: Path, url: str) -> str:
     return extract_sha(last_part)
 
 
+def _template_identifiers(value: str) -> frozenset[str]:
+    return frozenset(identifier for match in Template.pattern.finditer(value)
+                     if (identifier := match.group('named') or match.group('braced')))
+
+
 def get_egit_repo(ebuild: Path) -> tuple[str, str]:
     egit = branch = ''
     with Path(ebuild).open(encoding='utf-8') as file:
@@ -783,7 +788,9 @@ def get_egit_repo(ebuild: Path) -> tuple[str, str]:
                 egit = match.group(2)
             if match := re.compile(r'^EGIT_BRANCH=(["\'])?(.*)\1').search(line):
                 branch = match.group(2)
-    if '$' in egit or '$' in branch:
+    egit_variables = _template_identifiers(egit)
+    branch_variables = _template_identifiers(branch)
+    if egit_variables or branch_variables:
         category, package, version, revision = catpkgsplit2(
             f'{ebuild.parent.parent.name}/{ebuild.stem}')
         variables = {
@@ -795,13 +802,15 @@ def get_egit_repo(ebuild: Path) -> tuple[str, str]:
             'PV': version,
             'PVR': version if revision == 'r0' else f'{version}-{revision}'
         }
-        egit = Template(egit).safe_substitute(variables)
-        branch = Template(branch).safe_substitute(variables)
-        if '$' in egit:
+        if egit_variables.difference(variables):
             log.debug('Skipping unresolved EGIT_REPO_URI `%s`.', egit)
             egit = ''
-        if '$' in branch:
+        else:
+            egit = Template(egit).safe_substitute(variables)
+        if branch_variables.difference(variables):
             branch = ''
+        else:
+            branch = Template(branch).safe_substitute(variables)
     return egit, branch
 
 
