@@ -780,6 +780,16 @@ def _template_identifiers(value: str) -> frozenset[str]:
                      if (identifier := match.group('named') or match.group('braced')))
 
 
+def _skip_unsupported_expansions(value: str, field: str, ebuild: Path) -> str:
+    if any(
+            match.group('invalid') is not None and value.startswith('${', match.start())
+            for match in Template.pattern.finditer(value)):
+        log.warning('Skipping %s `%s` in `%s` due to an unsupported expansion.', field, value,
+                    ebuild)
+        return ''
+    return value
+
+
 def get_egit_repo(ebuild: Path) -> tuple[str, str]:
     egit = branch = ''
     with Path(ebuild).open(encoding='utf-8') as file:
@@ -788,6 +798,8 @@ def get_egit_repo(ebuild: Path) -> tuple[str, str]:
                 egit = match.group(2)
             if match := re.compile(r'^EGIT_BRANCH=(["\'])?(.*)\1').search(line):
                 branch = match.group(2)
+    egit = _skip_unsupported_expansions(egit, 'EGIT_REPO_URI', ebuild)
+    branch = _skip_unsupported_expansions(branch, 'EGIT_BRANCH', ebuild)
     egit_variables = _template_identifiers(egit)
     branch_variables = _template_identifiers(branch)
     if egit_variables or branch_variables:

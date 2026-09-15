@@ -3394,7 +3394,8 @@ def test_get_egit_repo_expands_package_variables(tmp_path: Path, variable: str) 
      ('https://example.com/repo$5', 'release$5', 'https://example.com/repo$5', 'release$5'),
      ('https://example.com/${PN}$', 'v${PV}$', 'https://example.com/example$', 'v2.3.2$'),
      ('https://example.com/${PN}/$$USER', 'v${PV}', 'https://example.com/example/$USER', 'v2.3.2'),
-     ('https://example.com/${UNKNOWN}', 'release$', '', 'release$'),
+     ('https://example.com/${PN}/$${literal}', 'v${PV}', 'https://example.com/example/${literal}',
+      'v2.3.2'), ('https://example.com/${UNKNOWN}', 'release$', '', 'release$'),
      ('https://example.com/repo$', '${UNKNOWN}', 'https://example.com/repo$', '')])
 def test_get_egit_repo_distinguishes_literal_dollars(tmp_path: Path, uri: str, branch: str,
                                                      expected_uri: str,
@@ -3402,6 +3403,21 @@ def test_get_egit_repo_distinguishes_literal_dollars(tmp_path: Path, uri: str, b
     ebuild = tmp_path / 'example-2.3.2.ebuild'
     ebuild.write_text(f'EGIT_REPO_URI="{uri}"\nEGIT_BRANCH="{branch}"\n', encoding='utf-8')
     assert get_egit_repo(ebuild) == (expected_uri, expected_branch)
+
+
+@pytest.mark.parametrize(
+    'expression', ['${PN/pecl-/pecl_}', '${PV:0:3}', '${UNKNOWN:-$PN}', '${PN', '${PN}/${PV%%.*}'])
+@pytest.mark.parametrize('field', ['EGIT_REPO_URI', 'EGIT_BRANCH'])
+def test_get_egit_repo_skips_unsupported_expansions(tmp_path: Path, caplog: LogCaptureFixture,
+                                                    expression: str, field: str) -> None:
+    ebuild = tmp_path / 'example-2.3.2.ebuild'
+    uri = f'https://example.com/{expression}' if field == 'EGIT_REPO_URI' else 'https://example.com/${PN}'
+    branch = expression if field == 'EGIT_BRANCH' else 'v${PV}'
+    ebuild.write_text(f'EGIT_REPO_URI="{uri}"\nEGIT_BRANCH="{branch}"\n', encoding='utf-8')
+    expected = ('', 'v2.3.2') if field == 'EGIT_REPO_URI' else ('https://example.com/example', '')
+    assert get_egit_repo(ebuild) == expected
+    assert field in caplog.text
+    assert 'unsupported expansion' in caplog.text
 
 
 def test_get_egit_repo_skips_unresolved_variables(tmp_path: Path) -> None:
