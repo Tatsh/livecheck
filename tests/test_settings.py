@@ -255,6 +255,8 @@ def test_gather_settings_handles_various_fields(tmp_path: Path) -> None:
         'development': True,
         'composer': True,
         'composer_path': 'composer/path',
+        'crates': True,
+        'crates_path': 'rust/path',
         'maven': True,
         'maven_path': 'maven/path',
         'pattern_version': r'v(\d+)',
@@ -286,6 +288,8 @@ def test_gather_settings_handles_various_fields(tmp_path: Path) -> None:
     assert result.development['cat/pkg'] is True
     assert result.composer_packages['cat/pkg'] is True
     assert result.composer_path['cat/pkg'] == 'composer/path'
+    assert result.crates_packages['cat/pkg'] is True
+    assert result.crates_path['cat/pkg'] == 'rust/path'
     assert result.maven_packages['cat/pkg'] is True
     assert result.maven_path['cat/pkg'] == 'maven/path'
     assert result.regex_version['cat/pkg'] == (r'v(\d+)', r'\1')

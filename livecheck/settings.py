@@ -166,6 +166,13 @@ def _apply_vendor(settings: LivecheckSettings, parsed: Mapping[str, Any], catpkg
         if parsed.get('composer_path'):
             check_instance(parsed['composer_path'], 'composer_path', 'string', path)
             settings.composer_path[catpkg] = parsed['composer_path']
+    if 'crates' in parsed:
+        check_instance(parsed['crates'], 'crates', 'bool', path)
+        settings.crates_packages[catpkg] = parsed['crates']
+        settings.crates_path[catpkg] = ''
+        if parsed.get('crates_path'):
+            check_instance(parsed['crates_path'], 'crates_path', 'string', path)
+            settings.crates_path[catpkg] = parsed['crates_path']
     if 'maven' in parsed:
         check_instance(parsed['maven'], 'maven', 'bool', path)
         settings.maven_packages[catpkg] = parsed['maven']

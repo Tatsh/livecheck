@@ -12,6 +12,8 @@ and this project adheres to
 
 ### Added
 
+- Added `crates` and `crates_path` settings to generate Gentoo crate archives from `Cargo.lock`
+  with `cargo vendor --locked --versioned-dirs`. Cargo uses a temporary cache directory.
 - Add the `nodejs_omit_dev` package setting. When enabled, the `node_modules` archive is built with
   the runtime dependencies only, so it is only suitable for ebuilds that do not run a build step.
 - Follow the branch head for GitLab ebuilds that pin a commit, as is already done for GitHub. A
@@ -31,6 +33,9 @@ and this project adheres to
 
 ### Fixed
 
+- Restored original ebuild content and reported failures when crate downloads, archive generation,
+  or digest steps failed. Unsupported crate dependency errors identified rejected sources.
+- Declared `tomlkit` as a runtime dependency for crate archive generation.
 - Continued checking remaining packages after an update detection exception and returned exit
   code 1 after processing successful results.
 - Returned exit code 1 when HTTP failures prevented upstream version detection and no fallback

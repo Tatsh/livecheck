@@ -140,6 +140,8 @@ can be placed in the directory alongside the ebuild.
 - `branch` - string- The GitHub branch name to use for commits.
 - `composer_packages` - boolean - Download composer vendor modules.
 - `composer_path` - path - Where is 'composer.json' located (need composer_packages).
+- `crates` - boolean - Build a Rust dependency archive with Cargo using versions from `Cargo.lock`.
+- `crates_path` - path - Source subdirectory with `Cargo.toml` and `Cargo.lock` (requires `crates`).
 - `dist_github_release` - string - Per-package override for `--dist-github-release`.
 - `dist_github_repository` - string - Per-package override for `--dist-github-repository`
   (`owner/repo`).
@@ -213,6 +215,25 @@ action directory there can be several scripts that are executed in order by name
 ## Development use
 
 ### Creating new downloads
+
+Rust crate archives use the `crates` setting in a package's `livecheck.json`:
+
+```json
+{
+  "crates": true
+}
+```
+
+Cargo must be installed, and upstream sources must provide `Cargo.toml` and `Cargo.lock`.
+Set `crates_path` when the Cargo project is in a source subdirectory. Dependencies are downloaded
+with `cargo vendor --locked --versioned-dirs`; Git and alternative registry dependencies are
+currently unsupported. A missing or outdated lock file aborts the update.
+
+Configure the ebuild to fetch `${P}-crates.tar.xz` from your dist server instead of individual
+`CARGO_CRATE_URIS`, and remove its old `CRATES` list. The generated archive uses
+`cargo_home/gentoo/` under `WORKDIR`, as expected by `cargo_src_unpack`. Livecheck writes the archive
+to `DISTDIR` using the same compression and optional GitHub upload helpers as other vendor archives.
+Post-update hooks can upload the archive to a custom dist server.
 
 There are 2 types of downloads: _file_ and _latest commit_ (currently only Git is supported) and
 this is evident from the first download URL of the ebuild itself.

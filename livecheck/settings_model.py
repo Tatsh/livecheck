@@ -48,6 +48,10 @@ class LivecheckSettings:
     development: dict[str, bool] = field(default_factory=dict)
     composer_packages: dict[str, bool] = field(default_factory=dict)
     composer_path: dict[str, str] = field(default_factory=dict)
+    crates_packages: dict[str, bool] = field(default_factory=dict)
+    """Whether to build a Rust crate archive for each package."""
+    crates_path: dict[str, str] = field(default_factory=dict)
+    """Source subdirectory with Cargo.toml and Cargo.lock for each package."""
     maven_packages: dict[str, bool] = field(default_factory=dict)
     maven_path: dict[str, str] = field(default_factory=dict)
     regex_version: dict[str, tuple[str, str]] = field(default_factory=dict)

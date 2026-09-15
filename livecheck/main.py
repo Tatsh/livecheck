@@ -53,6 +53,7 @@ from .special.composer import (
     remove_composer_url,
     update_composer_ebuild,
 )
+from .special.crates import check_crates_requirements, remove_crates_url, update_crates_ebuild
 from .special.davinci import get_latest_davinci_package
 from .special.directory import get_latest_directory_package
 from .special.dotnet import (
@@ -1015,6 +1016,7 @@ async def do_main(  # ruff:ignore[complex-structure, too-many-branches, too-many
             if ((  # ruff:ignore[too-many-boolean-expressions]
                     cp in settings.dotnet_projects and not check_dotnet_requirements())
                     or (cp in settings.composer_packages and not check_composer_requirements())
+                    or (settings.crates_packages.get(cp) and not check_crates_requirements())
                     or (cp in settings.maven_packages and not check_maven_requirements())
                     or (cp in settings.yarn_base_packages and not check_yarn_requirements())
                     or (cp in settings.nodejs_packages
@@ -1023,7 +1025,7 @@ async def do_main(  # ruff:ignore[complex-structure, too-many-branches, too-many
                 log.warning('Update is not possible.')
                 return
             ebuild_path = AnyioPath(ebuild)
-            old_content = content = await ebuild_path.read_text(encoding='utf-8')
+            original_content = content = await ebuild_path.read_text(encoding='utf-8')
             if top_hash and old_sha:
                 content = content.replace(old_sha, top_hash)
                 if len(old_sha) == FULL_SHA_LENGTH and len(top_hash) >= SHORT_SHA_LENGTH:
@@ -1071,24 +1073,31 @@ async def do_main(  # ruff:ignore[complex-structure, too-many-branches, too-many
                 return
             await execute_hooks(hook_dir, 'pre', search_dir, cp, ebuild_version, last_version,
                                 old_sha, top_hash, hash_date)
-            await asyncio.to_thread(digest_ebuild, new_filename)
+            if not settings.crates_packages.get(cp):
+                await asyncio.to_thread(digest_ebuild, new_filename)
             fetchlist = await get_fetch_map(f'{cp}-{last_version}')
-            old_content = content
+            updated_content = content
             if cp in settings.gomodule_packages:
                 content = remove_gomodule_url(content)
             if cp in settings.nodejs_packages:
                 content = remove_nodejs_url(content)
             if cp in settings.composer_packages:
                 content = remove_composer_url(content)
+            if settings.crates_packages.get(cp):
+                content = remove_crates_url(content)
             if cp in settings.maven_packages:
                 content = remove_maven_url(content)
             if settings.dotnet_packages.get(cp):
                 content = remove_dotnet_url(content)
-            if old_content != content:
+            if updated_content != content:
                 await AnyioPath(new_filename).write_text(content, encoding='utf-8')
             if not await asyncio.to_thread(digest_ebuild, new_filename):
                 log.error('Error digesting `%s`.', new_filename)
                 await _recover_ebuild(new_filename, ebuild, cp, search_dir, settings)
+                if settings.crates_packages.get(cp):
+                    await ebuild_path.write_text(original_content, encoding='utf-8')
+                    msg = 'Could not digest sources for the crate archive.'
+                    raise RuntimeError(msg)
                 return
             if cp in settings.yarn_base_packages:
                 await update_yarn_ebuild(new_filename, settings.yarn_base_packages[cp], pkg,
@@ -1102,6 +1111,16 @@ async def do_main(  # ruff:ignore[complex-structure, too-many-branches, too-many
             if cp in settings.go_sum_uri:
                 await update_go_ebuild(new_filename, top_hash, settings.go_sum_uri[cp])
             dist_settings = settings.dist_settings_for(cp)
+            if settings.crates_packages.get(cp):
+                try:
+                    await update_crates_ebuild(new_filename,
+                                               settings.crates_path.get(cp),
+                                               fetchlist,
+                                               dist_settings=dist_settings)
+                except Exception:
+                    await _recover_ebuild(new_filename, ebuild, cp, search_dir, settings)
+                    await ebuild_path.write_text(original_content, encoding='utf-8')
+                    raise
             if cp in settings.dotnet_projects:
                 try:
                     await update_dotnet_ebuild(new_filename, settings.dotnet_projects[cp])
@@ -1138,11 +1157,15 @@ async def do_main(  # ruff:ignore[complex-structure, too-many-branches, too-many
                                              settings.composer_path[cp],
                                              fetchlist,
                                              dist_settings=dist_settings)
-            if old_content != content:
-                await AnyioPath(new_filename).write_text(old_content, encoding='utf-8')
+            if updated_content != content:
+                await AnyioPath(new_filename).write_text(updated_content, encoding='utf-8')
                 if not await asyncio.to_thread(digest_ebuild, new_filename):
                     log.error('Error digesting `%s`.', new_filename)
                     await _recover_ebuild(new_filename, ebuild, cp, search_dir, settings)
+                    if settings.crates_packages.get(cp):
+                        await ebuild_path.write_text(original_content, encoding='utf-8')
+                        msg = 'Could not digest the ebuild with the crate archive.'
+                        raise RuntimeError(msg)
                     return
             if settings.git_flag:
                 proc = await asyncio.create_subprocess_exec(_resolved_executable('ebuild'),

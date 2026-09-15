@@ -1336,6 +1336,7 @@ dependencies = [
     { name = "niquests-cache" },
     { name = "platformdirs" },
     { name = "portage" },
+    { name = "tomlkit" },
     { name = "typing-extensions" },
 ]
 
@@ -1386,6 +1387,7 @@ requires-dist = [
     { name = "niquests-cache", specifier = ">=0.2.4" },
     { name = "platformdirs", specifier = ">=4.11.7" },
     { name = "portage", specifier = ">=3.0.82.2" },
+    { name = "tomlkit", specifier = ">=0.15.1" },
     { name = "typing-extensions", specifier = ">=4.16.0" },
 ]
 
