@@ -60,7 +60,7 @@ dependencies = [
   "niquests>=3.21.1",
   "platformdirs>=4.11.7",
   "portage>=3.0.82.2",
-  "tomli>=2",
+  "tomlkit>=0.15.1",
   "typing-extensions>=4.16.0",
 ]
 description = "Tool to update ebuilds."

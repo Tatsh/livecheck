@@ -45,6 +45,7 @@ local utils = import 'utils.libjsonnet';
           'niquests-cache': utils.latestPypiPackageVersionCaret('niquests-cache'),
           platformdirs: utils.latestPypiPackageVersionCaret('platformdirs'),
           portage: utils.latestPypiPackageVersionCaret('portage'),
+          tomlkit: utils.latestPypiPackageVersionCaret('tomlkit'),
         },
         group+: {
           dev+: {

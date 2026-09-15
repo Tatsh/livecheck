@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+import os
 import tarfile
 
 import pytest
@@ -21,6 +22,10 @@ def test_remove_crates_url_preserves_source() -> None:
 @pytest.mark.asyncio
 async def test_update_crates_ebuild_creates_gentoo_archive(mocker: MockerFixture,
                                                            tmp_path: Path) -> None:
+    mocker.patch.dict(os.environ, {
+        'CARGO_HOME': '/caller/cargo',
+        'HTTPS_PROXY': 'http://proxy:8080'
+    })
     source = tmp_path / 'source'
     source.mkdir()
     (source / 'Cargo.toml').write_text('[workspace]\n', encoding='utf-8')
@@ -39,6 +44,9 @@ async def test_update_crates_ebuild_creates_gentoo_archive(mocker: MockerFixture
     assert run.call_args.args == ('/usr/bin/cargo', 'vendor', '--locked', '--versioned-dirs',
                                   str(tmp_path / 'cargo_home' / 'gentoo'))
     assert run.call_args.kwargs['cwd'] == str(source)
+    assert run.call_args.kwargs['env']['CARGO_HOME'] == str(tmp_path / 'cargo_home')
+    assert run.call_args.kwargs['env']['HTTPS_PROXY'] == 'http://proxy:8080'
+    assert os.environ['CARGO_HOME'] == '/caller/cargo'
     with tarfile.open(tmp_path / 'example-1.0-crates.tar.xz') as archive:
         assert 'cargo_home/gentoo/example-1.0.0/.cargo-checksum.json' in archive.getnames()
 

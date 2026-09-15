@@ -6,6 +6,7 @@ from shutil import which
 from typing import TYPE_CHECKING
 import asyncio
 import logging
+import os
 
 import tomlkit
 
@@ -114,6 +115,9 @@ async def update_crates_ebuild(ebuild: str,
                                                 '--versioned-dirs',
                                                 str(vendor_dir),
                                                 cwd=source_dir,
+                                                env={
+                                                    **os.environ, 'CARGO_HOME': str(cargo_home)
+                                                },
                                                 stdout=asyncio.subprocess.DEVNULL)
     if await proc.wait() != 0:
         msg = 'Cargo could not download locked crate dependencies.'
