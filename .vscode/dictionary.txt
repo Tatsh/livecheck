@@ -230,7 +230,6 @@ tempy
 testpaths
 therock
 toctree
-tomli
 tomlkit
 tomllib
 tomlq
