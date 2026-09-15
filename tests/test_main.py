@@ -38,6 +38,40 @@ if TYPE_CHECKING:
 CP = 'sys-devel/gcc'
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize('keep_old', [False, True])
+async def test_do_main_crates_failure_restores_ebuild(mocker: MockerFixture, tmp_path: Path, *,
+                                                      keep_old: bool) -> None:
+    ebuild = tmp_path / 'cat' / 'pkg' / 'pkg-1.0.ebuild'
+    ebuild.parent.mkdir(parents=True)
+    original = 'SRC_URI="https://example.com/${P}-crates.tar.xz"\n'
+    ebuild.write_text(original, encoding='utf-8')
+    settings = LivecheckSettings(auto_update_flag=True,
+                                 crates_packages={'cat/pkg': True},
+                                 keep_old_flag=keep_old)
+    mocker.patch('livecheck.main.check_crates_requirements', return_value=True)
+    mocker.patch('livecheck.main.digest_ebuild', return_value=True)
+    mocker.patch('livecheck.main.get_fetch_map', return_value={'pkg-2.0.tar.gz': ()})
+    update = mocker.patch('livecheck.main.update_crates_ebuild',
+                          side_effect=RuntimeError('Download failed'))
+    hook = mocker.patch('livecheck.main.execute_hooks')
+    with pytest.raises(RuntimeError, match='Download failed'):
+        await do_main(cat='cat',
+                      ebuild_version='1.0',
+                      hash_date='',
+                      hook_dir=None,
+                      last_version='2.0',
+                      pkg='pkg',
+                      search_dir=tmp_path,
+                      settings=settings,
+                      top_hash='',
+                      url='')
+    update.assert_awaited_once()
+    assert ebuild.read_text(encoding='utf-8') == original
+    assert not (ebuild.parent / 'pkg-2.0.ebuild').exists()
+    assert all(call.args[1] != 'post' for call in hook.await_args_list)
+
+
 def _patch_main_resolved_executables(mocker: MockerFixture) -> None:
     """Stub PATH resolution so git workflows in do_main need no portage tools."""
     mocker.patch('livecheck.main.which', side_effect=lambda name: f'/fake/bin/{name}')
@@ -120,6 +154,8 @@ def mock_settings(mocker: MockerFixture) -> Any:
     settings = mocker.MagicMock()
     settings.auto_update_flag = False
     settings.composer_packages = set()
+    settings.crates_packages = {}
+    settings.crates_path = {}
     settings.custom_livechecks = {}
     settings.dotnet_packages = {}
     settings.dotnet_projects = set()
@@ -1036,8 +1072,9 @@ async def test_resolved_executable_raises_when_missing(mocker: MockerFixture, mo
 
 
 @pytest.mark.asyncio
-async def test_do_main_gomodule_packages(mocker: MockerFixture, tmp_path: Path,
-                                         mock_settings: Mock) -> None:
+@pytest.mark.parametrize('ecosystem', ['gomodule', 'crates'])
+async def test_do_main_gomodule_packages(mocker: MockerFixture, tmp_path: Path, mock_settings: Mock,
+                                         ecosystem: str) -> None:
     cat = 'cat'
     pkg = 'pkg'
     ebuild_version = '1.0.0'
@@ -1052,7 +1089,7 @@ async def test_do_main_gomodule_packages(mocker: MockerFixture, tmp_path: Path,
     ebuild_path.parent.mkdir(parents=True)
     ebuild_path.write_text('SHA="1234567"\n', encoding='utf-8')
     mock_settings.auto_update_flag = True
-    mock_settings.gomodule_packages = {cp}
+    setattr(mock_settings, f'{ecosystem}_packages', {cp: True})
     mocker.patch('livecheck.main.get_old_sha', return_value='1234567')
     mocker.patch('livecheck.main.replace_date_in_ebuild', side_effect=lambda v, _, __: v)
     mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
@@ -1076,8 +1113,8 @@ async def test_do_main_gomodule_packages(mocker: MockerFixture, tmp_path: Path,
     mock_async_proc = mocker.AsyncMock()
     mock_async_proc.wait = mocker.AsyncMock(return_value=0)
     mocker.patch('livecheck.main.asyncio.create_subprocess_exec', return_value=mock_async_proc)
-    mocker.patch('livecheck.main.check_gomodule_requirements', return_value=True)
-    mock_update_gomodule_ebuild = mocker.patch('livecheck.main.update_gomodule_ebuild')
+    mocker.patch(f'livecheck.main.check_{ecosystem}_requirements', return_value=True)
+    mock_update_gomodule_ebuild = mocker.patch(f'livecheck.main.update_{ecosystem}_ebuild')
     await do_main(cat=cat,
                   ebuild_version=ebuild_version,
                   hash_date=hash_date,

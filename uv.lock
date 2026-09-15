@@ -14,9 +14,9 @@ exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for 
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
+portage-stubs = false
 niquests-cache = false
 niquests-mock = false
-portage-stubs = false
 
 [[package]]
 name = "aiosqlite"
@@ -1336,6 +1336,7 @@ dependencies = [
     { name = "niquests-cache" },
     { name = "platformdirs" },
     { name = "portage" },
+    { name = "tomli" },
     { name = "typing-extensions" },
 ]
 
@@ -1386,6 +1387,7 @@ requires-dist = [
     { name = "niquests-cache", specifier = ">=0.2.4" },
     { name = "platformdirs", specifier = ">=4.11.7" },
     { name = "portage", specifier = ">=3.0.82.2" },
+    { name = "tomli", specifier = ">=2" },
     { name = "typing-extensions", specifier = ">=4.16.0" },
 ]
 
