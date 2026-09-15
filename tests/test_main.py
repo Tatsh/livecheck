@@ -1,6 +1,7 @@
 # ruff:file-ignore[boolean-type-hint-positional-argument]
 from __future__ import annotations
 
+from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 import asyncio
 import logging
@@ -34,6 +35,8 @@ if TYPE_CHECKING:
     from _pytest.logging import LogCaptureFixture
     from click.testing import CliRunner
     from pytest_mock import MockerFixture
+
+    from tests.conftest import NiquestsMocker
 
 CP = 'sys-devel/gcc'
 
@@ -75,6 +78,42 @@ async def test_do_main_crates_failure_restores_ebuild(mocker: MockerFixture, tmp
     assert ebuild.read_text(encoding='utf-8') == original
     assert not (ebuild.parent / 'pkg-2.0.ebuild').exists()
     assert all(call.args[1] != 'post' for call in hook.await_args_list)
+
+
+@pytest.mark.parametrize('parallel', [1, 3])
+@pytest.mark.parametrize('status', [HTTPStatus.FORBIDDEN, HTTPStatus.OK])
+def test_main_reports_http_detection_failures(mocker: MockerFixture, runner: CliRunner,
+                                              tmp_path: Path, requests_mock: NiquestsMocker,
+                                              parallel: int, status: HTTPStatus) -> None:
+    packages = ('first', 'second', 'third')
+    settings = LivecheckSettings(type_packages={f'cat/{pkg}': 'regex'
+                                                for pkg in packages},
+                                 custom_livechecks={
+                                     f'cat/{pkg}': (f'https://example.com/{pkg}', r'(2\.0)')
+                                     for pkg in packages
+                                 })
+    mocker.patch('livecheck.main.chdir')
+    mocker.patch('livecheck.main.setup_logging')
+    mocker.patch('livecheck.main.gather_settings', return_value=settings)
+    mocker.patch('livecheck.main.get_repository_root_if_inside',
+                 return_value=(str(tmp_path), 'repo'))
+    mocker.patch('livecheck.main.get_highest_matches',
+                 return_value=[f'cat/{pkg}-1.0' for pkg in packages])
+    mocker.patch('livecheck.main.get_first_src_uri', return_value='')
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
+    for pkg in packages:
+        requests_mock.get(f'https://example.com/{pkg}',
+                          text='no releases' if pkg == 'second' else '2.0',
+                          status_code=status if pkg == 'second' else HTTPStatus.OK)
+    process = mocker.patch('livecheck.main.do_main')
+    result = runner.invoke(
+        main,
+        ['-W',
+         str(tmp_path), '--parallel',
+         str(parallel), *(f'cat/{pkg}' for pkg in packages)])
+    assert result.exit_code == (1 if status == HTTPStatus.FORBIDDEN else 0)
+    assert sorted(call.kwargs['pkg'] for call in process.await_args_list) == ['first', 'third']
+    assert 'Traceback' not in result.output
 
 
 def _patch_main_resolved_executables(mocker: MockerFixture) -> None:
@@ -3378,6 +3417,57 @@ def test_get_egit_repo(tmp_path: Path, ebuild_content: str, expected_egit: str,
     egit, branch = get_egit_repo(ebuild_path)
     assert egit == expected_egit
     assert branch == expected_branch
+
+
+@pytest.mark.parametrize('variable', ['${PN}', '$PN'])
+def test_get_egit_repo_expands_package_variables(tmp_path: Path, variable: str) -> None:
+    ebuild = tmp_path / 'dev-python' / 'example' / 'example-2.3.2-r1.ebuild'
+    ebuild.parent.mkdir(parents=True)
+    ebuild.write_text(
+        f'EGIT_REPO_URI="https://gitlab.com/dslackw/{variable}"\n'
+        'EGIT_BRANCH="v${PV}"\n',
+        encoding='utf-8')
+    assert get_egit_repo(ebuild) == ('https://gitlab.com/dslackw/example', 'v2.3.2')
+
+
+@pytest.mark.parametrize(
+    ('uri', 'branch', 'expected_uri', 'expected_branch'),
+    [('https://example.com/repo$', 'release$', 'https://example.com/repo$', 'release$'),
+     ('https://example.com/repo$5', 'release$5', 'https://example.com/repo$5', 'release$5'),
+     ('https://example.com/${PN}', 'release$$', 'https://example.com/example', 'release$$'),
+     ('https://example.com/repo$$', 'v${PV}', 'https://example.com/repo$$', 'v2.3.2'),
+     ('https://example.com/${PN}$', 'v${PV}$', 'https://example.com/example$', 'v2.3.2$'),
+     ('https://example.com/${PN}/$$USER', 'v${PV}', 'https://example.com/example/$USER', 'v2.3.2'),
+     ('https://example.com/${PN}/$${literal}', 'v${PV}', 'https://example.com/example/${literal}',
+      'v2.3.2'), ('https://example.com/${UNKNOWN}', 'release$', '', 'release$'),
+     ('https://example.com/repo$', '${UNKNOWN}', 'https://example.com/repo$', '')])
+def test_get_egit_repo_distinguishes_literal_dollars(tmp_path: Path, uri: str, branch: str,
+                                                     expected_uri: str,
+                                                     expected_branch: str) -> None:
+    ebuild = tmp_path / 'example-2.3.2.ebuild'
+    ebuild.write_text(f'EGIT_REPO_URI="{uri}"\nEGIT_BRANCH="{branch}"\n', encoding='utf-8')
+    assert get_egit_repo(ebuild) == (expected_uri, expected_branch)
+
+
+@pytest.mark.parametrize(
+    'expression', ['${PN/pecl-/pecl_}', '${PV:0:3}', '${UNKNOWN:-$PN}', '${PN', '${PN}/${PV%%.*}'])
+@pytest.mark.parametrize('field', ['EGIT_REPO_URI', 'EGIT_BRANCH'])
+def test_get_egit_repo_skips_unsupported_expansions(tmp_path: Path, caplog: LogCaptureFixture,
+                                                    expression: str, field: str) -> None:
+    ebuild = tmp_path / 'example-2.3.2.ebuild'
+    uri = f'https://example.com/{expression}' if field == 'EGIT_REPO_URI' else 'https://example.com/${PN}'
+    branch = expression if field == 'EGIT_BRANCH' else 'v${PV}'
+    ebuild.write_text(f'EGIT_REPO_URI="{uri}"\nEGIT_BRANCH="{branch}"\n', encoding='utf-8')
+    expected = ('', 'v2.3.2') if field == 'EGIT_REPO_URI' else ('https://example.com/example', '')
+    assert get_egit_repo(ebuild) == expected
+    assert field in caplog.text
+    assert 'unsupported expansion' in caplog.text
+
+
+def test_get_egit_repo_skips_unresolved_variables(tmp_path: Path) -> None:
+    ebuild = tmp_path / 'example-2.3.2.ebuild'
+    ebuild.write_text('EGIT_REPO_URI="https://gitlab.com/${UNKNOWN}/example"\n', encoding='utf-8')
+    assert get_egit_repo(ebuild) == ('', '')
 
 
 def test_get_egit_repo_handles_empty_file(tmp_path: Path) -> None:

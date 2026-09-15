@@ -101,7 +101,7 @@ async def update_crates_ebuild(ebuild: str,
     for package in lock.get('package', ()):
         source = package.get('source', '')
         if source and source != 'registry+https://github.com/rust-lang/crates.io-index':
-            msg = 'Crate archives currently support crates.io dependencies only.'
+            msg = f'Unsupported crate source `{source}`. Only crates.io dependencies are supported.'
             raise RuntimeError(msg)
     cargo = which('cargo')
     if cargo is None:

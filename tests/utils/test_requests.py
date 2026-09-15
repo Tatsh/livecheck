@@ -3,6 +3,7 @@ from __future__ import annotations
 from http import HTTPStatus
 from typing import TYPE_CHECKING
 import hashlib
+import logging
 import re
 
 import niquests
@@ -12,6 +13,7 @@ from livecheck.utils.requests import (
     REQUEST_TIMEOUT,
     get_content,
     get_last_modified,
+    get_request_failure_count,
     hash_url,
     session_init,
 )
@@ -339,6 +341,25 @@ async def test_get_content_request_exception(mocker: MockerFixture) -> None:
     mocker.patch.object(session_init(''), 'send', side_effect=niquests.RequestException('fail'))
     r = await get_content(url)
     assert r.status_code == HTTPStatus.SERVICE_UNAVAILABLE
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('debug', [False, True])
+async def test_get_content_connection_error_logging(mocker: MockerFixture,
+                                                    caplog: pytest.LogCaptureFixture, *,
+                                                    debug: bool) -> None:
+    caplog.set_level(logging.DEBUG if debug else logging.ERROR, logger='livecheck.utils.requests')
+    mocker.patch.object(session_init(''),
+                        'request',
+                        side_effect=niquests.ConnectionError('Connection refused'))
+    before = get_request_failure_count()
+    response = await get_content('https://example.com/file')
+    assert response.status_code == HTTPStatus.SERVICE_UNAVAILABLE
+    assert get_request_failure_count() == before + 1
+    record = next(record for record in caplog.records if record.levelno == logging.ERROR)
+    assert 'https://example.com/file' in record.getMessage()
+    assert 'ConnectionError' in record.getMessage()
+    assert bool(record.exc_info) is debug
 
 
 @pytest.mark.asyncio

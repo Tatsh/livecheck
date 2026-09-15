@@ -68,8 +68,10 @@ async def test_update_crates_ebuild_reports_failures(mocker: MockerFixture, tmp_
     proc.wait.return_value = 1 if failure == 'download' else 0
     mocker.patch('livecheck.special.crates.asyncio.create_subprocess_exec', return_value=proc)
     compress = mocker.patch('livecheck.special.crates.build_compress', return_value=False)
-    with pytest.raises(RuntimeError):
+    with pytest.raises(RuntimeError) as exc_info:
         await update_crates_ebuild('example.ebuild', None, {'example.tar.gz': ()})
+    if failure == 'source':
+        assert 'git+https://example.com/repo' in str(exc_info.value)
     assert compress.await_count == (1 if failure == 'archive' else 0)
 
 

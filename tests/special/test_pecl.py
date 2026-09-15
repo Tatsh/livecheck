@@ -15,6 +15,18 @@ if TYPE_CHECKING:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize('filename', ['pecl_http-4.3.1.tgz', 'pecl_http-4.3.1.tgz?download=1'])
+async def test_get_latest_pecl_package_uses_download_name(mocker: MockerFixture,
+                                                          filename: str) -> None:
+    helper = mocker.patch('livecheck.special.pecl.get_latest_pecl_package2', return_value='4.3.1')
+    settings = mocker.Mock()
+    result = await get_latest_pecl_package('dev-php/pecl-http-4.3.1', settings,
+                                           f'https://pecl.php.net/get/{filename}')
+    helper.assert_called_once_with('pecl_http', 'dev-php/pecl-http-4.3.1', settings)
+    assert result == '4.3.1'
+
+
+@pytest.mark.asyncio
 async def test_get_latest_pecl_package_removes_prefix_and_calls_helper(
         mocker: MockerFixture) -> None:
     ebuild = 'dev-php/pecl-foo-1.0.0'

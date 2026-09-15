@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
+import re
 
 from defusedxml import ElementTree as ET  # ruff:ignore[camelcase-imported-as-acronym]
 
@@ -19,11 +20,23 @@ PECL_DOWNLOAD_URL = 'https://pecl.php.net/rest/r/%s/allreleases.xml'
 PECL_METADATA = 'pecl'
 
 NAMESPACE = '{http://pear.php.net/dtd/rest.allreleases}'
+_DOWNLOAD_PACKAGE = re.compile(r'/get/([^/]+?)-\d[^/]*$')
 
 
-async def get_latest_pecl_package(ebuild: str, settings: LivecheckSettings) -> str:
+async def get_latest_pecl_package(ebuild: str,
+                                  settings: LivecheckSettings,
+                                  src_uri: str = '') -> str:
     """
     Get the latest version of a PECL package.
+
+    Parameters
+    ----------
+    ebuild : str
+        Ebuild atom used for version filtering and fallback package identification.
+    settings : LivecheckSettings
+        Package update settings.
+    src_uri : str
+        PECL download URL used to identify upstream package names. Defaults to an empty string.
 
     Returns
     -------
@@ -32,9 +45,10 @@ async def get_latest_pecl_package(ebuild: str, settings: LivecheckSettings) -> s
     """
     _, _, program_name, _ = catpkg_catpkgsplit(ebuild)
 
-    # Remove 'pecl-' prefix if present
-    if program_name.startswith('pecl-'):
-        program_name = program_name.replace('pecl-', '', 1)
+    if match := _DOWNLOAD_PACKAGE.search(urlparse(src_uri).path):
+        program_name = match.group(1)
+    else:
+        program_name = program_name.removeprefix('pecl-')
     return await get_latest_pecl_package2(program_name, ebuild, settings)
 
 
