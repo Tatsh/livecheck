@@ -3525,6 +3525,28 @@ async def test_get_props_skips_failing_src_uri_location(mocker: MockerFixture, f
 
 
 @pytest.mark.asyncio
+async def test_get_props_propagates_cancelled_src_uri_lookup(mocker: MockerFixture, fake_repo: Path,
+                                                             mock_settings2: Mock) -> None:
+    _patch_get_props_common(
+        mocker,
+        ('https://a.example.com/pkg-1.0.0.tar.gz', 'https://b.example.com/pkg-1.0.0.tar.gz'), [])
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
+
+    def fake_parse_url(source: str, *_: Any, **__: Any) -> tuple[str, str, str, str]:
+        if source.startswith('https://b.'):
+            raise asyncio.CancelledError
+        return ('1.5.0', '', '', 'url-a')
+
+    mocker.patch('livecheck.main.parse_url', side_effect=fake_parse_url)
+    with pytest.raises(asyncio.CancelledError):
+        await get_props(search_dir=fake_repo,
+                        repo_root=fake_repo,
+                        settings=mock_settings2,
+                        names=['cat/pkg'],
+                        exclude=[])
+
+
+@pytest.mark.asyncio
 async def test_get_props_reports_failure_when_every_src_uri_location_fails(
         mocker: MockerFixture, fake_repo: Path, mock_settings2: Mock) -> None:
     _patch_get_props_common(

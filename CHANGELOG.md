@@ -24,13 +24,13 @@ and this project adheres to
 - Add the `handle_npm_prerelease` transformation function. npm spells the builds leading up to a
   release as `3.9.3-12`, which sanitising turned into `3.9.3.12`, a version _above_ the 3.9.3 it
   precedes. The function spells the counter `_pre` instead.
-- Query every `SRC_URI` location that refers to the package (the first entry, and later entries
-  whose URL includes both the package name and the ebuild version) and select the highest version
-  found. Previously only the first `SRC_URI` entry was consulted, and a mirror that was not
-  updated upstream hid newer releases published at the other locations. Locations are queried
-  concurrently, and a location whose lookup fails is skipped when another one succeeds. Entries
-  for vendored dependencies, generated vendor archives, and signature or checksum files are
-  skipped. `metadata.xml`, `HOMEPAGE`, Repology, and directory listings remain fallbacks used
+- Query every `SRC_URI` location that refers to the package and select the highest version found.
+  Generated vendor archives and signature or checksum files are skipped, the first remaining entry
+  is always consulted, and a later entry is consulted when its URL includes both the package name
+  and the ebuild version. Previously only the first `SRC_URI` entry was consulted, and a mirror
+  that was not updated upstream hid newer releases published at the other locations. Locations
+  are queried concurrently, and a location whose lookup fails is skipped when another one
+  succeeds. `metadata.xml`, `HOMEPAGE`, Repology, and directory listings remain fallbacks used
   only when no `SRC_URI` location reports a version. `mirror+https://` entries are now recognised
   as source URIs.
 

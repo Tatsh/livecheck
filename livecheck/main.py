@@ -676,7 +676,7 @@ async def _check_src_uris(match: str, catpkg: str, settings: LivecheckSettings,
     Locations are queried concurrently. A location that is not updated upstream (for example a
     stale mirror) does not hide a newer version published at another location, and a location
     whose lookup fails is logged and skipped while another location succeeds. When every
-    location fails, the first lookup error is raised.
+    location fails, the first lookup error is raised. Cancellation always propagates.
 
     Parameters
     ----------
@@ -701,9 +701,11 @@ async def _check_src_uris(match: str, catpkg: str, settings: LivecheckSettings,
         *(parse_url(source, match, settings, force_sha=False) for source in src_uris),
         return_exceptions=True)
     results: list[tuple[str, str, str, str]] = []
-    errors: list[BaseException] = []
+    errors: list[Exception] = []
     for source, outcome in zip(src_uris, outcomes, strict=True):
-        if isinstance(outcome, BaseException):
+        if isinstance(outcome, BaseException) and not isinstance(outcome, Exception):
+            raise outcome
+        if isinstance(outcome, Exception):
             errors.append(outcome)
             continue
         if outcome[0] or outcome[1]:
@@ -712,7 +714,7 @@ async def _check_src_uris(match: str, catpkg: str, settings: LivecheckSettings,
     if errors and not results:
         raise errors[0]
     for source, outcome in zip(src_uris, outcomes, strict=True):
-        if isinstance(outcome, BaseException):
+        if isinstance(outcome, Exception):
             log.warning('Skipping SRC_URI location %s of %s after a lookup error: %s', source,
                         catpkg, outcome)
     newest = _newest_result(results)
