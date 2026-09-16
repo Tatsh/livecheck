@@ -111,6 +111,8 @@ async def update_crates_ebuild(ebuild: str,
     vendor_dir = cargo_home / 'gentoo'
     proc = await asyncio.create_subprocess_exec(cargo,
                                                 'vendor',
+                                                '--config',
+                                                'net.offline=false',
                                                 '--locked',
                                                 '--versioned-dirs',
                                                 str(vendor_dir),
