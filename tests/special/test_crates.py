@@ -38,6 +38,7 @@ async def test_update_crates_ebuild_creates_gentoo_archive(mocker: MockerFixture
                                                            tmp_path: Path) -> None:
     mocker.patch.dict(os.environ, {
         'CARGO_HOME': '/caller/cargo',
+        'CARGO_NET_OFFLINE': 'true',
         'HTTPS_PROXY': 'http://proxy:8080'
     })
     source = tmp_path / 'source'
@@ -55,12 +56,14 @@ async def test_update_crates_ebuild_creates_gentoo_archive(mocker: MockerFixture
     proc.wait.return_value = 0
     run = mocker.patch('livecheck.special.crates.asyncio.create_subprocess_exec', return_value=proc)
     await update_crates_ebuild('example.ebuild', None, {'example-1.0.tar.gz': ()})
-    assert run.call_args.args == ('/usr/bin/cargo', 'vendor', '--locked', '--versioned-dirs',
+    assert run.call_args.args == ('/usr/bin/cargo', 'vendor', '--config', 'net.offline=false',
+                                  '--locked', '--versioned-dirs',
                                   str(tmp_path / 'cargo_home' / 'gentoo'))
     assert run.call_args.kwargs['cwd'] == str(source)
     assert run.call_args.kwargs['env']['CARGO_HOME'] == str(tmp_path / 'cargo_home')
     assert run.call_args.kwargs['env']['HTTPS_PROXY'] == 'http://proxy:8080'
     assert os.environ['CARGO_HOME'] == '/caller/cargo'
+    assert os.environ['CARGO_NET_OFFLINE'] == 'true'
     with tarfile.open(tmp_path / 'example-1.0-crates.tar.xz') as archive:
         assert 'cargo_home/gentoo/example-1.0.0/.cargo-checksum.json' in archive.getnames()
 
