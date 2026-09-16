@@ -276,7 +276,8 @@ async def get_src_uris(match: str, search_dir: Path | None = None) -> tuple[str,
         ``mirror+`` prefix removed. Empty when the ebuild is not found or lists no fetchable URI.
     """
     try:
-        values = await P.async_aux_get(match, ['SRC_URI'], mytree=str(search_dir))
+        values = await P.async_aux_get(match, ['SRC_URI'],
+                                       mytree=str(search_dir) if search_dir is not None else None)
     except KeyError:
         return ()
     return tuple(

@@ -465,6 +465,13 @@ async def test_get_src_uris(mocker: MockerFixture, aux_get_return: list[str],
     assert await get_src_uris('cat/pkg-1.2.3') == expected
 
 
+async def test_get_src_uris_without_search_dir_uses_default_tree(mocker: MockerFixture) -> None:
+    mock_p = mocker.patch('livecheck.utils.portage.P')
+    mock_p.async_aux_get = mocker.AsyncMock(return_value=['https://example.com/foo.tar.gz'])
+    assert await get_src_uris('cat/pkg-1.2.3') == ('https://example.com/foo.tar.gz',)
+    mock_p.async_aux_get.assert_called_once_with('cat/pkg-1.2.3', ['SRC_URI'], mytree=None)
+
+
 async def test_get_src_uris_keyerror(mocker: MockerFixture) -> None:
     mock_p = mocker.patch('livecheck.utils.portage.P')
     mock_p.async_aux_get = mocker.AsyncMock(side_effect=KeyError('not found'))
