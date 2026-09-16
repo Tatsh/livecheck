@@ -99,7 +99,7 @@ def test_main_reports_http_detection_failures(mocker: MockerFixture, runner: Cli
                  return_value=(str(tmp_path), 'repo'))
     mocker.patch('livecheck.main.get_highest_matches',
                  return_value=[f'cat/{pkg}-1.0' for pkg in packages])
-    mocker.patch('livecheck.main.get_first_src_uri', return_value='')
+    mocker.patch('livecheck.main.get_src_uris', return_value=())
     mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
     for pkg in packages:
         requests_mock.get(f'https://example.com/{pkg}',
@@ -2516,8 +2516,8 @@ async def test_get_props_basic_yields(mocker: MockerFixture, fake_repo: Path,
     mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
     mocker.patch('livecheck.main.catpkg_catpkgsplit',
                  return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
-    mocker.patch('livecheck.main.get_first_src_uri',
-                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_src_uris',
+                 return_value=('https://example.com/pkg-1.0.0.tar.gz',))
     mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
     mocker.patch('livecheck.main.get_old_sha', return_value='')
     mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
@@ -2552,7 +2552,7 @@ async def test_get_props_continues_after_detection_failure(mocker: MockerFixture
                                                 for pkg in packages})
     mocker.patch('livecheck.main.get_highest_matches',
                  return_value=[f'cat/{pkg}-1.0' for pkg in packages])
-    mocker.patch('livecheck.main.get_first_src_uri', return_value='')
+    mocker.patch('livecheck.main.get_src_uris', return_value=())
     mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
     valid_response = mocker.Mock()
     valid_response.json.return_value = {'linux': {'major': 2, 'minor': 0, 'releaseNum': 0}}
@@ -2579,7 +2579,7 @@ async def test_get_props_continues_after_detection_failure(mocker: MockerFixture
 @pytest.mark.asyncio
 async def test_get_props_propagates_cancellation(mocker: MockerFixture, tmp_path: Path) -> None:
     mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0'])
-    mocker.patch('livecheck.main.get_first_src_uri', side_effect=asyncio.CancelledError)
+    mocker.patch('livecheck.main.get_src_uris', side_effect=asyncio.CancelledError)
 
     with pytest.raises(asyncio.CancelledError):
         await get_props(tmp_path, tmp_path, LivecheckSettings(), ['cat/pkg'])
@@ -2593,11 +2593,11 @@ async def test_get_props_reports_stalled_package(mocker: MockerFixture, fake_rep
     mocker.patch('livecheck.main.catpkg_catpkgsplit',
                  return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
 
-    async def _slow_src_uri(*_: Any, **__: Any) -> str:
+    async def _slow_src_uri(*_: Any, **__: Any) -> tuple[str, ...]:
         await asyncio.sleep(0.05)
-        return ''
+        return ()
 
-    mocker.patch('livecheck.main.get_first_src_uri', side_effect=_slow_src_uri)
+    mocker.patch('livecheck.main.get_src_uris', side_effect=_slow_src_uri)
     mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
     mocker.patch('livecheck.main.get_aux', new_callable=mocker.AsyncMock, return_value=[''])
     mocker.patch('livecheck.main.parse_url', return_value=('', '', '', ''))
@@ -2621,8 +2621,8 @@ async def test_get_props_logs_progress_when_enabled(mocker: MockerFixture, fake_
     mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
     mocker.patch('livecheck.main.catpkg_catpkgsplit',
                  return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
-    mocker.patch('livecheck.main.get_first_src_uri',
-                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_src_uris',
+                 return_value=('https://example.com/pkg-1.0.0.tar.gz',))
     mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
     mocker.patch('livecheck.main.get_old_sha', return_value='')
     mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
@@ -2661,8 +2661,8 @@ async def test_get_props_restrict_version_sets_process_prefix(mocker: MockerFixt
     mocker.patch('livecheck.main.get_highest_matches', return_value=[f'cat/pkg:{prefix}:-1.0.0'])
     mocker.patch('livecheck.main.catpkg_catpkgsplit',
                  return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
-    mocker.patch('livecheck.main.get_first_src_uri',
-                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_src_uris',
+                 return_value=('https://example.com/pkg-1.0.0.tar.gz',))
     mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
     mocker.patch('livecheck.main.get_aux', new_callable=mocker.AsyncMock, return_value=[])
     mocker.patch('livecheck.main.parse_url', side_effect=fake_parse_url)
@@ -2685,8 +2685,8 @@ async def test_get_props_exclude_package(mocker: MockerFixture, fake_repo: Path,
     mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
     mocker.patch('livecheck.main.catpkg_catpkgsplit',
                  return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
-    mocker.patch('livecheck.main.get_first_src_uri',
-                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_src_uris',
+                 return_value=('https://example.com/pkg-1.0.0.tar.gz',))
     mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
     mocker.patch('livecheck.main.log')
     results = await get_props(search_dir=fake_repo,
@@ -2718,8 +2718,8 @@ async def test_get_props_type_none_skips(mocker: MockerFixture, fake_repo: Path,
     mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
     mocker.patch('livecheck.main.catpkg_catpkgsplit',
                  return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
-    mocker.patch('livecheck.main.get_first_src_uri',
-                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_src_uris',
+                 return_value=('https://example.com/pkg-1.0.0.tar.gz',))
     mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
     mocker.patch('livecheck.main.log')
     results = await get_props(search_dir=fake_repo,
@@ -2739,8 +2739,8 @@ async def test_get_props_reports_http_failures(mocker: MockerFixture, fake_repo:
     mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
     mocker.patch('livecheck.main.catpkg_catpkgsplit',
                  return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
-    mocker.patch('livecheck.main.get_first_src_uri',
-                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_src_uris',
+                 return_value=('https://example.com/pkg-1.0.0.tar.gz',))
     mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
     mocker.patch('livecheck.main.get_request_failure_count', side_effect=[0, 1])
     failed: list[str] = []
@@ -2763,8 +2763,8 @@ async def test_get_props_type_metadata_calls_parse_metadata(mocker: MockerFixtur
     mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
     mocker.patch('livecheck.main.catpkg_catpkgsplit',
                  return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
-    mocker.patch('livecheck.main.get_first_src_uri',
-                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_src_uris',
+                 return_value=('https://example.com/pkg-1.0.0.tar.gz',))
     mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
     mocker.patch('livecheck.main.parse_metadata', return_value=('ver', 'sha', 'date', 'url'))
     mocker.patch('livecheck.main.log')
@@ -2798,7 +2798,7 @@ async def test_get_props_no_names_argument_yields(mocker: MockerFixture, fake_re
         return ('cat/pkg', 'cat', 'pkg', '1.0.0')
 
     mocker.patch('livecheck.main.catpkg_catpkgsplit', side_effect=fake_catpkg_catpkgsplit)
-    mocker.patch('livecheck.main.get_first_src_uri', return_value='https://example.com/pkg.tar.gz')
+    mocker.patch('livecheck.main.get_src_uris', return_value=('https://example.com/pkg.tar.gz',))
     mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
     mocker.patch('livecheck.main.get_old_sha', return_value='')
     mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
@@ -2808,8 +2808,17 @@ async def test_get_props_no_names_argument_yields(mocker: MockerFixture, fake_re
                  new_callable=mocker.AsyncMock,
                  return_value=['https://homepage'])
     mocker.patch('livecheck.main.log')
-    mocker.patch('livecheck.main.parse_url',
-                 side_effect=[('ver1', 'sha1', 'date1', 'url1'), ('ver2', 'sha2', 'date2', 'url2')])
+    per_ebuild = {
+        'cat1/pkg1-1.0.0': ('ver1', 'sha1', 'date1', 'url1'),
+        'cat2/pkg2-2.0.0': ('ver2', 'sha2', 'date2', 'url2')
+    }
+
+    def fake_parse_url(source: str, ebuild: str, *_: Any, **__: Any) -> tuple[str, str, str, str]:
+        if source == 'https://homepage':
+            return ('', '', '', '')
+        return per_ebuild[ebuild]
+
+    mocker.patch('livecheck.main.parse_url', side_effect=fake_parse_url)
     results = await get_props(search_dir=fake_repo,
                               repo_root=fake_repo,
                               settings=mock_settings2,
@@ -2830,7 +2839,7 @@ async def test_get_props_no_names_argument_exclude_all(mocker: MockerFixture, fa
     mocker.patch('livecheck.main.get_highest_matches', return_value=['cat1/pkg1-1.0.0'])
     mocker.patch('livecheck.main.catpkg_catpkgsplit',
                  return_value=('cat1/pkg1', 'cat1', 'pkg1', '1.0.0'))
-    mocker.patch('livecheck.main.get_first_src_uri', return_value='https://example.com/pkg.tar.gz')
+    mocker.patch('livecheck.main.get_src_uris', return_value=('https://example.com/pkg.tar.gz',))
     mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
     mocker.patch('livecheck.main.log')
     results = await get_props(search_dir=fake_repo,
@@ -2862,8 +2871,8 @@ async def test_get_props_type_davinci_calls_get_latest_davinci_package(
     mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
     mocker.patch('livecheck.main.catpkg_catpkgsplit',
                  return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
-    mocker.patch('livecheck.main.get_first_src_uri',
-                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_src_uris',
+                 return_value=('https://example.com/pkg-1.0.0.tar.gz',))
     mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
     mocker.patch('livecheck.main.get_old_sha', return_value='')
     mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
@@ -2892,8 +2901,8 @@ async def test_get_props_type_directory_calls_get_latest_directory_package(
     mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
     mocker.patch('livecheck.main.catpkg_catpkgsplit',
                  return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
-    mocker.patch('livecheck.main.get_first_src_uri',
-                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_src_uris',
+                 return_value=('https://example.com/pkg-1.0.0.tar.gz',))
     mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
     mocker.patch('livecheck.main.get_old_sha', return_value='')
     mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
@@ -2923,8 +2932,8 @@ async def test_get_props_type_changelog_calls_get_latest_changelog_package(
     mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
     mocker.patch('livecheck.main.catpkg_catpkgsplit',
                  return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
-    mocker.patch('livecheck.main.get_first_src_uri',
-                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_src_uris',
+                 return_value=('https://example.com/pkg-1.0.0.tar.gz',))
     mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
     mocker.patch('livecheck.main.get_old_sha', return_value='')
     mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
@@ -2955,8 +2964,8 @@ async def test_get_props_type_repology_calls_get_latest_repology(mocker: MockerF
     mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
     mocker.patch('livecheck.main.catpkg_catpkgsplit',
                  return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
-    mocker.patch('livecheck.main.get_first_src_uri',
-                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_src_uris',
+                 return_value=('https://example.com/pkg-1.0.0.tar.gz',))
     mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
     mocker.patch('livecheck.main.get_old_sha', return_value='')
     mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
@@ -2987,8 +2996,8 @@ async def test_get_props_type_regex_calls_get_latest_regex_package(mocker: Mocke
     mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
     mocker.patch('livecheck.main.catpkg_catpkgsplit',
                  return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
-    mocker.patch('livecheck.main.get_first_src_uri',
-                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_src_uris',
+                 return_value=('https://example.com/pkg-1.0.0.tar.gz',))
     mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
     mocker.patch('livecheck.main.get_old_sha', return_value='')
     mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
@@ -3020,8 +3029,8 @@ async def test_get_props_type_checksum_calls_get_latest_checksum_package(
     mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
     mocker.patch('livecheck.main.catpkg_catpkgsplit',
                  return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
-    mocker.patch('livecheck.main.get_first_src_uri',
-                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_src_uris',
+                 return_value=('https://example.com/pkg-1.0.0.tar.gz',))
     mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
     mocker.patch('livecheck.main.get_old_sha', return_value='')
     mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
@@ -3056,8 +3065,8 @@ async def test_get_props_type_checksum_uses_custom_url(mocker: MockerFixture, fa
     mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
     mocker.patch('livecheck.main.catpkg_catpkgsplit',
                  return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
-    mocker.patch('livecheck.main.get_first_src_uri',
-                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_src_uris',
+                 return_value=('https://example.com/pkg-1.0.0.tar.gz',))
     mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
     mocker.patch('livecheck.main.get_old_sha', return_value='')
     mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
@@ -3094,8 +3103,8 @@ async def test_get_props_type_commit_calls_parse_url(mocker: MockerFixture, fake
     mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
     mocker.patch('livecheck.main.catpkg_catpkgsplit',
                  return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
-    mocker.patch('livecheck.main.get_first_src_uri',
-                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_src_uris',
+                 return_value=('https://example.com/pkg-1.0.0.tar.gz',))
     mocker.patch('livecheck.main.get_egit_repo', return_value=('egit_url', ''))
     mocker.patch('livecheck.main.get_old_sha', return_value=old_sha)
     mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
@@ -3128,8 +3137,8 @@ async def test_get_props_with_egit_repo_and_branch(mocker: MockerFixture, fake_r
     mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
     mocker.patch('livecheck.main.catpkg_catpkgsplit',
                  return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
-    mocker.patch('livecheck.main.get_first_src_uri',
-                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_src_uris',
+                 return_value=('https://example.com/pkg-1.0.0.tar.gz',))
     # get_egit_repo returns egit url and branch
     egit_url = 'https://github.com/org/repo.git'
     branch_name = 'main'
@@ -3179,8 +3188,8 @@ async def test_get_props_sync_version_yields(mocker: MockerFixture, fake_repo: P
     mocker.patch('livecheck.main.catpkg_catpkgsplit',
                  side_effect=[('cat/pkg', 'cat', 'pkg', '1.0.0'),
                               ('cat/pkg', 'cat', 'pkg', '2.0.0')])
-    mocker.patch('livecheck.main.get_first_src_uri',
-                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_src_uris',
+                 return_value=('https://example.com/pkg-1.0.0.tar.gz',))
     mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
     mocker.patch('livecheck.main.get_old_sha', return_value='')
     mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
@@ -3212,8 +3221,8 @@ async def test_get_props_sync_version_no_matches(mocker: MockerFixture, fake_rep
         ])
     mocker.patch('livecheck.main.catpkg_catpkgsplit',
                  return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
-    mocker.patch('livecheck.main.get_first_src_uri',
-                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_src_uris',
+                 return_value=('https://example.com/pkg-1.0.0.tar.gz',))
     mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
     mocker.patch('livecheck.main.get_old_sha', return_value='')
     mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
@@ -3239,8 +3248,8 @@ async def test_get_props_no_last_version_no_top_hash_uses_homepage(mocker: Mocke
     mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
     mocker.patch('livecheck.main.catpkg_catpkgsplit',
                  return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
-    mocker.patch('livecheck.main.get_first_src_uri',
-                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_src_uris',
+                 return_value=('https://example.com/pkg-1.0.0.tar.gz',))
     mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
     mocker.patch('livecheck.main.get_old_sha', return_value='')
     mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
@@ -3273,6 +3282,353 @@ async def test_get_props_no_last_version_no_top_hash_uses_homepage(mocker: Mocke
                                    force_sha=False)
 
 
+def _patch_get_props_common(mocker: MockerFixture, src_uris: tuple[str, ...],
+                            homes: list[str]) -> None:
+    mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
+    mocker.patch('livecheck.main.catpkg_catpkgsplit',
+                 return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
+    mocker.patch('livecheck.main.get_src_uris', return_value=src_uris)
+    mocker.patch('livecheck.main.get_old_sha', return_value='')
+    mocker.patch('livecheck.main.get_aux', new_callable=mocker.AsyncMock, return_value=homes)
+    mocker.patch('livecheck.main.log')
+
+
+@pytest.mark.asyncio
+async def test_get_props_selects_newest_version_across_src_uris(mocker: MockerFixture,
+                                                                fake_repo: Path,
+                                                                mock_settings2: Mock) -> None:
+    _patch_get_props_common(
+        mocker, ('https://a.example.com/pkg-1.0.0.tar.gz', 'https://b.example.com/pkg-1.0.0.tar.gz',
+                 'https://c.example.com/pkg-1.0.0.tar.gz'), ['https://homepage'])
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
+    by_source = {
+        'https://a.example.com/pkg-1.0.0.tar.gz': ('1.0.1', '', '', 'url-a'),
+        'https://b.example.com/pkg-1.0.0.tar.gz': ('1.2.0', '', '', 'url-b'),
+        'https://c.example.com/pkg-1.0.0.tar.gz': ('1.1.0', '', '', 'url-c')
+    }
+    parse_url_mock = mocker.patch('livecheck.main.parse_url',
+                                  side_effect=lambda source, *_, **__: by_source[source])
+    results = await get_props(search_dir=fake_repo,
+                              repo_root=fake_repo,
+                              settings=mock_settings2,
+                              names=['cat/pkg'],
+                              exclude=[])
+    assert results == [('cat', 'pkg', '1.0.0', '1.2.0', '', '', 'url-b')]
+    assert parse_url_mock.call_count == 3
+
+
+@pytest.mark.asyncio
+async def test_get_props_prefers_versioned_result_over_commit_only(mocker: MockerFixture,
+                                                                   fake_repo: Path,
+                                                                   mock_settings2: Mock) -> None:
+    _patch_get_props_common(mocker, ('https://github.com/org/repo/archive/abc.tar.gz',
+                                     'https://b.example.com/pkg-1.0.0.tar.gz'), [])
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
+    by_source = {
+        'https://github.com/org/repo/archive/abc.tar.gz': ('', 'sha', 'date', 'url-a'),
+        'https://b.example.com/pkg-1.0.0.tar.gz': ('1.1.0', '', '', 'url-b')
+    }
+    mocker.patch('livecheck.main.parse_url', side_effect=lambda source, *_, **__: by_source[source])
+    results = await get_props(search_dir=fake_repo,
+                              repo_root=fake_repo,
+                              settings=mock_settings2,
+                              names=['cat/pkg'],
+                              exclude=[])
+    assert results == [('cat', 'pkg', '1.0.0', '1.1.0', '', '', 'url-b')]
+
+
+@pytest.mark.asyncio
+async def test_get_props_commit_only_results_follow_source_order(mocker: MockerFixture,
+                                                                 fake_repo: Path,
+                                                                 mock_settings2: Mock) -> None:
+    _patch_get_props_common(mocker, ('https://github.com/org/pkg/archive/1.0.0.tar.gz',
+                                     'https://github.com/mirror/pkg/archive/1.0.0.tar.gz'), [])
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
+    by_source = {
+        'https://github.com/org/pkg/archive/1.0.0.tar.gz': ('', 'sha-a', 'd1', 'url-a'),
+        'https://github.com/mirror/pkg/archive/1.0.0.tar.gz': ('', 'sha-b', 'd2', 'url-b')
+    }
+    mocker.patch('livecheck.main.parse_url', side_effect=lambda source, *_, **__: by_source[source])
+    results = await get_props(search_dir=fake_repo,
+                              repo_root=fake_repo,
+                              settings=mock_settings2,
+                              names=['cat/pkg'],
+                              exclude=[])
+    assert results == [('cat', 'pkg', '1.0.0', '', 'sha-a', 'd1', 'url-a')]
+
+
+@pytest.mark.asyncio
+async def test_get_props_equal_versions_follow_source_order(mocker: MockerFixture, fake_repo: Path,
+                                                            mock_settings2: Mock) -> None:
+    _patch_get_props_common(
+        mocker,
+        ('https://a.example.com/pkg-1.0.0.tar.gz', 'https://b.example.com/pkg-1.0.0.tar.gz'), [])
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
+    by_source = {
+        'https://a.example.com/pkg-1.0.0.tar.gz': ('1.2.0', '', '', 'url-a'),
+        'https://b.example.com/pkg-1.0.0.tar.gz': ('1.2.0', '', '', 'url-b')
+    }
+    mocker.patch('livecheck.main.parse_url', side_effect=lambda source, *_, **__: by_source[source])
+    results = await get_props(search_dir=fake_repo,
+                              repo_root=fake_repo,
+                              settings=mock_settings2,
+                              names=['cat/pkg'],
+                              exclude=[])
+    assert results == [('cat', 'pkg', '1.0.0', '1.2.0', '', '', 'url-a')]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('ebuild_version', ['1.0.0', '1.0.0-r2'])
+async def test_get_props_skips_src_uris_of_other_projects(mocker: MockerFixture, fake_repo: Path,
+                                                          mock_settings2: Mock,
+                                                          ebuild_version: str) -> None:
+    _patch_get_props_common(mocker, ('https://github.com/org/pkg/archive/abc123.tar.gz',
+                                     'https://github.com/other/dep/archive/def456.tar.gz',
+                                     'https://github.com/org/pkg/releases/download/v1.0.0/x.a'), [])
+    mocker.patch('livecheck.main.catpkg_catpkgsplit',
+                 return_value=('cat/pkg', 'cat', 'pkg', ebuild_version))
+    mocker.patch('livecheck.main.get_highest_matches', return_value=[f'cat/pkg-{ebuild_version}'])
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
+    parse_url_mock = mocker.patch('livecheck.main.parse_url', return_value=('1.1.0', '', '', 'url'))
+    results = await get_props(search_dir=fake_repo,
+                              repo_root=fake_repo,
+                              settings=mock_settings2,
+                              names=['cat/pkg'],
+                              exclude=[])
+    assert results == [('cat', 'pkg', ebuild_version, '1.1.0', '', '', 'url')]
+    assert [call.args[0] for call in parse_url_mock.call_args_list] == [
+        'https://github.com/org/pkg/archive/abc123.tar.gz',
+        'https://github.com/org/pkg/releases/download/v1.0.0/x.a'
+    ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(('pkg', 'src_uris', 'expected'), [
+    ('vscode-vsce',
+     ('https://registry.yarnpkg.com/@azure/abort-controller/-/abort-controller-1.1.0.tgz',
+      'https://registry.yarnpkg.com/@vscode/vsce/-/vsce-3.2.1.tgz',
+      'https://registry.yarnpkg.com/ansi-styles/-/ansi-styles-3.2.1.tgz',
+      'https://registry.yarnpkg.com/cockatiel/-/cockatiel-3.2.1.tgz'),
+     ('https://registry.yarnpkg.com/@azure/abort-controller/-/abort-controller-1.1.0.tgz',
+      'https://registry.yarnpkg.com/@vscode/vsce/-/vsce-3.2.1.tgz')),
+    ('anything-llm',
+     ('https://registry.yarnpkg.com/@75lb/deep-merge/-/deep-merge-1.1.2.tgz',
+      'https://registry.yarnpkg.com/@qdrant/js-client-rest/-/js-client-rest-3.2.1.tgz',
+      'https://github.com/Mintplex-Labs/anything-llm/archive/refs/tags/v3.2.1.tar.gz'),
+     ('https://registry.yarnpkg.com/@75lb/deep-merge/-/deep-merge-1.1.2.tgz',
+      'https://github.com/Mintplex-Labs/anything-llm/archive/refs/tags/v3.2.1.tar.gz')),
+    ('cloudflared-bin',
+     ('https://github.com/cloudflare/cloudflared/releases/download/3.2.1/cloudflared-linux-amd64',
+      'https://example.com/mirror/cloudflared-3.2.1-linux-amd64',
+      'https://example.com/mirror/other-3.2.1-linux-amd64'),
+     ('https://github.com/cloudflare/cloudflared/releases/download/3.2.1/cloudflared-linux-amd64',
+      'https://example.com/mirror/cloudflared-3.2.1-linux-amd64')),
+    ('node-gyp', ('https://registry.yarnpkg.com/@isaacs/cliui/-/cliui-8.0.2.tgz',
+                  'https://registry.yarnpkg.com/node_gyp/-/node_gyp-3.2.1.tgz'),
+     ('https://registry.yarnpkg.com/@isaacs/cliui/-/cliui-8.0.2.tgz',
+      'https://registry.yarnpkg.com/node_gyp/-/node_gyp-3.2.1.tgz')),
+])
+async def test_get_props_src_uri_must_include_package_name(mocker: MockerFixture, fake_repo: Path,
+                                                           mock_settings2: Mock, pkg: str,
+                                                           src_uris: tuple[str, ...],
+                                                           expected: tuple[str, ...]) -> None:
+    _patch_get_props_common(mocker, src_uris, [])
+    mocker.patch('livecheck.main.catpkg_catpkgsplit',
+                 return_value=(f'cat/{pkg}', 'cat', pkg, '3.2.1-r1'))
+    mocker.patch('livecheck.main.get_highest_matches', return_value=[f'cat/{pkg}-3.2.1-r1'])
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
+    parse_url_mock = mocker.patch('livecheck.main.parse_url', return_value=('3.3.0', '', '', 'url'))
+    await get_props(search_dir=fake_repo,
+                    repo_root=fake_repo,
+                    settings=mock_settings2,
+                    names=[f'cat/{pkg}'],
+                    exclude=[])
+    assert tuple(call.args[0] for call in parse_url_mock.call_args_list) == expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(('pkg', 'version', 'src_uris', 'expected'), [
+    ('foo', '3.2.1',
+     ('https://x/foo-3.2.1.tar.gz',
+      'https://github.com/Tatsh/tatsh-overlay/releases/download/dist/foo-3.2.1-crates.tar.xz',
+      'https://github.com/Tatsh/tatsh-overlay/releases/download/dist/foo-3.2.1-vendor.tar.xz',
+      'https://github.com/Tatsh/tatsh-overlay/releases/download/dist/foo-3.2.1-node_modules.tar.xz',
+      'https://github.com/Tatsh/tatsh-overlay/releases/download/dist/foo-3.2.1-nuget.tar.xz',
+      'https://github.com/Tatsh/tatsh-overlay/releases/download/dist/foo-3.2.1-mvn.tar.xz',
+      'https://x/foo-3.2.1.tar.gz.asc', 'https://x/foo-3.2.1.tar.gz.sig',
+      'https://x/foo-3.2.1.tar.gz.sha256', 'https://y/foo-3.2.1.tar.gz'),
+     ('https://x/foo-3.2.1.tar.gz', 'https://y/foo-3.2.1.tar.gz')),
+    ('go', '0.6',
+     ('https://x/go-0.6.tar.gz', 'https://github.com/google/go-cmp/archive/v0.6.0.tar.gz',
+      'https://github.com/golang/go/archive/refs/tags/go0.6.tar.gz'),
+     ('https://x/go-0.6.tar.gz', 'https://github.com/golang/go/archive/refs/tags/go0.6.tar.gz')),
+    ('foo', '1.0', ('https://x/foo-1.0.tar.gz', 'https://x/foo-theme-1.0.5.tar.gz',
+                    'https://x/foo-extras-2.5.tar.gz', 'https://mirror/foo/1.0/foo-1.0.zip'),
+     ('https://x/foo-1.0.tar.gz', 'https://mirror/foo/1.0/foo-1.0.zip')),
+    ('foo', '2', ('https://x/foo-2.tar.gz', 'https://x/foo-extras-2.5.tar.gz',
+                  'https://x/foo-plugin-2.9.tar.gz', 'https://x/v2/foo.tar.gz'),
+     ('https://x/foo-2.tar.gz', 'https://x/v2/foo.tar.gz')),
+])
+async def test_get_props_src_uri_filter_uses_whole_tokens(mocker: MockerFixture, fake_repo: Path,
+                                                          mock_settings2: Mock, pkg: str,
+                                                          version: str, src_uris: tuple[str, ...],
+                                                          expected: tuple[str, ...]) -> None:
+    _patch_get_props_common(mocker, src_uris, [])
+    mocker.patch('livecheck.main.catpkg_catpkgsplit',
+                 return_value=(f'cat/{pkg}', 'cat', pkg, version))
+    mocker.patch('livecheck.main.get_highest_matches', return_value=[f'cat/{pkg}-{version}'])
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
+    parse_url_mock = mocker.patch('livecheck.main.parse_url', return_value=('9.9', '', '', 'url'))
+    await get_props(search_dir=fake_repo,
+                    repo_root=fake_repo,
+                    settings=mock_settings2,
+                    names=[f'cat/{pkg}'],
+                    exclude=[])
+    assert tuple(call.args[0] for call in parse_url_mock.call_args_list) == expected
+
+
+@pytest.mark.asyncio
+async def test_get_props_skips_failing_src_uri_location(mocker: MockerFixture, fake_repo: Path,
+                                                        mock_settings2: Mock,
+                                                        caplog: LogCaptureFixture) -> None:
+    _patch_get_props_common(
+        mocker,
+        ('https://a.example.com/pkg-1.0.0.tar.gz', 'https://b.example.com/pkg-1.0.0.tar.gz'), [])
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
+    mocker.patch('livecheck.main.log', logging.getLogger('livecheck.main'))
+
+    def fake_parse_url(source: str, *_: Any, **__: Any) -> tuple[str, str, str, str]:
+        if source.startswith('https://b.'):
+            msg = 'commit'
+            raise KeyError(msg)
+        return ('1.5.0', '', '', 'url-a')
+
+    mocker.patch('livecheck.main.parse_url', side_effect=fake_parse_url)
+    with caplog.at_level(logging.WARNING):
+        results = await get_props(search_dir=fake_repo,
+                                  repo_root=fake_repo,
+                                  settings=mock_settings2,
+                                  names=['cat/pkg'],
+                                  exclude=[])
+    assert results == [('cat', 'pkg', '1.0.0', '1.5.0', '', '', 'url-a')]
+    assert any('Skipping SRC_URI location https://b.example.com/pkg-1.0.0.tar.gz' in message
+               for message in caplog.messages)
+
+
+@pytest.mark.asyncio
+async def test_get_props_reports_failure_when_every_src_uri_location_fails(
+        mocker: MockerFixture, fake_repo: Path, mock_settings2: Mock) -> None:
+    _patch_get_props_common(
+        mocker,
+        ('https://a.example.com/pkg-1.0.0.tar.gz', 'https://b.example.com/pkg-1.0.0.tar.gz'), [])
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
+    mocker.patch('livecheck.main.parse_url', side_effect=KeyError('commit'))
+    failures: list[str] = []
+    results = await get_props(search_dir=fake_repo,
+                              repo_root=fake_repo,
+                              settings=mock_settings2,
+                              names=['cat/pkg'],
+                              exclude=[],
+                              on_error=failures.append)
+    assert results == []
+    assert failures == ['cat/pkg-1.0.0']
+
+
+@pytest.mark.asyncio
+async def test_get_props_sync_version_still_queries_egit(mocker: MockerFixture, fake_repo: Path,
+                                                         mock_settings2: Mock) -> None:
+    mock_settings2.sync_version = {'cat/pkg': 'cat/pkg-2.0.0'}
+    mocker.patch('livecheck.main.get_highest_matches',
+                 side_effect=[['cat/pkg-1.0.0'], ['cat/pkg-2.0.0-r1']])
+    mocker.patch('livecheck.main.catpkg_catpkgsplit',
+                 side_effect=[('cat/pkg', 'cat', 'pkg', '1.0.0'),
+                              ('cat/pkg', 'cat', 'pkg', '2.0.0-r1')])
+    mocker.patch('livecheck.main.get_src_uris',
+                 return_value=('https://example.com/pkg-1.0.0.tar.gz',))
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('https://github.com/org/pkg', ''))
+    mocker.patch('livecheck.main.get_old_sha', return_value='abcdef1')
+    mocker.patch('livecheck.main.get_aux', new_callable=mocker.AsyncMock, return_value=[])
+    mocker.patch('livecheck.main.log')
+    parse_url_mock = mocker.patch('livecheck.main.parse_url',
+                                  return_value=('', 'sha-new', '20250101', 'url-egit'))
+    results = await get_props(search_dir=fake_repo,
+                              repo_root=fake_repo,
+                              settings=mock_settings2,
+                              names=['cat/pkg'],
+                              exclude=[])
+    assert results == [('cat', 'pkg', '1.0.0', '', 'sha-new', '20250101', 'url-egit')]
+    parse_url_mock.assert_called_once_with('https://github.com/org/pkg/commit/abcdef1',
+                                           'cat/pkg-1.0.0',
+                                           mock_settings2,
+                                           force_sha=True)
+
+
+@pytest.mark.asyncio
+async def test_get_props_matches_src_uri_by_numeric_version_prefix(mocker: MockerFixture,
+                                                                   fake_repo: Path,
+                                                                   mock_settings2: Mock) -> None:
+    _patch_get_props_common(
+        mocker,
+        ('https://a.example.com/pkg-0.65b0.tar.gz', 'https://b.example.com/pkg-0.65b0.tar.gz'), [])
+    mocker.patch('livecheck.main.catpkg_catpkgsplit',
+                 return_value=('cat/pkg', 'cat', 'pkg', '0.65_beta0'))
+    mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-0.65_beta0'])
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
+    parse_url_mock = mocker.patch('livecheck.main.parse_url',
+                                  return_value=('0.66_beta0', '', '', 'url'))
+    await get_props(search_dir=fake_repo,
+                    repo_root=fake_repo,
+                    settings=mock_settings2,
+                    names=['cat/pkg'],
+                    exclude=[])
+    assert parse_url_mock.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_get_props_homepage_not_queried_when_src_uri_found(mocker: MockerFixture,
+                                                                 fake_repo: Path,
+                                                                 mock_settings2: Mock) -> None:
+    _patch_get_props_common(mocker, ('https://a.example.com/pkg-1.0.0.tar.gz',),
+                            ['https://homepage'])
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
+    parse_url_mock = mocker.patch('livecheck.main.parse_url',
+                                  return_value=('1.5.0', '', '', 'url-a'))
+    parse_metadata_mock = mocker.patch('livecheck.main.parse_metadata',
+                                       return_value=('2.0.0', '', '', 'url-meta'))
+    results = await get_props(search_dir=fake_repo,
+                              repo_root=fake_repo,
+                              settings=mock_settings2,
+                              names=['cat/pkg'],
+                              exclude=[])
+    assert results == [('cat', 'pkg', '1.0.0', '1.5.0', '', '', 'url-a')]
+    parse_url_mock.assert_called_once()
+    parse_metadata_mock.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_get_props_directory_listing_tries_every_source(mocker: MockerFixture,
+                                                              fake_repo: Path,
+                                                              mock_settings2: Mock) -> None:
+    _patch_get_props_common(
+        mocker,
+        ('https://a.example.com/pkg-1.0.0.tar.gz', 'https://b.example.com/pkg-1.0.0.tar.gz'),
+        ['https://homepage'])
+    mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
+    mocker.patch('livecheck.main.parse_url', return_value=('', '', '', ''))
+    mocker.patch('livecheck.main.get_latest_repology', return_value='')
+    listing_mock = mocker.patch('livecheck.main.get_latest_directory_package',
+                                side_effect=[('', ''), ('1.3.0', 'url-b')])
+    results = await get_props(search_dir=fake_repo,
+                              repo_root=fake_repo,
+                              settings=mock_settings2,
+                              names=['cat/pkg'],
+                              exclude=[])
+    assert results == [('cat', 'pkg', '1.0.0', '1.3.0', '', '', 'url-b')]
+    assert listing_mock.call_count == 2
+    listing_mock.assert_any_call('https://b.example.com/pkg-1.0.0.tar.gz', 'cat/pkg-1.0.0',
+                                 mock_settings2)
+
+
 @pytest.mark.asyncio
 async def test_get_props_no_last_version_no_top_hash_no_homepage(mocker: MockerFixture,
                                                                  fake_repo: Path,
@@ -3280,8 +3636,8 @@ async def test_get_props_no_last_version_no_top_hash_no_homepage(mocker: MockerF
     mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
     mocker.patch('livecheck.main.catpkg_catpkgsplit',
                  return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
-    mocker.patch('livecheck.main.get_first_src_uri',
-                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_src_uris',
+                 return_value=('https://example.com/pkg-1.0.0.tar.gz',))
     mocker.patch('livecheck.main.get_latest_repology', return_value='')
     mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
     mocker.patch('livecheck.main.get_old_sha', return_value='')
@@ -3312,8 +3668,8 @@ async def test_get_props_no_last_version_no_top_hash_uses_directory(mocker: Mock
     mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
     mocker.patch('livecheck.main.catpkg_catpkgsplit',
                  return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
-    mocker.patch('livecheck.main.get_first_src_uri',
-                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_src_uris',
+                 return_value=('https://example.com/pkg-1.0.0.tar.gz',))
     mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
     mocker.patch('livecheck.main.get_old_sha', return_value='')
     mocker.patch('livecheck.main.get_latest_repology', return_value='')
@@ -3343,8 +3699,8 @@ async def test_get_props_no_last_version_no_top_hash_uses_directory_loop_homes(
     mocker.patch('livecheck.main.catpkg_catpkgsplit',
                  return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
     mocker.patch('livecheck.main.get_latest_repology', return_value='')
-    mocker.patch('livecheck.main.get_first_src_uri',
-                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_src_uris',
+                 return_value=('https://example.com/pkg-1.0.0.tar.gz',))
     mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
     mocker.patch('livecheck.main.get_old_sha', return_value='')
     mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
@@ -3822,7 +4178,7 @@ def test_main_processes_successful_detections_and_reports_failures(
                  return_value=(str(tmp_path), 'repo'))
     mocker.patch('livecheck.main.get_highest_matches',
                  return_value=[f'cat/{pkg}-1.0' for pkg in packages])
-    mocker.patch('livecheck.main.get_first_src_uri', return_value='')
+    mocker.patch('livecheck.main.get_src_uris', return_value=())
     mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
     valid_response = mocker.Mock()
     valid_response.json.return_value = {'linux': {'major': 2, 'minor': 0, 'releaseNum': 0}}
@@ -4088,8 +4444,8 @@ async def test_get_props_type_location_checksum_calls_get_latest_location_checks
     mocker.patch('livecheck.main.get_highest_matches', return_value=['cat/pkg-1.0.0'])
     mocker.patch('livecheck.main.catpkg_catpkgsplit',
                  return_value=('cat/pkg', 'cat', 'pkg', '1.0.0'))
-    mocker.patch('livecheck.main.get_first_src_uri',
-                 return_value='https://example.com/pkg-1.0.0.tar.gz')
+    mocker.patch('livecheck.main.get_src_uris',
+                 return_value=('https://example.com/pkg-1.0.0.tar.gz',))
     mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
     mocker.patch('livecheck.main.get_old_sha', return_value='')
     mocker.patch('livecheck.main.catpkgsplit2', return_value=('cat', 'pkg', '1.0.0', 'r0'))
@@ -4393,8 +4749,8 @@ async def test_get_props_type_ida_free_calls_handler(mocker: MockerFixture, fake
     mocker.patch('livecheck.main.get_highest_matches', return_value=['dev-util/ida-free-9.2'])
     mocker.patch('livecheck.main.catpkg_catpkgsplit',
                  return_value=('dev-util/ida-free', 'dev-util', 'ida-free', '9.2'))
-    mocker.patch('livecheck.main.get_first_src_uri',
-                 return_value='https://example.com/ida-9.2.tar.gz')
+    mocker.patch('livecheck.main.get_src_uris',
+                 return_value=('https://example.com/ida-9.2.tar.gz',))
     mocker.patch('livecheck.main.get_egit_repo', return_value=('', ''))
     mock_ida_handler = mocker.patch('livecheck.main.get_latest_ida_free_package',
                                     return_value='9.3')

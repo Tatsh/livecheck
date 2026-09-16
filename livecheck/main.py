@@ -131,22 +131,28 @@ from .utils.portage import (
     digest_ebuild,
     get_aux,
     get_fetch_map,
-    get_first_src_uri,
     get_highest_matches,
     get_repository_catpkgs,
     get_repository_root_if_inside,
+    get_src_uris,
     remove_leading_zeros,
 )
 from .utils.requests import get_request_failure_count
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping, Sequence
+    from collections.abc import Callable, Iterable, Mapping, Sequence
 
     from .typing import PropTuple
 
 log = logging.getLogger(__name__)
 
 __all__ = ('STALL_REPORT_INTERVAL', 'HookError', 'main')
+
+_LEADING_NUMERIC = re.compile(r'\d+(?:\.\d+)*')
+_REVISION_SUFFIX = re.compile(r'-r\d+$')
+_SKIPPED_SRC_URI_SUFFIXES = ('-crates.tar.xz', '-mvn.tar.xz', '-node_modules.tar.xz',
+                             '-nuget.tar.xz', '-vendor.tar.xz', '.asc', '.md5', '.sha1', '.sha256',
+                             '.sha512', '.sig', '.sum')
 
 
 class HookError(RuntimeError):
@@ -461,7 +467,8 @@ async def _check_one_package(  # ruff:ignore[complex-structure, too-many-branche
     if catpkg in exclude or pkg in exclude:
         log.debug('Ignoring %s.', catpkg)
         return None
-    src_uri = await get_first_src_uri(match, repo_root)
+    src_uris = await get_src_uris(match, repo_root)
+    src_uri = next(iter(src_uris), '')
     if cat.startswith(('acct-', 'virtual')) or settings.type_packages.get(catpkg) == TYPE_NONE:
         log.debug('Ignoring %s.', catpkg)
         return None
@@ -481,7 +488,7 @@ async def _check_one_package(  # ruff:ignore[complex-structure, too-many-branche
             log.error('No matches for %s.', catpkg)
             return None
         _, _, _, last_version = catpkg_catpkgsplit(matches_sync[0])
-        last_version = re.sub(r'-r\d+$', '', last_version)
+        last_version = _REVISION_SUFFIX.sub('', last_version)
     if settings.type_packages.get(catpkg) == TYPE_DAVINCI:
         last_version = await get_latest_davinci_package(pkg)
     elif settings.type_packages.get(catpkg) == TYPE_IDA_FREE:
@@ -525,6 +532,7 @@ async def _check_one_package(  # ruff:ignore[complex-structure, too-many-branche
                                                                  settings,
                                                                  force_sha=True)
     else:
+        package_uris = _package_src_uris(src_uris, pkg, ebuild_version)
         if egit:
             log.debug('Trying EGIT_REPO_URI for %s: %s', catpkg, egit)
             last_version, top_hash, hash_date, url = await parse_url(egit,
@@ -532,11 +540,8 @@ async def _check_one_package(  # ruff:ignore[complex-structure, too-many-branche
                                                                      settings,
                                                                      force_sha=True)
         if not last_version and not top_hash:
-            log.debug('Trying SRC_URI for %s: %s', catpkg, src_uri)
-            last_version, top_hash, hash_date, url = await parse_url(src_uri,
-                                                                     match,
-                                                                     settings,
-                                                                     force_sha=False)
+            last_version, top_hash, hash_date, url = await _check_src_uris(
+                match, catpkg, settings, package_uris)
         if not last_version and not top_hash:
             log.debug('Trying metadata.xml for %s.', catpkg)
             last_version, top_hash, hash_date, url = await parse_metadata(
@@ -555,9 +560,8 @@ async def _check_one_package(  # ruff:ignore[complex-structure, too-many-branche
             last_version = await get_latest_repology(match, settings)
         if not last_version and not top_hash:
             log.debug('Trying directory listing for %s.', catpkg)
-            last_version, url = await get_latest_directory_package(src_uri, match, settings)
-            for home in homes:
-                last_version, url = await get_latest_directory_package(home, match, settings)
+            for listing in (*package_uris, *homes):
+                last_version, url = await get_latest_directory_package(listing, match, settings)
                 if last_version:
                     break
 
@@ -590,6 +594,131 @@ async def _watch_in_flight(in_flight: Mapping[str, float], interval: float) -> N
             'the last URL fetched for each.', len(stalled), 's' if len(stalled) != 1 else '',
             ', '.join(
                 f'{name} ({elapsed:.0f}s)' for elapsed, name in stalled[:_STALL_REPORT_NAMES]))
+
+
+def _newest_result(results: Iterable[tuple[str, str, str, str]]) -> tuple[str, str, str, str]:
+    """
+    Select the result with the highest version.
+
+    A result with a commit hash and no version is used only when no result reports a version.
+    Among results with equal versions, the first one wins.
+
+    Parameters
+    ----------
+    results : Iterable[tuple[str, str, str, str]]
+        Results as returned by :py:func:`parse_url`, in source priority order.
+
+    Returns
+    -------
+    tuple[str, str, str, str]
+        Last version, top hash, hash date, and URL of the selected result, or four empty strings.
+    """
+    newest: tuple[str, str, str, str] = ('', '', '', '')
+    for result in results:
+        version, top_hash, _, _ = result
+        if not version and not top_hash:
+            continue
+        newest_version, newest_hash = newest[0], newest[1]
+        nothing_yet = not newest_version and not newest_hash
+        newer = bool(version) and (not newest_version or compare_versions(newest_version, version))
+        if nothing_yet or newer:
+            newest = result
+    return newest
+
+
+def _package_src_uris(src_uris: Sequence[str], pkg: str, ebuild_version: str) -> tuple[str, ...]:
+    """
+    Select the ``SRC_URI`` entries that point at the package itself.
+
+    The first entry is always selected. Later entries are usually vendored dependencies or
+    auxiliary files whose upstream versions are unrelated to the package. A later entry is
+    selected only when its URL includes both the package name and the ebuild version (or its
+    leading numeric part) as whole tokens. The name also matches with hyphens replaced by ``/``
+    or ``_`` and without a ``-bin`` suffix. Vendor archives generated by livecheck and signature
+    or checksum files are never selected.
+
+    Parameters
+    ----------
+    src_uris : Sequence[str]
+        Fetchable ``SRC_URI`` entries in ebuild order.
+    pkg : str
+        Package name without category.
+    ebuild_version : str
+        Version of the ebuild, with or without a revision suffix.
+
+    Returns
+    -------
+    tuple[str, ...]
+        Entries that refer to the package, in ``SRC_URI`` order.
+    """
+    if not src_uris:
+        return ()
+    version = _REVISION_SUFFIX.sub('', ebuild_version)
+    numeric = _LEADING_NUMERIC.match(version)
+    versions = dict.fromkeys((version, numeric.group(0) if numeric else version))
+    version_pattern = re.compile('|'.join(
+        rf'(?<![0-9.]){re.escape(candidate)}(?![0-9]|\.[0-9])' for candidate in versions))
+    name = pkg.lower().removesuffix('-bin')
+    names = dict.fromkeys((name, name.replace('-', '/'), name.replace('-', '_')))
+    name_pattern = re.compile('|'.join(
+        rf'(?<![a-z0-9]){re.escape(candidate)}(?![a-z0-9])' for candidate in names))
+    return (src_uris[0],
+            *(uri for uri in src_uris[1:] if not uri.lower().endswith(_SKIPPED_SRC_URI_SUFFIXES)
+              and version_pattern.search(uri) and name_pattern.search(uri.lower())))
+
+
+async def _check_src_uris(match: str, catpkg: str, settings: LivecheckSettings,
+                          src_uris: Sequence[str]) -> tuple[str, str, str, str]:
+    """
+    Query every ``SRC_URI`` location of a package and return the newest result.
+
+    Locations are queried concurrently. A location that is not updated upstream (for example a
+    stale mirror) does not hide a newer version published at another location, and a location
+    whose lookup fails is logged and skipped while another location succeeds. When every
+    location fails, the first lookup error is raised.
+
+    Parameters
+    ----------
+    match : str
+        Ebuild atom string.
+    catpkg : str
+        Category and package name.
+    settings : LivecheckSettings
+        Livecheck settings.
+    src_uris : Sequence[str]
+        ``SRC_URI`` entries that refer to the package, in priority order.
+
+    Returns
+    -------
+    tuple[str, str, str, str]
+        Last version, top hash, hash date, and URL of the newest result.
+
+    """
+    for source in src_uris:
+        log.debug('Trying SRC_URI for %s: %s', catpkg, source)
+    outcomes = await asyncio.gather(
+        *(parse_url(source, match, settings, force_sha=False) for source in src_uris),
+        return_exceptions=True)
+    results: list[tuple[str, str, str, str]] = []
+    errors: list[BaseException] = []
+    for source, outcome in zip(src_uris, outcomes, strict=True):
+        if isinstance(outcome, BaseException):
+            errors.append(outcome)
+            continue
+        if outcome[0] or outcome[1]:
+            log.debug('Found %s via SRC_URI %s: %s %s', catpkg, source, outcome[0], outcome[1])
+        results.append(outcome)
+    if errors and not results:
+        raise errors[0]
+    for source, outcome in zip(src_uris, outcomes, strict=True):
+        if isinstance(outcome, BaseException):
+            log.warning('Skipping SRC_URI location %s of %s after a lookup error: %s', source,
+                        catpkg, outcome)
+    newest = _newest_result(results)
+    if (found := sum(1 for result in results if result[0] or result[1])) > 1:
+        log.debug('Selected newest result for %s from %d SRC_URI locations: %s %s', catpkg, found,
+                  newest[0], newest[1])
+    return newest
 
 
 async def get_props(search_dir: Path,
