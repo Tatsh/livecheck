@@ -911,7 +911,7 @@ async def execute_hooks(hook_dir: Path | None, action: str, search_dir: Path, cp
 
 
 async def _restore_ebuild_state(new_filename: str, ebuild: Path, cp: str, search_dir: Path,
-                                settings: LivecheckSettings) -> None:
+                                settings: LivecheckSettings, manifest: bytes | None) -> None:
     """
     Restore the original ebuild and Manifest after a failed digest.
 
@@ -927,6 +927,9 @@ async def _restore_ebuild_state(new_filename: str, ebuild: Path, cp: str, search
         Port tree root containing the package directory.
     settings : LivecheckSettings
         Resolved livecheck settings for the run.
+    manifest : bytes | None
+        Manifest content before the update, or ``None`` when the package directory had no
+        Manifest. Used when git is not in use.
     """
     if settings.keep_old.get(cp, not settings.keep_old_flag):
         if settings.git_flag:
@@ -937,18 +940,22 @@ async def _restore_ebuild_state(new_filename: str, ebuild: Path, cp: str, search
             await AnyioPath(new_filename).rename(ebuild)
     else:
         await AnyioPath(new_filename).unlink(missing_ok=True)
+    manifest_path = Path(search_dir) / cp / 'Manifest'
     if settings.git_flag:
-        manifest_path = str(Path(search_dir) / cp / 'Manifest')
         proc = await asyncio.create_subprocess_exec(_resolved_executable('git'), 'checkout',
-                                                    manifest_path)
+                                                    str(manifest_path))
         await proc.wait()
+    elif manifest is None:
+        await AnyioPath(manifest_path).unlink(missing_ok=True)
+    else:
+        await AnyioPath(manifest_path).write_bytes(manifest)
 
 
 async def _recover_ebuild(new_filename: str, ebuild: Path, cp: str, search_dir: Path,
-                          settings: LivecheckSettings) -> None:
+                          settings: LivecheckSettings, manifest: bytes | None) -> None:
     """Recover ebuild to its original state after a failed digest."""
     try:
-        await _restore_ebuild_state(new_filename, ebuild, cp, search_dir, settings)
+        await _restore_ebuild_state(new_filename, ebuild, cp, search_dir, settings, manifest)
     except OSError:
         log.exception('Error recovering `%s`.', new_filename)
 
@@ -1026,6 +1033,9 @@ async def do_main(  # ruff:ignore[complex-structure, too-many-branches, too-many
                 return
             ebuild_path = AnyioPath(ebuild)
             original_content = content = await ebuild_path.read_text(encoding='utf-8')
+            manifest_path = AnyioPath(Path(search_dir) / cp / 'Manifest')
+            original_manifest = (await manifest_path.read_bytes()
+                                 if await manifest_path.exists() else None)
             if top_hash and old_sha:
                 content = content.replace(old_sha, top_hash)
                 if len(old_sha) == FULL_SHA_LENGTH and len(top_hash) >= SHORT_SHA_LENGTH:
@@ -1093,7 +1103,8 @@ async def do_main(  # ruff:ignore[complex-structure, too-many-branches, too-many
                 await AnyioPath(new_filename).write_text(content, encoding='utf-8')
             if not await asyncio.to_thread(digest_ebuild, new_filename):
                 log.error('Error digesting `%s`.', new_filename)
-                await _recover_ebuild(new_filename, ebuild, cp, search_dir, settings)
+                await _recover_ebuild(new_filename, ebuild, cp, search_dir, settings,
+                                      original_manifest)
                 if settings.crates_packages.get(cp):
                     await ebuild_path.write_text(original_content, encoding='utf-8')
                     msg = 'Could not digest sources for the crate archive.'
@@ -1118,7 +1129,8 @@ async def do_main(  # ruff:ignore[complex-structure, too-many-branches, too-many
                                                fetchlist,
                                                dist_settings=dist_settings)
                 except Exception:
-                    await _recover_ebuild(new_filename, ebuild, cp, search_dir, settings)
+                    await _recover_ebuild(new_filename, ebuild, cp, search_dir, settings,
+                                          original_manifest)
                     await ebuild_path.write_text(original_content, encoding='utf-8')
                     raise
             if cp in settings.dotnet_projects:
@@ -1131,7 +1143,8 @@ async def do_main(  # ruff:ignore[complex-structure, too-many-branches, too-many
                                                            dist_settings=dist_settings)
                 except Exception:
                     log.exception('Error updating .NET ebuild `%s`.', new_filename)
-                    await _recover_ebuild(new_filename, ebuild, cp, search_dir, settings)
+                    await _recover_ebuild(new_filename, ebuild, cp, search_dir, settings,
+                                          original_manifest)
                     return
             if cp in settings.jetbrains_packages:
                 await update_jetbrains_ebuild(new_filename)
@@ -1161,7 +1174,8 @@ async def do_main(  # ruff:ignore[complex-structure, too-many-branches, too-many
                 await AnyioPath(new_filename).write_text(updated_content, encoding='utf-8')
                 if not await asyncio.to_thread(digest_ebuild, new_filename):
                     log.error('Error digesting `%s`.', new_filename)
-                    await _recover_ebuild(new_filename, ebuild, cp, search_dir, settings)
+                    await _recover_ebuild(new_filename, ebuild, cp, search_dir, settings,
+                                          original_manifest)
                     if settings.crates_packages.get(cp):
                         await ebuild_path.write_text(original_content, encoding='utf-8')
                         msg = 'Could not digest the ebuild with the crate archive.'

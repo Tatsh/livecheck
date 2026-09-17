@@ -80,6 +80,42 @@ async def test_do_main_crates_failure_restores_ebuild(mocker: MockerFixture, tmp
     assert all(call.args[1] != 'post' for call in hook.await_args_list)
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize('keep_old', [False, True])
+@pytest.mark.parametrize('manifest', ['DIST pkg-1.0.tar.gz 1 BLAKE2B a SHA512 b\n', None])
+async def test_do_main_digest_failure_restores_manifest(mocker: MockerFixture, tmp_path: Path, *,
+                                                        keep_old: bool,
+                                                        manifest: str | None) -> None:
+    package_dir = tmp_path / 'cat' / 'pkg'
+    package_dir.mkdir(parents=True)
+    (package_dir / 'pkg-1.0.ebuild').write_text('SRC_URI="https://example.com/${P}.tar.gz"\n',
+                                                encoding='utf-8')
+    manifest_path = package_dir / 'Manifest'
+    if manifest is not None:
+        manifest_path.write_text(manifest, encoding='utf-8')
+
+    def digest(_: str) -> bool:
+        manifest_path.write_text('DIST pkg-2.0.tar.gz 1 BLAKE2B c SHA512 d\n', encoding='utf-8')
+        return False
+
+    mocker.patch('livecheck.main.digest_ebuild', side_effect=digest)
+    mocker.patch('livecheck.main.get_fetch_map', return_value={})
+    await do_main(cat='cat',
+                  ebuild_version='1.0',
+                  hash_date='',
+                  hook_dir=None,
+                  last_version='2.0',
+                  pkg='pkg',
+                  search_dir=tmp_path,
+                  settings=LivecheckSettings(auto_update_flag=True, keep_old_flag=keep_old),
+                  top_hash='',
+                  url='')
+    assert (package_dir / 'pkg-1.0.ebuild').exists()
+    assert not (package_dir / 'pkg-2.0.ebuild').exists()
+    assert (manifest_path.read_text(
+        encoding='utf-8') if manifest_path.exists() else None) == manifest
+
+
 @pytest.mark.parametrize('parallel', [1, 3])
 @pytest.mark.parametrize('status', [HTTPStatus.FORBIDDEN, HTTPStatus.OK])
 def test_main_reports_http_detection_failures(mocker: MockerFixture, runner: CliRunner,
