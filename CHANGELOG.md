@@ -33,6 +33,9 @@ and this project adheres to
 
 ### Fixed
 
+- Restored Manifest content after an automatic update failed without `--git`. Digesting the new
+  ebuild previously replaced distfile entries of the packaged version with entries for the new
+  version.
 - Restored original ebuild content and reported failures when crate downloads, archive generation,
   or digest steps failed. Unsupported crate dependency errors identified rejected sources.
 - Declared `tomlkit` as a runtime dependency for crate archive generation.
