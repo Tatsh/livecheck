@@ -23,8 +23,8 @@ if TYPE_CHECKING:
 __all__ = ('P', 'catpkg_catpkgsplit', 'catpkgsplit2', 'compare_versions', 'current_version_result',
            'fetch_ebuild', 'get_aux', 'get_distdir', 'get_fetch_map', 'get_first_src_uri',
            'get_highest_matches', 'get_last_version', 'get_repository_catpkgs',
-           'get_repository_root_if_inside', 'remove_leading_zeros', 'sanitize_version',
-           'unpack_ebuild')
+           'get_repository_root_if_inside', 'get_src_uris', 'remove_leading_zeros',
+           'sanitize_version', 'unpack_ebuild')
 
 P = portage.db[portage.root]['porttree'].dbapi
 """Portage tree database API instance.
@@ -254,6 +254,38 @@ async def get_fetch_map(cpv: str) -> dict[str, tuple[str, ...]]:
     return await P.async_fetch_map(cpv)
 
 
+_SRC_URI_SCHEMES = ('http://', 'https://', 'mirror://', 'ftp://')
+_MIRROR_PREFIX = 'mirror+'
+
+
+async def get_src_uris(match: str, search_dir: Path | None = None) -> tuple[str, ...]:
+    """
+    Get every source URI of an ebuild, in ``SRC_URI`` order and without duplicates.
+
+    Parameters
+    ----------
+    match : str
+        Match string passed to :py:func:`P.async_aux_get`.
+    search_dir : Path | None
+        Directory to search in, or ``None`` to use the default.
+
+    Returns
+    -------
+    tuple[str, ...]
+        Source URIs with an ``http``, ``https``, ``mirror``, or ``ftp`` scheme, with a
+        ``mirror+`` prefix removed. Empty when the ebuild is not found or lists no fetchable URI.
+    """
+    try:
+        values = await P.async_aux_get(match, ['SRC_URI'],
+                                       mytree=str(search_dir) if search_dir is not None else None)
+    except KeyError:
+        return ()
+    return tuple(
+        dict.fromkeys(uri for uri in (x.removeprefix(_MIRROR_PREFIX)
+                                      for x in chain(*(x.split() for x in map(str, values))))
+                      if uri.startswith(_SRC_URI_SCHEMES)))
+
+
 async def get_first_src_uri(match: str, search_dir: Path | None = None) -> str:
     """
     Get the first source URI for a match string.
@@ -270,15 +302,7 @@ async def get_first_src_uri(match: str, search_dir: Path | None = None) -> str:
     str
         The first source URI, or an empty string if none is found.
     """
-    try:
-        values = await P.async_aux_get(match, ['SRC_URI'], mytree=str(search_dir))
-        if (found_uri := next((uri for uri in chain(*(x.split() for x in map(str, values)))
-                               if uri.startswith(('http://', 'https://', 'mirror://', 'ftp://'))),
-                              None)):
-            return found_uri
-    except KeyError:
-        pass
-    return ''
+    return next(iter(await get_src_uris(match, search_dir)), '')
 
 
 def get_repository_root_if_inside(directory: Path) -> tuple[str, str]:

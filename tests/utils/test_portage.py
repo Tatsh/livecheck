@@ -24,6 +24,7 @@ from livecheck.utils.portage import (
     get_last_version,
     get_repository_catpkgs,
     get_repository_root_if_inside,
+    get_src_uris,
     is_version_development,
     mask_version,
     remove_initial_match,
@@ -444,6 +445,37 @@ async def test_get_first_src_uri_multiple_lines(mocker: MockerFixture) -> None:
     ]
     result = await get_first_src_uri('cat/pkg-1.2.3')
     assert result == 'https://foo.com/bar.tar.gz'
+
+
+@pytest.mark.parametrize(
+    ('aux_get_return', 'expected'),
+    [(['https://a.example.com/src.tar.gz mirror://gentoo/src.tar.gz'],
+      ('https://a.example.com/src.tar.gz', 'mirror://gentoo/src.tar.gz')),
+     ([
+         'https://a.example.com/src.tar.gz', 'not_a_uri https://a.example.com/src.tar.gz',
+         'ftp://b.example.com/src.tar.gz'
+     ], ('https://a.example.com/src.tar.gz', 'ftp://b.example.com/src.tar.gz')),
+     (['mirror+https://github.com/o/r/archive/v1.tar.gz mirror://gentoo/src.tar.gz'],
+      ('https://github.com/o/r/archive/v1.tar.gz', 'mirror://gentoo/src.tar.gz')),
+     (['not_a_uri something_else'], ()), ([''], ())])
+async def test_get_src_uris(mocker: MockerFixture, aux_get_return: list[str],
+                            expected: tuple[str, ...]) -> None:
+    mock_p = mocker.patch('livecheck.utils.portage.P')
+    mock_p.async_aux_get = mocker.AsyncMock(return_value=aux_get_return)
+    assert await get_src_uris('cat/pkg-1.2.3') == expected
+
+
+async def test_get_src_uris_without_search_dir_uses_default_tree(mocker: MockerFixture) -> None:
+    mock_p = mocker.patch('livecheck.utils.portage.P')
+    mock_p.async_aux_get = mocker.AsyncMock(return_value=['https://example.com/foo.tar.gz'])
+    assert await get_src_uris('cat/pkg-1.2.3') == ('https://example.com/foo.tar.gz',)
+    mock_p.async_aux_get.assert_called_once_with('cat/pkg-1.2.3', ['SRC_URI'], mytree=None)
+
+
+async def test_get_src_uris_keyerror(mocker: MockerFixture) -> None:
+    mock_p = mocker.patch('livecheck.utils.portage.P')
+    mock_p.async_aux_get = mocker.AsyncMock(side_effect=KeyError('not found'))
+    assert await get_src_uris('cat/pkg-1.2.3') == ()
 
 
 def test_get_repository_root_if_inside_inside_overlay(mocker: MockerFixture,

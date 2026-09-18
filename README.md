@@ -35,9 +35,15 @@ and [nvchecker](https://github.com/lilydjwg/nvchecker).
 
 ## Internal workings
 
-The script uses the first URL of the ebuild using the `SRC_URI` variable to search for new versions,
-using logic for github, PyPI, PECL or if it is configured in the `livecheck.json` file within the
-same package directory. The ebuild is automatically updated if `--auto-update` is passed.
+The script searches for new versions at every `SRC_URI` location of the ebuild that refers to the
+package, using logic for GitHub, PyPI, PECL, and other hosts, or the configuration in the
+`livecheck.json` file within the same package directory. Vendor archives and signature or checksum
+files are skipped. The first remaining entry is always consulted, and a later entry is consulted
+when its URL includes both the package name and the ebuild version. The highest version found
+across the locations is selected, and a location that is not updated upstream does not hide a
+newer version published at another one. When no location reports a version, `metadata.xml`,
+`HOMEPAGE`, Repology, and directory listings are tried in turn. The ebuild is automatically updated
+if `--auto-update` is passed.
 
 It is recommended to use OAuth tokens for both Github and GitLab to avoid rate limiting problems
 with the REST API. Use your secret storage to store `github.com`, `bitbucket.org` or `gitlab.com`
