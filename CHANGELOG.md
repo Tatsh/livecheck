@@ -10,29 +10,33 @@ and this project adheres to
 
 ## [unreleased]
 
+## [0.2.8] - 2026-09-23
+
 ### Added
 
 - Added `crates` and `crates_path` settings to generate Gentoo crate archives from `Cargo.lock`
   with `cargo vendor --locked --versioned-dirs`. Cargo uses a temporary cache directory.
 - Add the `nodejs_omit_dev` package setting. When enabled, the `node_modules` archive is built with
-  the runtime dependencies only, so it is only suitable for ebuilds that do not run a build step.
+  the runtime dependencies only. The archive is only suitable for ebuilds that do not run a build
+  step.
 - Follow the branch head for GitLab ebuilds that pin a commit, as is already done for GitHub. A
-  project with no tags previously reported nothing and fell through to the directory listing, which
-  on `gitlab.com` means a request GitLab answers with a Cloudflare challenge. The commit is read
-  from the path or from the `sha` query of an `/api/v4/projects/` URL, the branch comes from the
-  `branch` setting, and the project's default branch is used when none is configured.
-- Add the `handle_npm_prerelease` transformation function. npm spells the builds leading up to a
+  project with no tags previously did not report a version and fell through to the directory
+  listing. On `gitlab.com`, GitLab responds to the directory listing request with a Cloudflare
+  challenge. The commit is read from the path or from the `sha` query of an `/api/v4/projects/`
+  URL, the branch comes from the `branch` setting, and the project's default branch is used when
+  no branch is configured.
+- Add the `handle_npm_prerelease` transformation function. npm writes the builds leading up to a
   release as `3.9.3-12`, which sanitising turned into `3.9.3.12`, a version _above_ the 3.9.3 it
-  precedes. The function spells the counter `_pre` instead.
+  precedes. The function writes the counter with a `_pre` prefix instead.
 - Query every `SRC_URI` location that refers to the package and select the highest version found.
   Generated vendor archives and signature or checksum files are skipped, the first remaining entry
   is always consulted, and a later entry is consulted when its URL includes both the package name
   and the ebuild version. Previously only the first `SRC_URI` entry was consulted, and a mirror
-  that was not updated upstream hid newer releases published at the other locations. Locations
-  are queried concurrently, and a location whose lookup fails is skipped when another one
-  succeeds. `metadata.xml`, `HOMEPAGE`, Repology, and directory listings remain fallbacks used
-  only when no `SRC_URI` location reports a version. `mirror+https://` entries are now recognised
-  as source URIs.
+  that was not updated upstream hid newer releases published at other locations. Locations are
+  queried concurrently, and a location whose lookup fails is skipped when the lookup at another
+  location succeeds. `metadata.xml`, `HOMEPAGE`, Repology, and directory listings remain fallbacks
+  used only when no `SRC_URI` location reports a version. `mirror+https://` entries are now
+  recognised as source URIs.
 
 ### Changed
 
@@ -56,28 +60,28 @@ and this project adheres to
   whose upstream package name is `pecl_http`.
 - Expanded package variables such as `${PN}` and `${PV}` in `EGIT_REPO_URI` and `EGIT_BRANCH`.
   Unresolved values are skipped instead of being sent to upstream services.
-
 - Fixed missed upstream updates, including DaVinci Resolve, by revalidating cached HTTP responses
   on every request instead of reusing stale versions indefinitely.
 - Ignore GitHub tags that sort above the packaged version but whose commit predates the packaged
-  tag, such as a `v1.0.0` left behind on an abandoned branch next to the `v0.9.x` releases.
+  tag, such as a `v1.0.0` remaining on an abandoned branch next to the `v0.9.x` releases.
 - Never propose a yanked PyPI release. `srsly` 3.0.0 was withdrawn but remains in the index, and it
   was offered over the current 2.5.3.
-- Let a package's own `pattern_version` or `transformation_function` decide the version instead of
-  the tag naming the packaged version. The reference still filters out tags of another scheme, but
-  it no longer overwrites a rewrite that was configured for exactly that tag.
-- Stop appending an empty `/commit/` to `EGIT_REPO_URI` when the ebuild pins no hash. The trailing
-  segment was read as part of the repository path, so the lookup asked for a project that does not
-  exist.
+- Let a package's `pattern_version` or `transformation_function` decide the version instead of the
+  tag identifying the packaged version. The reference still filters out tags of another scheme, but
+  the reference no longer overwrites a rewrite that was configured for exactly the packaged tag.
+- Stop appending an empty `/commit/` to `EGIT_REPO_URI` when the ebuild does not pin a hash. The
+  trailing segment was read as part of the repository path. The lookup then requested a project
+  that does not exist.
 - Treat an ebuild that pins the commit of a GitHub release tag (for example the ROCm
   `therock-10.0` monorepo tags) as tracking that tag line. Newer tags on the same line are
   proposed instead of bumping the revision to the branch head on every run.
-- Use the tag naming the packaged version as the version reference when no other reference is
-  known, so tags following another scheme (Go's `weekly.2012-03-27` next to `go1.27.1`) are not
-  reported as updates. The GitHub tag list is now read page by page until that tag is found.
-- Keep the explicit zero of PEP 440 pre-release counters such as `0.65b0`, which now becomes
-  `0.65_beta0` instead of `0.65_beta`. PyPI serves the files under that spelling, so an ebuild
-  named after the shorter form fails to fetch.
+- Use the tag identifying the packaged version as the version reference when no other reference is
+  known. Tags following another scheme (Go's `weekly.2012-03-27` next to `go1.27.1`) are no longer
+  reported as updates. The GitHub tag list is now read page by page until the packaged version's
+  tag is found.
+- Preserve the explicit zero of PEP 440 pre-release counters. For example, `0.65b0` now becomes
+  `0.65_beta0` instead of `0.65_beta`. PyPI serves the files under the form with the zero. An
+  ebuild named after the shorter form fails to fetch.
 
 ## [0.2.7] - 2026-09-04
 
@@ -394,7 +398,8 @@ and this project adheres to
 
 - When multiple ebuilds are in the same directory, only the latest one will be considered for updating.
 
-[unreleased]: https://github.com/Tatsh/livecheck/compare/v0.2.7...HEAD
+[unreleased]: https://github.com/Tatsh/livecheck/compare/v0.2.8...HEAD
+[0.2.8]: https://github.com/Tatsh/livecheck/compare/v0.2.7...v0.2.8
 [0.2.7]: https://github.com/Tatsh/livecheck/compare/v0.2.6...v0.2.7
 [0.2.6]: https://github.com/Tatsh/livecheck/compare/v0.2.5...v0.2.6
 [0.2.5]: https://github.com/Tatsh/livecheck/compare/v0.2.4...v0.2.5
