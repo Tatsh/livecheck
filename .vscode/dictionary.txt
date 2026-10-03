@@ -250,7 +250,6 @@ vulkanmemoryallocator
 winget
 wiswa
 wiswa's
-worktree
 xbyak
 xemu
 xmatch

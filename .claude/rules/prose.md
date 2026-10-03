@@ -58,7 +58,8 @@ from, such as _the file is named after the archive_ and _the directory named aft
 banned as a verb, and _nullify_ is allowed, as are the noun and adjective (_a null value_, _the
 column is null_). _project_ is banned wherever _display_ fits. The geometric sense of mapping a
 point or a shape onto a surface or an axis is allowed (_project the vertex onto the near plane_),
-and so is the noun _projection_.
+and so is the noun _projection_. _ask_ is banned as a noun as well (_the ask_, _a big ask_, _the
+asks for this quarter_). Write _request_.
 
 | Banned        | Write instead                       |
 | ------------- | ----------------------------------- |
@@ -93,6 +94,7 @@ and so is the noun _projection_.
 - _anyone_
 - _anyway_
 - _beat around the bush_
+- _best-of-breed_
 - _call it a day_
 - _cut to the chase_
 - _elephant in the room_
@@ -104,8 +106,14 @@ and so is the noun _projection_.
 - _no one_, _no-one_, and _noone_
 - _nobody_
 - _obligatory_
+- _straight-up_ and _straight up_
 - _the writing on the wall_
 - _think outside the box_
+
+_leading_ is banned as an adjective of rank or prominence (_the leading provider_, _an
+industry-leading tool_, _a leading cause_). Give the concrete fact instead, or delete the word. The
+positional sense of first in a sequence is allowed (_a leading zero_, _leading whitespace_, _a
+leading underscore_).
 
 ## Personification
 

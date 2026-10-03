@@ -44,7 +44,8 @@ Run the greps below over the target files, then review every hit by hand. Each g
 design; a noun matching a banned verb is valid, and the fix depends on the sentence. _claim_ is
 valid wherever a specification defines it as a term, such as an OIDC or JWT claim. The noun
 _project_ is valid and accounts for most hits on that word. Only the verb is banned, and the
-geometric sense of the verb is valid too.
+geometric sense of the verb is valid too. The noun _ask_ is banned as well. Review every hit on that
+word rather than excusing the noun.
 
 ```shell
 grep -nP '\x{2013}|\x{2014}' <files>
@@ -59,15 +60,16 @@ grep -nEiw "gate|gates|gated|gating|stamp|stamps|stamped|stamping|answer|answers
 ```
 
 ```shell
-grep -nEi "\banyway\b|\banyone\b|\bnobody\b|\bno[ -]?one\b|\bobligatory\b|ground truth|house style|house convention|elephant in the room|writing on the wall|beat around the bush|call it a day|cut to the chase|hit the nail on the head|jump on the bandwagon|think outside the box" <files>
+grep -nEi "\banyway\b|\banyone\b|\bnobody\b|\bno[ -]?one\b|\bobligatory\b|straight[ -]up|ground truth|house style|house convention|elephant in the room|writing on the wall|beat around the bush|best[ -]of[ -]breed|call it a day|cut to the chase|hit the nail on the head|jump on the bandwagon|think outside the box" <files>
 ```
 
 Ornamental wording and filler need a pass of their own. Delete a hit that adds no fact a reader
 cannot already derive, and retain one that changes the meaning. _actor_ is valid wherever a
-specification defines it as a term.
+specification defines it as a term. _leading_ is valid in the positional sense (_a leading zero_,
+_leading whitespace_), and banned as an adjective of rank or prominence.
 
 ```shell
-grep -nEiw "leverage|leverages|leveraged|leveraging|sunset|sunsets|simply|just|basically|various|powerful|seamless|robust|actor|actors" <files>
+grep -nEiw "leverage|leverages|leveraged|leveraging|sunset|sunsets|simply|just|basically|various|powerful|seamless|robust|actor|actors|leading" <files>
 ```
 
 ```shell
