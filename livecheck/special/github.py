@@ -360,7 +360,7 @@ async def get_latest_github_commit2(owner: str, repo: str, branch: str) -> tuple
         return '', ''
     d = r.json()['commit']['commit']['committer']['date'][:10]
     try:
-        dt = datetime.fromisoformat(d.replace('Z', '+00:00'))
+        dt = datetime.fromisoformat(d)
         formatted_date = dt.strftime('%Y%m%d')
     except ValueError:
         formatted_date = d[:10]

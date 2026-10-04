@@ -46,7 +46,7 @@ async def get_latest_gist_package(url: str) -> tuple[str, str]:
 
     d = latest.get('committed_at')
     try:
-        dt = datetime.fromisoformat(d.replace('Z', '+00:00'))
+        dt = datetime.fromisoformat(d)
         formatted_date = dt.strftime('%Y%m%d')
     except ValueError:
         formatted_date = d[:10]

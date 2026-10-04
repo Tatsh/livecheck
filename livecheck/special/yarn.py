@@ -3,14 +3,13 @@ from __future__ import annotations
 
 from pathlib import Path
 from shutil import copyfile, which
-from typing import TYPE_CHECKING, TypedDict, cast
+from typing import TYPE_CHECKING, NotRequired, TypedDict, cast
 import asyncio
 import json
 import logging
 import re
 
 from anyio import Path as AnyioPath
-from typing_extensions import NotRequired
 
 from livecheck.utils import check_program
 
