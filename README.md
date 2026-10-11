@@ -146,7 +146,9 @@ can be placed in the directory alongside the ebuild.
 - `branch` - string- The GitHub branch name to use for commits.
 - `composer_packages` - boolean - Download composer vendor modules.
 - `composer_path` - path - Where is 'composer.json' located (need composer_packages).
-- `crates` - boolean - Build a Rust dependency archive with Cargo using versions from `Cargo.lock`.
+- `crates` - boolean - Update Rust dependencies using versions from `Cargo.lock`.
+- `crates_mode` - string - Rust dependency packaging, `archive` (default) or `native`
+  (requires `crates`).
 - `crates_path` - path - Source subdirectory with `Cargo.toml` and `Cargo.lock` (requires `crates`).
 - `dist_github_release` - string - Per-package override for `--dist-github-release`.
 - `dist_github_repository` - string - Per-package override for `--dist-github-repository`
@@ -222,18 +224,37 @@ action directory there can be several scripts that are executed in order by name
 
 ### Creating new downloads
 
-Rust crate archives use the `crates` setting in a package's `livecheck.json`:
+Rust dependency updates use the `crates` setting in a package's `livecheck.json`.
+Choose `native` to download individual crates through Gentoo:
 
 ```json
 {
-  "crates": true
+  "crates": true,
+  "crates_mode": "native"
 }
 ```
 
-Cargo must be installed, and upstream sources must provide `Cargo.toml` and `Cargo.lock`.
-Set `crates_path` when the Cargo project is in a source subdirectory. Dependencies are downloaded
-with `cargo vendor --locked --versioned-dirs`; Git and alternative registry dependencies are
-currently unsupported. A missing or outdated lock file aborts the update.
+Livecheck generates `CRATES` entries (`name@version`) from upstream `Cargo.lock`, places the list
+before `inherit`, and adds `${CARGO_CRATE_URIS}` to `SRC_URI`. Existing `-crates.tar.xz` downloads
+are removed. The ebuild must already inherit `cargo`, directly or through another eclass.
+Portage downloads the crates and updates `Manifest`; Livecheck does not run `cargo vendor` or upload
+an archive in native mode.
+
+Choose `archive` to build a dependency archive:
+
+```json
+{
+  "crates": true,
+  "crates_mode": "archive"
+}
+```
+
+Omitting `crates_mode` selects `archive` for compatibility. Both modes require upstream
+`Cargo.toml` and `Cargo.lock`, and support crates.io dependencies only. Local workspace packages
+are excluded from downloads. Set `crates_path` when the Cargo project is in a source subdirectory.
+Archive mode also requires Cargo and downloads dependencies with
+`cargo vendor --locked --versioned-dirs`. A missing lock file aborts updates in both modes;
+archive mode also rejects outdated lock files.
 
 Configure the ebuild to fetch `${P}-crates.tar.xz` from your dist server instead of individual
 `CARGO_CRATE_URIS`, and remove its old `CRATES` list. The generated archive uses

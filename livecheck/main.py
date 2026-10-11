@@ -53,7 +53,13 @@ from .special.composer import (
     remove_composer_url,
     update_composer_ebuild,
 )
-from .special.crates import check_crates_requirements, remove_crates_url, update_crates_ebuild
+from .special.crates import (
+    check_crates_requirements,
+    remove_crates_url,
+    remove_native_crates,
+    update_crates_ebuild,
+    update_native_crates_ebuild,
+)
 from .special.davinci import get_latest_davinci_package
 from .special.directory import get_latest_directory_package
 from .special.dotnet import (
@@ -1155,7 +1161,8 @@ async def do_main(  # ruff:ignore[complex-structure, too-many-branches, too-many
             if ((  # ruff:ignore[too-many-boolean-expressions]
                     cp in settings.dotnet_projects and not check_dotnet_requirements())
                     or (cp in settings.composer_packages and not check_composer_requirements())
-                    or (settings.crates_packages.get(cp) and not check_crates_requirements())
+                    or (settings.crates_packages.get(cp) and settings.crates_mode.get(
+                        cp, 'archive') != 'native' and not check_crates_requirements())
                     or (cp in settings.maven_packages and not check_maven_requirements())
                     or (cp in settings.yarn_base_packages and not check_yarn_requirements())
                     or (cp in settings.nodejs_packages
@@ -1226,7 +1233,14 @@ async def do_main(  # ruff:ignore[complex-structure, too-many-branches, too-many
             if cp in settings.composer_packages:
                 content = remove_composer_url(content)
             if settings.crates_packages.get(cp):
-                content = remove_crates_url(content)
+                try:
+                    content = (remove_native_crates(content) if settings.crates_mode.get(
+                        cp, 'archive') == 'native' else remove_crates_url(content))
+                except RuntimeError:
+                    await _recover_ebuild(new_filename, ebuild, cp, search_dir, settings,
+                                          original_manifest)
+                    await ebuild_path.write_text(original_content, encoding='utf-8')
+                    raise
             if cp in settings.maven_packages:
                 content = remove_maven_url(content)
             if settings.dotnet_packages.get(cp):
@@ -1239,7 +1253,7 @@ async def do_main(  # ruff:ignore[complex-structure, too-many-branches, too-many
                                       original_manifest)
                 if settings.crates_packages.get(cp):
                     await ebuild_path.write_text(original_content, encoding='utf-8')
-                    msg = 'Could not digest sources for the crate archive.'
+                    msg = 'Could not digest sources for Rust dependencies.'
                     raise RuntimeError(msg)
                 return
             if cp in settings.yarn_base_packages:
@@ -1256,10 +1270,14 @@ async def do_main(  # ruff:ignore[complex-structure, too-many-branches, too-many
             dist_settings = settings.dist_settings_for(cp)
             if settings.crates_packages.get(cp):
                 try:
-                    await update_crates_ebuild(new_filename,
-                                               settings.crates_path.get(cp),
-                                               fetchlist,
-                                               dist_settings=dist_settings)
+                    if settings.crates_mode.get(cp, 'archive') == 'native':
+                        updated_content = await update_native_crates_ebuild(
+                            new_filename, settings.crates_path.get(cp), updated_content)
+                    else:
+                        await update_crates_ebuild(new_filename,
+                                                   settings.crates_path.get(cp),
+                                                   fetchlist,
+                                                   dist_settings=dist_settings)
                 except Exception:
                     await _recover_ebuild(new_filename, ebuild, cp, search_dir, settings,
                                           original_manifest)
@@ -1302,7 +1320,8 @@ async def do_main(  # ruff:ignore[complex-structure, too-many-branches, too-many
                                              settings.composer_path[cp],
                                              fetchlist,
                                              dist_settings=dist_settings)
-            if updated_content != content:
+            if (updated_content != content or
+                (settings.crates_packages.get(cp) and settings.crates_mode.get(cp) == 'native')):
                 await AnyioPath(new_filename).write_text(updated_content, encoding='utf-8')
                 if not await asyncio.to_thread(digest_ebuild, new_filename):
                     log.error('Error digesting `%s`.', new_filename)
@@ -1310,7 +1329,7 @@ async def do_main(  # ruff:ignore[complex-structure, too-many-branches, too-many
                                           original_manifest)
                     if settings.crates_packages.get(cp):
                         await ebuild_path.write_text(original_content, encoding='utf-8')
-                        msg = 'Could not digest the ebuild with the crate archive.'
+                        msg = 'Could not digest the ebuild with Rust dependencies.'
                         raise RuntimeError(msg)
                     return
             if settings.git_flag:
