@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from .dist_github import DistGitHubSettings
 
@@ -49,7 +49,9 @@ class LivecheckSettings:
     composer_packages: dict[str, bool] = field(default_factory=dict)
     composer_path: dict[str, str] = field(default_factory=dict)
     crates_packages: dict[str, bool] = field(default_factory=dict)
-    """Whether to build a Rust crate archive for each package."""
+    """Whether to update Rust dependencies for each package."""
+    crates_mode: dict[str, Literal['archive', 'native']] = field(default_factory=dict)
+    """Rust dependency packaging mode for each package, defaulting to an archive."""
     crates_path: dict[str, str] = field(default_factory=dict)
     """Source subdirectory with Cargo.toml and Cargo.lock for each package."""
     maven_packages: dict[str, bool] = field(default_factory=dict)

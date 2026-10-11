@@ -10,6 +10,11 @@ and this project adheres to
 
 ## [unreleased]
 
+### Added
+
+- Added `crates_mode` to select native Gentoo crate downloads or dependency archives. Native mode
+  updates `CRATES` from `Cargo.lock` and uses `CARGO_CRATE_URIS`; archive mode remains the default.
+
 ### Removed
 
 - Support for Python 3.10. Python 3.11 or later is now required.

@@ -168,7 +168,12 @@ def _apply_vendor(settings: LivecheckSettings, parsed: Mapping[str, Any], catpkg
             settings.composer_path[catpkg] = parsed['composer_path']
     if 'crates' in parsed:
         check_instance(parsed['crates'], 'crates', 'bool', path)
+        mode = parsed.get('crates_mode', 'archive')
+        if not isinstance(mode, str) or mode not in {'archive', 'native'}:
+            msg = f'Invalid crates_mode in {path}. Expected "archive" or "native".'
+            raise ValueError(msg)
         settings.crates_packages[catpkg] = parsed['crates']
+        settings.crates_mode[catpkg] = 'native' if mode == 'native' else 'archive'
         settings.crates_path[catpkg] = ''
         if parsed.get('crates_path'):
             check_instance(parsed['crates_path'], 'crates_path', 'string', path)
@@ -263,6 +268,7 @@ def gather_settings(search_dir: Path) -> LivecheckSettings:
 
     A configuration naming an unknown ``transformation_function`` propagates
     :py:class:`UnknownTransformationFunction`.
+    Invalid ``crates_mode`` values propagate :py:class:`ValueError`.
 
     Parameters
     ----------

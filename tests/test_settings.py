@@ -514,7 +514,23 @@ def test_gather_settings_crates_without_crates_path(tmp_path: Path, mocker: Mock
     result = gather_settings(tmp_path)
     assert result.crates_packages['cat/pkg'] is True
     assert not result.crates_path['cat/pkg']
+    assert result.crates_mode['cat/pkg'] == 'archive'
     logger.error.assert_not_called()
+
+
+@pytest.mark.parametrize('mode', ['archive', 'native'])
+def test_gather_settings_crates_mode(tmp_path: Path, mode: str) -> None:
+    make_json_file(tmp_path, 'cat/pkg/livecheck.json', {'crates': True, 'crates_mode': mode})
+    result = gather_settings(tmp_path)
+    assert result.crates_packages['cat/pkg'] is True
+    assert result.crates_mode['cat/pkg'] == mode
+
+
+@pytest.mark.parametrize('mode', ['invalid', '', None, False, 1, []])
+def test_gather_settings_invalid_crates_mode(tmp_path: Path, mode: object) -> None:
+    make_json_file(tmp_path, 'cat/pkg/livecheck.json', {'crates': True, 'crates_mode': mode})
+    with pytest.raises(ValueError, match='Invalid crates_mode'):
+        gather_settings(tmp_path)
 
 
 def test_gather_settings_composer_key_without_type(tmp_path: Path, mocker: MockerFixture) -> None:

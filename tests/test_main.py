@@ -42,25 +42,42 @@ CP = 'sys-devel/gcc'
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize('native', [False, True])
 @pytest.mark.parametrize('keep_old', [False, True])
-@pytest.mark.parametrize('failure', ['download', 'source_digest', 'archive_digest'])
+@pytest.mark.parametrize('failure', ['prepare', 'download', 'source_digest', 'archive_digest'])
 async def test_do_main_crates_failure_restores_ebuild(mocker: MockerFixture, tmp_path: Path, *,
-                                                      keep_old: bool, failure: str) -> None:
+                                                      native: bool, keep_old: bool,
+                                                      failure: str) -> None:
     ebuild = tmp_path / 'cat' / 'pkg' / 'pkg-1.0.ebuild'
     ebuild.parent.mkdir(parents=True)
     original = 'SRC_URI="https://example.com/${P}-crates.tar.xz"\nEGIT_COMMIT="abcdef1"\n'
     ebuild.write_text(original, encoding='utf-8')
+    manifest = ebuild.parent / 'Manifest'
+    original_manifest = 'DIST pkg-1.0.tar.gz 1 BLAKE2B a SHA512 b\n'
+    manifest.write_text(original_manifest, encoding='utf-8')
     settings = LivecheckSettings(auto_update_flag=True,
                                  crates_packages={'cat/pkg': True},
+                                 crates_mode={'cat/pkg': 'native' if native else 'archive'},
                                  keep_old_flag=keep_old)
     mocker.patch('livecheck.main.check_crates_requirements', return_value=True)
     mocker.patch('livecheck.main.get_old_sha', return_value='abcdef1')
-    mocker.patch('livecheck.main.digest_ebuild',
-                 side_effect=[True, False] if failure == 'archive_digest' else None,
-                 return_value=failure != 'source_digest')
+    digest_results = iter([True, False] if failure ==
+                          'archive_digest' else [failure != 'source_digest'])
+
+    def digest(_: str) -> bool:
+        manifest.write_text('DIST pkg-2.0.tar.gz 2 BLAKE2B c SHA512 d\n', encoding='utf-8')
+        return next(digest_results)
+
+    mocker.patch('livecheck.main.digest_ebuild', side_effect=digest)
     mocker.patch('livecheck.main.get_fetch_map', return_value={'pkg-2.0.tar.gz': ()})
+    if failure == 'prepare':
+        mocker.patch(('livecheck.main.remove_native_crates'
+                      if native else 'livecheck.main.remove_crates_url'),
+                     side_effect=RuntimeError('Invalid SRC_URI'))
     update = mocker.patch(
-        'livecheck.main.update_crates_ebuild',
+        ('livecheck.main.update_native_crates_ebuild'
+         if native else 'livecheck.main.update_crates_ebuild'),
+        return_value=original,
         side_effect=RuntimeError('Download failed') if failure == 'download' else None)
     hook = mocker.patch('livecheck.main.execute_hooks')
     with pytest.raises(RuntimeError):
@@ -74,10 +91,71 @@ async def test_do_main_crates_failure_restores_ebuild(mocker: MockerFixture, tmp
                       settings=settings,
                       top_hash='abcdef2',
                       url='')
-    assert update.await_count == (0 if failure == 'source_digest' else 1)
+    assert update.await_count == (0 if failure in {'prepare', 'source_digest'} else 1)
     assert ebuild.read_text(encoding='utf-8') == original
+    assert manifest.read_text(encoding='utf-8') == original_manifest
     assert not (ebuild.parent / 'pkg-2.0.ebuild').exists()
     assert all(call.args[1] != 'post' for call in hook.await_args_list)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('crates', ['CRATES="old@1.0.0"\n', ''])
+async def test_do_main_native_crates_updates_before_digest(mocker: MockerFixture, tmp_path: Path,
+                                                           crates: str) -> None:
+    ebuild = tmp_path / 'cat' / 'pkg' / 'pkg-1.0.ebuild'
+    ebuild.parent.mkdir(parents=True)
+    ebuild.write_text(
+        f'EAPI=8\n{crates}inherit cargo pypi\n'
+        'SRC_URI+=" https://example.com/${P}-crates.tar.xz"\n',
+        encoding='utf-8')
+    source = tmp_path / 'source'
+    source.mkdir()
+    (source / 'Cargo.toml').write_text('[workspace]\n', encoding='utf-8')
+    (source / 'Cargo.lock').write_text(
+        'version = 3\n[[package]]\nname = "example"\nversion = "2.0.0"\n'
+        'source = "registry+https://github.com/rust-lang/crates.io-index"\n',
+        encoding='utf-8')
+    search = mocker.patch('livecheck.special.crates.search_ebuild',
+                          return_value=(str(source), str(tmp_path)))
+    digest_contents = []
+
+    def digest(filename: str) -> bool:
+        digest_contents.append(
+            ebuild.with_name(filename.rsplit('/', 1)[-1]).read_text(encoding='utf-8'))
+        return True
+
+    mocker.patch('livecheck.main.digest_ebuild', side_effect=digest)
+    mocker.patch('livecheck.main.get_fetch_map', return_value={})
+    requirements = mocker.patch('livecheck.main.check_crates_requirements', return_value=False)
+    archive = mocker.patch('livecheck.main.update_crates_ebuild')
+    hooks = mocker.patch('livecheck.main.execute_hooks')
+    await do_main(cat='cat',
+                  ebuild_version='1.0',
+                  hash_date='',
+                  hook_dir=None,
+                  last_version='2.0',
+                  pkg='pkg',
+                  search_dir=tmp_path,
+                  settings=LivecheckSettings(auto_update_flag=True,
+                                             crates_packages={'cat/pkg': True},
+                                             crates_mode={'cat/pkg': 'native'},
+                                             crates_path={'cat/pkg': 'rust'}),
+                  top_hash='',
+                  url='')
+    result = ebuild.with_name('pkg-2.0.ebuild').read_text(encoding='utf-8')
+    assert 'example@2.0.0' in result
+    assert '${CARGO_CRATE_URIS}' in result
+    assert '-crates.tar.xz' not in result
+    assert 'old@1.0.0' not in result
+    assert len(digest_contents) == 2
+    assert 'old@' not in digest_contents[0]
+    assert 'CARGO_CRATE_URIS' not in digest_contents[0]
+    assert '-crates.tar.xz' not in digest_contents[0]
+    assert digest_contents[1] == result
+    search.assert_awaited_once_with(str(ebuild.with_name('pkg-2.0.ebuild')), 'Cargo.lock', 'rust')
+    requirements.assert_not_called()
+    archive.assert_not_awaited()
+    assert any(call.args[1] == 'post' for call in hooks.await_args_list)
 
 
 @pytest.mark.asyncio

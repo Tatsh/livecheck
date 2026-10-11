@@ -121,6 +121,7 @@ livecheck
 livechecks
 lodepng
 manylinux
+matchall
 maxperfwiz
 mbedtls
 metacpan
