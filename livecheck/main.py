@@ -1362,7 +1362,8 @@ async def _async_main(*,
                       max_concurrent_http: int = 3,
                       parallel: int = 1) -> None:
     init_sessions(asyncio.Semaphore(max_concurrent_http))
-    sem = asyncio.Semaphore(parallel)
+    # pkgdev commits the shared index, including changes staged by other updates.
+    sem = asyncio.Semaphore(1 if settings.git_flag else parallel)
     detection_failures: list[str] = []
 
     async def _bounded_do_main(cat: str, pkg: str, ebuild_version: str, last_version: str,
