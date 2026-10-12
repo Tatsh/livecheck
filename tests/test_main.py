@@ -4266,6 +4266,44 @@ def test_main_calls_get_props_and_do_main(mocker: MockerFixture, runner: CliRunn
                                  hook_dir=None)
 
 
+@pytest.mark.parametrize('git', [False, True])
+@pytest.mark.parametrize('parallel', [1, 3])
+def test_main_update_concurrency(mocker: MockerFixture, runner: CliRunner, tmp_path: Path,
+                                 parallel: int, *, git: bool) -> None:
+    settings = LivecheckSettings()
+    mocker.patch('livecheck.main.chdir')
+    mocker.patch('livecheck.main.setup_logging')
+    mocker.patch('livecheck.main.gather_settings', return_value=settings)
+    mocker.patch('livecheck.main.get_repository_root_if_inside',
+                 return_value=(str(tmp_path), 'repo'))
+    mocker.patch('os.access', return_value=True)
+    mocker.patch('pathlib.Path.is_dir', return_value=True)
+    mocker.patch('livecheck.main.check_program', return_value=True)
+    props = mocker.patch('livecheck.main.get_props',
+                         return_value=[('cat', pkg, '1.0', '2.0', '', '', '')
+                                       for pkg in ('first', 'second', 'third')])
+    active = maximum = 0
+
+    async def update(**_: Any) -> None:
+        nonlocal active, maximum
+        active += 1
+        maximum = max(maximum, active)
+        await asyncio.sleep(0)
+        active -= 1
+
+    process = mocker.patch('livecheck.main.do_main', side_effect=update)
+    result = runner.invoke(main, [
+        '--auto-update', '--working-dir',
+        str(tmp_path), '--parallel',
+        str(parallel), *(['--git'] if git else [])
+    ])
+
+    assert result.exit_code == 0
+    assert process.await_count == 3
+    assert maximum == (1 if git else parallel)
+    assert props.call_args.kwargs['parallel'] == parallel
+
+
 def test_main_continues_after_package_failure(mocker: MockerFixture, runner: CliRunner,
                                               tmp_path: Path, caplog: LogCaptureFixture) -> None:
     mock_settings = mocker.Mock()
