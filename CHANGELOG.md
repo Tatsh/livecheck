@@ -15,6 +15,12 @@ and this project adheres to
 - Added `crates_mode` to select native Gentoo crate downloads or dependency archives. Native mode
   updates `CRATES` from `Cargo.lock` and uses `CARGO_CRATE_URIS`; archive mode remains the default.
 
+### Fixed
+
+- Patches and patch archives listed in `SRC_URI` are no longer consulted as version sources. A
+  patch downloaded from a release of another repository (for example `inquirerpy-0.3.4-*.patch.xz`
+  from an overlay assets release) made its release tag appear as a newer package version.
+
 ### Removed
 
 - Support for Python 3.10. Python 3.11 or later is now required.

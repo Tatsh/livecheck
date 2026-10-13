@@ -93,6 +93,7 @@ hoverxref
 htmlcov
 icingaweb
 imgui
+inquirerpy
 isort
 itertools
 jimevins
