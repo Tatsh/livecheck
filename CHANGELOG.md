@@ -17,6 +17,9 @@ and this project adheres to
 
 ### Fixed
 
+- When the commit of a GitHub release is not on a release series branch (for example after
+  upstream merged and deleted the `2.10` branch), the default branch is written to `EGIT_BRANCH`
+  if it includes the commit. Previously the stale branch remained and `git-r3` could not fetch it.
 - Patches and patch archives listed in `SRC_URI` are no longer consulted as version sources. A
   patch downloaded from a release of another repository (for example `inquirerpy-0.3.4-*.patch.xz`
   from an overlay assets release) made its release tag appear as a newer package version.
