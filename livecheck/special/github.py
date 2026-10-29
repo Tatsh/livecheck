@@ -30,6 +30,7 @@ GITHUB_COMPARE_REACHABLE_STATUSES = frozenset({'ahead', 'identical'})
 """GitHub compare ``status`` values meaning the base commit is reachable from the head ref."""
 GITHUB_DATE_URL = 'https://api.github.com/repos/%s/%s/git/refs/tags/%s'
 GITHUB_METADATA = 'github'
+GITHUB_REPO_URL = 'https://api.github.com/repos/%s/%s'
 TAGS_PER_PAGE = 100
 """Number of tags requested per page of the tags API.
 
@@ -105,9 +106,19 @@ def extract_owner_repo(url: str) -> tuple[str, str, str]:
     return '', '', ''
 
 
+async def _branch_has_commit(owner: str, repo: str, branch: str, commit: str) -> bool:
+    compare_url = GITHUB_COMPARE_URL % (owner, repo, quote(commit, safe=''), quote(branch, safe=''))
+    if not (r := await get_content(compare_url)):
+        return False
+    return r.json().get('status') in GITHUB_COMPARE_REACHABLE_STATUSES
+
+
 async def get_github_branch_for_commit(url: str, version: str, commit: str) -> str:
     """
     Find a likely GitHub branch containing a version commit.
+
+    Branches named after the release series of ``version`` are tried first, then the default
+    branch of the repository.
 
     Parameters
     ----------
@@ -134,12 +145,14 @@ async def get_github_branch_for_commit(url: str, version: str, commit: str) -> s
         branch_url = GITHUB_BRANCH_URL % (owner, repo, quote(branch, safe=''))
         if not await get_content(branch_url):
             continue
-        compare_url = GITHUB_COMPARE_URL % (owner, repo, quote(commit,
-                                                               safe=''), quote(branch, safe=''))
-        if not (r := await get_content(compare_url)):
-            continue
-        if r.json().get('status') in GITHUB_COMPARE_REACHABLE_STATUSES:
+        if await _branch_has_commit(owner, repo, branch, commit):
             return branch
+    # A release series branch is often merged and deleted once the next series is released. The
+    # release commit then exists only on the default branch.
+    if ((r := await get_content(GITHUB_REPO_URL % (owner, repo)))
+            and (default_branch := str(r.json().get('default_branch', '')))
+            and await _branch_has_commit(owner, repo, default_branch, commit)):
+        return default_branch
     return ''
 
 

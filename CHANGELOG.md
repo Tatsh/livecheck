@@ -15,8 +15,27 @@ and this project adheres to
 - Added `crates_mode` to select native Gentoo crate downloads or dependency archives. Native mode
   updates `CRATES` from `Cargo.lock` and uses `CARGO_CRATE_URIS`; archive mode remains the default.
 
+### Changed
+
+- When the branch resolved for a GitHub release is the release series of the new version (for
+  example `2.10` for `2.10.4`), `EGIT_BRANCH` is written as `$(ver_cut 1-2)` instead of the branch
+  number. Ebuilds older than EAPI 7 receive the literal branch name. `EGIT_BRANCH` values with a
+  `$(ver_cut ...)` expression are resolved when the ebuild is read.
+
 ### Fixed
 
+- `EGIT_COMMIT` was not updated in git-r3 ebuilds that point at the repository under check without
+  a commit in the URL, in `EGIT_REPO_URI` or `HOMEPAGE` (for example `dev-lang/php` and
+  `dev-php/composer`). The new ebuild remained pinned to the previous commit, even when its version
+  had the date of the new commit.
+- With `--git`, a revision bump (for example `5.6.40_p20261024` to `5.6.40_p20261024-r1`) opened an
+  editor for the commit message. pkgdev does not generate a summary for a revision bump, and
+  without a terminal the commit was aborted with the change staged. Livecheck now passes the
+  summary to `pkgdev commit` in the form `add <new>, drop <old>`, and a failed commit is logged as
+  an error.
+- When the commit of a GitHub release is not on a release series branch (for example after
+  upstream merged and deleted the `2.10` branch), the default branch is written to `EGIT_BRANCH`
+  if it includes the commit. Previously the stale branch remained and `git-r3` could not fetch it.
 - Patches and patch archives listed in `SRC_URI` are no longer consulted as version sources. A
   patch downloaded from a release of another repository (for example `inquirerpy-0.3.4-*.patch.xz`
   from an overlay assets release) made its release tag appear as a newer package version.

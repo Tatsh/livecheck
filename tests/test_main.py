@@ -258,6 +258,22 @@ def test_update_egit_branch_returns_unchanged_when_branch_empty() -> None:
     assert update_egit_branch(content, '') == content
 
 
+@pytest.mark.parametrize(('eapi', 'branch', 'version', 'expected'),
+                         [('8', '2.10', '2.10.4', '$(ver_cut 1-2)'),
+                          ('8', 'v2.10', '2.10.4', 'v$(ver_cut 1-2)'),
+                          ('8', '2', '2.10.4', '$(ver_cut 1)'),
+                          ('8', '2.11.0', '2.11.0-r1', '$(ver_cut 1-3)'),
+                          ("'7'", '2.10', '2.10.4', '$(ver_cut 1-2)'),
+                          ('8', '2.10', '2.11.0', '2.10'), ('8', 'main', '2.11.0', 'main'),
+                          ('6', '2.10', '2.10.4', '2.10')])
+def test_update_egit_branch_writes_version_series_expression(eapi: str, branch: str, version: str,
+                                                             expected: str) -> None:
+    content = f'EAPI={eapi}\nEGIT_COMMIT="abc"\nEGIT_BRANCH="2.9"\n'
+    assert update_egit_branch(
+        content, branch,
+        version=version) == f'EAPI={eapi}\nEGIT_COMMIT="abc"\nEGIT_BRANCH="{expected}"\n'
+
+
 def test_replace_date_in_ebuild_full_date() -> None:
     ebuild = '20230101'
     new_date = '20240101'
@@ -573,7 +589,8 @@ async def test_do_main_sha_source_releases_resolves_branch_on_update(mocker: Moc
     branch_mock = mocker.patch('livecheck.main.get_github_branch_for_commit',
                                new_callable=mocker.AsyncMock,
                                return_value=resolved_branch)
-    update_egit = mocker.patch('livecheck.main.update_egit_branch', side_effect=lambda c, _: c)
+    update_egit = mocker.patch('livecheck.main.update_egit_branch',
+                               side_effect=lambda c, *_, **__: c)
     mocker.patch('livecheck.main.get_old_sha', return_value=old_sha)
     mocker.patch('livecheck.main.replace_date_in_ebuild', side_effect=lambda v, _, __: v)
     mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
@@ -608,7 +625,7 @@ async def test_do_main_sha_source_releases_resolves_branch_on_update(mocker: Moc
                   top_hash='',
                   url=source)
     branch_mock.assert_awaited_once_with(source, last_version, top_hash)
-    update_egit.assert_called_once()
+    update_egit.assert_called_once_with(mocker.ANY, resolved_branch, version=last_version)
 
 
 @pytest.mark.asyncio
@@ -968,6 +985,59 @@ async def test_do_main_pkgdev_commit_raises_called_process_error(mocker: MockerF
                   top_hash=top_hash,
                   url=url)
     mock_log.exception.assert_any_call('Error committing %s.', mocker.ANY)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(('keep_old_flag', 'last_version', 'returncode', 'expected_args'), [
+    (False, '1.0.0', 0, ('commit', '-m', 'cat/pkg: add 1.0.0-r1, drop 1.0.0')),
+    (True, '1.0.0', 0, ('commit', '-m', 'cat/pkg: add 1.0.0-r1')),
+    (False, '1.0.1', 0, ('commit',)),
+    (False, '1.0.1', 1, ('commit',)),
+])
+async def test_do_main_pkgdev_commit_message(mocker: MockerFixture, tmp_path: Path,
+                                             mock_settings: Mock, keep_old_flag: bool,
+                                             last_version: str, returncode: int,
+                                             expected_args: tuple[str, ...]) -> None:
+    ebuild_path = tmp_path / 'cat/pkg/pkg-1.0.0.ebuild'
+    ebuild_path.parent.mkdir(parents=True)
+    ebuild_path.write_text('SHA="1234567"\n', encoding='utf-8')
+    mock_settings.auto_update_flag = True
+    mock_settings.git_flag = True
+    mock_settings.keep_old_flag = keep_old_flag
+    mocker.patch('livecheck.main.get_old_sha', return_value='1234567')
+    mocker.patch('livecheck.main.digest_ebuild', return_value=True)
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
+    mocker.patch('livecheck.main.is_sha', return_value=True)
+    mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
+    mocker.patch('livecheck.main.execute_hooks')
+    _patch_main_resolved_executables(mocker)
+    calls: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
+
+    def fake_create_subprocess(*args: Any, **kwargs: Any) -> Any:
+        calls.append((args, kwargs))
+        mock_proc = mocker.AsyncMock()
+        mock_proc.wait = mocker.AsyncMock(
+            return_value=returncode if str(args[0]).endswith('/pkgdev') else 0)
+        return mock_proc
+
+    mocker.patch('livecheck.main.asyncio.create_subprocess_exec',
+                 side_effect=fake_create_subprocess)
+    mock_log = mocker.patch('livecheck.main.log')
+    await do_main(cat='cat',
+                  ebuild_version='1.0.0',
+                  hash_date='',
+                  hook_dir=None,
+                  last_version=last_version,
+                  pkg='pkg',
+                  search_dir=tmp_path,
+                  settings=mock_settings,
+                  top_hash='abcdef1',
+                  url='https://example.com')
+    pkgdev_calls = [(args[1:], kwargs) for args, kwargs in calls
+                    if str(args[0]).endswith('/pkgdev')]
+    assert pkgdev_calls == [(expected_args, {'cwd': str(tmp_path / 'cat/pkg')})]
+    error_call = mocker.call('Error committing `%s`.', mocker.ANY)
+    assert (error_call in mock_log.error.call_args_list) == (returncode != 0)
 
 
 @pytest.mark.asyncio
@@ -3986,8 +4056,23 @@ def test_get_egit_repo_distinguishes_literal_dollars(tmp_path: Path, uri: str, b
     assert get_egit_repo(ebuild) == (expected_uri, expected_branch)
 
 
-@pytest.mark.parametrize(
-    'expression', ['${PN/pecl-/pecl_}', '${PV:0:3}', '${UNKNOWN:-$PN}', '${PN', '${PN}/${PV%%.*}'])
+@pytest.mark.parametrize(('branch', 'expected_branch'), [('$(ver_cut 1-2)', '2.3'),
+                                                         ('v$(ver_cut 1)', 'v2'),
+                                                         ('$(ver_cut 2-)', '3.2'),
+                                                         ('release-$(ver_cut 1-2)', 'release-2.3'),
+                                                         ('$(ver_cut 4)', '')])
+def test_get_egit_repo_resolves_ver_cut(tmp_path: Path, branch: str, expected_branch: str) -> None:
+    ebuild = tmp_path / 'dev-php' / 'example' / 'example-2.3.2-r1.ebuild'
+    ebuild.parent.mkdir(parents=True)
+    ebuild.write_text(f'EGIT_REPO_URI="https://github.com/org/${{PN}}"\nEGIT_BRANCH="{branch}"\n',
+                      encoding='utf-8')
+    assert get_egit_repo(ebuild) == ('https://github.com/org/example', expected_branch)
+
+
+@pytest.mark.parametrize('expression', [
+    '${PN/pecl-/pecl_}', '${PV:0:3}', '${UNKNOWN:-$PN}', '${PN', '${PN}/${PV%%.*}',
+    '$(ver_cut 1-2 ${PV})'
+])
 @pytest.mark.parametrize('field', ['EGIT_REPO_URI', 'EGIT_BRANCH'])
 def test_get_egit_repo_skips_unsupported_expansions(tmp_path: Path, caplog: LogCaptureFixture,
                                                     expression: str, field: str) -> None:
@@ -4720,6 +4805,22 @@ def test_get_old_sha_multiple_repositories(tmp_path: Path, ebuild_content: str, 
     ebuild_path = tmp_path / 'test.ebuild'
     ebuild_path.write_text(ebuild_content, encoding='utf-8')
     assert get_old_sha(ebuild_path, url) == expected
+
+
+@pytest.mark.parametrize('egit_uri',
+                         ['https://github.com/${PN}/${PN}', 'https://github.com/composer/composer'])
+def test_get_old_sha_uses_egit_commit_of_checked_repository(tmp_path: Path, egit_uri: str) -> None:
+    ebuild = tmp_path / 'dev-php' / 'composer' / 'composer-2.10.3.ebuild'
+    ebuild.parent.mkdir(parents=True)
+    ebuild.write_text(('EAPI=8\n'
+                       'HOMEPAGE="https://github.com/composer/composer"\n'
+                       'SRC_URI="https://example.com/dist/${P}-vendor.tar.xz"\n'
+                       f'EGIT_REPO_URI="{egit_uri}"\n'
+                       'EGIT_COMMIT="f0de0bf90226853b841672f086d8b58b02332504"\n'),
+                      encoding='utf-8')
+    assert get_old_sha(
+        ebuild,
+        'https://github.com/composer/composer') == ('f0de0bf90226853b841672f086d8b58b02332504')
 
 
 @pytest.mark.asyncio
