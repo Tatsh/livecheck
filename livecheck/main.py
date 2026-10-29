@@ -154,6 +154,7 @@ log = logging.getLogger(__name__)
 
 __all__ = ('STALL_REPORT_INTERVAL', 'HookError', 'main')
 
+_EGIT_COMMIT_ASSIGNMENT = re.compile(r'^EGIT_COMMIT=["\']?([a-f0-9]{40})', re.MULTILINE)
 _LEADING_NUMERIC = re.compile(r'\d+(?:\.\d+)*')
 _REVISION_SUFFIX = re.compile(r'-r\d+$')
 _PATCH_SUFFIXES = tuple(f'{extension}{compression}' for extension in ('.diff', '.patch')
@@ -899,6 +900,11 @@ def get_old_sha(ebuild: Path, url: str) -> str:
     with Path(ebuild).open(encoding='utf-8') as file:
         lines = file.readlines()
     content = ''.join(lines)
+
+    # git-r3 ebuilds pin the commit in EGIT_COMMIT rather than in the repository URL.
+    if ((wanted := _repo_key(url)) and (egit_commit := _EGIT_COMMIT_ASSIGNMENT.search(content))
+            and _repo_key(get_egit_repo(ebuild)[0]) == wanted):
+        return egit_commit.group(1)
 
     # An ebuild may pin several repositories, and comparing another one's pin against this
     # repository's HEAD reports a difference on every run.
