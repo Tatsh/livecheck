@@ -154,9 +154,13 @@ log = logging.getLogger(__name__)
 
 __all__ = ('STALL_REPORT_INTERVAL', 'HookError', 'main')
 
+_EAPI_ASSIGNMENT = re.compile(r'^EAPI=["\']?(\d+)', re.MULTILINE)
 _EGIT_COMMIT_ASSIGNMENT = re.compile(r'^EGIT_COMMIT=["\']?([a-f0-9]{40})', re.MULTILINE)
 _LEADING_NUMERIC = re.compile(r'\d+(?:\.\d+)*')
 _REVISION_SUFFIX = re.compile(r'-r\d+$')
+_VER_CUT = re.compile(r'\$\(ver_cut ([1-9]\d*(?:-\d*)?)\)')
+_VER_CUT_MIN_EAPI = 7
+_VERSION_COMPONENT = re.compile(r'([^A-Za-z0-9]*)([A-Za-z]+|\d+)')
 _PATCH_SUFFIXES = tuple(f'{extension}{compression}' for extension in ('.diff', '.patch')
                         for compression in ('', '.bz2', '.gz', '.xz', '.zst'))
 _SKIPPED_SRC_URI_SUFFIXES = ('-crates.tar.xz', '-mvn.tar.xz', '-node_modules.tar.xz',
@@ -928,9 +932,33 @@ def _template_identifiers(value: str) -> frozenset[str]:
                      if (identifier := match.group('named') or match.group('braced')))
 
 
+def _ver_cut(version: str, range_: str) -> str:
+    first, dash, last = range_.partition('-')
+    stop = int(last) if last else (None if dash else int(first))
+    components: list[tuple[str, str]] = _VERSION_COMPONENT.findall(version)[int(first) - 1:stop]
+    if not components:
+        return ''
+    return components[0][1] + ''.join(separator + component
+                                      for separator, component in components[1:])
+
+
+def _ebuild_variables(ebuild: Path) -> dict[str, str]:
+    category, package, version, revision = catpkgsplit2(
+        f'{ebuild.parent.parent.name}/{ebuild.stem}')
+    return {
+        'CATEGORY': category or '',
+        'P': f'{package}-{version}',
+        'PF': ebuild.stem,
+        'PN': package,
+        'PR': revision,
+        'PV': version,
+        'PVR': version if revision == 'r0' else f'{version}-{revision}'
+    }
+
+
 def _skip_unsupported_expansions(value: str, field: str, ebuild: Path) -> str:
     if any(
-            match.group('invalid') is not None and value.startswith('${', match.start())
+            match.group('invalid') is not None and value.startswith(('${', '$('), match.start())
             for match in Template.pattern.finditer(value)):
         log.warning('Skipping %s `%s` in `%s` due to an unsupported expansion.', field, value,
                     ebuild)
@@ -946,22 +974,15 @@ def get_egit_repo(ebuild: Path) -> tuple[str, str]:
                 egit = match.group(2)
             if match := re.compile(r'^EGIT_BRANCH=(["\'])?(.*)\1').search(line):
                 branch = match.group(2)
+    if _VER_CUT.search(branch):
+        version = _ebuild_variables(ebuild)['PV']
+        branch = _VER_CUT.sub(lambda match: _ver_cut(version, match.group(1)), branch)
     egit = _skip_unsupported_expansions(egit, 'EGIT_REPO_URI', ebuild)
     branch = _skip_unsupported_expansions(branch, 'EGIT_BRANCH', ebuild)
     egit_variables = _template_identifiers(egit)
     branch_variables = _template_identifiers(branch)
     if egit_variables or branch_variables:
-        category, package, version, revision = catpkgsplit2(
-            f'{ebuild.parent.parent.name}/{ebuild.stem}')
-        variables = {
-            'CATEGORY': category,
-            'P': f'{package}-{version}',
-            'PF': ebuild.stem,
-            'PN': package,
-            'PR': revision,
-            'PV': version,
-            'PVR': version if revision == 'r0' else f'{version}-{revision}'
-        }
+        variables = _ebuild_variables(ebuild)
         if egit_variables.difference(variables):
             log.debug('Skipping unresolved EGIT_REPO_URI `%s`.', egit)
             egit = ''
@@ -978,7 +999,15 @@ def str_version(version: str, sha: str) -> str:
     return version + f' ({sha})' if sha else version
 
 
-def update_egit_branch(ebuild_content: str, branch: str) -> str:
+def _version_series_expression(branch: str, version: str) -> str:
+    series = branch.removeprefix('v')
+    count = series.count('.') + 1
+    if not series or series != _ver_cut(_REVISION_SUFFIX.sub('', version), f'1-{count}'):
+        return branch
+    return f'{branch.removesuffix(series)}$(ver_cut {1 if count == 1 else f"1-{count}"})'
+
+
+def update_egit_branch(ebuild_content: str, branch: str, *, version: str = '') -> str:
     """
     Add or replace ``EGIT_BRANCH`` in ebuild content.
 
@@ -988,6 +1017,10 @@ def update_egit_branch(ebuild_content: str, branch: str) -> str:
         Full ebuild file text.
     branch : str
         Branch name to write.
+    version : str
+        Version of the ebuild being written. When ``branch`` is the release series of
+        ``version`` (for example ``2.10`` or ``v2.10`` for ``2.10.4``) and the ebuild uses EAPI 7
+        or later, a ``ver_cut`` expression is written instead of the literal branch name.
 
     Returns
     -------
@@ -996,6 +1029,9 @@ def update_egit_branch(ebuild_content: str, branch: str) -> str:
     """
     if not branch:
         return ebuild_content
+    if (version and (eapi := _EAPI_ASSIGNMENT.search(ebuild_content))
+            and int(eapi.group(1)) >= _VER_CUT_MIN_EAPI):
+        branch = _version_series_expression(branch, version)
     branch_line = f'EGIT_BRANCH="{branch}"'
     content, replaced = re.subn(r'^EGIT_BRANCH=.*$',
                                 branch_line,
@@ -1195,7 +1231,7 @@ async def do_main(  # ruff:ignore[complex-structure, too-many-branches, too-many
                                                                 top_hash)
                 if top_branch:
                     log.debug('Resolved branch for %s %s: %s.', cp, last_version, top_branch)
-            content = update_egit_branch(content, top_branch)
+            content = update_egit_branch(content, top_branch, version=last_version)
             ps_ref = top_hash
             if not is_sha(top_hash) and cp in TAG_NAME_FUNCTIONS:
                 ps_ref = TAG_NAME_FUNCTIONS[cp](top_hash)

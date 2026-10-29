@@ -258,6 +258,22 @@ def test_update_egit_branch_returns_unchanged_when_branch_empty() -> None:
     assert update_egit_branch(content, '') == content
 
 
+@pytest.mark.parametrize(('eapi', 'branch', 'version', 'expected'),
+                         [('8', '2.10', '2.10.4', '$(ver_cut 1-2)'),
+                          ('8', 'v2.10', '2.10.4', 'v$(ver_cut 1-2)'),
+                          ('8', '2', '2.10.4', '$(ver_cut 1)'),
+                          ('8', '2.11.0', '2.11.0-r1', '$(ver_cut 1-3)'),
+                          ("'7'", '2.10', '2.10.4', '$(ver_cut 1-2)'),
+                          ('8', '2.10', '2.11.0', '2.10'), ('8', 'main', '2.11.0', 'main'),
+                          ('6', '2.10', '2.10.4', '2.10')])
+def test_update_egit_branch_writes_version_series_expression(eapi: str, branch: str, version: str,
+                                                             expected: str) -> None:
+    content = f'EAPI={eapi}\nEGIT_COMMIT="abc"\nEGIT_BRANCH="2.9"\n'
+    assert update_egit_branch(
+        content, branch,
+        version=version) == f'EAPI={eapi}\nEGIT_COMMIT="abc"\nEGIT_BRANCH="{expected}"\n'
+
+
 def test_replace_date_in_ebuild_full_date() -> None:
     ebuild = '20230101'
     new_date = '20240101'
@@ -573,7 +589,8 @@ async def test_do_main_sha_source_releases_resolves_branch_on_update(mocker: Moc
     branch_mock = mocker.patch('livecheck.main.get_github_branch_for_commit',
                                new_callable=mocker.AsyncMock,
                                return_value=resolved_branch)
-    update_egit = mocker.patch('livecheck.main.update_egit_branch', side_effect=lambda c, _: c)
+    update_egit = mocker.patch('livecheck.main.update_egit_branch',
+                               side_effect=lambda c, *_, **__: c)
     mocker.patch('livecheck.main.get_old_sha', return_value=old_sha)
     mocker.patch('livecheck.main.replace_date_in_ebuild', side_effect=lambda v, _, __: v)
     mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
@@ -608,7 +625,7 @@ async def test_do_main_sha_source_releases_resolves_branch_on_update(mocker: Moc
                   top_hash='',
                   url=source)
     branch_mock.assert_awaited_once_with(source, last_version, top_hash)
-    update_egit.assert_called_once()
+    update_egit.assert_called_once_with(mocker.ANY, resolved_branch, version=last_version)
 
 
 @pytest.mark.asyncio
@@ -3986,8 +4003,23 @@ def test_get_egit_repo_distinguishes_literal_dollars(tmp_path: Path, uri: str, b
     assert get_egit_repo(ebuild) == (expected_uri, expected_branch)
 
 
-@pytest.mark.parametrize(
-    'expression', ['${PN/pecl-/pecl_}', '${PV:0:3}', '${UNKNOWN:-$PN}', '${PN', '${PN}/${PV%%.*}'])
+@pytest.mark.parametrize(('branch', 'expected_branch'), [('$(ver_cut 1-2)', '2.3'),
+                                                         ('v$(ver_cut 1)', 'v2'),
+                                                         ('$(ver_cut 2-)', '3.2'),
+                                                         ('release-$(ver_cut 1-2)', 'release-2.3'),
+                                                         ('$(ver_cut 4)', '')])
+def test_get_egit_repo_resolves_ver_cut(tmp_path: Path, branch: str, expected_branch: str) -> None:
+    ebuild = tmp_path / 'dev-php' / 'example' / 'example-2.3.2-r1.ebuild'
+    ebuild.parent.mkdir(parents=True)
+    ebuild.write_text(f'EGIT_REPO_URI="https://github.com/org/${{PN}}"\nEGIT_BRANCH="{branch}"\n',
+                      encoding='utf-8')
+    assert get_egit_repo(ebuild) == ('https://github.com/org/example', expected_branch)
+
+
+@pytest.mark.parametrize('expression', [
+    '${PN/pecl-/pecl_}', '${PV:0:3}', '${UNKNOWN:-$PN}', '${PN', '${PN}/${PV%%.*}',
+    '$(ver_cut 1-2 ${PV})'
+])
 @pytest.mark.parametrize('field', ['EGIT_REPO_URI', 'EGIT_BRANCH'])
 def test_get_egit_repo_skips_unsupported_expansions(tmp_path: Path, caplog: LogCaptureFixture,
                                                     expression: str, field: str) -> None:

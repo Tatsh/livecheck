@@ -15,6 +15,13 @@ and this project adheres to
 - Added `crates_mode` to select native Gentoo crate downloads or dependency archives. Native mode
   updates `CRATES` from `Cargo.lock` and uses `CARGO_CRATE_URIS`; archive mode remains the default.
 
+### Changed
+
+- When the branch resolved for a GitHub release is the release series of the new version (for
+  example `2.10` for `2.10.4`), `EGIT_BRANCH` is written as `$(ver_cut 1-2)` instead of the branch
+  number. Ebuilds older than EAPI 7 receive the literal branch name. `EGIT_BRANCH` values with a
+  `$(ver_cut ...)` expression are resolved when the ebuild is read.
+
 ### Fixed
 
 - `EGIT_COMMIT` was not updated in git-r3 ebuilds that point at the repository under check without
