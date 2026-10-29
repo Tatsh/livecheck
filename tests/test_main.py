@@ -4722,6 +4722,22 @@ def test_get_old_sha_multiple_repositories(tmp_path: Path, ebuild_content: str, 
     assert get_old_sha(ebuild_path, url) == expected
 
 
+@pytest.mark.parametrize('egit_uri',
+                         ['https://github.com/${PN}/${PN}', 'https://github.com/composer/composer'])
+def test_get_old_sha_uses_egit_commit_of_checked_repository(tmp_path: Path, egit_uri: str) -> None:
+    ebuild = tmp_path / 'dev-php' / 'composer' / 'composer-2.10.3.ebuild'
+    ebuild.parent.mkdir(parents=True)
+    ebuild.write_text(('EAPI=8\n'
+                       'HOMEPAGE="https://github.com/composer/composer"\n'
+                       'SRC_URI="https://example.com/dist/${P}-vendor.tar.xz"\n'
+                       f'EGIT_REPO_URI="{egit_uri}"\n'
+                       'EGIT_COMMIT="f0de0bf90226853b841672f086d8b58b02332504"\n'),
+                      encoding='utf-8')
+    assert get_old_sha(
+        ebuild,
+        'https://github.com/composer/composer') == ('f0de0bf90226853b841672f086d8b58b02332504')
+
+
 @pytest.mark.asyncio
 async def test_process_submodules_3tuple_success(mocker: MockerFixture) -> None:
     mocker.patch('livecheck.main.SUBMODULES',

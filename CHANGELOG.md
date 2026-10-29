@@ -17,6 +17,10 @@ and this project adheres to
 
 ### Fixed
 
+- `EGIT_COMMIT` was not updated in git-r3 ebuilds that point at the repository under check without
+  a commit in the URL, in `EGIT_REPO_URI` or `HOMEPAGE` (for example `dev-lang/php` and
+  `dev-php/composer`). The new ebuild remained pinned to the previous commit, even when its version
+  had the date of the new commit.
 - When the commit of a GitHub release is not on a release series branch (for example after
   upstream merged and deleted the `2.10` branch), the default branch is written to `EGIT_BRANCH`
   if it includes the commit. Previously the stale branch remained and `git-r3` could not fetch it.
