@@ -674,6 +674,34 @@ async def test_get_github_branch_for_commit_skips_tag_only_candidate(mocker: Moc
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(('status', 'expected'), [('ahead', 'main'), ('diverged', '')])
+async def test_get_github_branch_for_commit_falls_back_to_default_branch(
+        mocker: MockerFixture, status: str, expected: str) -> None:
+    responses = {
+        'https://api.github.com/repos/composer/composer': {
+            'default_branch': 'main'
+        },
+        'https://api.github.com/repos/composer/composer/compare/'
+        'e52c65bed1de6aa272cdde4b7725ca6653d7b06a...main': {
+            'status': status
+        }
+    }
+
+    def fake_get_content(url: str) -> Mock | None:
+        if url not in responses:
+            return None
+        response: Mock = mocker.Mock()
+        response.json.return_value = responses[url]
+        return response
+
+    mocker.patch('livecheck.special.github.get_content', side_effect=fake_get_content)
+    result = await get_github_branch_for_commit('https://github.com/composer/composer/releases',
+                                                '2.11.0',
+                                                'e52c65bed1de6aa272cdde4b7725ca6653d7b06a')
+    assert result == expected
+
+
+@pytest.mark.asyncio
 async def test_get_github_branch_for_commit_returns_empty_when_no_candidate_matches(
         mocker: MockerFixture) -> None:
     mocker.patch('livecheck.special.github.extract_owner_repo',
