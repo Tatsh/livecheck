@@ -988,6 +988,59 @@ async def test_do_main_pkgdev_commit_raises_called_process_error(mocker: MockerF
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(('keep_old_flag', 'last_version', 'returncode', 'expected_args'), [
+    (False, '1.0.0', 0, ('commit', '-m', 'cat/pkg: add 1.0.0-r1, drop 1.0.0')),
+    (True, '1.0.0', 0, ('commit', '-m', 'cat/pkg: add 1.0.0-r1')),
+    (False, '1.0.1', 0, ('commit',)),
+    (False, '1.0.1', 1, ('commit',)),
+])
+async def test_do_main_pkgdev_commit_message(mocker: MockerFixture, tmp_path: Path,
+                                             mock_settings: Mock, keep_old_flag: bool,
+                                             last_version: str, returncode: int,
+                                             expected_args: tuple[str, ...]) -> None:
+    ebuild_path = tmp_path / 'cat/pkg/pkg-1.0.0.ebuild'
+    ebuild_path.parent.mkdir(parents=True)
+    ebuild_path.write_text('SHA="1234567"\n', encoding='utf-8')
+    mock_settings.auto_update_flag = True
+    mock_settings.git_flag = True
+    mock_settings.keep_old_flag = keep_old_flag
+    mocker.patch('livecheck.main.get_old_sha', return_value='1234567')
+    mocker.patch('livecheck.main.digest_ebuild', return_value=True)
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
+    mocker.patch('livecheck.main.is_sha', return_value=True)
+    mocker.patch('livecheck.main.process_submodules', side_effect=lambda *a, **_: a[1])
+    mocker.patch('livecheck.main.execute_hooks')
+    _patch_main_resolved_executables(mocker)
+    calls: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
+
+    def fake_create_subprocess(*args: Any, **kwargs: Any) -> Any:
+        calls.append((args, kwargs))
+        mock_proc = mocker.AsyncMock()
+        mock_proc.wait = mocker.AsyncMock(
+            return_value=returncode if str(args[0]).endswith('/pkgdev') else 0)
+        return mock_proc
+
+    mocker.patch('livecheck.main.asyncio.create_subprocess_exec',
+                 side_effect=fake_create_subprocess)
+    mock_log = mocker.patch('livecheck.main.log')
+    await do_main(cat='cat',
+                  ebuild_version='1.0.0',
+                  hash_date='',
+                  hook_dir=None,
+                  last_version=last_version,
+                  pkg='pkg',
+                  search_dir=tmp_path,
+                  settings=mock_settings,
+                  top_hash='abcdef1',
+                  url='https://example.com')
+    pkgdev_calls = [(args[1:], kwargs) for args, kwargs in calls
+                    if str(args[0]).endswith('/pkgdev')]
+    assert pkgdev_calls == [(expected_args, {'cwd': str(tmp_path / 'cat/pkg')})]
+    error_call = mocker.call('Error committing `%s`.', mocker.ANY)
+    assert (error_call in mock_log.error.call_args_list) == (returncode != 0)
+
+
+@pytest.mark.asyncio
 async def test_do_main_digest_ebuild_returns_false(mocker: MockerFixture, tmp_path: Path,
                                                    mock_settings: Mock) -> None:
     cat = 'cat'

@@ -1007,6 +1007,16 @@ def _version_series_expression(branch: str, version: str) -> str:
     return f'{branch.removesuffix(series)}$(ver_cut {1 if count == 1 else f"1-{count}"})'
 
 
+def _pkgdev_message_args(cp: str, old_version: str, new_version: str, *,
+                         replace_old: bool) -> tuple[str, ...]:
+    # pkgdev does not generate a summary for a revision bump. It opens an editor instead, and the
+    # commit is aborted when no terminal is attached.
+    if catpkgsplit2(f'{cp}-{new_version}')[3] == 'r0':
+        return ()
+    summary = f'add {new_version}, drop {old_version}' if replace_old else f'add {new_version}'
+    return '-m', f'{cp}: {summary}'
+
+
 def update_egit_branch(ebuild_content: str, branch: str, *, version: str = '') -> str:
     """
     Add or replace ``EGIT_BRANCH`` in ebuild content.
@@ -1244,7 +1254,7 @@ async def do_main(  # ruff:ignore[complex-structure, too-many-branches, too-many
                     content = content.replace(m.group(1), new_path_dir)
             dn = Path(ebuild).parent
             log.debug('%s -> %s', ebuild, new_filename)
-            if settings.keep_old.get(cp, not settings.keep_old_flag):
+            if replace_old := settings.keep_old.get(cp, not settings.keep_old_flag):
                 returncode = 0
                 try:
                     if settings.git_flag:
@@ -1386,13 +1396,20 @@ async def do_main(  # ruff:ignore[complex-structure, too-many-branches, too-many
                         _resolved_executable('git'), 'add', new_filename,
                         str(Path(search_dir) / cp / 'Manifest'))
                     await proc.wait()
+                    message_args = _pkgdev_message_args(cp,
+                                                        ebuild_version,
+                                                        last_version,
+                                                        replace_old=replace_old)
                     try:
                         proc = await asyncio.create_subprocess_exec(_resolved_executable('pkgdev'),
                                                                     'commit',
+                                                                    *message_args,
                                                                     cwd=str(Path(search_dir) / cp))
-                        await proc.wait()
+                        returncode = await proc.wait()
                     except OSError:
                         log.exception('Error committing %s.', new_filename)
+                    if returncode != 0:
+                        log.error('Error committing `%s`.', new_filename)
             await execute_hooks(hook_dir, 'post', search_dir, cp, ebuild_version, last_version,
                                 old_sha, top_hash, hash_date)
 

@@ -28,6 +28,11 @@ and this project adheres to
   a commit in the URL, in `EGIT_REPO_URI` or `HOMEPAGE` (for example `dev-lang/php` and
   `dev-php/composer`). The new ebuild remained pinned to the previous commit, even when its version
   had the date of the new commit.
+- With `--git`, a revision bump (for example `5.6.40_p20261024` to `5.6.40_p20261024-r1`) opened an
+  editor for the commit message. pkgdev does not generate a summary for a revision bump, and
+  without a terminal the commit was aborted with the change staged. Livecheck now passes the
+  summary to `pkgdev commit` in the form `add <new>, drop <old>`, and a failed commit is logged as
+  an error.
 - When the commit of a GitHub release is not on a release series branch (for example after
   upstream merged and deleted the `2.10` branch), the default branch is written to `EGIT_BRANCH`
   if it includes the commit. Previously the stale branch remained and `git-r3` could not fetch it.
