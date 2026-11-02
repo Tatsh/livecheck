@@ -88,7 +88,7 @@ async def test_github_session_retries_on_429(mocker: MockerFixture) -> None:
     mocker.patch('niquests_cache.AsyncCachedSession.request',
                  new_callable=AsyncMock,
                  side_effect=[rate_limited, ok_response])
-    mocker.patch('livecheck.utils.session.asyncio.sleep', new_callable=AsyncMock)
+    mocker.patch('livecheck.utils.session.asyncio', sleep=AsyncMock())
     result = await session.request('GET', 'https://api.github.com/test')
     assert result.status_code == HTTPStatus.OK
 
@@ -104,7 +104,7 @@ async def test_github_session_gives_up_after_max_retries(mocker: MockerFixture) 
     mocker.patch('niquests_cache.AsyncCachedSession.request',
                  new_callable=AsyncMock,
                  return_value=rate_limited)
-    mocker.patch('livecheck.utils.session.asyncio.sleep', new_callable=AsyncMock)
+    mocker.patch('livecheck.utils.session.asyncio', sleep=AsyncMock())
     result = await session.request('GET', 'https://api.github.com/test')
     assert result.status_code == HTTPStatus.TOO_MANY_REQUESTS
 
@@ -123,7 +123,7 @@ async def test_github_session_retries_on_rate_limit_403(mocker: MockerFixture) -
     mocker.patch('niquests_cache.AsyncCachedSession.request',
                  new_callable=AsyncMock,
                  side_effect=[forbidden, ok_response])
-    mocker.patch('livecheck.utils.session.asyncio.sleep', new_callable=AsyncMock)
+    mocker.patch('livecheck.utils.session.asyncio', sleep=AsyncMock())
     result = await session.request('GET', 'https://api.github.com/test')
     assert result.status_code == HTTPStatus.OK
 
@@ -140,7 +140,7 @@ async def test_github_session_parks_when_rate_limit_exhausted(mocker: MockerFixt
     mocker.patch('niquests_cache.AsyncCachedSession.request',
                  new_callable=AsyncMock,
                  return_value=ok_exhausted)
-    mock_sleep = mocker.patch('livecheck.utils.session.asyncio.sleep', new_callable=AsyncMock)
+    mock_sleep = mocker.patch('livecheck.utils.session.asyncio', sleep=AsyncMock()).sleep
     result = await session.request('GET', 'https://api.github.com/test')
     assert result.status_code == HTTPStatus.OK
     mock_sleep.assert_called_once()
@@ -159,7 +159,7 @@ async def test_github_session_does_not_park_when_reset_in_past(mocker: MockerFix
     mocker.patch('niquests_cache.AsyncCachedSession.request',
                  new_callable=AsyncMock,
                  return_value=ok_exhausted)
-    mock_sleep = mocker.patch('livecheck.utils.session.asyncio.sleep', new_callable=AsyncMock)
+    mock_sleep = mocker.patch('livecheck.utils.session.asyncio', sleep=AsyncMock()).sleep
     await session.request('GET', 'https://api.github.com/test')
     mock_sleep.assert_not_called()
 
@@ -174,7 +174,7 @@ async def test_github_session_does_not_park_on_invalid_reset(mocker: MockerFixtu
     mocker.patch('niquests_cache.AsyncCachedSession.request',
                  new_callable=AsyncMock,
                  return_value=ok_exhausted)
-    mock_sleep = mocker.patch('livecheck.utils.session.asyncio.sleep', new_callable=AsyncMock)
+    mock_sleep = mocker.patch('livecheck.utils.session.asyncio', sleep=AsyncMock()).sleep
     await session.request('GET', 'https://api.github.com/test')
     mock_sleep.assert_not_called()
 
@@ -189,7 +189,7 @@ async def test_github_session_does_not_park_when_no_reset_header(mocker: MockerF
     mocker.patch('niquests_cache.AsyncCachedSession.request',
                  new_callable=AsyncMock,
                  return_value=ok_exhausted)
-    mock_sleep = mocker.patch('livecheck.utils.session.asyncio.sleep', new_callable=AsyncMock)
+    mock_sleep = mocker.patch('livecheck.utils.session.asyncio', sleep=AsyncMock()).sleep
     await session.request('GET', 'https://api.github.com/test')
     mock_sleep.assert_not_called()
 
@@ -211,7 +211,7 @@ async def test_github_session_uses_reset_window_when_retry_after_absent(
     mocker.patch('niquests_cache.AsyncCachedSession.request',
                  new_callable=AsyncMock,
                  side_effect=[rate_limited, ok_response])
-    mock_sleep = mocker.patch('livecheck.utils.session.asyncio.sleep', new_callable=AsyncMock)
+    mock_sleep = mocker.patch('livecheck.utils.session.asyncio', sleep=AsyncMock()).sleep
     result = await session.request('GET', 'https://api.github.com/test')
     assert result.status_code == HTTPStatus.OK
     assert mock_sleep.call_args_list[0][0][0] > 0
@@ -232,7 +232,7 @@ async def test_github_session_falls_back_to_backoff_on_invalid_reset(mocker: Moc
     mocker.patch('niquests_cache.AsyncCachedSession.request',
                  new_callable=AsyncMock,
                  side_effect=[rate_limited, ok_response])
-    mock_sleep = mocker.patch('livecheck.utils.session.asyncio.sleep', new_callable=AsyncMock)
+    mock_sleep = mocker.patch('livecheck.utils.session.asyncio', sleep=AsyncMock()).sleep
     result = await session.request('GET', 'https://api.github.com/test')
     assert result.status_code == HTTPStatus.OK
     assert mock_sleep.call_args_list[0][0][0] == 60.0
@@ -254,7 +254,7 @@ async def test_github_session_falls_back_to_backoff_on_invalid_retry_after(
     mocker.patch('niquests_cache.AsyncCachedSession.request',
                  new_callable=AsyncMock,
                  side_effect=[rate_limited, ok_response])
-    mock_sleep = mocker.patch('livecheck.utils.session.asyncio.sleep', new_callable=AsyncMock)
+    mock_sleep = mocker.patch('livecheck.utils.session.asyncio', sleep=AsyncMock()).sleep
     result = await session.request('GET', 'https://api.github.com/test')
     assert result.status_code == HTTPStatus.OK
     assert mock_sleep.call_args_list[0][0][0] == 60.0
@@ -275,7 +275,7 @@ async def test_github_session_backoff_when_no_rate_limit_headers(mocker: MockerF
     mocker.patch('niquests_cache.AsyncCachedSession.request',
                  new_callable=AsyncMock,
                  side_effect=[rate_limited, ok_response])
-    mock_sleep = mocker.patch('livecheck.utils.session.asyncio.sleep', new_callable=AsyncMock)
+    mock_sleep = mocker.patch('livecheck.utils.session.asyncio', sleep=AsyncMock()).sleep
     result = await session.request('GET', 'https://api.github.com/test')
     assert result.status_code == HTTPStatus.OK
     assert mock_sleep.call_args_list[0][0][0] == 60.0
@@ -293,7 +293,7 @@ async def test_github_session_does_not_retry_plain_403(mocker: MockerFixture) ->
     mock_request = mocker.patch('niquests_cache.AsyncCachedSession.request',
                                 new_callable=AsyncMock,
                                 return_value=forbidden)
-    mocker.patch('livecheck.utils.session.asyncio.sleep', new_callable=AsyncMock)
+    mocker.patch('livecheck.utils.session.asyncio', sleep=AsyncMock())
     result = await session.request('GET', 'https://api.github.com/test')
     assert result.status_code == HTTPStatus.FORBIDDEN
     assert mock_request.call_count == 1
@@ -317,7 +317,7 @@ async def test_github_session_retries_on_403_body_hints(mocker: MockerFixture, b
     mocker.patch('niquests_cache.AsyncCachedSession.request',
                  new_callable=AsyncMock,
                  side_effect=[forbidden, ok_response])
-    mocker.patch('livecheck.utils.session.asyncio.sleep', new_callable=AsyncMock)
+    mocker.patch('livecheck.utils.session.asyncio', sleep=AsyncMock())
     result = await session.request('GET', 'https://api.github.com/test')
     assert result.status_code == HTTPStatus.OK
 
@@ -339,7 +339,7 @@ async def test_github_session_handles_response_with_unreadable_body(mocker: Mock
     mock_request = mocker.patch('niquests_cache.AsyncCachedSession.request',
                                 new_callable=AsyncMock,
                                 return_value=cast('niquests.Response', _BadTextResponse()))
-    mocker.patch('livecheck.utils.session.asyncio.sleep', new_callable=AsyncMock)
+    mocker.patch('livecheck.utils.session.asyncio', sleep=AsyncMock())
     result = await session.request('GET', 'https://api.github.com/test')
     assert result.status_code == HTTPStatus.FORBIDDEN
     assert mock_request.call_count == 1
