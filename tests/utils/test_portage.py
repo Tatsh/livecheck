@@ -68,6 +68,7 @@ if TYPE_CHECKING:
         ('1.2.3 1', '1.2.3.1'),
         ('1.2.3-rc', '1.2.3_rc'),
         ('1.2.3-rc-1', '1.2.3_rc1'),
+        ('2.6.1-canary.20261102.3', '2.6.1_pre202611023'),
         ('2022.12.26 2022-12-26 19:55', '2022.12.26'),
         ('2022_12_26 2022-12-26 19:55', '2022.12.26'),
         ('2022-12-26 2022-12-26 19:55', '2022.12.26'),
@@ -1097,6 +1098,31 @@ def test_get_last_version_does_not_infer_reference_with_transformation(
 
     assert result['version'] == '2012.3.27'
     assert result['tag'] == 'weekly.2012-03-27'
+
+
+@pytest.mark.parametrize(('development', 'expected'), [(False, '2.6.0'),
+                                                       (True, '2.6.1_pre202611023')])
+def test_get_last_version_treats_canary_as_development(
+        mocker: MockerFixture,
+        development: bool,  # ruff:ignore[boolean-type-hint-positional-argument]
+        expected: str) -> None:
+    dummy_settings = mocker.Mock()
+    dummy_settings.regex_version = {}
+    dummy_settings.restrict_version = {}
+    dummy_settings.restrict_version_process = ''
+    dummy_settings.stable_version = {}
+    dummy_settings.transformations = {}
+    dummy_settings.is_devel = lambda _: development
+
+    result = get_last_version([{
+        'tag': '2.5.3'
+    }, {
+        'tag': '2.6.0'
+    }, {
+        'tag': '2.6.1-canary.20261102.3'
+    }], '', 'cat/pkg-2.5.3', dummy_settings)
+
+    assert result['version'] == expected
 
 
 @pytest.mark.parametrize(('results', 'ebuild', 'expected'), [
