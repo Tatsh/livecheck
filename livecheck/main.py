@@ -155,7 +155,9 @@ log = logging.getLogger(__name__)
 __all__ = ('STALL_REPORT_INTERVAL', 'HookError', 'main')
 
 _EAPI_ASSIGNMENT = re.compile(r'^EAPI=["\']?(\d+)', re.MULTILINE)
+_EGIT_BRANCH_ASSIGNMENT = re.compile(r'^EGIT_BRANCH=(["\'])?(.*)\1')
 _EGIT_COMMIT_ASSIGNMENT = re.compile(r'^EGIT_COMMIT=["\']?([a-f0-9]{40})', re.MULTILINE)
+_EGIT_REPO_URI_ASSIGNMENT = re.compile(r'^EGIT_REPO_URI=(["\'])?(.*)\1')
 _LEADING_NUMERIC = re.compile(r'\d+(?:\.\d+)*')
 _REVISION_SUFFIX = re.compile(r'-r\d+$')
 _VER_CUT = re.compile(r'\$\(ver_cut ([1-9]\d*(?:-\d*)?)\)')
@@ -970,9 +972,9 @@ def get_egit_repo(ebuild: Path) -> tuple[str, str]:
     egit = branch = ''
     with Path(ebuild).open(encoding='utf-8') as file:
         for line in file:
-            if match := re.compile(r'^EGIT_REPO_URI=(["\'])?(.*)\1').search(line):
+            if match := _EGIT_REPO_URI_ASSIGNMENT.search(line):
                 egit = match.group(2)
-            if match := re.compile(r'^EGIT_BRANCH=(["\'])?(.*)\1').search(line):
+            if match := _EGIT_BRANCH_ASSIGNMENT.search(line):
                 branch = match.group(2)
     if _VER_CUT.search(branch):
         version = _ebuild_variables(ebuild)['PV']
