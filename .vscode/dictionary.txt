@@ -112,6 +112,7 @@ libera
 libfat
 libjsonnet
 libretro
+librsvg
 libshared
 libsonnet
 libzrif
@@ -201,6 +202,7 @@ resumecommand
 ripgreprc
 rocm
 rstcheck
+rsvg
 rubygems
 sbclaude
 schemafile
