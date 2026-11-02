@@ -39,6 +39,14 @@ and this project adheres to
 - Patches and patch archives listed in `SRC_URI` are no longer consulted as version sources. A
   patch downloaded from a release of another repository (for example `inquirerpy-0.3.4-*.patch.xz`
   from an overlay assets release) made its release tag appear as a newer package version.
+- A canary build (for example `2.6.1-canary.20261102.3` on npm) was reported as the stable version
+  `2.6.1`, and the update failed because that file does not exist. The `canary` suffix is now
+  read as a development version (`2.6.1_pre202611023`). It is offered only with `--development`
+  or for a package with `development` set.
+- After a failed automatic update, the previous ebuild was restored under its own name with the
+  content written for the new version (for example without the `node_modules` archive in
+  `SRC_URI`). The previous content is now restored as well. A failed automatic update also makes
+  livecheck exit with status 1.
 
 ### Removed
 

@@ -492,6 +492,9 @@ def normalize_version(ver: str) -> str:
 
     if letters in {'test', 'dev'}:
         letters = 'beta'
+    # A canary build precedes the release with the same number.
+    if letters == 'canary':
+        letters = 'pre'
     if letters.startswith(('pl', 'patchlevel')):
         letters = 'p'
 

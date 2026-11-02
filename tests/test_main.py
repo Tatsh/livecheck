@@ -12,6 +12,7 @@ import pytest
 
 from livecheck.main import (
     HookError,
+    UpdateError,
     do_main,
     execute_hooks,
     extract_restrict_version,
@@ -178,20 +179,47 @@ async def test_do_main_digest_failure_restores_manifest(mocker: MockerFixture, t
 
     mocker.patch('livecheck.main.digest_ebuild', side_effect=digest)
     mocker.patch('livecheck.main.get_fetch_map', return_value={})
-    await do_main(cat='cat',
-                  ebuild_version='1.0',
-                  hash_date='',
-                  hook_dir=None,
-                  last_version='2.0',
-                  pkg='pkg',
-                  search_dir=tmp_path,
-                  settings=LivecheckSettings(auto_update_flag=True, keep_old_flag=keep_old),
-                  top_hash='',
-                  url='')
+    with pytest.raises(UpdateError):
+        await do_main(cat='cat',
+                      ebuild_version='1.0',
+                      hash_date='',
+                      hook_dir=None,
+                      last_version='2.0',
+                      pkg='pkg',
+                      search_dir=tmp_path,
+                      settings=LivecheckSettings(auto_update_flag=True, keep_old_flag=keep_old),
+                      top_hash='',
+                      url='')
     assert (package_dir / 'pkg-1.0.ebuild').exists()
     assert not (package_dir / 'pkg-2.0.ebuild').exists()
     assert (manifest_path.read_text(
         encoding='utf-8') if manifest_path.exists() else None) == manifest
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('keep_old', [False, True])
+async def test_do_main_digest_failure_restores_ebuild_content(mocker: MockerFixture, tmp_path: Path,
+                                                              *, keep_old: bool) -> None:
+    ebuild = tmp_path / 'cat' / 'pkg' / 'pkg-1.0.ebuild'
+    ebuild.parent.mkdir(parents=True)
+    original = 'SRC_URI="https://example.com/${P}.tar.gz"\nEGIT_COMMIT="abcdef1"\n'
+    ebuild.write_text(original, encoding='utf-8')
+    mocker.patch('livecheck.main.get_old_sha', return_value='abcdef1')
+    mocker.patch('livecheck.main.digest_ebuild', return_value=False)
+    mocker.patch('livecheck.main.get_fetch_map', return_value={})
+    with pytest.raises(UpdateError, match=r'pkg-2\.0\.ebuild$'):
+        await do_main(cat='cat',
+                      ebuild_version='1.0',
+                      hash_date='',
+                      hook_dir=None,
+                      last_version='2.0',
+                      pkg='pkg',
+                      search_dir=tmp_path,
+                      settings=LivecheckSettings(auto_update_flag=True, keep_old_flag=keep_old),
+                      top_hash='abcdef2',
+                      url='')
+    assert ebuild.read_text(encoding='utf-8') == original
+    assert not (ebuild.parent / 'pkg-2.0.ebuild').exists()
 
 
 @pytest.mark.parametrize('parallel', [1, 3])
@@ -849,16 +877,17 @@ async def test_do_main_keep_old_true_git_flag_true_rename_failure(mocker: Mocker
     _patch_main_resolved_executables(mocker)
     mocker.patch('livecheck.main.asyncio.create_subprocess_exec',
                  side_effect=OSError('Git command failed'))
-    await do_main(cat=cat,
-                  ebuild_version=ebuild_version,
-                  hash_date=hash_date,
-                  hook_dir=hook_dir,
-                  last_version=last_version,
-                  pkg=pkg,
-                  search_dir=search_dir,
-                  settings=mock_settings,
-                  top_hash=top_hash,
-                  url=url)
+    with pytest.raises(UpdateError):
+        await do_main(cat=cat,
+                      ebuild_version=ebuild_version,
+                      hash_date=hash_date,
+                      hook_dir=hook_dir,
+                      last_version=last_version,
+                      pkg=pkg,
+                      search_dir=search_dir,
+                      settings=mock_settings,
+                      top_hash=top_hash,
+                      url=url)
     mock_log.exception.assert_called_once_with('Error moving `%s` to `%s`.', mocker.ANY, mocker.ANY)
 
 
@@ -908,16 +937,17 @@ async def test_do_main_keep_old_true_git_flag_true_write_text_failure(mocker: Mo
     mock_async_proc = mocker.AsyncMock()
     mock_async_proc.wait = mocker.AsyncMock(return_value=0)
     mocker.patch('livecheck.main.asyncio.create_subprocess_exec', return_value=mock_async_proc)
-    await do_main(cat=cat,
-                  ebuild_version=ebuild_version,
-                  hash_date=hash_date,
-                  hook_dir=hook_dir,
-                  last_version=last_version,
-                  pkg=pkg,
-                  search_dir=search_dir,
-                  settings=mock_settings,
-                  top_hash=top_hash,
-                  url=url)
+    with pytest.raises(UpdateError):
+        await do_main(cat=cat,
+                      ebuild_version=ebuild_version,
+                      hash_date=hash_date,
+                      hook_dir=hook_dir,
+                      last_version=last_version,
+                      pkg=pkg,
+                      search_dir=search_dir,
+                      settings=mock_settings,
+                      top_hash=top_hash,
+                      url=url)
     mock_log.exception.assert_called_once_with('Error writing `%s`.', mocker.ANY)
 
 
@@ -1082,18 +1112,22 @@ async def test_do_main_digest_ebuild_returns_false(mocker: MockerFixture, tmp_pa
     mock_async_proc = mocker.AsyncMock()
     mock_async_proc.wait = mocker.AsyncMock(return_value=0)
     mocker.patch('livecheck.main.asyncio.create_subprocess_exec', return_value=mock_async_proc)
-    await do_main(cat=cat,
-                  ebuild_version=ebuild_version,
-                  hash_date=hash_date,
-                  hook_dir=hook_dir,
-                  last_version=last_version,
-                  pkg=pkg,
-                  search_dir=search_dir,
-                  settings=mock_settings,
-                  top_hash=top_hash,
-                  url=url)
+    with pytest.raises(UpdateError):
+        await do_main(cat=cat,
+                      ebuild_version=ebuild_version,
+                      hash_date=hash_date,
+                      hook_dir=hook_dir,
+                      last_version=last_version,
+                      pkg=pkg,
+                      search_dir=search_dir,
+                      settings=mock_settings,
+                      top_hash=top_hash,
+                      url=url)
     mock_digest.assert_called()
-    mock_write.assert_called_once_with('abcdef1', encoding='utf-8')
+    assert mock_write.call_args_list == [
+        mocker.call('abcdef1', encoding='utf-8'),
+        mocker.call('SHA="1234567"\n', encoding='utf-8')
+    ]
 
 
 @pytest.mark.asyncio
@@ -1136,16 +1170,17 @@ async def test_do_main_digest_failure_with_git_flag_runs_git_commands(mocker: Mo
     mock_proc.wait = mocker.AsyncMock(return_value=0)
     mock_exec = mocker.patch('livecheck.main.asyncio.create_subprocess_exec',
                              return_value=mock_proc)
-    await do_main(cat=cat,
-                  ebuild_version=ebuild_version,
-                  hash_date='',
-                  hook_dir=None,
-                  last_version=last_version,
-                  pkg=pkg,
-                  search_dir=tmp_path,
-                  settings=mock_settings,
-                  top_hash='abcdef1',
-                  url='https://example.com')
+    with pytest.raises(UpdateError):
+        await do_main(cat=cat,
+                      ebuild_version=ebuild_version,
+                      hash_date='',
+                      hook_dir=None,
+                      last_version=last_version,
+                      pkg=pkg,
+                      search_dir=tmp_path,
+                      settings=mock_settings,
+                      top_hash='abcdef1',
+                      url='https://example.com')
     exec_calls = [call.args for call in mock_exec.call_args_list]
     new_filename = str(tmp_path / cp / f'{pkg}-{last_version}.ebuild')
     manifest_path = str(tmp_path / cp / 'Manifest')
@@ -1189,16 +1224,17 @@ async def test_do_main_digest_failure_without_keep_old_unlinks(mocker: MockerFix
     mocker.patch('livecheck.main.get_aux',
                  new_callable=mocker.AsyncMock,
                  return_value=['https://homepage'])
-    await do_main(cat=cat,
-                  ebuild_version=ebuild_version,
-                  hash_date='',
-                  hook_dir=None,
-                  last_version=last_version,
-                  pkg=pkg,
-                  search_dir=tmp_path,
-                  settings=mock_settings,
-                  top_hash='abcdef1',
-                  url='https://example.com')
+    with pytest.raises(UpdateError):
+        await do_main(cat=cat,
+                      ebuild_version=ebuild_version,
+                      hash_date='',
+                      hook_dir=None,
+                      last_version=last_version,
+                      pkg=pkg,
+                      search_dir=tmp_path,
+                      settings=mock_settings,
+                      top_hash='abcdef1',
+                      url='https://example.com')
     mock_anyio.unlink.assert_awaited_with(missing_ok=True)
 
 
@@ -1237,16 +1273,17 @@ async def test_do_main_digest_failure_recovery_logs_oserror(mocker: MockerFixtur
                  new_callable=mocker.AsyncMock,
                  return_value=['https://homepage'])
     mock_log = mocker.patch('livecheck.main.log')
-    await do_main(cat=cat,
-                  ebuild_version=ebuild_version,
-                  hash_date='',
-                  hook_dir=None,
-                  last_version=last_version,
-                  pkg=pkg,
-                  search_dir=tmp_path,
-                  settings=mock_settings,
-                  top_hash='abcdef1',
-                  url='https://example.com')
+    with pytest.raises(UpdateError):
+        await do_main(cat=cat,
+                      ebuild_version=ebuild_version,
+                      hash_date='',
+                      hook_dir=None,
+                      last_version=last_version,
+                      pkg=pkg,
+                      search_dir=tmp_path,
+                      settings=mock_settings,
+                      top_hash='abcdef1',
+                      url='https://example.com')
     assert any('Error recovering' in str(call) for call in mock_log.exception.call_args_list)
 
 
@@ -1286,16 +1323,17 @@ async def test_resolved_executable_raises_when_missing(mocker: MockerFixture, mo
                  new_callable=mocker.AsyncMock,
                  return_value=['https://homepage'])
     mock_log = mocker.patch('livecheck.main.log')
-    await do_main(cat=cat,
-                  ebuild_version=ebuild_version,
-                  hash_date='',
-                  hook_dir=None,
-                  last_version=last_version,
-                  pkg=pkg,
-                  search_dir=tmp_path,
-                  settings=mock_settings,
-                  top_hash='abcdef1',
-                  url='https://example.com')
+    with pytest.raises(UpdateError):
+        await do_main(cat=cat,
+                      ebuild_version=ebuild_version,
+                      hash_date='',
+                      hook_dir=None,
+                      last_version=last_version,
+                      pkg=pkg,
+                      search_dir=tmp_path,
+                      settings=mock_settings,
+                      top_hash='abcdef1',
+                      url='https://example.com')
     mock_log.exception.assert_called()
 
 
@@ -1884,16 +1922,17 @@ async def test_do_main_dotnet_recovers_on_exception(mocker: MockerFixture, tmp_p
     mocker.patch('livecheck.main.update_dotnet_ebuild', side_effect=RuntimeError('boom'))
     mock_jetbrains = mocker.patch('livecheck.main.update_jetbrains_ebuild')
     mock_settings.jetbrains_packages = {cp: True}
-    await do_main(cat=cat,
-                  ebuild_version=ebuild_version,
-                  hash_date=hash_date,
-                  hook_dir=hook_dir,
-                  last_version=last_version,
-                  pkg=pkg,
-                  search_dir=search_dir,
-                  settings=mock_settings,
-                  top_hash=top_hash,
-                  url=url)
+    with pytest.raises(UpdateError):
+        await do_main(cat=cat,
+                      ebuild_version=ebuild_version,
+                      hash_date=hash_date,
+                      hook_dir=hook_dir,
+                      last_version=last_version,
+                      pkg=pkg,
+                      search_dir=search_dir,
+                      settings=mock_settings,
+                      top_hash=top_hash,
+                      url=url)
     mock_jetbrains.assert_not_called()
 
 
@@ -2136,16 +2175,17 @@ async def test_do_main_old_content_differs_with_gomodule_packages_digest_false(
                                            side_effect=lambda *_, **__: 'SHA="abcdef1"\n')
     mocker.patch('livecheck.main.check_gomodule_requirements', return_value=True)
     mocker.patch('livecheck.main.update_gomodule_ebuild')
-    await do_main(cat=cat,
-                  ebuild_version=ebuild_version,
-                  hash_date=hash_date,
-                  hook_dir=hook_dir,
-                  last_version=last_version,
-                  pkg=pkg,
-                  search_dir=search_dir,
-                  settings=mock_settings,
-                  top_hash=top_hash,
-                  url=url)
+    with pytest.raises(UpdateError):
+        await do_main(cat=cat,
+                      ebuild_version=ebuild_version,
+                      hash_date=hash_date,
+                      hook_dir=hook_dir,
+                      last_version=last_version,
+                      pkg=pkg,
+                      search_dir=search_dir,
+                      settings=mock_settings,
+                      top_hash=top_hash,
+                      url=url)
     assert write_text_mock.call_count >= 2
     assert process_submodules_mock.called
     assert mock_digest.call_count == 3
@@ -2258,16 +2298,17 @@ async def test_do_main_git_mv_nonzero_returncode(mocker: MockerFixture, tmp_path
     mock_async_proc.wait = mocker.AsyncMock(return_value=1)
     mocker.patch('livecheck.main.asyncio.create_subprocess_exec', return_value=mock_async_proc)
     mock_log = mocker.patch('livecheck.main.log')
-    await do_main(cat=cat,
-                  ebuild_version=ebuild_version,
-                  hash_date=hash_date,
-                  hook_dir=hook_dir,
-                  last_version=last_version,
-                  pkg=pkg,
-                  search_dir=search_dir,
-                  settings=mock_settings,
-                  top_hash=top_hash,
-                  url=url)
+    with pytest.raises(UpdateError):
+        await do_main(cat=cat,
+                      ebuild_version=ebuild_version,
+                      hash_date=hash_date,
+                      hook_dir=hook_dir,
+                      last_version=last_version,
+                      pkg=pkg,
+                      search_dir=search_dir,
+                      settings=mock_settings,
+                      top_hash=top_hash,
+                      url=url)
     mock_log.error.assert_any_call('Error moving `%s` to `%s`.', mocker.ANY, mocker.ANY)
 
 
@@ -4527,6 +4568,33 @@ def test_main_unexpected_error_continues_but_exits_nonzero(mocker: MockerFixture
                                  search_dir=tmp_path,
                                  settings=mock_settings,
                                  hook_dir=None)
+
+
+def test_main_failed_update_continues_but_exits_nonzero(mocker: MockerFixture, runner: CliRunner,
+                                                        tmp_path: Path,
+                                                        caplog: LogCaptureFixture) -> None:
+    mocker.patch('livecheck.main.chdir')
+    mocker.patch('livecheck.main.setup_logging')
+    mocker.patch('livecheck.main.gather_settings', return_value=mocker.Mock())
+    mocker.patch('livecheck.main.get_repository_root_if_inside',
+                 return_value=(str(tmp_path), 'repo'))
+    mocker.patch('os.access', return_value=True)
+
+    def fake_do_main(*, cat: str, **_: Any) -> None:
+        if cat == 'cat':
+            msg = 'Error digesting `pkg-1.0.1.ebuild`.'
+            raise UpdateError(msg)
+
+    mock_do_main = mocker.patch('livecheck.main.do_main', side_effect=fake_do_main)
+    mocker.patch('livecheck.main.get_props',
+                 return_value=[('cat', 'pkg', '1.0.0', '1.0.1', 'sha', 'date', 'url'),
+                               ('cat2', 'pkg2', '2.0.0', '2.0.1', 'sha2', 'date2', 'url2')])
+    result = runner.invoke(
+        main, ['--auto-update', '--working-dir',
+               str(tmp_path), 'cat/pkg', 'cat2/pkg2'])
+    assert result.exit_code == 1
+    assert mock_do_main.call_count == 2
+    assert all(record.exc_info is None for record in caplog.records)
 
 
 def test_main_exclude_logs_message(mocker: MockerFixture, runner: CliRunner, tmp_path: Path,

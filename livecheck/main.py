@@ -152,7 +152,7 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-__all__ = ('STALL_REPORT_INTERVAL', 'HookError', 'main')
+__all__ = ('STALL_REPORT_INTERVAL', 'HookError', 'UpdateError', 'main')
 
 _EAPI_ASSIGNMENT = re.compile(r'^EAPI=["\']?(\d+)', re.MULTILINE)
 _EGIT_BRANCH_ASSIGNMENT = re.compile(r'^EGIT_BRANCH=(["\'])?(.*)\1')
@@ -173,6 +173,10 @@ _SKIPPED_SRC_URI_SUFFIXES = ('-crates.tar.xz', '-mvn.tar.xz', '-node_modules.tar
 
 class HookError(RuntimeError):
     """Raised when a hook script exits with a non-zero status."""
+
+
+class UpdateError(RuntimeError):
+    """Raised when an automatic update is abandoned after its cause is logged."""
 
 
 def _resolved_executable(name: str) -> str:
@@ -1106,7 +1110,8 @@ async def execute_hooks(hook_dir: Path | None, action: str, search_dir: Path, cp
 
 
 async def _restore_ebuild_state(new_filename: str, ebuild: Path, cp: str, search_dir: Path,
-                                settings: LivecheckSettings, manifest: bytes | None) -> None:
+                                settings: LivecheckSettings, manifest: bytes | None,
+                                content: str) -> None:
     """
     Restore the original ebuild and Manifest after a failed digest.
 
@@ -1125,6 +1130,8 @@ async def _restore_ebuild_state(new_filename: str, ebuild: Path, cp: str, search
     manifest : bytes | None
         Manifest content before the update, or ``None`` when the package directory had no
         Manifest. Used when git is not in use.
+    content : str
+        Ebuild content before the update.
     """
     if settings.keep_old.get(cp, not settings.keep_old_flag):
         if settings.git_flag:
@@ -1133,6 +1140,8 @@ async def _restore_ebuild_state(new_filename: str, ebuild: Path, cp: str, search
             await proc.wait()
         else:
             await AnyioPath(new_filename).rename(ebuild)
+        # The moved file has the rewritten content of the new version.
+        await AnyioPath(ebuild).write_text(content, encoding='utf-8')
     else:
         await AnyioPath(new_filename).unlink(missing_ok=True)
     manifest_path = Path(search_dir) / cp / 'Manifest'
@@ -1147,10 +1156,12 @@ async def _restore_ebuild_state(new_filename: str, ebuild: Path, cp: str, search
 
 
 async def _recover_ebuild(new_filename: str, ebuild: Path, cp: str, search_dir: Path,
-                          settings: LivecheckSettings, manifest: bytes | None) -> None:
+                          settings: LivecheckSettings, manifest: bytes | None,
+                          content: str) -> None:
     """Recover ebuild to its original state after a failed digest."""
     try:
-        await _restore_ebuild_state(new_filename, ebuild, cp, search_dir, settings, manifest)
+        await _restore_ebuild_state(new_filename, ebuild, cp, search_dir, settings, manifest,
+                                    content)
     except OSError:
         log.exception('Error recovering `%s`.', new_filename)
 
@@ -1265,18 +1276,18 @@ async def do_main(  # ruff:ignore[complex-structure, too-many-branches, too-many
                         returncode = await proc.wait()
                     else:
                         ebuild.rename(new_filename)
-                except OSError:
+                except OSError as e:
                     log.exception('Error moving `%s` to `%s`.', ebuild, new_filename)
-                    return
+                    raise UpdateError(new_filename) from e
                 if returncode != 0:
                     log.error('Error moving `%s` to `%s`.', ebuild, new_filename)
-                    return
+                    raise UpdateError(new_filename)
 
             try:
                 await AnyioPath(new_filename).write_text(content, encoding='utf-8')
-            except OSError:
+            except OSError as e:
                 log.exception('Error writing `%s`.', new_filename)
-                return
+                raise UpdateError(new_filename) from e
             await execute_hooks(hook_dir, 'pre', search_dir, cp, ebuild_version, last_version,
                                 old_sha, top_hash, hash_date)
             if not settings.crates_packages.get(cp):
@@ -1295,8 +1306,7 @@ async def do_main(  # ruff:ignore[complex-structure, too-many-branches, too-many
                         cp, 'archive') == 'native' else remove_crates_url(content))
                 except RuntimeError:
                     await _recover_ebuild(new_filename, ebuild, cp, search_dir, settings,
-                                          original_manifest)
-                    await ebuild_path.write_text(original_content, encoding='utf-8')
+                                          original_manifest, original_content)
                     raise
             if cp in settings.maven_packages:
                 content = remove_maven_url(content)
@@ -1307,12 +1317,11 @@ async def do_main(  # ruff:ignore[complex-structure, too-many-branches, too-many
             if not await asyncio.to_thread(digest_ebuild, new_filename):
                 log.error('Error digesting `%s`.', new_filename)
                 await _recover_ebuild(new_filename, ebuild, cp, search_dir, settings,
-                                      original_manifest)
+                                      original_manifest, original_content)
                 if settings.crates_packages.get(cp):
-                    await ebuild_path.write_text(original_content, encoding='utf-8')
                     msg = 'Could not digest sources for Rust dependencies.'
                     raise RuntimeError(msg)
-                return
+                raise UpdateError(new_filename)
             if cp in settings.yarn_base_packages:
                 await update_yarn_ebuild(new_filename, settings.yarn_base_packages[cp], pkg,
                                          settings.yarn_packages.get(cp))
@@ -1337,8 +1346,7 @@ async def do_main(  # ruff:ignore[complex-structure, too-many-branches, too-many
                                                    dist_settings=dist_settings)
                 except Exception:
                     await _recover_ebuild(new_filename, ebuild, cp, search_dir, settings,
-                                          original_manifest)
-                    await ebuild_path.write_text(original_content, encoding='utf-8')
+                                          original_manifest, original_content)
                     raise
             if cp in settings.dotnet_projects:
                 try:
@@ -1348,11 +1356,11 @@ async def do_main(  # ruff:ignore[complex-structure, too-many-branches, too-many
                                                            settings.dotnet_projects[cp],
                                                            fetchlist,
                                                            dist_settings=dist_settings)
-                except Exception:
+                except Exception as e:
                     log.exception('Error updating .NET ebuild `%s`.', new_filename)
                     await _recover_ebuild(new_filename, ebuild, cp, search_dir, settings,
-                                          original_manifest)
-                    return
+                                          original_manifest, original_content)
+                    raise UpdateError(new_filename) from e
             if cp in settings.jetbrains_packages:
                 await update_jetbrains_ebuild(new_filename)
             if cp in settings.maven_packages:
@@ -1383,12 +1391,11 @@ async def do_main(  # ruff:ignore[complex-structure, too-many-branches, too-many
                 if not await asyncio.to_thread(digest_ebuild, new_filename):
                     log.error('Error digesting `%s`.', new_filename)
                     await _recover_ebuild(new_filename, ebuild, cp, search_dir, settings,
-                                          original_manifest)
+                                          original_manifest, original_content)
                     if settings.crates_packages.get(cp):
-                        await ebuild_path.write_text(original_content, encoding='utf-8')
                         msg = 'Could not digest the ebuild with Rust dependencies.'
                         raise RuntimeError(msg)
-                    return
+                    raise UpdateError(new_filename)
             if settings.git_flag:
                 proc = await asyncio.create_subprocess_exec(_resolved_executable('ebuild'),
                                                             new_filename, 'digest')
@@ -1447,6 +1454,8 @@ async def _async_main(*,
             except HookError as exc:
                 log.error(  # ruff:ignore[error-instead-of-exception]
                     '%s Skipping `%s/%s`.', exc, cat, pkg)
+            except UpdateError:
+                return True
             except Exception:
                 log.exception('Unexpected error processing `%s/%s`; skipping.', cat, pkg)
                 return True
