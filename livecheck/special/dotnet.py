@@ -136,11 +136,10 @@ async def update_dotnet_ebuild(ebuild: str, project_or_solution: str | Path) -> 
                 if in_nugets:
                     raise RuntimeError
                 in_nugets = True
-            elif in_nugets:
-                if line.endswith('"\n'):
-                    in_nugets = False
-                    skip_lines = line_no
-                    break
+            elif in_nugets and line.endswith('"\n'):
+                in_nugets = False
+                skip_lines = line_no
+                break
         if not nugets_starting_line:
             raise NoNugetsFound
         if not skip_lines:
