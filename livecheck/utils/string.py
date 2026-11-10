@@ -53,9 +53,9 @@ def is_sha(url: str) -> Literal[40, 7, 0]:
     """
     last_part = urlparse(url).path.rsplit('/', 1)[-1] if '/' in url else url
 
-    if re.match(r'^[0-9a-f]{40}', last_part):
+    if re.match(r'^[0-9a-f]{40}$', last_part):
         return 40
-    if re.match(r'^[0-9a-f]{7}', last_part):
+    if re.match(r'^[0-9a-f]{7}$', last_part):
         return 7
     return 0
 
