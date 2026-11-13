@@ -117,7 +117,7 @@ async def test_search_ebuild(mocker: MockerFixture, ebuild: str, archive: str, p
         else:
             walk_result = [(temp_dir, [], ['other-file.txt']), (temp_dir + '/subdir', [], [])]
     elif found:
-        walk_result = [(temp_dir, [], []), (temp_dir + '/' + path, [], [])]
+        walk_result = [(temp_dir, [], []), (temp_dir + '/' + path, [], [archive])]
     else:
         walk_result = [(temp_dir, [], []), (temp_dir + '/another-path', [], [])]
     mocker.patch('os.walk', return_value=walk_result)
@@ -132,6 +132,19 @@ async def test_search_ebuild(mocker: MockerFixture, ebuild: str, archive: str, p
         if path is None:
             mock_logger.error.assert_called_once_with('Error searching the `%s` inside package.',
                                                       archive)
+
+
+@pytest.mark.asyncio
+async def test_search_ebuild_path_skips_directory_without_archive(mocker: MockerFixture) -> None:
+    temp_dir = '/tmp/unpacked_dir'
+    mocker.patch('livecheck.special.utils.unpack_ebuild', return_value=temp_dir)
+    mocker.patch('os.walk',
+                 return_value=[(f'{temp_dir}/foo-1/internal/mysql/collector', [], ['query.go']),
+                               (f'{temp_dir}/foo-1/collector', [], ['go.mod'])])
+    mocker.patch('livecheck.special.utils.to_thread.run_sync', side_effect=lambda fn, **_: fn())
+    root, returned_temp_dir = await search_ebuild('foo.ebuild', 'go.mod', '/collector')
+    assert root == f'{temp_dir}/foo-1/collector'
+    assert returned_temp_dir == temp_dir
 
 
 @pytest.mark.asyncio

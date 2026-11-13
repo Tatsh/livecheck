@@ -50,6 +50,11 @@ and this project adheres to
 - For a `SRC_URI` that downloads from a GitHub release, a tag without a published release (for
   example `v1.22.0` of `app-metrics/alloy-bin` while only `v1.22.0-rc.0` was published) was
   reported as the new version, and its download did not exist. Such a tag is now skipped.
+- With a `*_path` option (for example `gomodule_path`), the first directory ending with the suffix
+  was used even without the file the tool needs (`go.mod`, `package.json`, `Cargo.lock`, and
+  others). In `app-metrics/alloy`, `/collector` also matched three
+  `internal/component/database_observability/*/collector` directories without `go.mod`, and
+  `go mod vendor` ran in the wrong one. Only a directory with the required file is now used.
 
 ### Removed
 
