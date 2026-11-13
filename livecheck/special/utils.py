@@ -85,7 +85,8 @@ async def search_ebuild(ebuild: str, archive: str, path: str | None = None) -> t
     archive : str
         Archive filename to locate.
     path : str | None
-        Optional relative directory suffix to match under the temp tree.
+        Optional suffix that the directory with the archive must end with. Directories that end
+        with the suffix but do not have the archive are skipped.
 
     Returns
     -------
@@ -98,14 +99,9 @@ async def search_ebuild(ebuild: str, archive: str, path: str | None = None) -> t
         return '', ''
 
     def _walk_search() -> tuple[str, str]:
-        if path:
-            for root, _, _ in os.walk(temp_dir):
-                if root.endswith(path):
-                    return root, temp_dir
-        else:
-            for root, _, files in os.walk(temp_dir):
-                if archive in files:
-                    return root, temp_dir
+        for root, _, files in os.walk(temp_dir):
+            if archive in files and (not path or root.endswith(path)):
+                return root, temp_dir
         return '', ''
 
     result = await to_thread.run_sync(_walk_search)
