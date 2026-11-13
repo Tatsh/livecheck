@@ -62,6 +62,9 @@ async def get_release(owner: str, repo: str, tag: str) -> dict[str, Any] | None:
     """
     Get the published GitHub release of a tag.
 
+    The tag endpoint of the GitHub API does not return a draft release, even to a user with push
+    access.
+
     Parameters
     ----------
     owner : str
