@@ -47,6 +47,9 @@ and this project adheres to
   content written for the new version (for example without the `node_modules` archive in
   `SRC_URI`). The previous content is now restored as well. A failed automatic update also makes
   livecheck exit with status 1.
+- For a `SRC_URI` that downloads from a GitHub release, a tag without a published release (for
+  example `v1.22.0` of `app-metrics/alloy-bin` while only `v1.22.0-rc.0` was published) was
+  reported as the new version, and its download did not exist. Such a tag is now skipped.
 
 ### Removed
 

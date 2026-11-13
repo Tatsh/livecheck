@@ -7,8 +7,14 @@ from urllib.parse import quote, urlparse
 import logging
 import re
 
+from livecheck.dist_github import get_release
 from livecheck.utils import get_content, is_sha
-from livecheck.utils.portage import catpkg_catpkgsplit, current_version_result, get_last_version
+from livecheck.utils.portage import (
+    catpkg_catpkgsplit,
+    compare_versions,
+    current_version_result,
+    get_last_version,
+)
 
 from .utils import get_archive_extension
 
@@ -31,6 +37,11 @@ GITHUB_COMPARE_REACHABLE_STATUSES = frozenset({'ahead', 'identical'})
 GITHUB_DATE_URL = 'https://api.github.com/repos/%s/%s/git/refs/tags/%s'
 GITHUB_METADATA = 'github'
 GITHUB_REPO_URL = 'https://api.github.com/repos/%s/%s'
+RELEASE_CHECKS = 5
+"""Maximum number of candidate tags whose GitHub release is looked up for one URL.
+
+:meta hide-value:
+"""
 TAGS_PER_PAGE = 100
 """Number of tags requested per page of the tags API.
 
@@ -276,6 +287,53 @@ async def _newest_tag(results: Collection[Mapping[str, str]],
     return {}
 
 
+async def _newest_released_tag(results: Collection[Mapping[str, str]],
+                               owner: str,
+                               repo: str,
+                               ebuild: str,
+                               settings: LivecheckSettings,
+                               version_reference: str = '') -> dict[str, str]:
+    """
+    Pick the newest tag from :py:func:`_newest_tag` whose GitHub release is published.
+
+    A tag is often pushed before the assets of its release are uploaded.
+
+    Parameters
+    ----------
+    results : Collection[Mapping[str, str]]
+        Tag results as produced by :py:func:`_tag_results`.
+    owner : str
+        Repository owner or organisation.
+    repo : str
+        Repository name.
+    ebuild : str
+        Ebuild atom string.
+    settings : LivecheckSettings
+        Livecheck settings.
+    version_reference : str
+        Current upstream tag or filename whose versioned pattern candidates must match.
+
+    Returns
+    -------
+    dict[str, str]
+        Newest acceptable tag result, or an empty dictionary if there is none.
+    """
+    candidates = list(results)
+    _, _, _, ebuild_version = catpkg_catpkgsplit(ebuild)
+    for _ in range(RELEASE_CHECKS):
+        if not (last_version := await _newest_tag(
+                candidates, owner, repo, ebuild, settings, version_reference=version_reference)):
+            return {}
+        # Only a version offered as an update needs its download to exist.
+        if (not compare_versions(ebuild_version, last_version['version'])
+                or await get_release(owner, repo, last_version['tag']) is not None):
+            return last_version
+        log.debug('Skip tag `%s` without a published release.', last_version['tag'])
+        candidates = [result for result in candidates if result['tag'] != last_version['tag']]
+    log.debug('Gave up on %s after %d tags without a published release.', ebuild, RELEASE_CHECKS)
+    return {}
+
+
 async def get_latest_github_package(url: str, ebuild: str,
                                     settings: LivecheckSettings) -> tuple[str, str]:
     """
@@ -303,7 +361,8 @@ async def get_latest_github_package(url: str, ebuild: str,
                                  ) is None:
         return '', ''
 
-    if not (last_version := await _newest_tag(
+    newest = _newest_released_tag if is_github_release_url(url) else _newest_tag
+    if not (last_version := await newest(
             results, owner, repo, ebuild, settings, version_reference=version_reference)):
         return '', ''
 
