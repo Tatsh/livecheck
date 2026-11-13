@@ -13,7 +13,8 @@ from livecheck.utils.requests import session_init
 if TYPE_CHECKING:
     from pathlib import Path
 
-__all__ = ('DistGitHubSettings', 'asset_exists', 'parse_repository', 'upload_dist_archive')
+__all__ = ('DistGitHubSettings', 'asset_exists', 'get_release', 'parse_repository',
+           'upload_dist_archive')
 
 log = logging.getLogger(__name__)
 
@@ -57,7 +58,25 @@ def parse_repository(spec: str) -> tuple[str, str]:
     return parts[0], parts[1]
 
 
-async def _get_release(owner: str, repo: str, tag: str) -> dict[str, Any] | None:
+async def get_release(owner: str, repo: str, tag: str) -> dict[str, Any] | None:
+    """
+    Get the published GitHub release of a tag.
+
+    Parameters
+    ----------
+    owner : str
+        Repository owner or organisation.
+    repo : str
+        Repository name.
+    tag : str
+        Tag name of the release.
+
+    Returns
+    -------
+    dict[str, Any] | None
+        Release data from the GitHub API, or ``None`` if the tag has no published release or the
+        lookup fails. A failure other than HTTP 404 is logged as an error.
+    """
     session = session_init('github')
     response = await session.get(f'{_API_BASE}/repos/{owner}/{repo}/releases/tags/{tag}',
                                  timeout=30)
@@ -130,7 +149,7 @@ async def asset_exists(settings: DistGitHubSettings, filename: str) -> bool:
     except ValueError:
         log.exception('Invalid `--dist-github-repository` value.')
         return False
-    release = await _get_release(owner, repo, settings.release)
+    release = await get_release(owner, repo, settings.release)
     if release is None:
         return False
     return _find_asset(release, filename) is not None
@@ -163,7 +182,7 @@ async def upload_dist_archive(settings: DistGitHubSettings, path: Path) -> bool:
     if not await AnyioPath(path).is_file():
         log.error('Dist archive `%s` does not exist.', path)
         return False
-    release = await _get_release(owner, repo, settings.release)
+    release = await get_release(owner, repo, settings.release)
     if release is None:
         release = await _create_draft_release(owner, repo, settings.release)
         if release is None:

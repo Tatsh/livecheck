@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -18,10 +19,12 @@ from livecheck.special.github import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Collection, Mapping
     from unittest.mock import Mock
 
     from pytest_mock import MockerFixture
+
+    from tests.conftest import NiquestsMocker
 
 test_cases = {
     'test_extract_owner_repo_valid_github_com': {
@@ -243,12 +246,17 @@ async def test_get_github_branch_for_commit_two_part_version(mocker: MockerFixtu
 
 
 @pytest.mark.asyncio
-async def test_get_latest_github_package_uses_release_download_tag(mocker: MockerFixture) -> None:
+async def test_get_latest_github_package_uses_release_download_tag(
+        mocker: MockerFixture, requests_mock: NiquestsMocker) -> None:
     tags_response = mocker.Mock()
     tags_response.json.return_value = [{'name': 'helm-loki-7.0.0'}, {'name': 'v3.7.2'}]
     mocker.patch('livecheck.special.github.extract_owner_repo',
                  return_value=('https://github.com/grafana/loki', 'grafana', 'loki'))
     mocker.patch('livecheck.special.github.get_content', side_effect=[tags_response, None])
+    mocker.patch('livecheck.utils.requests.get_api_credentials', return_value=None)
+    requests_mock.get('https://api.github.com/repos/grafana/loki/releases/tags/v3.7.2',
+                      json={'prerelease': False},
+                      status_code=HTTPStatus.OK)
     settings = mocker.Mock()
     settings.regex_version = {}
     settings.restrict_version = {}
@@ -262,6 +270,87 @@ async def test_get_latest_github_package_uses_release_download_tag(mocker: Mocke
         'app-metrics/loki-3.7.1', settings)
 
     assert result == ('3.7.2', '')
+
+
+@pytest.mark.parametrize(
+    ('published', 'development', 'expected'),
+    [
+        # Grafana Alloy pushed the `v1.22.0` tag before it published the release.
+        ((), False, ('1.21.3', 'c' * 40)),
+        (('v1.22.0-rc.0',), True, ('1.22.0_rc', 'b' * 40)),
+        (('v1.22.0',), False, ('1.22.0', 'a' * 40)),
+    ],
+    ids=['unpublished', 'unpublished-development', 'published'])
+@pytest.mark.asyncio
+async def test_get_latest_github_package_requires_published_release(mocker: MockerFixture,
+                                                                    requests_mock: NiquestsMocker,
+                                                                    published: Collection[str],
+                                                                    expected: tuple[str, str], *,
+                                                                    development: bool) -> None:
+    _patch_alloy_api(mocker, requests_mock, published)
+
+    result = await get_latest_github_package(ALLOY_RELEASE_URL, ALLOY_EBUILD,
+                                             LivecheckSettings(development_flag=development))
+
+    assert result == expected
+
+
+@pytest.mark.asyncio
+async def test_get_latest_github_package_skips_tag_when_release_lookup_fails(
+        mocker: MockerFixture, requests_mock: NiquestsMocker) -> None:
+    _patch_alloy_api(mocker, requests_mock, (), missing_status=HTTPStatus.UNAUTHORIZED)
+
+    result = await get_latest_github_package(ALLOY_RELEASE_URL, ALLOY_EBUILD, LivecheckSettings())
+
+    assert result == ('1.21.3', 'c' * 40)
+
+
+@pytest.mark.asyncio
+async def test_get_latest_github_package_does_not_look_up_release_of_older_tag(
+        mocker: MockerFixture, requests_mock: NiquestsMocker) -> None:
+    api = 'https://api.github.com/repos/org/repo'
+    mocker.patch('livecheck.utils.requests.get_api_credentials', return_value=None)
+    _patch_github_api(
+        mocker, {
+            f'{api}/tags?per_page=100&page=1': [{
+                'name': 'v1.0.1'
+            }],
+            f'{api}/git/refs/tags/v1.0.1': {
+                'object': {
+                    'type': 'commit',
+                    'sha': 'a' * 40
+                }
+            }
+        })
+    requests_mock.get(f'{api}/releases/tags/v1.0.1', json={}, status_code=HTTPStatus.NOT_FOUND)
+
+    result = await get_latest_github_package(
+        'https://github.com/org/repo/releases/download/v1.0.2/repo.zip', 'dev-libs/repo-1.0.2',
+        LivecheckSettings())
+
+    assert result == ('1.0.1', 'a' * 40)
+
+
+@pytest.mark.asyncio
+async def test_get_latest_github_package_gives_up_after_too_many_unpublished_tags(
+        mocker: MockerFixture, requests_mock: NiquestsMocker) -> None:
+    api = 'https://api.github.com/repos/org/repo'
+    mocker.patch('livecheck.utils.requests.get_api_credentials', return_value=None)
+    _patch_github_api(mocker, {
+        f'{api}/tags?per_page=100&page=1': [{
+            'name': f'v1.0.{patch}'
+        } for patch in range(6, -1, -1)]
+    })
+    for patch in range(1, 7):
+        requests_mock.get(f'{api}/releases/tags/v1.0.{patch}',
+                          json={},
+                          status_code=HTTPStatus.NOT_FOUND)
+
+    result = await get_latest_github_package(
+        'https://github.com/org/repo/releases/download/v1.0.0/repo.zip', 'dev-libs/repo-1.0.0',
+        LivecheckSettings())
+
+    assert result == ('', '')
 
 
 @pytest.mark.asyncio
@@ -721,6 +810,42 @@ def _patch_github_api(mocker: MockerFixture, responses: Mapping[str, Any]) -> No
         return response
 
     mocker.patch('livecheck.special.github.get_content', side_effect=fake_get_content)
+
+
+ALLOY_API = 'https://api.github.com/repos/grafana/alloy'
+ALLOY_EBUILD = 'app-metrics/alloy-bin-1.21.3-r1'
+ALLOY_RELEASE_URL = (
+    'https://github.com/grafana/alloy/releases/download/v1.21.3/alloy-linux-amd64.zip')
+ALLOY_TAGS = {'v1.22.0': 'a' * 40, 'v1.22.0-rc.0': 'b' * 40, 'v1.21.3': 'c' * 40}
+
+
+def _patch_alloy_api(mocker: MockerFixture,
+                     requests_mock: NiquestsMocker,
+                     published: Collection[str],
+                     *,
+                     missing_status: HTTPStatus = HTTPStatus.NOT_FOUND) -> None:
+    mocker.patch('livecheck.utils.requests.get_api_credentials', return_value=None)
+    responses: dict[str, Any] = {
+        f'{ALLOY_API}/tags?per_page=100&page=1': [{
+            'name': tag,
+            'commit': {
+                'sha': sha
+            }
+        } for tag, sha in ALLOY_TAGS.items()]
+    }
+    for (tag, sha), day in zip(ALLOY_TAGS.items(), (13, 5, 1), strict=True):
+        responses[f'{ALLOY_API}/commits/{sha}'] = {
+            'commit': {
+                'committer': {
+                    'date': f'2026-11-{day:02d}T00:00:00Z'
+                }
+            }
+        }
+        responses[f'{ALLOY_API}/git/refs/tags/{tag}'] = {'object': {'type': 'commit', 'sha': sha}}
+        requests_mock.get(f'{ALLOY_API}/releases/tags/{tag}',
+                          json={},
+                          status_code=HTTPStatus.OK if tag in published else missing_status)
+    _patch_github_api(mocker, responses)
 
 
 @pytest.mark.asyncio
