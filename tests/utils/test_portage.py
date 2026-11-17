@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, NoReturn
 import operator
 import re as real_re
 
-from portage import exception  # type: ignore[attr-defined]  # ty: ignore[unresolved-import]
+from portage import exception  # type: ignore[attr-defined]  # ty: ignore[import-not-found]
 import pytest
 
 from livecheck.utils.portage import (
