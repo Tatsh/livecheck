@@ -55,6 +55,11 @@ and this project adheres to
   others). In `app-metrics/alloy`, `/collector` also matched three
   `internal/component/database_observability/*/collector` directories without `go.mod`, and
   `go mod vendor` ran in the wrong one. Only a directory with the required file is now used.
+- In native crate mode, a `SRC_URI` assignment indented inside a conditional (for example the
+  release branch of an ebuild that also serves as the live template) was not detected. Each update
+  added a second `SRC_URI+=" ${CARGO_CRATE_URIS}"` after `inherit`, although the ebuild already
+  appended `${CARGO_CRATE_URIS}` in the release branch. Indented assignments are now detected, and
+  a crate line added after one uses its indentation.
 
 ### Removed
 

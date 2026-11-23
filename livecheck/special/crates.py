@@ -28,7 +28,7 @@ _CRATES_ASSIGNMENT = re.compile(r"""^CRATES\+?=(?:"[^"]*"|'[^']*')[ \t]*(?:\#[^\
                                 re.MULTILINE)
 _CRATE_URIS = re.compile(r'\$\{CARGO_CRATE_URIS\}|\$CARGO_CRATE_URIS\b')
 _INHERIT = re.compile(r'^inherit[ \t]+(?:[^\n]*\\\n)*[^\n]*', re.MULTILINE)
-_SRC_URI_ASSIGNMENT = re.compile(r"""^SRC_URI\+?=["']""", re.MULTILINE)
+_SRC_URI_ASSIGNMENT = re.compile(r"""^([ \t]*)SRC_URI\+?=["']""", re.MULTILINE)
 _SRC_URI_ENTRY = re.compile(r'(\S+)(?:\s+->\s+(\S+))?')
 _EMPTY_URI_GROUP = re.compile(r'(?<!\S)[^\s()]+\?\s*\(\s*\)')
 _CRATE_NAME = re.compile(r'[A-Za-z0-9_-]+')
@@ -65,9 +65,9 @@ def _src_uri_assignments(content: str) -> tuple[tuple[int, int], ...]:
     assignments = []
     end = 0
     for match in _SRC_URI_ASSIGNMENT.finditer(content):
-        if match.start() >= end:
+        if (start := match.end(1)) >= end:
             end = _quoted_value_end(content, match.end() - 1)
-            assignments.append((match.start(), end))
+            assignments.append((start, end))
     return tuple(assignments)
 
 
@@ -178,8 +178,14 @@ async def update_native_crates_ebuild(ebuild: str, path: str | None, content: st
     if not any(start >= max(inherit_end, reset_position) and content[start:end].partition('=')
                [2].startswith('"') and _CRATE_URIS.search(content[start:end])
                for start, end in assignments):
-        position = max(inherit_end, assignments[-1][1] if assignments else 0)
-        content = content[:position] + '\nSRC_URI+=" ${CARGO_CRATE_URIS}"' + content[position:]
+        position, indent = inherit_end, ''
+        if assignments and (last := assignments[-1])[1] > inherit_end:
+            # The new line joins the block of the assignment it follows, such as the release
+            # branch of a live ebuild template.
+            position = last[1]
+            indent = content[content.rfind('\n', 0, last[0]) + 1:last[0]]
+        content = (content[:position] + f'\n{indent}SRC_URI+=" ${{CARGO_CRATE_URIS}}"' +
+                   content[position:])
     return content
 
 
