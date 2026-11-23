@@ -250,8 +250,10 @@ Choose `archive` to build a dependency archive:
 ```
 
 Omitting `crates_mode` selects `archive` for compatibility. Both modes require upstream
-`Cargo.toml` and `Cargo.lock`, and support crates.io dependencies only. Local workspace packages
-are excluded from downloads. Set `crates_path` when the Cargo project is in a source subdirectory.
+`Cargo.toml` and `Cargo.lock`. Native mode supports crates.io dependencies only. Archive mode also
+vendors Git dependencies, and the ebuild must then replace each Git source of `Cargo.lock` with the
+`gentoo` directory source in the Cargo configuration. Local workspace packages are excluded from
+downloads. Set `crates_path` when the Cargo project is in a source subdirectory.
 Archive mode also requires Cargo and downloads dependencies with
 `cargo vendor --locked --versioned-dirs`. A missing lock file aborts updates in both modes;
 archive mode also rejects outdated lock files.

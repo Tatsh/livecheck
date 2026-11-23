@@ -21,6 +21,10 @@ and this project adheres to
   example `2.10` for `2.10.4`), `EGIT_BRANCH` is written as `$(ver_cut 1-2)` instead of the branch
   number. Ebuilds older than EAPI 7 receive the literal branch name. `EGIT_BRANCH` values with a
   `$(ver_cut ...)` expression are resolved when the ebuild is read.
+- Archive crate mode accepts Git dependencies in `Cargo.lock` (for example the upstream forks that
+  `sys-apps/pnpm` depends on), which `cargo vendor` adds to the archive. Previously the update
+  aborted with `Unsupported crate source`. Native mode still rejects them, because `CRATES` cannot
+  express a Git source.
 
 ### Fixed
 

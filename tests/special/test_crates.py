@@ -77,7 +77,7 @@ async def test_update_crates_ebuild_reports_failures(mocker: MockerFixture, tmp_
                                                      failure: str) -> None:
     (tmp_path / 'Cargo.toml').write_text('[workspace]\n', encoding='utf-8')
     if failure not in {'lock', 'unpacked'}:
-        lock = ('[[package]]\nsource = "git+https://example.com/repo"\n'
+        lock = ('[[package]]\nsource = "registry+https://example.com/index"\n'
                 if failure == 'source' else 'version = 3\n')
         (tmp_path / 'Cargo.lock').write_text(lock, encoding='utf-8')
     mocker.patch('livecheck.special.crates.search_ebuild',
@@ -91,8 +91,30 @@ async def test_update_crates_ebuild_reports_failures(mocker: MockerFixture, tmp_
     with pytest.raises(RuntimeError) as exc_info:
         await update_crates_ebuild('example.ebuild', None, {'example.tar.gz': ()})
     if failure == 'source':
-        assert 'git+https://example.com/repo' in str(exc_info.value)
+        assert 'registry+https://example.com/index' in str(exc_info.value)
+        assert 'Only crates.io and Git dependencies' in str(exc_info.value)
     assert compress.await_count == (1 if failure == 'archive' else 0)
+
+
+@pytest.mark.asyncio
+async def test_update_crates_ebuild_vendors_git_sources(mocker: MockerFixture,
+                                                        tmp_path: Path) -> None:
+    (tmp_path / 'Cargo.toml').write_text('[workspace]\n', encoding='utf-8')
+    git_source = 'git+https://example.com/repo?rev=abc#abc'
+    (tmp_path / 'Cargo.lock').write_text(
+        f'{REGISTRY_LOCK}\n[[package]]\nname = "fork"\nversion = "2.0.0"\n'
+        f'source = "{git_source}"\n',
+        encoding='utf-8')
+    mocker.patch('livecheck.special.crates.search_ebuild',
+                 return_value=(str(tmp_path), str(tmp_path)))
+    mocker.patch('livecheck.special.crates.which', return_value='/usr/bin/cargo')
+    proc = mocker.AsyncMock()
+    proc.wait.return_value = 0
+    run = mocker.patch('livecheck.special.crates.asyncio.create_subprocess_exec', return_value=proc)
+    compress = mocker.patch('livecheck.special.crates.build_compress', return_value=True)
+    await update_crates_ebuild('example.ebuild', None, {'example.tar.gz': ()})
+    assert run.call_args.args[1] == 'vendor'
+    compress.assert_awaited_once()
 
 
 @pytest.mark.asyncio
