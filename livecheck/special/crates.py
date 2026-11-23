@@ -85,7 +85,7 @@ def _remove_crate_downloads(content: str, *, native: bool = False) -> str:
     return content
 
 
-def _locked_crates(source_dir: str) -> tuple[str, ...]:
+def _locked_crates(source_dir: str, *, allow_git: bool = False) -> tuple[str, ...]:
     lock_path = Path(source_dir) / 'Cargo.lock'
     if not lock_path.is_file() or not (Path(source_dir) / 'Cargo.toml').is_file():
         msg = 'Rust dependencies require Cargo.toml and Cargo.lock in the source directory.'
@@ -95,10 +95,12 @@ def _locked_crates(source_dir: str) -> tuple[str, ...]:
     crates = set()
     for package in lock.get('package', ()):
         source = package.get('source', '')
-        if not source:
+        if not source or (allow_git and source.startswith('git+')):
             continue
         if source != 'registry+https://github.com/rust-lang/crates.io-index':
-            msg = f'Unsupported crate source `{source}`. Only crates.io dependencies are supported.'
+            supported = 'crates.io and Git' if allow_git else 'crates.io'
+            msg = (f'Unsupported crate source `{source}`. Only {supported} dependencies are '
+                   'supported.')
             raise RuntimeError(msg)
         name, version = package.get('name'), package.get('version')
         if (not isinstance(name, str) or not _CRATE_NAME.fullmatch(name)
@@ -227,10 +229,11 @@ async def update_crates_ebuild(ebuild: str,
                                *,
                                dist_settings: DistGitHubSettings | None = None) -> None:
     """
-    Download locked crates.io dependencies and build a Gentoo crate archive.
+    Download locked crates.io and Git dependencies and build a Gentoo crate archive.
 
     Archive entries use versioned directories under ``cargo_home/gentoo/``. Skip generation when
-    the archive already exists at the configured GitHub release, unless forced.
+    the archive already exists at the configured GitHub release, unless forced. The ebuild must
+    replace each Git source with the ``gentoo`` directory source to build from the archive.
 
     Parameters
     ----------
@@ -248,7 +251,7 @@ async def update_crates_ebuild(ebuild: str,
     ------
     RuntimeError
         If sources, dependencies, or archive creation fail, Cargo is unavailable, or
-        locked dependencies use sources other than crates.io.
+        locked dependencies use sources other than crates.io and Git.
     """
     if await dist_archive_already_uploaded('-crates.tar.xz', fetchlist, dist_settings):
         log.info('Crate archive already uploaded; skipping Cargo.')
@@ -257,7 +260,7 @@ async def update_crates_ebuild(ebuild: str,
     if not source_dir:
         msg = 'Could not locate Cargo.lock in unpacked sources.'
         raise RuntimeError(msg)
-    _locked_crates(source_dir)
+    _locked_crates(source_dir, allow_git=True)
     cargo = which('cargo')
     if cargo is None:
         msg = 'Cargo executable was not found.'
