@@ -129,6 +129,14 @@ def test_remove_native_crates_preserves_other_variables() -> None:
     assert remove_native_crates(content) == metadata + 'SRC_URI=""\n'
 
 
+def test_remove_native_crates_handles_indented_assignments() -> None:
+    header = 'CRATES="old@1.0.0"\ninherit cargo\nif [[ ${PV} != *9999* ]]; then\n'
+    source = '\tSRC_URI="https://example.com/${P}.tar.gz"\n'
+    content = header + source + '\tSRC_URI+=" ${CARGO_CRATE_URIS}"\nfi\n'
+    assert remove_native_crates(content) == (header.replace('old@1.0.0', '') + source +
+                                             '\tSRC_URI+=" "\nfi\n')
+
+
 @pytest.mark.parametrize('dependencies', [
     'test? ( https://example.com/pkg-crates.tar.xz )',
     'test? ( ${CARGO_CRATE_URIS} )',
@@ -170,6 +178,12 @@ def test_remove_native_crates_rejects_unterminated_value() -> None:
     'EAPI=8\ninherit cargo\nSRC_URI="https://example.com/${P}.tar.gz"\nCRATES="old@1.0.0"\n',
     'EAPI=8\ninherit cargo pypi\nSRC_URI+=" ${DIST_SERVER}/${P}-crates.tar.xz"\n',
     'EAPI=8\ninherit cargo pypi\nSRC_URI+="https://x/${P}-crates.tar.xz -> deps.tar.xz"\n',
+    ('EAPI=8\nCRATES="old@1.0.0"\ninherit cargo\nif [[ ${PV} == *9999* ]]; then\n'
+     '\tinherit git-r3\nelse\n\tSRC_URI="https://example.com/${P}.tar.gz"\n'
+     '\tSRC_URI+=" ${CARGO_CRATE_URIS}"\nfi\n'),
+    ('EAPI=8\nCRATES="old@1.0.0"\ninherit cargo\nif [[ ${PV} == *9999* ]]; then\n'
+     '\tinherit git-r3\nelse\n\tSRC_URI="https://example.com/${P}.tar.gz"\n'
+     '\tif [[ ${PV} != *_rc* ]]; then\n\t\tSRC_URI+=" ${CARGO_CRATE_URIS}"\n\tfi\nfi\n'),
 ])
 async def test_update_native_crates_from_lock(mocker: MockerFixture, tmp_path: Path,
                                               content: str) -> None:
@@ -226,6 +240,22 @@ async def test_update_native_crates_places_uris_after_inheritance(mocker: Mocker
     if '$(pypi_sdist_url "${PN}")' in content:
         assert '$(pypi_sdist_url "${PN}")' in result
         assert '-crates.tar.xz' not in result
+    assert await update_native_crates_ebuild('pkg.ebuild', None, result) == result
+
+
+@pytest.mark.asyncio
+async def test_update_native_crates_indents_uris_in_conditional(mocker: MockerFixture,
+                                                                tmp_path: Path) -> None:
+    (tmp_path / 'Cargo.toml').write_text('[workspace]\n', encoding='utf-8')
+    (tmp_path / 'Cargo.lock').write_text(REGISTRY_LOCK, encoding='utf-8')
+    mocker.patch('livecheck.special.crates.search_ebuild',
+                 return_value=(str(tmp_path), str(tmp_path)))
+    content = ('inherit cargo\nif [[ ${PV} == *9999* ]]; then\n\tinherit git-r3\nelse\n'
+               '\tSRC_URI="https://example.com/${P}.tar.gz\n'
+               '\t\thttps://example.com/${P}-crates.tar.xz"\n\tKEYWORDS="~amd64"\nfi\n')
+    result = await update_native_crates_ebuild('pkg.ebuild', None, content)
+    assert result.endswith('\tSRC_URI="https://example.com/${P}.tar.gz\n\t\t"\n'
+                           '\tSRC_URI+=" ${CARGO_CRATE_URIS}"\n\tKEYWORDS="~amd64"\nfi\n')
     assert await update_native_crates_ebuild('pkg.ebuild', None, result) == result
 
 
