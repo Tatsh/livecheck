@@ -128,6 +128,7 @@ from .special.sourcehut import (
     get_latest_sourcehut_metadata,
     is_sourcehut,
 )
+from .special.utils import get_archive_digest, replace_archive_digest
 from .special.yarn import check_yarn_requirements, update_yarn_ebuild
 from .utils import check_program, close_sessions, extract_sha, get_content, init_sessions, is_sha
 from .utils.portage import (
@@ -1334,16 +1335,22 @@ async def do_main(  # ruff:ignore[complex-structure, too-many-branches, too-many
             if cp in settings.go_sum_uri:
                 await update_go_ebuild(new_filename, top_hash, settings.go_sum_uri[cp])
             dist_settings = settings.dist_settings_for(cp)
+            archive_mode = settings.get_archive_mode(cp)
+            # Suffix of each dependency archive to the digest in its name in lockfile mode.
+            archive_digests: dict[str, str | None] = {}
             if settings.crates_packages.get(cp):
                 try:
                     if settings.crates_mode.get(cp, 'archive') == 'native':
                         updated_content = await update_native_crates_ebuild(
                             new_filename, settings.crates_path.get(cp), updated_content)
                     else:
-                        await update_crates_ebuild(new_filename,
-                                                   settings.crates_path.get(cp),
-                                                   fetchlist,
-                                                   dist_settings=dist_settings)
+                        archive_digests['-crates.tar.xz'] = await update_crates_ebuild(
+                            new_filename,
+                            settings.crates_path.get(cp),
+                            fetchlist,
+                            archive_mode=archive_mode,
+                            dist_settings=dist_settings,
+                            previous_digest=get_archive_digest(updated_content, '-crates.tar.xz'))
                 except Exception:
                     await _recover_ebuild(new_filename, ebuild, cp, search_dir, settings,
                                           original_manifest, original_content)
@@ -1352,10 +1359,13 @@ async def do_main(  # ruff:ignore[complex-structure, too-many-branches, too-many
                 try:
                     await update_dotnet_ebuild(new_filename, settings.dotnet_projects[cp])
                     if settings.dotnet_packages.get(cp):
-                        await update_dotnet_archive_ebuild(new_filename,
-                                                           settings.dotnet_projects[cp],
-                                                           fetchlist,
-                                                           dist_settings=dist_settings)
+                        archive_digests['-nuget.tar.xz'] = await update_dotnet_archive_ebuild(
+                            new_filename,
+                            settings.dotnet_projects[cp],
+                            fetchlist,
+                            archive_mode=archive_mode,
+                            dist_settings=dist_settings,
+                            previous_digest=get_archive_digest(updated_content, '-nuget.tar.xz'))
                 except Exception as e:
                     log.exception('Error updating .NET ebuild `%s`.', new_filename)
                     await _recover_ebuild(new_filename, ebuild, cp, search_dir, settings,
@@ -1364,27 +1374,52 @@ async def do_main(  # ruff:ignore[complex-structure, too-many-branches, too-many
             if cp in settings.jetbrains_packages:
                 await update_jetbrains_ebuild(new_filename)
             if cp in settings.maven_packages:
-                await update_maven_ebuild(new_filename,
-                                          settings.maven_path[cp],
-                                          fetchlist,
-                                          dist_settings=dist_settings)
+                archive_digests['-mvn.tar.xz'] = await update_maven_ebuild(
+                    new_filename,
+                    settings.maven_path[cp],
+                    fetchlist,
+                    archive_mode=archive_mode,
+                    dist_settings=dist_settings,
+                    previous_digest=get_archive_digest(updated_content, '-mvn.tar.xz'))
             if cp in settings.nodejs_packages:
-                await update_nodejs_ebuild(new_filename,
-                                           settings.nodejs_path[cp],
-                                           fetchlist,
-                                           settings.get_package_manager(cp),
-                                           omit_dev=settings.omit_dev_dependencies(cp),
-                                           dist_settings=dist_settings)
+                archive_digests['-node_modules.tar.xz'] = await update_nodejs_ebuild(
+                    new_filename,
+                    settings.nodejs_path[cp],
+                    fetchlist,
+                    settings.get_package_manager(cp),
+                    archive_mode=archive_mode,
+                    dist_settings=dist_settings,
+                    omit_dev=settings.omit_dev_dependencies(cp),
+                    previous_digest=get_archive_digest(updated_content, '-node_modules.tar.xz'),
+                    workspaces=settings.nodejs_workspaces.get(cp, ()))
             if cp in settings.gomodule_packages:
-                await update_gomodule_ebuild(new_filename,
-                                             settings.gomodule_path[cp],
-                                             fetchlist,
-                                             dist_settings=dist_settings)
+                archive_digests['-vendor.tar.xz'] = await update_gomodule_ebuild(
+                    new_filename,
+                    settings.gomodule_path[cp],
+                    fetchlist,
+                    archive_mode=archive_mode,
+                    dist_settings=dist_settings,
+                    previous_digest=get_archive_digest(updated_content, '-vendor.tar.xz'))
             if cp in settings.composer_packages:
-                await update_composer_ebuild(new_filename,
-                                             settings.composer_path[cp],
-                                             fetchlist,
-                                             dist_settings=dist_settings)
+                archive_digests['-vendor.tar.xz'] = await update_composer_ebuild(
+                    new_filename,
+                    settings.composer_path[cp],
+                    fetchlist,
+                    archive_mode=archive_mode,
+                    dist_settings=dist_settings,
+                    previous_digest=get_archive_digest(updated_content, '-vendor.tar.xz'))
+            if archive_mode == 'lockfile':
+                for extension, digest in archive_digests.items():
+                    # Unlike an archive named after the version, the archive of the previous
+                    # version exists. Retaining its name would digest cleanly with outdated
+                    # dependencies.
+                    if not digest:
+                        log.error('Error updating the `%s` archive of `%s`.', extension,
+                                  new_filename)
+                        await _recover_ebuild(new_filename, ebuild, cp, search_dir, settings,
+                                              original_manifest, original_content)
+                        raise UpdateError(new_filename)
+                    updated_content = replace_archive_digest(updated_content, extension, digest)
             if (updated_content != content or
                 (settings.crates_packages.get(cp) and settings.crates_mode.get(cp) == 'native')):
                 await AnyioPath(new_filename).write_text(updated_content, encoding='utf-8')

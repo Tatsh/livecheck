@@ -3,8 +3,11 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import TYPE_CHECKING
+import hashlib
 import logging
 import os
+import re
+import stat
 import tarfile
 import tempfile
 
@@ -15,13 +18,68 @@ from livecheck.dist_github import DistGitHubSettings, asset_exists, upload_dist_
 from livecheck.utils.portage import get_distdir, unpack_ebuild
 
 if TYPE_CHECKING:
-    from collections.abc import Collection, Mapping
+    from collections.abc import Awaitable, Callable, Collection, Mapping
 
-__all__ = ('EbuildTempFile', 'build_compress', 'compute_vendor_archive_name',
-           'dist_archive_already_uploaded', 'get_archive_extension', 'get_project_path',
-           'remove_url_ebuild', 'search_ebuild')
+__all__ = ('DIGEST_LENGTH', 'EbuildTempFile', 'build_compress', 'build_digest_archive',
+           'compute_vendor_archive_name', 'dist_archive_already_uploaded', 'ensure_digest_archive',
+           'get_archive_digest', 'get_archive_extension', 'get_project_path', 'remove_url_ebuild',
+           'replace_archive_digest', 'search_ebuild')
 
 logger = logging.getLogger(__name__)
+
+DIGEST_LENGTH = 16
+"""
+Number of hexadecimal digits of the dependency digest in the name of an archive.
+
+:meta hide-value:
+"""
+_ARCHIVE_DIGEST_RE = re.compile(rf'-([0-9a-f]{{{DIGEST_LENGTH}}})(-[a-z_]+\.tar\.xz)')
+_ARCHIVE_NAME_RE = re.compile(r'(?<=/)[^/\s"\']*(-[a-z_]+\.tar\.xz)')
+
+
+def get_archive_digest(ebuild_content: str, extension: str) -> str | None:
+    """
+    Find the dependency digest in the name of an archive of an ebuild.
+
+    Parameters
+    ----------
+    ebuild_content : str
+        Full ebuild file text.
+    extension : str
+        Suffix of the archive name, such as ``-vendor.tar.xz``.
+
+    Returns
+    -------
+    str | None
+        The digest, or ``None`` if the archive is not named after one.
+    """
+    return next(
+        (match.group(1)
+         for match in _ARCHIVE_DIGEST_RE.finditer(ebuild_content) if match.group(2) == extension),
+        None)
+
+
+def replace_archive_digest(ebuild_content: str, extension: str, digest: str) -> str:
+    """
+    Point the URL of an archive of an ebuild to the archive named after a digest.
+
+    Parameters
+    ----------
+    ebuild_content : str
+        Full ebuild file text.
+    extension : str
+        Suffix of the archive name, such as ``-vendor.tar.xz``.
+    digest : str
+        Dependency digest returned by the function that built the archive.
+
+    Returns
+    -------
+    str
+        Ebuild text with the archive file name replaced by ``${PN}-<digest><extension>``.
+    """
+    return _ARCHIVE_NAME_RE.sub(
+        lambda match: f'${{PN}}-{digest}{extension}'
+        if match.group(1) == extension else match.group(), ebuild_content)
 
 
 def get_project_path(package_name: str) -> Path:
@@ -213,6 +271,144 @@ async def build_compress(temp_dir: str,
 
     await to_thread.run_sync(_compress)
     return dist_settings is None or await upload_dist_archive(dist_settings, vendor_archive_path)
+
+
+async def ensure_digest_archive(package: str,
+                                digest: str,
+                                extension: str,
+                                build: Callable[[Path], Awaitable[bool]],
+                                *,
+                                dist_settings: DistGitHubSettings | None = None,
+                                previous_digest: str | None = None) -> str | None:
+    """
+    Provide the dependency archive named ``<package>-<digest><extension>``.
+
+    The archive is built only when the previous version does not use it, the GitHub release does
+    not publish it, and ``DISTDIR`` does not have it. An archive named after a digest is never
+    rebuilt or replaced, even with ``force`` set, as the manifests of the ebuilds that use it record
+    its checksum.
+
+    Parameters
+    ----------
+    package : str
+        Package name at the start of the archive name.
+    digest : str
+        Digest of the dependencies.
+    extension : str
+        Suffix of the archive name, such as ``-vendor.tar.xz``.
+    build : Callable[[Path], Awaitable[bool]]
+        Writes the archive at the given temporary path and reports whether it succeeded. The file
+        is renamed to the archive name only on success.
+    dist_settings : DistGitHubSettings | None
+        Optional GitHub release destination for the archive.
+    previous_digest : str | None
+        Digest of the archive that the previous version uses, if any.
+
+    Returns
+    -------
+    str | None
+        The digest, or ``None`` if the archive could not be built or uploaded.
+    """
+    archive_name = f'{package}-{digest}{extension}'
+    if digest == previous_digest or (dist_settings is not None
+                                     and await asset_exists(dist_settings, archive_name)):
+        logger.info('The dependencies did not change; reusing `%s`.', archive_name)
+        return digest
+    archive = get_distdir() / archive_name
+    if archive.is_file():
+        logger.info('The dependencies did not change; reusing `%s`.', archive_name)
+    else:
+        # A later run reuses any file with the final name, including one that an interrupted build
+        # truncated.
+        partial = archive.with_name(f'{archive_name}.partial')
+        try:
+            if not await build(partial):
+                return None
+            partial.replace(archive)
+        finally:
+            partial.unlink(missing_ok=True)
+    if dist_settings is not None and not await upload_dist_archive(dist_settings, archive):
+        return None
+    return digest
+
+
+def _tree_digest(root: Path, excluded: Callable[[str], bool] | None) -> str:
+    entries: list[tuple[str, Path]] = []
+    # Path.walk() needs Python 3.12.
+    for current, directories, files in os.walk(root):
+        for name in (*directories, *files):
+            path = Path(current) / name
+            entries.append((path.relative_to(root).as_posix(), path))
+    digest = hashlib.sha256()
+    for relative, path in sorted(entries):
+        mode = path.lstat().st_mode
+        if stat.S_ISLNK(mode):
+            digest.update(f'l\0{relative}\0{path.readlink()}\0'.encode())
+        elif stat.S_ISDIR(mode):
+            digest.update(f'd\0{relative}\0'.encode())
+        elif stat.S_ISREG(mode) and not (excluded and excluded(path.name)):
+            with path.open('rb') as file:
+                content = hashlib.file_digest(file, 'sha256').hexdigest()
+            executable = 'x' if mode & stat.S_IXUSR else '-'
+            digest.update(f'f\0{relative}\0{executable}\0{content}\0'.encode())
+    return digest.hexdigest()[:DIGEST_LENGTH]
+
+
+async def build_digest_archive(base_dir: str,
+                               directory: str,
+                               extension: str,
+                               package: str,
+                               *,
+                               dist_settings: DistGitHubSettings | None = None,
+                               excluded: Callable[[str], bool] | None = None,
+                               previous_digest: str | None = None) -> str | None:
+    """
+    Build a dependency archive named after a digest of the downloaded files.
+
+    The digest covers the paths, contents, executable bits, and symbolic links under the dependency
+    directory. Member paths are relative to ``base_dir``, and versions that download the same files
+    share the archive. See :py:func:`ensure_digest_archive` for when the archive is built.
+
+    Parameters
+    ----------
+    base_dir : str
+        Directory that the member paths are relative to.
+    directory : str
+        Dependency directory, relative to ``base_dir``.
+    extension : str
+        Suffix of the archive name, such as ``-vendor.tar.xz``.
+    package : str
+        Package name at the start of the archive name.
+    dist_settings : DistGitHubSettings | None
+        Optional GitHub release destination for the archive.
+    excluded : Callable[[str], bool] | None
+        Reports whether a file, by its name, is omitted from the digest. The archive still
+        includes the file.
+    previous_digest : str | None
+        Digest of the archive that the previous version uses, if any.
+
+    Returns
+    -------
+    str | None
+        The digest in the name of the archive, or ``None`` on failure.
+    """
+    vendor_dir = Path(base_dir) / directory
+    if not vendor_dir.is_dir():
+        logger.warning('The directory vendor was not created.')
+        return None
+    digest = await to_thread.run_sync(lambda: _tree_digest(vendor_dir, excluded))
+
+    def _compress(archive: Path) -> bool:
+        with tarfile.open(archive, 'w:xz') as tar:
+            tar.add(vendor_dir, arcname=directory)
+        return True
+
+    return await ensure_digest_archive(package,
+                                       digest,
+                                       extension,
+                                       lambda archive: to_thread.run_sync(_compress, archive),
+                                       dist_settings=dist_settings,
+                                       previous_digest=previous_digest)
 
 
 def get_archive_extension(filename: str) -> str:

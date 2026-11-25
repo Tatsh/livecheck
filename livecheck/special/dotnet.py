@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from shutil import which
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 import asyncio
 import logging
 import re
@@ -16,6 +16,7 @@ from livecheck.utils import check_program
 from .utils import (
     EbuildTempFile,
     build_compress,
+    build_digest_archive,
     dist_archive_already_uploaded,
     remove_url_ebuild,
     search_ebuild,
@@ -186,12 +187,15 @@ async def update_dotnet_archive_ebuild(ebuild: str,
                                        project_or_solution: str | Path,
                                        fetchlist: Mapping[str, tuple[str, ...]],
                                        *,
-                                       dist_settings: DistGitHubSettings | None = None) -> None:
+                                       archive_mode: Literal['lockfile', 'version'] = 'version',
+                                       dist_settings: DistGitHubSettings | None = None,
+                                       previous_digest: str | None = None) -> str | None:
     """
     Build (and optionally upload) a NuGet packages vendor archive for a .NET ebuild.
 
     The archive is created from a project-local ``packages`` directory populated by
-    ``dotnet restore --packages``.
+    ``dotnet restore --packages``. In ``lockfile`` mode the archive is named after a digest of the
+    restored packages, and its member paths are relative to the directory of the project file.
 
     Parameters
     ----------
@@ -201,21 +205,33 @@ async def update_dotnet_archive_ebuild(ebuild: str,
         Project or solution file relative to the unpacked source tree.
     fetchlist : Mapping[str, tuple[str, ...]]
         Fetch map used when compressing vendor output.
+    archive_mode : Literal['lockfile', 'version']
+        Whether the archive is named after the package version or after the dependency digest.
     dist_settings : DistGitHubSettings | None
         Optional GitHub release destination for the produced archive.
+    previous_digest : str | None
+        Dependency digest of the archive that the previous version uses, if any.
+
+    Returns
+    -------
+    str | None
+        In ``lockfile`` mode, the digest in the name of the archive for the ebuild. ``None`` in
+        ``version`` mode and on failure.
     """
-    if await dist_archive_already_uploaded('-nuget.tar.xz', fetchlist, dist_settings):
+    lockfile_mode = archive_mode == 'lockfile'
+    if not lockfile_mode and await dist_archive_already_uploaded('-nuget.tar.xz', fetchlist,
+                                                                 dist_settings):
         log.info('NuGet archive already uploaded; skipping `dotnet restore`.')
-        return
+        return None
     project_or_solution = Path(project_or_solution)
     dotnet_path, temp_dir = await search_ebuild(ebuild, project_or_solution.name, '')
     if not dotnet_path:
-        return
+        return None
     project = Path(dotnet_path) / project_or_solution
     dotnet_exe = which('dotnet')
     if dotnet_exe is None:
         log.error('dotnet executable not found in PATH.')
-        return
+        return None
     packages_dir = Path(dotnet_path) / 'packages'
     try:
         proc = await asyncio.create_subprocess_exec(dotnet_exe, 'restore',
@@ -224,16 +240,24 @@ async def update_dotnet_archive_ebuild(ebuild: str,
         returncode = await proc.wait()
         if returncode != 0:
             log.error("Error running 'dotnet restore'.")
-            return
+            return None
     except OSError:
         log.exception("Error running 'dotnet restore'.")
-        return
+        return None
+    if lockfile_mode:
+        return await build_digest_archive(dotnet_path,
+                                          'packages',
+                                          '-nuget.tar.xz',
+                                          Path(ebuild).parent.name,
+                                          dist_settings=dist_settings,
+                                          previous_digest=previous_digest)
     await build_compress(temp_dir,
                          dotnet_path,
                          'packages',
                          '-nuget.tar.xz',
                          fetchlist,
                          dist_settings=dist_settings)
+    return None
 
 
 def check_dotnet_requirements() -> bool:

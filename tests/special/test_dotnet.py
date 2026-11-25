@@ -466,3 +466,39 @@ async def test_update_dotnet_archive_ebuild_returns_when_search_empty(mocker: Mo
     await update_dotnet_archive_ebuild(str(tmp_path / 'pkg-1.ebuild'), 'proj.csproj',
                                        {'foo-1.tar.gz': ()})
     build.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_update_dotnet_archive_ebuild_lockfile_archive(mocker: MockerFixture,
+                                                             tmp_path: Path) -> None:
+    (tmp_path / 'proj.csproj').write_text('<Project></Project>')
+    uploaded = mocker.patch('livecheck.special.dotnet.dist_archive_already_uploaded',
+                            new_callable=AsyncMock)
+    mocker.patch('livecheck.special.dotnet.search_ebuild',
+                 new_callable=AsyncMock,
+                 return_value=(str(tmp_path), str(tmp_path)))
+    mocker.patch('livecheck.special.dotnet.which', return_value='/bin/dotnet')
+    proc = mocker.MagicMock()
+    proc.wait = AsyncMock(return_value=0)
+    mocker.patch('livecheck.special.dotnet.asyncio.create_subprocess_exec',
+                 new_callable=AsyncMock,
+                 return_value=proc)
+    compress = mocker.patch('livecheck.special.dotnet.build_compress', new_callable=AsyncMock)
+    build = mocker.patch('livecheck.special.dotnet.build_digest_archive',
+                         new_callable=AsyncMock,
+                         return_value='fedcba9876543210')
+
+    result = await update_dotnet_archive_ebuild('cat/pkg/pkg-1.ebuild',
+                                                'proj.csproj', {'foo-1.tar.gz': ()},
+                                                archive_mode='lockfile',
+                                                previous_digest='0123456789abcdef')
+
+    assert result == 'fedcba9876543210'
+    uploaded.assert_not_called()
+    compress.assert_not_called()
+    build.assert_awaited_once_with(str(tmp_path),
+                                   'packages',
+                                   '-nuget.tar.xz',
+                                   'pkg',
+                                   dist_settings=None,
+                                   previous_digest='0123456789abcdef')

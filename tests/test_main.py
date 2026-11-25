@@ -371,6 +371,7 @@ def mock_settings(mocker: MockerFixture) -> Any:
     settings.nodejs_packages = set()
     settings.nodejs_package_managers = {}
     settings.default_package_manager = 'npm'
+    settings.get_archive_mode = mocker.Mock(return_value='version')
     settings.get_package_manager = mocker.Mock(
         side_effect=lambda cp: settings.nodejs_package_managers.get(
             cp, settings.default_package_manager))
@@ -1394,7 +1395,9 @@ async def test_do_main_dependency_archive_packages(mocker: MockerFixture, tmp_pa
     mock_update_gomodule_ebuild.assert_called_once_with(
         f'{search_dir}/{cat}/{pkg}/{pkg}-{last_version}.ebuild',
         mocker.ANY, {},
-        dist_settings=mocker.ANY)
+        archive_mode='version',
+        dist_settings=mocker.ANY,
+        previous_digest=None)
     mock_write.assert_called_once_with('abcdef1', encoding='utf-8')
 
 
@@ -1455,8 +1458,11 @@ async def test_do_main_nodejs_packages(mocker: MockerFixture, tmp_path: Path,
         f'{search_dir}/{cat}/{pkg}/{pkg}-{last_version}.ebuild',
         mocker.ANY, {},
         'npm',
+        archive_mode=mocker.ANY,
         dist_settings=mocker.ANY,
-        omit_dev=mocker.ANY)
+        omit_dev=mocker.ANY,
+        previous_digest=None,
+        workspaces=mocker.ANY)
     mock_write.assert_called_once_with('abcdef1', encoding='utf-8')
 
 
@@ -1522,9 +1528,154 @@ async def test_do_main_nodejs_packages_custom_manager(mocker: MockerFixture, tmp
         f'{search_dir}/{cat}/{pkg}/{pkg}-{last_version}.ebuild',
         mocker.ANY, {},
         'yarn',
+        archive_mode=mocker.ANY,
         dist_settings=mocker.ANY,
-        omit_dev=mocker.ANY)
+        omit_dev=mocker.ANY,
+        previous_digest=None,
+        workspaces=mocker.ANY)
     mock_write.assert_called_once_with('abcdef1', encoding='utf-8')
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('digest', ['fedcba9876543210', None])
+async def test_do_main_nodejs_lockfile_archive(mocker: MockerFixture, tmp_path: Path,
+                                               mock_settings: Mock, digest: str | None) -> None:
+    cat = 'cat'
+    pkg = 'pkg'
+    last_version = '1.0.1'
+    cp = f'{cat}/{pkg}'
+    content = ('SRC_URI="https://example.com/${P}.tar.gz\n'
+               '\thttps://example.com/dist/${PN}-0123456789abcdef-node_modules.tar.xz"\n')
+    ebuild_path = tmp_path / f'{cat}/{pkg}/{pkg}-1.0.0.ebuild'
+    ebuild_path.parent.mkdir(parents=True)
+    ebuild_path.write_text(content, encoding='utf-8')
+    mock_settings.auto_update_flag = True
+    mock_settings.nodejs_packages = {cp}
+    mock_settings.nodejs_workspaces = {cp: ('mobile',)}
+    mock_settings.get_archive_mode.return_value = 'lockfile'
+    mocker.patch('livecheck.main.get_old_sha', return_value='')
+    mocker.patch('livecheck.main.replace_date_in_ebuild', side_effect=lambda v, _, __: v)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.catpkg_catpkgsplit', return_value=(cp, cat, pkg, last_version))
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
+    mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
+    mocker.patch('livecheck.main.digest_ebuild', return_value=True)
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
+    mocker.patch('livecheck.main.is_sha', return_value=False)
+    mocker.patch('livecheck.main.execute_hooks')
+    mock_anyio_path_instance = mocker.AsyncMock()
+    mock_anyio_path_instance.read_text = mocker.AsyncMock(return_value=content)
+    mock_anyio_path_instance.write_text = mocker.AsyncMock()
+    mocker.patch('livecheck.main.AnyioPath', return_value=mock_anyio_path_instance)
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
+    mocker.patch('livecheck.main.check_nodejs_requirements', return_value=True)
+    mock_update_nodejs_ebuild = mocker.patch('livecheck.main.update_nodejs_ebuild',
+                                             return_value=digest)
+    if digest is None:
+        with pytest.raises(UpdateError):
+            await do_main(cat=cat,
+                          ebuild_version='1.0.0',
+                          hash_date='',
+                          hook_dir=None,
+                          last_version=last_version,
+                          pkg=pkg,
+                          search_dir=tmp_path,
+                          settings=mock_settings,
+                          top_hash='',
+                          url='https://example.com')
+        return
+    await do_main(cat=cat,
+                  ebuild_version='1.0.0',
+                  hash_date='',
+                  hook_dir=None,
+                  last_version=last_version,
+                  pkg=pkg,
+                  search_dir=tmp_path,
+                  settings=mock_settings,
+                  top_hash='',
+                  url='https://example.com')
+
+    assert mock_update_nodejs_ebuild.call_args.kwargs['previous_digest'] == '0123456789abcdef'
+    assert mock_update_nodejs_ebuild.call_args.kwargs['workspaces'] == ('mobile',)
+    mock_anyio_path_instance.write_text.assert_called_with(content.replace(
+        '0123456789abcdef', digest),
+                                                           encoding='utf-8')
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('maven_digest', ['bbbbbbbbbbbbbbbb', None])
+async def test_do_main_lockfile_archives(mocker: MockerFixture, tmp_path: Path, mock_settings: Mock,
+                                         maven_digest: str | None) -> None:
+    cat = 'cat'
+    pkg = 'pkg'
+    last_version = '1.0.1'
+    cp = f'{cat}/{pkg}'
+    content = ('SRC_URI="https://example.com/${P}.tar.gz\n'
+               '\thttps://example.com/dist/${P}-vendor.tar.xz\n'
+               '\thttps://example.com/dist/${PN}-0123456789abcdef-mvn.tar.xz"\n')
+    ebuild_path = tmp_path / f'{cat}/{pkg}/{pkg}-1.0.0.ebuild'
+    ebuild_path.parent.mkdir(parents=True)
+    ebuild_path.write_text(content, encoding='utf-8')
+    mock_settings.auto_update_flag = True
+    mock_settings.gomodule_packages = {cp}
+    mock_settings.maven_packages = {cp}
+    mock_settings.get_archive_mode.return_value = 'lockfile'
+    mocker.patch('livecheck.main.get_old_sha', return_value='')
+    mocker.patch('livecheck.main.replace_date_in_ebuild', side_effect=lambda v, _, __: v)
+    mocker.patch('livecheck.main.remove_leading_zeros', side_effect=lambda v: v)
+    mocker.patch('livecheck.main.compare_versions', return_value=True)
+    mocker.patch('livecheck.main.catpkg_catpkgsplit', return_value=(cp, cat, pkg, last_version))
+    mocker.patch('livecheck.main.catpkgsplit2', return_value=(cat, pkg, last_version, 'r0'))
+    mocker.patch('livecheck.main.str_version', side_effect=lambda v, _: v)
+    mocker.patch('livecheck.main.digest_ebuild', return_value=True)
+    mocker.patch('livecheck.main.get_fetch_map', new_callable=mocker.AsyncMock, return_value={})
+    mocker.patch('livecheck.main.is_sha', return_value=False)
+    mocker.patch('livecheck.main.execute_hooks')
+    mock_anyio_path_instance = mocker.AsyncMock()
+    mock_anyio_path_instance.read_text = mocker.AsyncMock(return_value=content)
+    mock_anyio_path_instance.write_text = mocker.AsyncMock()
+    mocker.patch('livecheck.main.AnyioPath', return_value=mock_anyio_path_instance)
+    mocker.patch('livecheck.main.get_aux',
+                 new_callable=mocker.AsyncMock,
+                 return_value=['https://homepage'])
+    mocker.patch('livecheck.main.check_gomodule_requirements', return_value=True)
+    mocker.patch('livecheck.main.check_maven_requirements', return_value=True)
+    update_gomodule = mocker.patch('livecheck.main.update_gomodule_ebuild',
+                                   return_value='aaaaaaaaaaaaaaaa')
+    update_maven = mocker.patch('livecheck.main.update_maven_ebuild', return_value=maven_digest)
+    log = mocker.patch('livecheck.main.log')
+    kwargs: dict[str, Any] = {
+        'cat': cat,
+        'ebuild_version': '1.0.0',
+        'hash_date': '',
+        'hook_dir': None,
+        'last_version': last_version,
+        'pkg': pkg,
+        'search_dir': tmp_path,
+        'settings': mock_settings,
+        'top_hash': '',
+        'url': 'https://example.com'
+    }
+    if maven_digest is None:
+        with pytest.raises(UpdateError):
+            await do_main(**kwargs)
+        log.error.assert_called_with('Error updating the `%s` archive of `%s`.', '-mvn.tar.xz',
+                                     mocker.ANY)
+        mock_anyio_path_instance.write_text.assert_called_with(content, encoding='utf-8')
+        return
+    await do_main(**kwargs)
+
+    assert update_gomodule.call_args.kwargs['archive_mode'] == 'lockfile'
+    assert update_gomodule.call_args.kwargs['previous_digest'] is None
+    assert update_maven.call_args.kwargs['previous_digest'] == '0123456789abcdef'
+    mock_anyio_path_instance.write_text.assert_called_with(
+        'SRC_URI="https://example.com/${P}.tar.gz\n'
+        '\thttps://example.com/dist/${PN}-aaaaaaaaaaaaaaaa-vendor.tar.xz\n'
+        '\thttps://example.com/dist/${PN}-bbbbbbbbbbbbbbbb-mvn.tar.xz"\n',
+        encoding='utf-8')
 
 
 @pytest.mark.asyncio
@@ -1583,7 +1734,9 @@ async def test_do_main_composer_packages(mocker: MockerFixture, tmp_path: Path,
     mock_update_composer_ebuild.assert_called_once_with(
         f'{search_dir}/{cat}/{pkg}/{pkg}-{last_version}.ebuild',
         mocker.ANY, {},
-        dist_settings=mocker.ANY)
+        archive_mode='version',
+        dist_settings=mocker.ANY,
+        previous_digest=None)
     mock_write.assert_called_once_with('abcdef1', encoding='utf-8')
 
 
@@ -1643,7 +1796,9 @@ async def test_do_main_maven_packages(mocker: MockerFixture, tmp_path: Path,
     mock_update_maven_ebuild.assert_called_once_with(
         f'{search_dir}/{cat}/{pkg}/{pkg}-{last_version}.ebuild',
         mocker.ANY, {},
-        dist_settings=mocker.ANY)
+        archive_mode='version',
+        dist_settings=mocker.ANY,
+        previous_digest=None)
     mock_write.assert_called_once_with('abcdef1', encoding='utf-8')
 
 
