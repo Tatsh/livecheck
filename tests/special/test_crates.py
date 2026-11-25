@@ -7,6 +7,7 @@ import tarfile
 
 import pytest
 
+from livecheck.dist_github import DistGitHubSettings
 from livecheck.special.crates import (
     check_crates_requirements,
     remove_crates_url,
@@ -123,6 +124,45 @@ async def test_update_crates_ebuild_skips_uploaded_archive(mocker: MockerFixture
     search = mocker.patch('livecheck.special.crates.search_ebuild')
     await update_crates_ebuild('example.ebuild', None, {'example.tar.gz': ()})
     search.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('archived', [True, False])
+async def test_update_crates_ebuild_lockfile_archive(mocker: MockerFixture, tmp_path: Path, *,
+                                                     archived: bool) -> None:
+    source = tmp_path / 'example-1.0'
+    source.mkdir()
+    (source / 'Cargo.toml').write_text('[workspace]\n', encoding='utf-8')
+    (source / 'Cargo.lock').write_text(REGISTRY_LOCK, encoding='utf-8')
+    vendor = tmp_path / 'cargo_home' / 'gentoo' / 'example-1.0.0'
+    vendor.mkdir(parents=True)
+    (vendor / '.cargo-checksum.json').write_text('{"files": {}}', encoding='utf-8')
+    uploaded = mocker.patch('livecheck.special.crates.dist_archive_already_uploaded')
+    mocker.patch('livecheck.special.crates.search_ebuild',
+                 return_value=(str(source), str(tmp_path)))
+    mocker.patch('livecheck.special.crates.which', return_value='/usr/bin/cargo')
+    mocker.patch('livecheck.special.utils.get_distdir', return_value=tmp_path)
+    mocker.patch('livecheck.special.utils.upload_dist_archive', return_value=archived)
+    mocker.patch('livecheck.special.utils.asset_exists', return_value=False)
+    proc = mocker.AsyncMock()
+    proc.wait.return_value = 0
+    mocker.patch('livecheck.special.crates.asyncio.create_subprocess_exec', return_value=proc)
+    settings = DistGitHubSettings(release='dist', repository='owner/repo')
+    if not archived:
+        with pytest.raises(RuntimeError, match='Could not create or upload the crate archive'):
+            await update_crates_ebuild('cat/example/example-1.0.ebuild',
+                                       None, {'example-1.0.tar.gz': ()},
+                                       archive_mode='lockfile',
+                                       dist_settings=settings)
+        return
+    digest = await update_crates_ebuild('cat/example/example-1.0.ebuild',
+                                        None, {'example-1.0.tar.gz': ()},
+                                        archive_mode='lockfile',
+                                        dist_settings=settings)
+    assert digest is not None
+    uploaded.assert_not_called()
+    with tarfile.open(tmp_path / f'example-{digest}-crates.tar.xz') as archive:
+        assert 'cargo_home/gentoo/example-1.0.0/.cargo-checksum.json' in archive.getnames()
 
 
 @pytest.mark.parametrize('archive', [

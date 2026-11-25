@@ -121,6 +121,7 @@ linkernsbypass
 linters
 livecheck
 livechecks
+lockfiles
 lodepng
 manylinux
 matchall
@@ -168,6 +169,7 @@ pkgmetadata
 pkgs
 platformdirs
 plistlib
+pnpmfile
 popen
 portdbapi
 portdir

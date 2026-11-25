@@ -147,3 +147,37 @@ def test_check_gomodule_requirements_failure(mocker: MockerFixture) -> None:
     mock_check_program.assert_called_once_with('go', ['version'])
     mock_logger.error.assert_called_once_with('go is not installed')
     assert result is False
+
+
+@pytest.mark.asyncio
+async def test_update_gomodule_ebuild_lockfile_archive(mocker: MockerFixture) -> None:
+    uploaded = mocker.patch('livecheck.special.gomodule.dist_archive_already_uploaded',
+                            new_callable=AsyncMock)
+    mocker.patch('livecheck.special.gomodule.search_ebuild',
+                 new_callable=AsyncMock,
+                 return_value=('/tmp/dir/foo-1.0/cmd', '/tmp/dir'))
+    mocker.patch('livecheck.special.gomodule.which', return_value='/usr/bin/go')
+    mock_proc = mocker.MagicMock()
+    mock_proc.wait = AsyncMock(return_value=0)
+    mocker.patch('livecheck.special.gomodule.asyncio.create_subprocess_exec',
+                 new_callable=AsyncMock,
+                 return_value=mock_proc)
+    compress = mocker.patch('livecheck.special.gomodule.build_compress', new_callable=AsyncMock)
+    build = mocker.patch('livecheck.special.gomodule.build_digest_archive',
+                         new_callable=AsyncMock,
+                         return_value='fedcba9876543210')
+
+    result = await update_gomodule_ebuild('cat/foo/foo-1.0.ebuild',
+                                          'cmd', {'foo-1.0.tar.gz': ()},
+                                          archive_mode='lockfile',
+                                          previous_digest='0123456789abcdef')
+
+    assert result == 'fedcba9876543210'
+    uploaded.assert_not_called()
+    compress.assert_not_called()
+    build.assert_awaited_once_with('/tmp/dir/foo-1.0/cmd',
+                                   'vendor',
+                                   '-vendor.tar.xz',
+                                   'foo',
+                                   dist_settings=None,
+                                   previous_digest='0123456789abcdef')

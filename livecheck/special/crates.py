@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from shutil import which
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 import asyncio
 import logging
 import os
@@ -13,7 +13,13 @@ import tomlkit
 
 from livecheck.utils import check_program
 
-from .utils import build_compress, dist_archive_already_uploaded, remove_url_ebuild, search_ebuild
+from .utils import (
+    build_compress,
+    build_digest_archive,
+    dist_archive_already_uploaded,
+    remove_url_ebuild,
+    search_ebuild,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -227,13 +233,17 @@ async def update_crates_ebuild(ebuild: str,
                                path: str | None,
                                fetchlist: Mapping[str, tuple[str, ...]],
                                *,
-                               dist_settings: DistGitHubSettings | None = None) -> None:
+                               archive_mode: Literal['lockfile', 'version'] = 'version',
+                               dist_settings: DistGitHubSettings | None = None,
+                               previous_digest: str | None = None) -> str | None:
     """
     Download locked crates.io and Git dependencies and build a Gentoo crate archive.
 
-    Archive entries use versioned directories under ``cargo_home/gentoo/``. Skip generation when
-    the archive already exists at the configured GitHub release, unless forced. The ebuild must
-    replace each Git source with the ``gentoo`` directory source to build from the archive.
+    Archive entries use versioned directories under ``cargo_home/gentoo/``. In ``version`` mode,
+    skip generation when the archive already exists at the configured GitHub release, unless
+    forced. In ``lockfile`` mode the archive is named after a digest of the vendored crates. The
+    ebuild must replace each Git source with the ``gentoo`` directory source to build from the
+    archive.
 
     Parameters
     ----------
@@ -244,8 +254,18 @@ async def update_crates_ebuild(ebuild: str,
         to search unpacked sources for ``Cargo.lock``.
     fetchlist : Mapping[str, tuple[str, ...]]
         Original fetch map used to derive the archive filename.
+    archive_mode : Literal['lockfile', 'version']
+        Whether the archive is named after the package version or after the dependency digest.
     dist_settings : DistGitHubSettings | None
         Optional GitHub release destination.
+    previous_digest : str | None
+        Dependency digest of the archive that the previous version uses, if any.
+
+    Returns
+    -------
+    str | None
+        In ``lockfile`` mode, the digest in the name of the archive for the ebuild. ``None`` in
+        ``version`` mode.
 
     Raises
     ------
@@ -253,9 +273,11 @@ async def update_crates_ebuild(ebuild: str,
         If sources, dependencies, or archive creation fail, Cargo is unavailable, or
         locked dependencies use sources other than crates.io and Git.
     """
-    if await dist_archive_already_uploaded('-crates.tar.xz', fetchlist, dist_settings):
+    lockfile_mode = archive_mode == 'lockfile'
+    if not lockfile_mode and await dist_archive_already_uploaded('-crates.tar.xz', fetchlist,
+                                                                 dist_settings):
         log.info('Crate archive already uploaded; skipping Cargo.')
-        return
+        return None
     source_dir, temp_dir = await search_ebuild(ebuild, 'Cargo.lock', path)
     if not source_dir:
         msg = 'Could not locate Cargo.lock in unpacked sources.'
@@ -282,11 +304,22 @@ async def update_crates_ebuild(ebuild: str,
     if await proc.wait() != 0:
         msg = 'Cargo could not download locked crate dependencies.'
         raise RuntimeError(msg)
-    if not await build_compress(temp_dir,
-                                str(cargo_home),
-                                'gentoo',
-                                '-crates.tar.xz',
-                                fetchlist,
-                                dist_settings=dist_settings):
-        msg = 'Could not create or upload the crate archive.'
-        raise RuntimeError(msg)
+    if lockfile_mode:
+        # Member paths remain relative to WORKDIR, where cargo_src_unpack expects the crates.
+        # Unlike the source directory, cargo_home/gentoo does not include the version.
+        if digest := await build_digest_archive(temp_dir,
+                                                'cargo_home/gentoo',
+                                                '-crates.tar.xz',
+                                                Path(ebuild).parent.name,
+                                                dist_settings=dist_settings,
+                                                previous_digest=previous_digest):
+            return digest
+    elif await build_compress(temp_dir,
+                              str(cargo_home),
+                              'gentoo',
+                              '-crates.tar.xz',
+                              fetchlist,
+                              dist_settings=dist_settings):
+        return None
+    msg = 'Could not create or upload the crate archive.'
+    raise RuntimeError(msg)

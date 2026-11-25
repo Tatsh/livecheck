@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
+import tarfile
 
 import pytest
 
 from livecheck.special.maven import check_maven_requirements, remove_maven_url, update_maven_ebuild
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from pytest_mock import MockerFixture
 
 
@@ -154,3 +157,43 @@ def test_check_maven_requirements_returns_false_when_not_installed(mocker: Mocke
     assert check_maven_requirements() is False
     mock_check_program.assert_called_once_with('mvn', ['--version'])
     mock_log.error.assert_called_once_with('mvn is not installed')
+
+
+@pytest.mark.asyncio
+async def test_update_maven_ebuild_lockfile_ignores_resolver_records(mocker: MockerFixture,
+                                                                     tmp_path: Path) -> None:
+    distdir = tmp_path / 'distfiles'
+    distdir.mkdir()
+    mocker.patch('livecheck.special.utils.get_distdir', return_value=distdir)
+    mocker.patch('livecheck.special.maven.which', return_value='/usr/bin/mvn')
+    runs = iter(('Mon Nov 23', 'Tue Nov 24'))
+
+    def _create(*_args: str, cwd: str) -> MagicMock:
+        time = next(runs)
+        artifact = tmp_path / cwd / '.m2' / 'org' / 'x' / '1.0'
+        artifact.mkdir(parents=True)
+        (artifact / 'x-1.0.jar').write_text('jar', encoding='utf-8')
+        (artifact / '_remote.repositories').write_text(f'#{time}\n', encoding='utf-8')
+        (artifact.parent / 'maven-metadata-central.xml').write_text(time, encoding='utf-8')
+        (artifact / 'x-1.0.pom.lastUpdated').write_text(time, encoding='utf-8')
+        (tmp_path / cwd / '.m2' / 'resolver-status.properties').write_text(time, encoding='utf-8')
+        proc: MagicMock = mocker.MagicMock()
+        proc.wait = AsyncMock(return_value=0)
+        return proc
+
+    mocker.patch('livecheck.special.maven.asyncio.create_subprocess_exec',
+                 new_callable=AsyncMock,
+                 side_effect=_create)
+    digests = []
+    for version in ('1.0', '1.1'):
+        mocker.patch('livecheck.special.maven.search_ebuild',
+                     new_callable=AsyncMock,
+                     return_value=(str(tmp_path / f'foo-{version}'), str(tmp_path)))
+        digests.append(await update_maven_ebuild(f'cat/foo/foo-{version}.ebuild',
+                                                 None, {},
+                                                 archive_mode='lockfile'))
+
+    assert digests[0] is not None
+    assert digests[1] == digests[0]
+    with tarfile.open(distdir / f'foo-{digests[0]}-mvn.tar.xz') as tar:
+        assert '.m2/org/x/1.0/x-1.0.jar' in tar.getnames()

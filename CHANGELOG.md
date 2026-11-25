@@ -14,8 +14,25 @@ and this project adheres to
 
 - Added `crates_mode` to select native Gentoo crate downloads or dependency archives. Native mode
   updates `CRATES` from `Cargo.lock` and uses `CARGO_CRATE_URIS`; archive mode remains the default.
+- Added a list form of `nodejs_path` to run the package manager in further directories, relative to
+  the first entry, such as an independent pnpm workspace with a separate lockfile. Their
+  `node_modules` directories go into the same archive.
+- Added `archive_mode` with the `lockfile` mode for the dependency archives of Composer, crates, Go
+  modules, Maven, Node.js, and NuGet. Each archive is named after a digest of its dependencies, and
+  a new version with the same digest reuses the archive of a previous one instead of building
+  another. The Node.js digest covers the lockfiles and package manager settings, and the digest of
+  the other archives covers the downloaded files.
 
 ### Changed
+
+- The `node_modules` archive includes every `node_modules` directory that the install creates, such
+  as the directory of each package in a pnpm workspace. Previously only the top-level directory was
+  archived.
+- pnpm installs run with `CI=true` and, when the project has a `pnpm-lock.yaml`, with
+  `--frozen-lockfile`. Outside of CI, pnpm can link the dependencies from a store shared by the
+  user.
+- The `node_modules` archive is not written when it includes a symbolic link to a path outside of
+  the archive.
 
 - When the branch resolved for a GitHub release is the release series of the new version (for
   example `2.10` for `2.10.4`), `EGIT_BRANCH` is written as `$(ver_cut 1-2)` instead of the branch

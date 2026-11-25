@@ -4,19 +4,25 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock
+import tarfile
 
+from anyio import Path as AnyioPath
 import pytest
 
 from livecheck.dist_github import DistGitHubSettings
 from livecheck.special.utils import (
     EbuildTempFile,
     build_compress,
+    build_digest_archive,
     compute_vendor_archive_name,
     dist_archive_already_uploaded,
+    ensure_digest_archive,
+    get_archive_digest,
     get_archive_extension,
     get_project_path,
     log_unhandled_commit,
     remove_url_ebuild,
+    replace_archive_digest,
     search_ebuild,
 )
 
@@ -333,3 +339,240 @@ async def test_dist_archive_already_uploaded_consults_asset_exists(mocker: Mocke
     assert await dist_archive_already_uploaded('-vendor.tar.xz', {'foo-1.0.tar.gz': ()},
                                                settings) is True
     asset_exists.assert_awaited_once_with(settings, 'foo-1.0-vendor.tar.xz')
+
+
+def _tree(root: Path, files: Mapping[str, str]) -> Path:
+    for name, text in files.items():
+        (root / name).parent.mkdir(parents=True, exist_ok=True)
+        (root / name).write_text(text, encoding='utf-8')
+    return root
+
+
+def _members(archive: Path) -> list[str]:
+    with tarfile.open(archive) as tar:
+        return tar.getnames()
+
+
+@pytest.mark.parametrize(('content', 'extension', 'expected'), [
+    ('SRC_URI="https://example.com/${PN}-0123456789abcdef-node_modules.tar.xz"',
+     '-node_modules.tar.xz', '0123456789abcdef'),
+    ('SRC_URI="https://example.com/${P}-node_modules.tar.xz"', '-node_modules.tar.xz', None),
+    ('SRC_URI="https://example.com/${PN}-0123456789abcdef-mvn.tar.xz"', '-vendor.tar.xz', None),
+    (('SRC_URI="https://example.com/${PN}-0123456789abcdef-mvn.tar.xz\n'
+      '\thttps://example.com/${PN}-fedcba9876543210-vendor.tar.xz"'), '-vendor.tar.xz',
+     'fedcba9876543210'),
+])
+def test_get_archive_digest(content: str, extension: str, expected: str | None) -> None:
+    assert get_archive_digest(content, extension) == expected
+
+
+@pytest.mark.parametrize('name', ['${P}', '${PN}-0123456789abcdef', 'foo-1.0'])
+def test_replace_archive_digest(name: str) -> None:
+    content = ('SRC_URI="https://example.com/foo-src.tar.xz\n'
+               f'\thttps://example.com/dist/{name}-vendor.tar.xz\n'
+               '\thttps://example.com/dist/${P}-mvn.tar.xz"\n')
+    assert replace_archive_digest(
+        content, '-vendor.tar.xz',
+        'fedcba9876543210') == ('SRC_URI="https://example.com/foo-src.tar.xz\n'
+                                '\thttps://example.com/dist/${PN}-fedcba9876543210-vendor.tar.xz\n'
+                                '\thttps://example.com/dist/${P}-mvn.tar.xz"\n')
+
+
+@pytest.mark.asyncio
+async def test_ensure_digest_archive_builds_missing_archive(mocker: MockerFixture,
+                                                            tmp_path: Path) -> None:
+    mocker.patch('livecheck.special.utils.get_distdir', return_value=tmp_path)
+
+    def _build(path: Path) -> bool:
+        path.write_bytes(b'archive')
+        return True
+
+    build = AsyncMock(side_effect=_build)
+
+    assert await ensure_digest_archive('foo', '0123456789abcdef', '-vendor.tar.xz',
+                                       build) == '0123456789abcdef'
+    build.assert_awaited_once_with(tmp_path / 'foo-0123456789abcdef-vendor.tar.xz.partial')
+    assert [path.name async for path in AnyioPath(tmp_path).iterdir()] == [
+        'foo-0123456789abcdef-vendor.tar.xz'
+    ]
+
+
+@pytest.mark.asyncio
+async def test_ensure_digest_archive_reuses_previous_digest(mocker: MockerFixture,
+                                                            tmp_path: Path) -> None:
+    mocker.patch('livecheck.special.utils.get_distdir', return_value=tmp_path)
+    upload = mocker.patch('livecheck.special.utils.upload_dist_archive', new_callable=AsyncMock)
+    build = AsyncMock(return_value=True)
+    settings = DistGitHubSettings(repository='Tatsh/livecheck', release='dist')
+
+    assert await ensure_digest_archive('foo',
+                                       '0123456789abcdef',
+                                       '-vendor.tar.xz',
+                                       build,
+                                       dist_settings=settings,
+                                       previous_digest='0123456789abcdef') == '0123456789abcdef'
+    build.assert_not_awaited()
+    upload.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('uploaded', [True, False])
+async def test_ensure_digest_archive_uploads_archive_in_distdir(mocker: MockerFixture,
+                                                                tmp_path: Path,
+                                                                uploaded: bool) -> None:
+    mocker.patch('livecheck.special.utils.get_distdir', return_value=tmp_path)
+    mocker.patch('livecheck.special.utils.asset_exists', new_callable=AsyncMock, return_value=False)
+    upload = mocker.patch('livecheck.special.utils.upload_dist_archive',
+                          new_callable=AsyncMock,
+                          return_value=uploaded)
+    (archive := tmp_path / 'foo-0123456789abcdef-vendor.tar.xz').write_bytes(b'')
+    build = AsyncMock(return_value=True)
+    settings = DistGitHubSettings(repository='Tatsh/livecheck', release='dist')
+
+    result = await ensure_digest_archive('foo',
+                                         '0123456789abcdef',
+                                         '-vendor.tar.xz',
+                                         build,
+                                         dist_settings=settings)
+
+    assert result == ('0123456789abcdef' if uploaded else None)
+    build.assert_not_awaited()
+    upload.assert_awaited_once_with(settings, archive)
+
+
+@pytest.mark.asyncio
+async def test_ensure_digest_archive_reuses_published_archive(mocker: MockerFixture,
+                                                              tmp_path: Path) -> None:
+    mocker.patch('livecheck.special.utils.get_distdir', return_value=tmp_path)
+    asset_exists = mocker.patch('livecheck.special.utils.asset_exists',
+                                new_callable=AsyncMock,
+                                return_value=True)
+    upload = mocker.patch('livecheck.special.utils.upload_dist_archive', new_callable=AsyncMock)
+    build = AsyncMock(return_value=True)
+    settings = DistGitHubSettings(force=True, repository='Tatsh/livecheck', release='dist')
+
+    assert await ensure_digest_archive('foo',
+                                       '0123456789abcdef',
+                                       '-vendor.tar.xz',
+                                       build,
+                                       dist_settings=settings) == '0123456789abcdef'
+    asset_exists.assert_awaited_once_with(settings, 'foo-0123456789abcdef-vendor.tar.xz')
+    build.assert_not_awaited()
+    upload.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('interrupted', [False, True])
+async def test_ensure_digest_archive_build_fails(mocker: MockerFixture, tmp_path: Path,
+                                                 interrupted: bool) -> None:
+    mocker.patch('livecheck.special.utils.get_distdir', return_value=tmp_path)
+    upload = mocker.patch('livecheck.special.utils.upload_dist_archive', new_callable=AsyncMock)
+    mocker.patch('livecheck.special.utils.asset_exists', new_callable=AsyncMock, return_value=False)
+    settings = DistGitHubSettings(repository='Tatsh/livecheck', release='dist')
+
+    def _build(path: Path) -> bool:
+        path.write_bytes(b'trunc')
+        if interrupted:
+            msg = 'No space left on device'
+            raise OSError(msg)
+        return False
+
+    build = AsyncMock(side_effect=_build)
+
+    if interrupted:
+        with pytest.raises(OSError, match='No space left on device'):
+            await ensure_digest_archive('foo',
+                                        '0123456789abcdef',
+                                        '-vendor.tar.xz',
+                                        build,
+                                        dist_settings=settings)
+    else:
+        assert await ensure_digest_archive('foo',
+                                           '0123456789abcdef',
+                                           '-vendor.tar.xz',
+                                           build,
+                                           dist_settings=settings) is None
+    assert not [path async for path in AnyioPath(tmp_path).iterdir()]
+    upload.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_build_digest_archive_shares_archive_between_versions(mocker: MockerFixture,
+                                                                    tmp_path: Path) -> None:
+    distdir = tmp_path / 'distfiles'
+    distdir.mkdir()
+    mocker.patch('livecheck.special.utils.get_distdir', return_value=distdir)
+    files = {'vendor/modules.txt': '# example.com/mod v1.0.0\n', 'vendor/example.com/mod/a.go': ''}
+    first = await build_digest_archive(str(_tree(tmp_path / 'foo-1.0', files)), 'vendor',
+                                       '-vendor.tar.xz', 'foo')
+    second = await build_digest_archive(str(_tree(tmp_path / 'foo-1.1', files)), 'vendor',
+                                        '-vendor.tar.xz', 'foo')
+    third = await build_digest_archive(
+        str(_tree(tmp_path / 'foo-1.2', {
+            **files, 'vendor/example.com/mod/b.go': ''
+        })), 'vendor', '-vendor.tar.xz', 'foo')
+
+    assert first is not None
+    assert len(first) == 16
+    assert second == first
+    assert third not in {None, first}
+    assert sorted(path.name for path in distdir.iterdir()) == sorted(
+        (f'foo-{first}-vendor.tar.xz', f'foo-{third}-vendor.tar.xz'))
+    assert _members(distdir / f'foo-{first}-vendor.tar.xz') == [
+        'vendor', 'vendor/example.com', 'vendor/example.com/mod', 'vendor/example.com/mod/a.go',
+        'vendor/modules.txt'
+    ]
+
+
+@pytest.mark.asyncio
+async def test_build_digest_archive_omits_excluded_files_from_digest(mocker: MockerFixture,
+                                                                     tmp_path: Path) -> None:
+    distdir = tmp_path / 'distfiles'
+    distdir.mkdir()
+    mocker.patch('livecheck.special.utils.get_distdir', return_value=distdir)
+    digests = []
+    for version, record in (('1.0', '#Mon Nov 23 2026\n'), ('1.1', '#Tue Nov 24 2026\n')):
+        base_dir = _tree(tmp_path / f'foo-{version}', {
+            '.m2/org/x/1.0/x-1.0.jar': 'jar',
+            '.m2/org/x/1.0/_remote.repositories': record
+        })
+        digests.append(await
+                       build_digest_archive(str(base_dir),
+                                            '.m2',
+                                            '-mvn.tar.xz',
+                                            'foo',
+                                            excluded=lambda name: name == '_remote.repositories'))
+
+    assert digests[0] is not None
+    assert digests[1] == digests[0]
+    assert '.m2/org/x/1.0/_remote.repositories' in _members(
+        distdir / f'foo-{digests[0]}-mvn.tar.xz')
+
+
+@pytest.mark.asyncio
+async def test_build_digest_archive_digest_covers_modes_and_links(mocker: MockerFixture,
+                                                                  tmp_path: Path) -> None:
+    mocker.patch('livecheck.special.utils.get_distdir', return_value=tmp_path)
+    plain = _tree(tmp_path / 'plain', {'vendor/tool': '', 'vendor/data': ''})
+    executable = _tree(tmp_path / 'executable', {'vendor/tool': '', 'vendor/data': ''})
+    (executable / 'vendor' / 'tool').chmod(0o755)
+    linked = _tree(tmp_path / 'linked', {'vendor/tool': '', 'vendor/data': ''})
+    (linked / 'vendor' / 'link').symlink_to('tool')
+    relinked = _tree(tmp_path / 'relinked', {'vendor/tool': '', 'vendor/data': ''})
+    (relinked / 'vendor' / 'link').symlink_to('data')
+
+    digests = {
+        await build_digest_archive(str(base_dir), 'vendor', '-vendor.tar.xz', 'foo')
+        for base_dir in (plain, executable, linked, relinked)
+    }
+
+    assert None not in digests
+    assert len(digests) == 4
+
+
+@pytest.mark.asyncio
+async def test_build_digest_archive_without_directory(mocker: MockerFixture,
+                                                      tmp_path: Path) -> None:
+    logger = mocker.patch('livecheck.special.utils.logger')
+    assert await build_digest_archive(str(tmp_path), 'vendor', '-vendor.tar.xz', 'foo') is None
+    logger.warning.assert_called_once_with('The directory vendor was not created.')

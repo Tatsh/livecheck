@@ -159,3 +159,36 @@ def test_check_composer_requirements_returns_false_when_not_installed(
     assert check_composer_requirements() is False
     mock_check_program.assert_called_once_with('composer', ['--version'])
     mock_log.error.assert_called_once_with('composer is not installed')
+
+
+@pytest.mark.asyncio
+async def test_update_composer_ebuild_lockfile_archive(mocker: MockerFixture) -> None:
+    uploaded = mocker.patch('livecheck.special.composer.dist_archive_already_uploaded',
+                            new_callable=AsyncMock)
+    mocker.patch('livecheck.special.composer.search_ebuild',
+                 new_callable=AsyncMock,
+                 return_value=('/tmp/dir/foo-1.0', '/tmp/dir'))
+    mocker.patch('livecheck.special.composer.which', return_value='/usr/bin/composer')
+    mock_proc = mocker.MagicMock()
+    mock_proc.wait = AsyncMock(return_value=0)
+    mocker.patch('livecheck.special.composer.asyncio.create_subprocess_exec',
+                 new_callable=AsyncMock,
+                 return_value=mock_proc)
+    compress = mocker.patch('livecheck.special.composer.build_compress', new_callable=AsyncMock)
+    build = mocker.patch('livecheck.special.composer.build_digest_archive',
+                         new_callable=AsyncMock,
+                         return_value=None)
+
+    result = await update_composer_ebuild('cat/foo/foo-1.0.ebuild',
+                                          None, {'foo-1.0.tar.gz': ()},
+                                          archive_mode='lockfile')
+
+    assert result is None
+    uploaded.assert_not_called()
+    compress.assert_not_called()
+    build.assert_awaited_once_with('/tmp/dir/foo-1.0',
+                                   'vendor',
+                                   '-vendor.tar.xz',
+                                   'foo',
+                                   dist_settings=None,
+                                   previous_digest=None)

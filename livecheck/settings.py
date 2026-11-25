@@ -135,6 +135,12 @@ def _apply_general(settings: LivecheckSettings, parsed: Mapping[str, Any], catpk
 
 def _apply_vendor(settings: LivecheckSettings, parsed: Mapping[str, Any], catpkg: str,
                   path: Path) -> bool:
+    if 'archive_mode' in parsed:
+        match parsed['archive_mode']:
+            case 'lockfile' | 'version' as mode:
+                settings.archive_modes[catpkg] = mode
+            case _:
+                log.error('Invalid "archive_mode" in %s.', path)
     if parsed.get('yarn_base_package'):
         check_instance(parsed['yarn_base_package'], 'yarn_base_package', 'string', path)
         settings.yarn_base_packages[catpkg] = parsed['yarn_base_package']
@@ -193,9 +199,16 @@ def _apply_nodejs(settings: LivecheckSettings, parsed: Mapping[str, Any], catpkg
     check_instance(parsed['nodejs'], 'nodejs', 'bool', path)
     settings.nodejs_packages[catpkg] = parsed['nodejs']
     settings.nodejs_path[catpkg] = ''
-    if parsed.get('nodejs_path'):
-        check_instance(parsed['nodejs_path'], 'nodejs_path', 'string', path)
-        settings.nodejs_path[catpkg] = parsed['nodejs_path']
+    match parsed.get('nodejs_path', ''):
+        case str() as main:
+            settings.nodejs_path[catpkg] = main
+        case [str() as main, *workspaces] if all(
+            isinstance(workspace, str) and workspace and not workspace.startswith('/')
+            for workspace in workspaces):
+            settings.nodejs_path[catpkg] = main
+            settings.nodejs_workspaces[catpkg] = tuple(workspaces)
+        case _:
+            log.error('Invalid "nodejs_path" in %s.', path)
     if parsed.get('nodejs_package_manager'):
         check_instance(parsed['nodejs_package_manager'], 'nodejs_package_manager', 'string', path)
         manager = parsed['nodejs_package_manager'].lower()

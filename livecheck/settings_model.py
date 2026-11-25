@@ -45,6 +45,17 @@ class LivecheckSettings:
     nodejs_path: dict[str, str] = field(default_factory=dict)
     nodejs_package_managers: dict[str, str] = field(default_factory=dict)
     nodejs_omit_dev: dict[str, bool] = field(default_factory=dict)
+    nodejs_workspaces: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    """
+    Dictionary of catpkg to the further install directories, relative to the directory of the main
+    ``package.json``, whose ``node_modules`` go into the same archive.
+    """
+    archive_modes: dict[str, Literal['lockfile', 'version']] = field(default_factory=dict)
+    """
+    Dictionary of catpkg to the source of the names of the dependency archives. ``version`` (the
+    default) uses the package version and ``lockfile`` a digest of the dependencies. Versions with
+    the same dependencies share a ``lockfile`` archive.
+    """
     development: dict[str, bool] = field(default_factory=dict)
     composer_packages: dict[str, bool] = field(default_factory=dict)
     composer_path: dict[str, str] = field(default_factory=dict)
@@ -141,6 +152,23 @@ class LivecheckSettings:
             Package manager command name for Node.js fetches.
         """
         return self.nodejs_package_managers.get(catpkg, self.default_package_manager)
+
+    def get_archive_mode(self, catpkg: str) -> Literal['lockfile', 'version']:
+        """
+        Return how the dependency archive of a package is named.
+
+        Parameters
+        ----------
+        catpkg : str
+            Category-package atom.
+
+        Returns
+        -------
+        Literal['lockfile', 'version']
+            ``lockfile`` when the archive is named after a digest of the dependencies, otherwise
+            ``version``.
+        """
+        return self.archive_modes.get(catpkg, 'version')
 
     def omit_dev_dependencies(self, catpkg: str) -> bool:
         """

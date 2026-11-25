@@ -44,6 +44,8 @@ def test_livecheck_settings_defaults() -> None:
     assert isinstance(s.nodejs_path, dict)
     assert isinstance(s.nodejs_package_managers, dict)
     assert isinstance(s.nodejs_omit_dev, dict)
+    assert isinstance(s.nodejs_workspaces, dict)
+    assert isinstance(s.archive_modes, dict)
     assert isinstance(s.development, dict)
     assert isinstance(s.composer_packages, dict)
     assert isinstance(s.composer_path, dict)
@@ -91,6 +93,15 @@ def test_get_package_manager_defaults_to_global() -> None:
 def test_get_package_manager_returns_override() -> None:
     s = LivecheckSettings(nodejs_package_managers={'cat/pkg': 'yarn'})
     assert s.get_package_manager('cat/pkg') == 'yarn'
+
+
+def test_get_archive_mode_defaults_to_version() -> None:
+    assert LivecheckSettings().get_archive_mode('cat/pkg') == 'version'
+
+
+def test_get_archive_mode_returns_override() -> None:
+    s = LivecheckSettings(archive_modes={'cat/pkg': 'lockfile'})
+    assert s.get_archive_mode('cat/pkg') == 'lockfile'
 
 
 def test_omit_dev_dependencies_defaults_to_false() -> None:
@@ -249,9 +260,10 @@ def test_gather_settings_handles_various_fields(tmp_path: Path) -> None:
         'gomodule': True,
         'gomodule_path': 'mod/path',
         'nodejs': True,
-        'nodejs_path': 'node/path',
+        'nodejs_path': ['node/path', 'mobile', 'docs/site'],
         'nodejs_package_manager': 'yarn',
         'nodejs_omit_dev': True,
+        'archive_mode': 'lockfile',
         'development': True,
         'composer': True,
         'composer_path': 'composer/path',
@@ -285,6 +297,8 @@ def test_gather_settings_handles_various_fields(tmp_path: Path) -> None:
     assert result.nodejs_path['cat/pkg'] == 'node/path'
     assert result.nodejs_package_managers['cat/pkg'] == 'yarn'
     assert result.nodejs_omit_dev['cat/pkg'] is True
+    assert result.nodejs_workspaces['cat/pkg'] == ('mobile', 'docs/site')
+    assert result.archive_modes['cat/pkg'] == 'lockfile'
     assert result.development['cat/pkg'] is True
     assert result.composer_packages['cat/pkg'] is True
     assert result.composer_path['cat/pkg'] == 'composer/path'
@@ -488,6 +502,69 @@ def test_gather_settings_invalid_nodejs_package_manager(tmp_path: Path,
     assert result.nodejs_packages['cat/pkg'] is True
     assert 'cat/pkg' not in result.nodejs_package_managers
     logger.error.assert_any_call('Invalid "nodejs_package_manager" in %s.', mocker.ANY)
+
+
+@pytest.mark.parametrize(('nodejs_path', 'expected_path', 'expected_workspaces'),
+                         [('/app', '/app', None), (['/app'], '/app', ()),
+                          (['', 'mobile'], '', ('mobile',))])
+def test_gather_settings_nodejs_path(tmp_path: Path, mocker: MockerFixture, nodejs_path: object,
+                                     expected_path: str,
+                                     expected_workspaces: tuple[str, ...] | None) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    data = {
+        'type': TYPE_DIRECTORY,
+        'url': 'https://example.com/dir',
+        'nodejs': True,
+        'nodejs_path': nodejs_path
+    }
+    make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
+    result = gather_settings(tmp_path)
+    assert result.nodejs_path['cat/pkg'] == expected_path
+    assert result.nodejs_workspaces.get('cat/pkg') == expected_workspaces
+    logger.error.assert_not_called()
+
+
+@pytest.mark.parametrize('nodejs_path', [None, True, [], [1], ['', 1], ['', ''], ['', '/abs']])
+def test_gather_settings_invalid_nodejs_path(tmp_path: Path, mocker: MockerFixture,
+                                             nodejs_path: object) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    data = {
+        'type': TYPE_DIRECTORY,
+        'url': 'https://example.com/dir',
+        'nodejs': True,
+        'nodejs_path': nodejs_path
+    }
+    make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
+    result = gather_settings(tmp_path)
+    assert not result.nodejs_path['cat/pkg']
+    assert 'cat/pkg' not in result.nodejs_workspaces
+    logger.error.assert_any_call('Invalid "nodejs_path" in %s.', mocker.ANY)
+
+
+def test_gather_settings_archive_mode_without_nodejs(tmp_path: Path) -> None:
+    data = {
+        'type': TYPE_DIRECTORY,
+        'url': 'https://example.com/dir',
+        'gomodule': True,
+        'archive_mode': 'lockfile'
+    }
+    make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
+    result = gather_settings(tmp_path)
+    assert result.archive_modes['cat/pkg'] == 'lockfile'
+
+
+def test_gather_settings_invalid_archive_mode(tmp_path: Path, mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    data = {
+        'type': TYPE_DIRECTORY,
+        'url': 'https://example.com/dir',
+        'nodejs': True,
+        'archive_mode': 'digest'
+    }
+    make_json_file(tmp_path, 'cat/pkg/livecheck.json', data)
+    result = gather_settings(tmp_path)
+    assert 'cat/pkg' not in result.archive_modes
+    logger.error.assert_any_call('Invalid "archive_mode" in %s.', mocker.ANY)
 
 
 def test_gather_settings_composer_without_composer_path(tmp_path: Path,
