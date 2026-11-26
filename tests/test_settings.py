@@ -524,7 +524,9 @@ def test_gather_settings_nodejs_path(tmp_path: Path, mocker: MockerFixture, node
     logger.error.assert_not_called()
 
 
-@pytest.mark.parametrize('nodejs_path', [None, True, [], [1], ['', 1], ['', ''], ['', '/abs']])
+@pytest.mark.parametrize(
+    'nodejs_path',
+    [None, True, [], [1], ['', 1], ['', ''], ['', '/abs'], ['', '../other'], ['', 'mobile/../web']])
 def test_gather_settings_invalid_nodejs_path(tmp_path: Path, mocker: MockerFixture,
                                              nodejs_path: object) -> None:
     logger = mocker.patch('livecheck.settings.log')
@@ -539,6 +541,15 @@ def test_gather_settings_invalid_nodejs_path(tmp_path: Path, mocker: MockerFixtu
     assert not result.nodejs_path['cat/pkg']
     assert 'cat/pkg' not in result.nodejs_workspaces
     logger.error.assert_any_call('Invalid "nodejs_path" in %s.', mocker.ANY)
+
+
+def test_gather_settings_composer_with_gomodule(tmp_path: Path, mocker: MockerFixture) -> None:
+    logger = mocker.patch('livecheck.settings.log')
+    make_json_file(tmp_path, 'cat/pkg/livecheck.json', {'composer': True, 'gomodule': True})
+    result = gather_settings(tmp_path)
+    assert 'cat/pkg' in result.no_auto_update
+    logger.error.assert_called_once_with('"composer" and "gomodule" cannot be combined in %s.',
+                                         mocker.ANY)
 
 
 def test_gather_settings_archive_mode_without_nodejs(tmp_path: Path) -> None:

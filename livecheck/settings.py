@@ -1,6 +1,7 @@
 """Settings."""
 from __future__ import annotations
 
+from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 import json
@@ -172,6 +173,10 @@ def _apply_vendor(settings: LivecheckSettings, parsed: Mapping[str, Any], catpkg
         if parsed.get('composer_path'):
             check_instance(parsed['composer_path'], 'composer_path', 'string', path)
             settings.composer_path[catpkg] = parsed['composer_path']
+    if 'composer' in parsed and 'gomodule' in parsed:
+        # The archives of both end in `-vendor.tar.xz` and overwrite each other.
+        log.error('"composer" and "gomodule" cannot be combined in %s.', path)
+        settings.no_auto_update.add(catpkg)
     if 'crates' in parsed:
         check_instance(parsed['crates'], 'crates', 'bool', path)
         mode = parsed.get('crates_mode', 'archive')
@@ -204,7 +209,7 @@ def _apply_nodejs(settings: LivecheckSettings, parsed: Mapping[str, Any], catpkg
             settings.nodejs_path[catpkg] = main
         case [str() as main, *workspaces] if all(
             isinstance(workspace, str) and workspace and not workspace.startswith('/')
-            for workspace in workspaces):
+            and '..' not in PurePosixPath(workspace).parts for workspace in workspaces):
             settings.nodejs_path[catpkg] = main
             settings.nodejs_workspaces[catpkg] = tuple(workspaces)
         case _:

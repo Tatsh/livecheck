@@ -155,7 +155,8 @@ can be placed in the directory alongside the ebuild.
   the .NET project), and the ebuild unpacks the archive in that directory. The crate archive retains
   `cargo_home/gentoo/` relative to `WORKDIR`.
 - `branch` - string- The GitHub branch name to use for commits.
-- `composer_packages` - boolean - Download composer vendor modules.
+- `composer_packages` - boolean - Download composer vendor modules. With `gomodule_packages` as
+  well, livecheck reports an error and does not update the package.
 - `composer_path` - path - Where is 'composer.json' located (need composer_packages).
 - `crates` - boolean - Update Rust dependencies using versions from `Cargo.lock`.
 - `crates_mode` - string - Rust dependency packaging, `archive` (default) or `native`
@@ -179,9 +180,9 @@ can be placed in the directory alongside the ebuild.
 - `nodejs_packages` - boolean - Download nodejs node_modules.
 - `nodejs_path` - path or list - Where is 'package.json' located (need nodejs_packages). In a list,
   the first entry is the directory with the main 'package.json' (an empty string selects the first
-  'package.json' found), and the other entries are further directories, relative to the first,
-  where the package manager also installs, such as `["/app", "mobile"]`. Every `node_modules`
-  directory that the installs create goes into the same archive.
+  'package.json' found), and the other entries are further directories under the first, relative
+  to it and without `..`, where the package manager also installs, such as `["/app", "mobile"]`.
+  Every `node_modules` directory that the installs create goes into the same archive.
 - `nodejs_package_manager` - string - Package manager to use for Node.js packages [npm|pnpm|yarn]
   (defaults to npm)
 - `nodejs_omit_dev` - boolean - Leave the development dependencies out of the `node_modules`
