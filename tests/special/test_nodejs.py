@@ -426,8 +426,8 @@ async def test_update_nodejs_ebuild_no_archive_name(mocker: MockerFixture, tmp_p
 
 
 @pytest.mark.asyncio
-async def test_update_nodejs_ebuild_vendor_not_created(mocker: MockerFixture,
-                                                       tmp_path: Path) -> None:
+async def test_update_nodejs_ebuild_node_modules_not_created(mocker: MockerFixture,
+                                                             tmp_path: Path) -> None:
     workdir = tmp_path / 'work'
     _patch_unpack(mocker, _package(workdir / 'foo-1.0'), workdir, tmp_path / 'distfiles')
     logger = mocker.patch('livecheck.special.nodejs.logger')
@@ -438,7 +438,7 @@ async def test_update_nodejs_ebuild_vendor_not_created(mocker: MockerFixture,
                  return_value=proc)
 
     assert await update_nodejs_ebuild('foo/foo-1.0.ebuild', None, {'f.tar.gz': ('x',)}) is None
-    logger.warning.assert_called_once_with('The directory vendor was not created.')
+    logger.warning.assert_called_once_with('The directory `node_modules` was not created.')
 
 
 @pytest.mark.asyncio

@@ -153,7 +153,7 @@ async def _archive_installs(manager: str, directories: Sequence[tuple[str, Path]
     if (root_modules := root / 'node_modules') in found:
         archived |= {root_modules}
     if not archived:
-        logger.warning('The directory vendor was not created.')
+        logger.warning('The directory `node_modules` was not created.')
         return False
     paths = sorted(archived)
     return await to_thread.run_sync(lambda: _write_archive(archive, archive_root, paths))

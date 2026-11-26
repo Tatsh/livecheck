@@ -253,7 +253,7 @@ async def build_compress(temp_dir: str,
     """
     vendor_dir = Path(base_dir) / directory
     if not vendor_dir.exists():
-        logger.warning('The directory vendor was not created.')
+        logger.warning('The directory `%s` was not created.', directory)
         return False
 
     if not (vendor_archive_name := compute_vendor_archive_name(extension, fetchlist)):
@@ -394,7 +394,7 @@ async def build_digest_archive(base_dir: str,
     """
     vendor_dir = Path(base_dir) / directory
     if not vendor_dir.is_dir():
-        logger.warning('The directory vendor was not created.')
+        logger.warning('The directory `%s` was not created.', directory)
         return None
     digest = await to_thread.run_sync(lambda: _tree_digest(vendor_dir, excluded))
 
