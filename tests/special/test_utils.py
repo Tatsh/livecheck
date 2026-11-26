@@ -169,9 +169,9 @@ async def test_search_ebuild_unpack_error(mocker: MockerFixture) -> None:
      'archive_ext', 'expected_result', 'expected_warning'),
     [
         # Directory does not exist
-        ('/tmp/temp', '/tmp/base', 'vendor', '.tar.gz', {
+        ('/tmp/temp', '/tmp/base', '.m2', '.tar.gz', {
             'foo.tar.gz': ('url',)
-        }, False, 'foo.tar.gz', '.tar.gz', False, 'The directory vendor was not created.'),
+        }, False, 'foo.tar.gz', '.tar.gz', False, 'The directory `%s` was not created.'),
         # fetchlist is empty
         ('/tmp/temp', '/tmp/base', 'vendor', '.tar.gz', {}, True, None, None, False, None),
         # Invalid extension
@@ -203,7 +203,7 @@ async def test_build_compress(mocker: MockerFixture, temp_dir: str, base_dir: st
     result = await build_compress(temp_dir, base_dir, directory, extension, fetchlist)
     assert result == expected_result
     if not exists:
-        mock_logger.warning.assert_called_once_with('The directory vendor was not created.')
+        mock_logger.warning.assert_called_once_with(expected_warning, directory)
     elif not fetchlist:
         assert not mock_logger.warning.called
     elif not archive_ext:
@@ -574,5 +574,5 @@ async def test_build_digest_archive_digest_covers_modes_and_links(mocker: Mocker
 async def test_build_digest_archive_without_directory(mocker: MockerFixture,
                                                       tmp_path: Path) -> None:
     logger = mocker.patch('livecheck.special.utils.logger')
-    assert await build_digest_archive(str(tmp_path), 'vendor', '-vendor.tar.xz', 'foo') is None
-    logger.warning.assert_called_once_with('The directory vendor was not created.')
+    assert await build_digest_archive(str(tmp_path), 'packages', '-nuget.tar.xz', 'foo') is None
+    logger.warning.assert_called_once_with('The directory `%s` was not created.', 'packages')
