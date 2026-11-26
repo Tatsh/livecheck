@@ -45,6 +45,8 @@ and this project adheres to
 
 ### Fixed
 
+- A package with both `composer` and `gomodule` is reported as an error and is not updated. The
+  archives of both end in `-vendor.tar.xz`, and the second overwrote the first.
 - `EGIT_COMMIT` was not updated in git-r3 ebuilds that point at the repository under check without
   a commit in the URL, in `EGIT_REPO_URI` or `HOMEPAGE` (for example `dev-lang/php` and
   `dev-php/composer`). The new ebuild remained pinned to the previous commit, even when its version
