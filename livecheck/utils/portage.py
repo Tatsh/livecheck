@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 import logging
 import re
 
-from portage import exception  # type: ignore[attr-defined]  # ty: ignore[import-not-found]
+from portage import exception  # type: ignore[attr-defined]  # ty: ignore[missing-module-member]
 from portage.versions import catpkgsplit, vercmp
 import portage
 
